@@ -1,0 +1,13 @@
+{
+  "name": "kuku",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kuku-mom/kuku.git"
+  },
+  "scripts": {},
+  "devDependencies": {},
+  "packageManager": "pnpm@10.30.3"
+}
