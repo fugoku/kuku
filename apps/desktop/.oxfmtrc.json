@@ -1,0 +1,6 @@
+{
+  "extends": ["../../.oxfmtrc.json"],
+  "sortTailwindcss": {
+    "stylesheet": "./src/index.css"
+  }
+}
