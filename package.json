@@ -7,7 +7,16 @@
     "type": "git",
     "url": "git+https://github.com/kuku-mom/kuku.git"
   },
-  "scripts": {},
-  "devDependencies": {},
+  "scripts": {
+    "lint:check": "pnpm -r run lint:check",
+    "lint": "pnpm -r run lint",
+    "format:check": "pnpm -r run format:check",
+    "format": "pnpm -r run format"
+  },
+  "devDependencies": {
+    "oxfmt": "^0.36.0",
+    "oxlint": "^1.51.0",
+    "oxlint-tsgolint": "^0.15.0"
+  },
   "packageManager": "pnpm@10.30.3"
 }

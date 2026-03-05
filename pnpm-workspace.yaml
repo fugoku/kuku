@@ -2,4 +2,13 @@ packages:
   - apps/*
   - packages/*
 
-minimumReleaseAge: 7200
+minimumReleaseAge: 3333
+
+minimumReleaseAgeExclude:
+  - oxlint
+  - oxfmt
+  - '@oxlint/*'
+  - '@oxfmt/*'
+
+onlyBuiltDependencies:
+  - esbuild
