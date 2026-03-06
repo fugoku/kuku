@@ -3,6 +3,7 @@ import { onCleanup, onMount } from "solid-js";
 import { PanelLeftIcon, PanelRightIcon } from "~/components/icons";
 import PanelLayout from "~/components/layout/panel_layout";
 import TitleBar from "~/components/layout/title_bar";
+import { useTheme } from "~/lib/use_theme";
 import {
   destroyFullscreenListener,
   initFullscreenListener,
@@ -19,6 +20,8 @@ const ACTION_BTN =
 // ── Component ──
 
 export default function App() {
+  useTheme();
+
   onMount(() => {
     void initFullscreenListener();
   });

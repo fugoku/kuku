@@ -1,5 +1,19 @@
+import { debounce } from "@solid-primitives/scheduled";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { createStore } from "solid-js/store";
+
+// ── Constants ──
+
+const PANEL_MIN = { left: 170, right: 170, bottom: 77 } as const;
+const CENTER_MIN_HEIGHT = 70;
+const CENTER_MIN_WIDTH_RATIO = 0.3;
+
+/** Center panel must always occupy at least 30% of viewport width. */
+function centerMinWidth(): number {
+  return Math.floor(window.innerWidth * CENTER_MIN_WIDTH_RATIO);
+}
+const CHROME_HEIGHT = 34; // title bar height
+const STORE_KEY = "layout-state";
 
 // ── Types ──
 
@@ -22,60 +36,216 @@ const DEFAULTS: LayoutState = {
 
   leftPanelOpen: true,
   rightPanelOpen: true,
-  bottomPanelOpen: true,
+  bottomPanelOpen: false,
 
   leftPanelWidth: 240,
   rightPanelWidth: 300,
   bottomPanelHeight: 160,
 };
 
-// ── Constraints ──
+// ── Persistence (localStorage) ──
 
-const MIN_PANEL_WIDTH = 120;
-const MAX_PANEL_WIDTH = 600;
-const MIN_PANEL_HEIGHT = 80;
-const MAX_PANEL_HEIGHT = 400;
-
-function clampWidth(value: number): number {
-  return Math.max(MIN_PANEL_WIDTH, Math.min(MAX_PANEL_WIDTH, value));
+function loadLayoutSync(): LayoutState {
+  const raw = localStorage.getItem(STORE_KEY);
+  if (!raw) return { ...DEFAULTS };
+  try {
+    const saved = JSON.parse(raw) as Partial<LayoutState>;
+    return {
+      isFullscreen: false,
+      leftPanelOpen: saved.leftPanelOpen ?? DEFAULTS.leftPanelOpen,
+      rightPanelOpen: saved.rightPanelOpen ?? DEFAULTS.rightPanelOpen,
+      bottomPanelOpen: saved.bottomPanelOpen ?? DEFAULTS.bottomPanelOpen,
+      leftPanelWidth: saved.leftPanelWidth ?? DEFAULTS.leftPanelWidth,
+      rightPanelWidth: saved.rightPanelWidth ?? DEFAULTS.rightPanelWidth,
+      bottomPanelHeight: saved.bottomPanelHeight ?? DEFAULTS.bottomPanelHeight,
+    };
+  } catch {
+    return { ...DEFAULTS };
+  }
 }
 
-function clampHeight(value: number): number {
-  return Math.max(MIN_PANEL_HEIGHT, Math.min(MAX_PANEL_HEIGHT, value));
+function saveLayoutSync(): void {
+  localStorage.setItem(STORE_KEY, JSON.stringify(layoutState));
+}
+
+const scheduleSave = debounce(() => saveLayoutSync(), 300);
+
+function saveNow(): void {
+  scheduleSave.clear();
+  saveLayoutSync();
 }
 
 // ── Store ──
 
-const [layoutState, setLayoutState] = createStore<LayoutState>({
-  ...DEFAULTS,
-});
+const [layoutState, setLayoutState] = createStore<LayoutState>(loadLayoutSync());
+
+// ── Helpers ──
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+/** Pixel overhead from resize handles (1px) + panel borders (1px) per open side panel. */
+function horizontalChrome(): number {
+  let px = 0;
+  if (layoutState.leftPanelOpen) px += 2; // border-r + handle
+  if (layoutState.rightPanelOpen) px += 2; // handle + border-l
+  return px;
+}
+
+/**
+ * When both horizontal panels are open, ensure they don't exceed
+ * available space. Shrinks the opposing panel first, then the protected one.
+ */
+function fitHorizontalPanels(protect: "left" | "right"): void {
+  if (!layoutState.leftPanelOpen || !layoutState.rightPanelOpen) return;
+
+  const maxForPanels = window.innerWidth - centerMinWidth() - horizontalChrome();
+  const overflow = layoutState.leftPanelWidth + layoutState.rightPanelWidth - maxForPanels;
+
+  if (overflow <= 0) return;
+
+  const shrinkKey = protect === "left" ? "rightPanelWidth" : "leftPanelWidth";
+  const shrinkMin = protect === "left" ? PANEL_MIN.right : PANEL_MIN.left;
+  const shrinkSize = protect === "left" ? layoutState.rightPanelWidth : layoutState.leftPanelWidth;
+
+  const protectKey = protect === "left" ? "leftPanelWidth" : "rightPanelWidth";
+  const protectMin = protect === "left" ? PANEL_MIN.left : PANEL_MIN.right;
+  const protectSize = protect === "left" ? layoutState.leftPanelWidth : layoutState.rightPanelWidth;
+
+  let remaining = overflow;
+
+  // First: shrink the opposing panel
+  const firstShrink = Math.min(remaining, shrinkSize - shrinkMin);
+  if (firstShrink > 0) {
+    setLayoutState(shrinkKey, shrinkSize - firstShrink);
+    remaining -= firstShrink;
+  }
+
+  // Then: shrink the protected panel if still overflowing
+  if (remaining > 0) {
+    setLayoutState(protectKey, Math.max(protectSize - remaining, protectMin));
+  }
+}
 
 // ── Panel toggles ──
 
 function toggleLeftPanel(): void {
-  setLayoutState("leftPanelOpen", (open) => !open);
+  if (layoutState.leftPanelOpen) {
+    setLayoutState("leftPanelOpen", false);
+  } else {
+    setLayoutState("leftPanelOpen", true);
+    fitHorizontalPanels("left");
+  }
+  saveNow();
 }
 
 function toggleRightPanel(): void {
-  setLayoutState("rightPanelOpen", (open) => !open);
+  if (layoutState.rightPanelOpen) {
+    setLayoutState("rightPanelOpen", false);
+  } else {
+    setLayoutState("rightPanelOpen", true);
+    fitHorizontalPanels("right");
+  }
+  saveNow();
 }
 
 function toggleBottomPanel(): void {
-  setLayoutState("bottomPanelOpen", (open) => !open);
+  if (layoutState.bottomPanelOpen) {
+    setLayoutState("bottomPanelOpen", false);
+  } else {
+    setLayoutState("bottomPanelOpen", true);
+    const available = window.innerHeight - CHROME_HEIGHT;
+    const max = available - CENTER_MIN_HEIGHT;
+    if (layoutState.bottomPanelHeight > max) {
+      setLayoutState("bottomPanelHeight", Math.max(max, PANEL_MIN.bottom));
+    }
+  }
+  saveNow();
 }
 
 // ── Panel resizers ──
 
-function setLeftPanelWidth(value: number): void {
-  setLayoutState("leftPanelWidth", clampWidth(value));
+function setLeftPanelWidth(width: number): void {
+  // Snap-to-close: dragging below half of minimum closes the panel
+  if (width < Math.floor(PANEL_MIN.left / 2)) {
+    setLayoutState("leftPanelOpen", false);
+    scheduleSave();
+    return;
+  }
+
+  const total = window.innerWidth - horizontalChrome();
+  const minCenter = centerMinWidth();
+
+  // If expanding left would crush right below its snap threshold, close right
+  if (layoutState.rightPanelOpen) {
+    const rightWouldBe = total - width - minCenter;
+    if (rightWouldBe < Math.floor(PANEL_MIN.right / 2)) {
+      setLayoutState("rightPanelOpen", false);
+    }
+  }
+
+  const rightMin = layoutState.rightPanelOpen ? PANEL_MIN.right : 0;
+  const newLeft = clamp(width, PANEL_MIN.left, total - minCenter - rightMin);
+  setLayoutState("leftPanelWidth", newLeft);
+
+  // Shrink right panel if it no longer fits
+  if (layoutState.rightPanelOpen) {
+    const availForRight = total - newLeft - minCenter;
+    if (availForRight < layoutState.rightPanelWidth) {
+      setLayoutState("rightPanelWidth", Math.max(availForRight, PANEL_MIN.right));
+    }
+  }
+  scheduleSave();
 }
 
-function setRightPanelWidth(value: number): void {
-  setLayoutState("rightPanelWidth", clampWidth(value));
+function setRightPanelWidth(width: number): void {
+  // Snap-to-close
+  if (width < Math.floor(PANEL_MIN.right / 2)) {
+    setLayoutState("rightPanelOpen", false);
+    scheduleSave();
+    return;
+  }
+
+  const total = window.innerWidth - horizontalChrome();
+  const minCenter = centerMinWidth();
+
+  // If expanding right would crush left below its snap threshold, close left
+  if (layoutState.leftPanelOpen) {
+    const leftWouldBe = total - width - minCenter;
+    if (leftWouldBe < Math.floor(PANEL_MIN.left / 2)) {
+      setLayoutState("leftPanelOpen", false);
+    }
+  }
+
+  const leftMin = layoutState.leftPanelOpen ? PANEL_MIN.left : 0;
+  const newRight = clamp(width, PANEL_MIN.right, total - minCenter - leftMin);
+  setLayoutState("rightPanelWidth", newRight);
+
+  // Shrink left panel if it no longer fits
+  if (layoutState.leftPanelOpen) {
+    const availForLeft = total - newRight - minCenter;
+    if (availForLeft < layoutState.leftPanelWidth) {
+      setLayoutState("leftPanelWidth", Math.max(availForLeft, PANEL_MIN.left));
+    }
+  }
+  scheduleSave();
 }
 
-function setBottomPanelHeight(value: number): void {
-  setLayoutState("bottomPanelHeight", clampHeight(value));
+function setBottomPanelHeight(height: number): void {
+  // Snap-to-close
+  if (height < Math.floor(PANEL_MIN.bottom / 2)) {
+    setLayoutState("bottomPanelOpen", false);
+    scheduleSave();
+    return;
+  }
+
+  const available = window.innerHeight - CHROME_HEIGHT;
+  setLayoutState(
+    "bottomPanelHeight",
+    clamp(height, PANEL_MIN.bottom, available - CENTER_MIN_HEIGHT),
+  );
+  scheduleSave();
 }
 
 // ── Fullscreen listener ──
