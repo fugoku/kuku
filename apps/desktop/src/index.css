@@ -1,5 +1,7 @@
 @import "tailwindcss";
+@import "overlayscrollbars/overlayscrollbars.css";
 @import "./styles/font.css";
+@import "./styles/scrollbar.css";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Kuku Theme Tokens
