@@ -9,14 +9,18 @@ import type { KeyboardContext } from "~/keybindings/keyboard_context";
 // ── Constants ──
 
 const PANEL_MIN = { left: 170, right: 170, bottom: 77 } as const;
-const CENTER_MIN_HEIGHT = 70;
-const CENTER_MIN_WIDTH_RATIO = 0.3;
+const CENTER_MIN_RATIO = { width: 0.3, height: 0.6 } as const;
+const CHROME_HEIGHT = 34; // title bar height
 
 /** Center panel must always occupy at least 30% of viewport width. */
 function centerMinWidth(): number {
-  return Math.floor(window.innerWidth * CENTER_MIN_WIDTH_RATIO);
+  return Math.floor(window.innerWidth * CENTER_MIN_RATIO.width);
 }
-const CHROME_HEIGHT = 34; // title bar height
+
+/** Center panel must always occupy at least 60% of available height. */
+function centerMinHeight(): number {
+  return Math.floor((window.innerHeight - CHROME_HEIGHT) * CENTER_MIN_RATIO.height);
+}
 const STORE_KEY = "layout-state";
 
 /** Track previous window dimensions for proportional resize. */
@@ -211,7 +215,7 @@ function toggleBottomPanel(): void {
   } else {
     setLayoutState("bottomPanelOpen", true);
     const available = window.innerHeight - CHROME_HEIGHT;
-    const max = available - CENTER_MIN_HEIGHT;
+    const max = available - centerMinHeight();
     if (layoutState.bottomPanelHeight > max) {
       setLayoutState("bottomPanelHeight", Math.max(max, PANEL_MIN.bottom));
     }
@@ -298,7 +302,7 @@ function setBottomPanelHeight(height: number): void {
   const available = window.innerHeight - CHROME_HEIGHT;
   setLayoutState(
     "bottomPanelHeight",
-    clamp(height, PANEL_MIN.bottom, available - CENTER_MIN_HEIGHT),
+    clamp(height, PANEL_MIN.bottom, available - centerMinHeight()),
   );
   scheduleSave();
 }
@@ -349,7 +353,7 @@ function handleWindowResize(): void {
     const available = newHeight - CHROME_HEIGHT;
     setLayoutState(
       "bottomPanelHeight",
-      clamp(scaled, PANEL_MIN.bottom, available - CENTER_MIN_HEIGHT),
+      clamp(scaled, PANEL_MIN.bottom, available - centerMinHeight()),
     );
   }
 

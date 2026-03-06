@@ -14,7 +14,7 @@ export default function CenterPanel(props: CenterPanelProps) {
   return (
     <div
       ref={(el) => onCleanup(createFocusZone(el, "center"))}
-      class="flex min-w-[30%] flex-1 flex-col overflow-hidden"
+      class="flex min-w-[30%] flex-1 flex-col overflow-hidden bg-bg-primary"
     >
       {props.children}
     </div>
