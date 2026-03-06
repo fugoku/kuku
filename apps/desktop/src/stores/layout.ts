@@ -67,9 +67,18 @@ function loadLayoutSync(): LayoutState {
       leftPanelOpen: saved.leftPanelOpen ?? DEFAULTS.leftPanelOpen,
       rightPanelOpen: saved.rightPanelOpen ?? DEFAULTS.rightPanelOpen,
       bottomPanelOpen: saved.bottomPanelOpen ?? DEFAULTS.bottomPanelOpen,
-      leftPanelWidth: saved.leftPanelWidth ?? DEFAULTS.leftPanelWidth,
-      rightPanelWidth: saved.rightPanelWidth ?? DEFAULTS.rightPanelWidth,
-      bottomPanelHeight: saved.bottomPanelHeight ?? DEFAULTS.bottomPanelHeight,
+      leftPanelWidth: Math.min(
+        saved.leftPanelWidth ?? DEFAULTS.leftPanelWidth,
+        DEFAULTS.leftPanelWidth,
+      ),
+      rightPanelWidth: Math.min(
+        saved.rightPanelWidth ?? DEFAULTS.rightPanelWidth,
+        DEFAULTS.rightPanelWidth,
+      ),
+      bottomPanelHeight: Math.min(
+        saved.bottomPanelHeight ?? DEFAULTS.bottomPanelHeight,
+        DEFAULTS.bottomPanelHeight,
+      ),
     };
   } catch {
     return { ...DEFAULTS };
