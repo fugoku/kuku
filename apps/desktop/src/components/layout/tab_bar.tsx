@@ -1,6 +1,6 @@
 import { For, Show } from "solid-js";
 
-import { CloseIcon, PlusIcon } from "~/components/icons";
+import { CloseIcon, FileIcon, PlusIcon } from "~/components/icons";
 import ScrollArea from "~/components/scroll_area";
 import { closeTab, filesState, openTab, setActiveTab } from "~/stores/files";
 
@@ -32,8 +32,8 @@ export default function TabBar() {
   };
 
   return (
-    <div class="relative z-10 bg-bg-secondary">
-      <div class="flex min-h-8.5 items-center gap-2 px-2 pt-1">
+    <div class="relative z-10 border-b border-border bg-bg-secondary">
+      <div class="flex h-9.5 items-center gap-1 px-2">
         {/* ── Tab list (horizontal scroll, hidden scrollbar) ── */}
         <ScrollArea
           class="min-w-0 flex-1"
@@ -41,69 +41,59 @@ export default function TabBar() {
           horizontalWheel
           options={{ scrollbars: { visibility: "hidden" } }}
         >
-          <div class="flex items-center">
+          <div class="flex items-center py-1">
             <For each={filesState.tabs}>
               {(tab, index) => {
                 const isActive = () => tab.id === filesState.activeTabId;
-                const prevActive = () => {
-                  const i = index();
-                  return i > 0 && filesState.tabs[i - 1].id === filesState.activeTabId;
-                };
                 const isLast = () => index() === filesState.tabs.length - 1;
-                const hideLeftSep = () => isActive() || prevActive();
 
                 return (
                   <>
                     {/* Separator */}
-                    <span
-                      class="h-4 w-px shrink-0 bg-border"
-                      classList={{ invisible: hideLeftSep() }}
-                    />
+                    <span class="mx-0.5 h-4 w-px shrink-0 bg-border" />
 
                     {/* Tab */}
                     <div
-                      role="tab"
-                      tabIndex={0}
                       data-tab-id={tab.id}
-                      class={`group/tab relative flex h-7.5 max-w-40 shrink-0 cursor-pointer items-center gap-1.5 rounded-t-md border px-2.5 py-1.25 text-[13px] font-medium whitespace-nowrap transition-[background,color,border-color] duration-100 select-none ${
+                      class={`group/tab flex h-7.5 max-w-48 shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-[13px] whitespace-nowrap transition-all duration-100 select-none ${
                         isActive()
-                          ? "border-border border-b-bg-primary bg-bg-primary text-text-primary after:absolute after:inset-x-px after:-bottom-px after:h-px after:bg-bg-primary after:content-['']"
-                          : "border-transparent text-text-muted hover:text-text-secondary"
+                          ? "text-text-primary ring-1 ring-border-focused"
+                          : "text-text-muted hover:bg-ghost-hover hover:text-text-secondary"
                       }`}
                       onClick={() => setActiveTab(tab.id)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") setActiveTab(tab.id);
-                      }}
                       onMouseDown={(e) => handleMiddleClick(tab.id, e)}
                     >
+                      {/* File icon */}
+                      <FileIcon
+                        size={14}
+                        class={`shrink-0 ${isActive() ? "text-icon" : "text-icon-muted"}`}
+                      />
+
                       {/* Dirty indicator */}
                       <Show when={tab.isDirty}>
-                        <span class="-order-2 size-1.5 shrink-0 rounded-full bg-accent" />
+                        <span class="size-1.5 shrink-0 rounded-full bg-accent" />
                       </Show>
 
                       {/* Tab name */}
-                      <span class="min-w-0 flex-1 truncate leading-4.5">
-                        {stripExtension(tab.fileName)}
-                      </span>
+                      <span class="min-w-0 flex-1 truncate">{stripExtension(tab.fileName)}</span>
 
                       {/* Close button */}
                       <button
                         type="button"
-                        class={`flex size-4.5 shrink-0 cursor-pointer items-center justify-center rounded-sm border-none bg-transparent text-icon-muted transition-all duration-100 hover:text-text-primary hover:opacity-100 ${
-                          isActive() ? "opacity-100" : "opacity-0 group-hover/tab:opacity-60"
+                        class={`flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-sm border-none bg-transparent text-icon-muted transition-all duration-100 hover:bg-ghost-active hover:text-text-primary ${
+                          isActive()
+                            ? "opacity-80 hover:opacity-100"
+                            : "opacity-0 group-hover/tab:opacity-60 group-hover/tab:hover:opacity-100"
                         }`}
                         onClick={(e) => handleCloseClick(tab.id, e)}
                       >
-                        <CloseIcon />
+                        <CloseIcon size={8} />
                       </button>
                     </div>
 
                     {/* Trailing separator */}
                     <Show when={isLast()}>
-                      <span
-                        class="h-4 w-px shrink-0 bg-border"
-                        classList={{ invisible: isActive() }}
-                      />
+                      <span class="mx-0.5 h-4 w-px shrink-0 bg-border" />
                     </Show>
                   </>
                 );

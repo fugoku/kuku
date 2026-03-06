@@ -1,8 +1,28 @@
-// Based on lucide/x, lucide/plus, lucide/search, lucide/settings
+// Based on lucide/file, lucide/x, lucide/plus, lucide/search, lucide/settings
 
 interface IconProps {
   size?: number;
   class?: string;
+}
+
+export function FileIcon(props: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      width={props.size ?? 14}
+      height={props.size ?? 14}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      class={props.class}
+    >
+      <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+      <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+    </svg>
+  );
 }
 
 export function CloseIcon(props: IconProps) {
