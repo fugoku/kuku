@@ -6,6 +6,12 @@ import TitleBar from "~/components/layout/title_bar";
 import { startListening, stopListening } from "~/keybindings";
 import { useTheme } from "~/lib/use_theme";
 import {
+  destroyCloseHandler,
+  initCloseHandler,
+  registerFileCommands,
+  unregisterFileCommands,
+} from "~/stores/files";
+import {
   destroyWindowListeners,
   initWindowListeners,
   layoutState,
@@ -27,11 +33,15 @@ export default function App() {
 
   onMount(() => {
     registerLayoutCommands();
+    registerFileCommands();
     startListening();
+    void initCloseHandler();
     void initWindowListeners();
   });
   onCleanup(() => {
     stopListening();
+    destroyCloseHandler();
+    unregisterFileCommands();
     unregisterLayoutCommands();
     destroyWindowListeners();
   });
