@@ -15,6 +15,10 @@ function centerMinWidth(): number {
 const CHROME_HEIGHT = 34; // title bar height
 const STORE_KEY = "layout-state";
 
+/** Track previous window dimensions for proportional resize. */
+let prevWindowWidth = window.innerWidth;
+let prevWindowHeight = window.innerHeight;
+
 // ── Types ──
 
 interface LayoutState {
@@ -248,24 +252,82 @@ function setBottomPanelHeight(height: number): void {
   scheduleSave();
 }
 
-// ── Fullscreen listener ──
+// ── Proportional resize on window resize ──
+
+function handleWindowResize(): void {
+  const newWidth = window.innerWidth;
+  const newHeight = window.innerHeight;
+
+  // Only scale proportionally when shrinking — growing gives extra space to center
+  if (prevWindowWidth > 0 && newWidth < prevWindowWidth) {
+    const ratio = newWidth / prevWindowWidth;
+
+    if (layoutState.leftPanelOpen) {
+      const scaled = Math.round(layoutState.leftPanelWidth * ratio);
+      setLayoutState("leftPanelWidth", Math.max(scaled, PANEL_MIN.left));
+    }
+    if (layoutState.rightPanelOpen) {
+      const scaled = Math.round(layoutState.rightPanelWidth * ratio);
+      setLayoutState("rightPanelWidth", Math.max(scaled, PANEL_MIN.right));
+    }
+
+    // After scaling, ensure panels still fit
+    if (layoutState.leftPanelOpen && layoutState.rightPanelOpen) {
+      const chrome = horizontalChrome();
+      const minCenter = centerMinWidth();
+      const maxForPanels = newWidth - minCenter - chrome;
+      const totalPanels = layoutState.leftPanelWidth + layoutState.rightPanelWidth;
+
+      if (totalPanels > maxForPanels) {
+        const leftRatio = layoutState.leftPanelWidth / totalPanels;
+        setLayoutState(
+          "leftPanelWidth",
+          Math.max(Math.round(maxForPanels * leftRatio), PANEL_MIN.left),
+        );
+        setLayoutState(
+          "rightPanelWidth",
+          Math.max(maxForPanels - layoutState.leftPanelWidth, PANEL_MIN.right),
+        );
+      }
+    }
+  }
+
+  if (prevWindowHeight > 0 && newHeight < prevWindowHeight && layoutState.bottomPanelOpen) {
+    const ratio = newHeight / prevWindowHeight;
+    const scaled = Math.round(layoutState.bottomPanelHeight * ratio);
+    const available = newHeight - CHROME_HEIGHT;
+    setLayoutState(
+      "bottomPanelHeight",
+      clamp(scaled, PANEL_MIN.bottom, available - CENTER_MIN_HEIGHT),
+    );
+  }
+
+  prevWindowWidth = newWidth;
+  prevWindowHeight = newHeight;
+  scheduleSave();
+}
+
+// ── Window listeners (fullscreen + resize) ──
 
 let fullscreenUnlisten: (() => void) | undefined;
 
-async function initFullscreenListener(): Promise<void> {
+async function initWindowListeners(): Promise<void> {
   const win = getCurrentWindow();
   setLayoutState("isFullscreen", await win.isFullscreen());
 
   fullscreenUnlisten = await win.onResized(() => {
+    // Proportional panel resize
+    handleWindowResize();
+
+    // Fullscreen detection (with delay for transition)
     void (async () => {
-      // Small delay to let the window finish transitioning
       await new Promise((r) => setTimeout(r, 50));
       setLayoutState("isFullscreen", await win.isFullscreen());
     })();
   });
 }
 
-function destroyFullscreenListener(): void {
+function destroyWindowListeners(): void {
   fullscreenUnlisten?.();
   fullscreenUnlisten = undefined;
 }
@@ -273,8 +335,8 @@ function destroyFullscreenListener(): void {
 // ── Exports ──
 
 export {
-  destroyFullscreenListener,
-  initFullscreenListener,
+  destroyWindowListeners,
+  initWindowListeners,
   layoutState,
   setBottomPanelHeight,
   setLeftPanelWidth,

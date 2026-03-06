@@ -5,8 +5,8 @@ import PanelLayout from "~/components/layout/panel_layout";
 import TitleBar from "~/components/layout/title_bar";
 import { useTheme } from "~/lib/use_theme";
 import {
-  destroyFullscreenListener,
-  initFullscreenListener,
+  destroyWindowListeners,
+  initWindowListeners,
   layoutState,
   toggleLeftPanel,
   toggleRightPanel,
@@ -23,10 +23,10 @@ export default function App() {
   useTheme();
 
   onMount(() => {
-    void initFullscreenListener();
+    void initWindowListeners();
   });
   onCleanup(() => {
-    destroyFullscreenListener();
+    destroyWindowListeners();
   });
 
   return (
