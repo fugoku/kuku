@@ -47,11 +47,11 @@ const DEFAULTS: LayoutState = {
   isFullscreen: false,
 
   leftPanelOpen: true,
-  rightPanelOpen: true,
+  rightPanelOpen: false,
   bottomPanelOpen: false,
 
-  leftPanelWidth: 240,
-  rightPanelWidth: 300,
+  leftPanelWidth: 280,
+  rightPanelWidth: 280,
   bottomPanelHeight: 160,
 };
 
