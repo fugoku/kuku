@@ -11,10 +11,7 @@
       "jsPlugins": ["eslint-plugin-better-tailwindcss"],
       "rules": {
         // ── better-tailwindcss recommended (stylistic: warn) ──
-        "better-tailwindcss/enforce-consistent-line-wrapping": [
-          "warn",
-          { "printWidth": 100, "strictness": "loose" }
-        ],
+        "better-tailwindcss/enforce-consistent-line-wrapping": "off",
         "better-tailwindcss/enforce-consistent-class-order": "warn",
         // ── conflict with 'enforce-canonical-classes'
         "better-tailwindcss/enforce-consistent-variable-syntax": "off",

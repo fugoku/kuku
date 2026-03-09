@@ -65,14 +65,16 @@ export default function TabBar() {
                       class={`group/tab flex h-7.5 max-w-48 shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-[13px] leading-normal whitespace-nowrap transition-all duration-100 select-none ${
                         isActive()
                           ? "text-text-primary ring-1 ring-border-focused"
-                          : "text-text-muted hover:bg-ghost-hover hover:text-text-secondary"
+                          : `text-text-muted hover:bg-ghost-hover hover:text-text-secondary `
                       }`}
                       onClick={() => setActiveTab(tab.id)}
                       onMouseDown={(e) => handleMiddleClick(tab.id, e)}
                     >
                       {/* File icon */}
                       <span
-                        class={`flex h-5 shrink-0 items-center ${isActive() ? "text-icon" : "text-icon-muted"}`}
+                        class={`flex h-5 shrink-0 items-center ${
+                          isActive() ? `text-icon` : `text-icon-muted`
+                        }`}
                       >
                         <FileIcon size={14} />
                       </span>
@@ -92,7 +94,7 @@ export default function TabBar() {
                         class={`flex h-5 shrink-0 items-center ${
                           isActive()
                             ? "opacity-80 hover:opacity-100"
-                            : "opacity-0 group-hover/tab:opacity-60 group-hover/tab:hover:opacity-100"
+                            : `opacity-0 group-hover/tab:opacity-60 group-hover/tab:hover:opacity-100 `
                         }`}
                       >
                         <button

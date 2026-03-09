@@ -257,7 +257,7 @@ export default function SettingsView() {
                 class={`flex h-7 w-full cursor-pointer items-center rounded-md border-none px-2.5 text-[13px] leading-normal transition-colors duration-100 ${
                   activeCategory() === cat.id
                     ? "bg-ghost-selected text-text-primary"
-                    : "bg-transparent text-text-secondary hover:bg-ghost-hover hover:text-text-primary"
+                    : `bg-transparent text-text-secondary hover:bg-ghost-hover hover:text-text-primary `
                 }`}
                 onClick={() => setActiveCategory(cat.id)}
               >
@@ -277,7 +277,7 @@ export default function SettingsView() {
                 class={`flex h-7 w-full cursor-pointer items-center rounded-md border-none px-2.5 text-[13px] leading-normal transition-colors duration-100 ${
                   activeCategory() === cat.id
                     ? "bg-ghost-selected text-text-primary"
-                    : "bg-transparent text-text-secondary hover:bg-ghost-hover hover:text-text-primary"
+                    : `bg-transparent text-text-secondary hover:bg-ghost-hover hover:text-text-primary `
                 }`}
                 onClick={() => setActiveCategory(cat.id)}
               >
