@@ -15,6 +15,7 @@
     "tauri:dev": "tauri dev --config src-tauri/tauri.development.conf.json"
   },
   "dependencies": {
+    "@kobalte/core": "^0.13.11",
     "@solid-primitives/scheduled": "^1.5.3",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-opener": "^2",

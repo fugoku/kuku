@@ -1,8 +1,10 @@
-import { type JSX, onCleanup, Show } from "solid-js";
+import { type JSX, onCleanup, Show, Switch, Match } from "solid-js";
 
+import ScrollArea from "~/components/scroll_area";
+import SettingsView from "~/components/settings/settings_view";
 import TabBar from "~/components/layout/tab_bar";
 import { createFocusZone } from "~/keybindings";
-import { filesState } from "~/stores/files";
+import { filesState, getActiveTab } from "~/stores/files";
 
 // ── Types ──
 
@@ -13,6 +15,8 @@ interface CenterPanelProps {
 // ── Component ──
 
 export default function CenterPanel(props: CenterPanelProps) {
+  const activeTabType = () => getActiveTab()?.type ?? null;
+
   return (
     <div
       ref={(el) => onCleanup(createFocusZone(el, "center"))}
@@ -27,7 +31,29 @@ export default function CenterPanel(props: CenterPanelProps) {
           </div>
         }
       >
-        <div class="min-h-0 flex-1 overflow-hidden">{props.children}</div>
+        <div class="min-h-0 flex-1 overflow-hidden">
+          <Switch
+            fallback={
+              <ScrollArea class="h-full" axis="y" alwaysVisible>
+                {props.children}
+                {/* ── Dummy content for scroll testing ── */}
+                <div class="space-y-4 p-6">
+                  {Array.from({ length: 50 }, (_, i) => (
+                    <div class="rounded-sm border border-border-variant bg-bg-secondary p-4">
+                      <p class="text-sm text-text-secondary">
+                        Line {i + 1} — Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            }
+          >
+            <Match when={activeTabType() === "settings"}>
+              <SettingsView />
+            </Match>
+          </Switch>
+        </div>
       </Show>
     </div>
   );
