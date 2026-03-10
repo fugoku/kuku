@@ -23,7 +23,6 @@
     "windows": [
       {
         "title": "Kuku",
-        "theme": "Dark",
         "width": 1100,
         "height": 720,
         "minWidth": 800,

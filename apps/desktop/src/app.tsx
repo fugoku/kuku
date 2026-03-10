@@ -1,10 +1,11 @@
-import { onCleanup, onMount } from "solid-js";
+import { createEffect, onCleanup, onMount } from "solid-js";
 
 import { PanelLeftIcon, PanelRightIcon } from "~/components/icons";
 import PanelLayout from "~/components/layout/panel_layout";
 import TitleBar from "~/components/layout/title_bar";
 import { startListening, stopListening } from "~/keybindings";
 import { useTheme } from "~/lib/use_theme";
+import { settingsState } from "~/stores/settings";
 import {
   destroyCloseHandler,
   initCloseHandler,
@@ -30,6 +31,11 @@ const ACTION_BTN =
 
 export default function App() {
   useTheme();
+
+  // Apply appearance settings reactively
+  createEffect(() => {
+    document.documentElement.style.fontSize = `${settingsState.appearance.fontSize}px`;
+  });
 
   onMount(() => {
     registerLayoutCommands();

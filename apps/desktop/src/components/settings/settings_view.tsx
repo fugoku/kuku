@@ -6,6 +6,13 @@ import ScrollArea from "~/components/scroll_area";
 import SettingItem from "~/components/settings/setting_item";
 import SettingSection from "~/components/settings/setting_section";
 import { Select, Switch } from "~/components/ui";
+import {
+  setAppearanceSetting,
+  setEditorSetting,
+  setFilesSetting,
+  setGeneralSetting,
+  settingsState,
+} from "~/stores/settings";
 
 // ── Types ──
 
@@ -72,42 +79,40 @@ const INPUT_BASE =
 // ── Section Renderers ──
 
 function GeneralSection() {
-  const [language, setLanguage] = createSignal("en");
-  const [autoSave, setAutoSave] = createSignal(true);
-  const [spellCheck, setSpellCheck] = createSignal(false);
-
   return (
     <SettingSection title="General">
       <SettingItem label="Language" description="Select the display language for the interface.">
         <Select
           options={LANGUAGE_OPTIONS}
-          value={language()}
-          onChange={setLanguage}
+          value={settingsState.general.language}
+          onChange={(v) => setGeneralSetting("language", v)}
           placeholder="Select language"
         />
       </SettingItem>
       <SettingItem label="Auto-save" description="Automatically save changes after editing.">
-        <Switch checked={autoSave()} onChange={setAutoSave} />
+        <Switch
+          checked={settingsState.general.autoSave}
+          onChange={(v) => setGeneralSetting("autoSave", v)}
+        />
       </SettingItem>
       <SettingItem label="Spell check" description="Check spelling while typing in the editor.">
-        <Switch checked={spellCheck()} onChange={setSpellCheck} />
+        <Switch
+          checked={settingsState.general.spellCheck}
+          onChange={(v) => setGeneralSetting("spellCheck", v)}
+        />
       </SettingItem>
     </SettingSection>
   );
 }
 
 function AppearanceSection() {
-  const [theme, setTheme] = createSignal("system");
-  const [fontSize, setFontSize] = createSignal("14");
-  const [fontFamily, setFontFamily] = createSignal("goorm-sans");
-
   return (
     <SettingSection title="Appearance">
       <SettingItem label="Theme" description="Choose between light and dark appearance.">
         <Select
           options={THEME_OPTIONS}
-          value={theme()}
-          onChange={setTheme}
+          value={settingsState.appearance.theme}
+          onChange={(v) => setAppearanceSetting("theme", v as "system" | "light" | "dark")}
           placeholder="Select theme"
         />
       </SettingItem>
@@ -115,8 +120,11 @@ function AppearanceSection() {
         <input
           type="number"
           class={INPUT_BASE}
-          value={fontSize()}
-          onInput={(e) => setFontSize(e.currentTarget.value)}
+          value={settingsState.appearance.fontSize}
+          onInput={(e) => {
+            const v = Number.parseInt(e.currentTarget.value, 10);
+            if (!Number.isNaN(v)) setAppearanceSetting("fontSize", v);
+          }}
           min="10"
           max="24"
         />
@@ -124,8 +132,8 @@ function AppearanceSection() {
       <SettingItem label="Font family" description="Font used for the UI and editor.">
         <Select
           options={FONT_FAMILY_OPTIONS}
-          value={fontFamily()}
-          onChange={setFontFamily}
+          value={settingsState.appearance.fontFamily}
+          onChange={(v) => setAppearanceSetting("fontFamily", v)}
           placeholder="Select font"
         />
       </SettingItem>
@@ -134,34 +142,33 @@ function AppearanceSection() {
 }
 
 function EditorSection() {
-  const [tabSize, setTabSize] = createSignal("2");
-  const [wordWrap, setWordWrap] = createSignal(true);
-  const [lineNumbers, setLineNumbers] = createSignal(false);
-
   return (
     <SettingSection title="Editor">
       <SettingItem label="Tab size" description="Number of spaces per tab character.">
         <Select
           options={TAB_SIZE_OPTIONS}
-          value={tabSize()}
-          onChange={setTabSize}
+          value={String(settingsState.editor.tabSize)}
+          onChange={(v) => setEditorSetting("tabSize", Number.parseInt(v, 10))}
           placeholder="Select tab size"
         />
       </SettingItem>
       <SettingItem label="Word wrap" description="Wrap long lines to fit the editor width.">
-        <Switch checked={wordWrap()} onChange={setWordWrap} />
+        <Switch
+          checked={settingsState.editor.wordWrap}
+          onChange={(v) => setEditorSetting("wordWrap", v)}
+        />
       </SettingItem>
       <SettingItem label="Line numbers" description="Show line numbers in the gutter.">
-        <Switch checked={lineNumbers()} onChange={setLineNumbers} />
+        <Switch
+          checked={settingsState.editor.lineNumbers}
+          onChange={(v) => setEditorSetting("lineNumbers", v)}
+        />
       </SettingItem>
     </SettingSection>
   );
 }
 
 function FilesSection() {
-  const [newFileLocation, setNewFileLocation] = createSignal("root");
-  const [deletedFiles, setDeletedFiles] = createSignal("trash");
-
   return (
     <SettingSection title="Files & Links">
       <SettingItem
@@ -170,16 +177,16 @@ function FilesSection() {
       >
         <Select
           options={NEW_FILE_LOCATION_OPTIONS}
-          value={newFileLocation()}
-          onChange={setNewFileLocation}
+          value={settingsState.files.newFileLocation}
+          onChange={(v) => setFilesSetting("newFileLocation", v)}
           placeholder="Select location"
         />
       </SettingItem>
       <SettingItem label="Deleted files" description="What happens when you delete a file.">
         <Select
           options={DELETED_FILES_OPTIONS}
-          value={deletedFiles()}
-          onChange={setDeletedFiles}
+          value={settingsState.files.deletedFiles}
+          onChange={(v) => setFilesSetting("deletedFiles", v)}
           placeholder="Select action"
         />
       </SettingItem>
@@ -257,7 +264,7 @@ export default function SettingsView() {
                 class={`flex h-7 w-full cursor-pointer items-center rounded-md border-none px-2.5 text-[13px] leading-normal transition-colors duration-100 ${
                   activeCategory() === cat.id
                     ? "bg-ghost-selected text-text-primary"
-                    : `bg-transparent text-text-secondary hover:bg-ghost-hover hover:text-text-primary `
+                    : "bg-transparent text-text-secondary hover:bg-ghost-hover hover:text-text-primary"
                 }`}
                 onClick={() => setActiveCategory(cat.id)}
               >
@@ -277,7 +284,7 @@ export default function SettingsView() {
                 class={`flex h-7 w-full cursor-pointer items-center rounded-md border-none px-2.5 text-[13px] leading-normal transition-colors duration-100 ${
                   activeCategory() === cat.id
                     ? "bg-ghost-selected text-text-primary"
-                    : `bg-transparent text-text-secondary hover:bg-ghost-hover hover:text-text-primary `
+                    : "bg-transparent text-text-secondary hover:bg-ghost-hover hover:text-text-primary"
                 }`}
                 onClick={() => setActiveCategory(cat.id)}
               >
