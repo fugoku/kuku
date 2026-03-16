@@ -25,7 +25,15 @@ function executeCommand(id: string): boolean {
   return true;
 }
 
+function getCommand(id: string): Command | undefined {
+  return registry.get(id);
+}
+
+function getAllCommands(): Command[] {
+  return [...registry.values()];
+}
+
 // ── Exports ──
 
-export { executeCommand, registerCommand, unregisterCommand };
+export { executeCommand, getAllCommands, getCommand, registerCommand, unregisterCommand };
 export type { Command };

@@ -1,9 +1,6 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { createStore, produce } from "solid-js/store";
 
-import { registerCommand, unregisterCommand } from "~/keybindings/command_registry";
-import { addKeybinding, removeKeybinding } from "~/keybindings/keybinding_manager";
-
 // ── Types ──
 
 type TabType = "editor" | "graph" | "search" | "settings";
@@ -165,62 +162,6 @@ function prevTab(): void {
   setFilesState("activeTabId", tabs[(idx - 1 + tabs.length) % tabs.length].id);
 }
 
-// ── Tab commands ──
-
-const COMMAND_IDS = ["tab.close", "tab.new", "tab.next", "tab.prev"] as const;
-const KEY_COMBOS = ["$mod+KeyN", "Control+Tab", "Control+Shift+Tab"] as const;
-
-function registerFileCommands(): void {
-  registerCommand({
-    id: "tab.close",
-    label: "Close Tab",
-    execute: () => {
-      const tab = getActiveTab();
-      if (tab) closeTab(tab.id);
-    },
-  });
-  registerCommand({
-    id: "tab.new",
-    label: "New Tab",
-    execute: () => openTab("Untitled"),
-  });
-  addKeybinding({
-    keys: "$mod+KeyN",
-    commandId: "tab.new",
-  });
-
-  registerCommand({
-    id: "tab.next",
-    label: "Next Tab",
-    execute: () => nextTab(),
-  });
-  addKeybinding({
-    keys: "Control+Tab",
-    commandId: "tab.next",
-    when: () => filesState.tabs.length > 1,
-  });
-
-  registerCommand({
-    id: "tab.prev",
-    label: "Previous Tab",
-    execute: () => prevTab(),
-  });
-  addKeybinding({
-    keys: "Control+Shift+Tab",
-    commandId: "tab.prev",
-    when: () => filesState.tabs.length > 1,
-  });
-}
-
-function unregisterFileCommands(): void {
-  for (const id of COMMAND_IDS) {
-    unregisterCommand(id);
-  }
-  for (const keys of KEY_COMBOS) {
-    removeKeybinding(keys);
-  }
-}
-
 // ── Window close handler (intercepts ⌘W) ──
 
 let closeUnlisten: (() => void) | undefined;
@@ -252,8 +193,6 @@ export {
   nextTab,
   openTab,
   prevTab,
-  registerFileCommands,
   setActiveTab,
-  unregisterFileCommands,
 };
 export type { Tab, TabType };

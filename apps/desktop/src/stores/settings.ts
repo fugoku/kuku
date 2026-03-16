@@ -1,7 +1,9 @@
-import { type ThemePreference } from "~/lib/use_theme";
 import { createStore } from "solid-js/store";
 
 // ── Types ──
+
+export type ThemePreference = "system" | "light" | "dark";
+export type EffectiveTheme = "light" | "dark";
 
 interface GeneralSettings {
   language: string;

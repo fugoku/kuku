@@ -3,23 +3,16 @@ import { createEffect, onCleanup, onMount } from "solid-js";
 import { PanelLeftIcon, PanelRightIcon } from "~/components/icons";
 import PanelLayout from "~/components/layout/panel_layout";
 import TitleBar from "~/components/layout/title_bar";
-import { startListening, stopListening } from "~/keybindings";
-import { useTheme } from "~/lib/use_theme";
+import { destroyKeybindings, initKeybindings } from "~/keybindings";
+import { initTheme } from "~/stores/theme";
 import { settingsState } from "~/stores/settings";
-import {
-  destroyCloseHandler,
-  initCloseHandler,
-  registerFileCommands,
-  unregisterFileCommands,
-} from "~/stores/files";
+import { destroyCloseHandler, initCloseHandler } from "~/stores/files";
 import {
   destroyWindowListeners,
   initWindowListeners,
   layoutState,
-  registerLayoutCommands,
   toggleLeftPanel,
   toggleRightPanel,
-  unregisterLayoutCommands,
 } from "~/stores/layout";
 
 // ── Styles ──
@@ -30,7 +23,7 @@ const ACTION_BTN =
 // ── Component ──
 
 export default function App() {
-  useTheme();
+  initTheme();
 
   // Apply appearance settings reactively
   createEffect(() => {
@@ -38,17 +31,13 @@ export default function App() {
   });
 
   onMount(() => {
-    registerLayoutCommands();
-    registerFileCommands();
-    startListening();
+    initKeybindings();
     void initCloseHandler();
     void initWindowListeners();
   });
   onCleanup(() => {
-    stopListening();
+    destroyKeybindings();
     destroyCloseHandler();
-    unregisterFileCommands();
-    unregisterLayoutCommands();
     destroyWindowListeners();
   });
 
