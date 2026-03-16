@@ -1,7 +1,6 @@
-import { type Component, createSignal, For, Show } from "solid-js";
+import { type Component, createSignal, For } from "solid-js";
 import { Dynamic } from "solid-js/web";
 
-import { SearchIcon } from "~/components/icons";
 import ScrollArea from "~/components/scroll_area";
 import SettingItem from "~/components/settings/setting_item";
 import SettingSection from "~/components/settings/setting_section";
@@ -240,11 +239,28 @@ const SECTION_MAP: Record<string, Component> = {
   about: AboutSection,
 };
 
+// ── Nav Button ──
+
+function NavButton(props: { cat: NavCategory; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      class={`flex h-8 w-full cursor-pointer items-center rounded-md border-none px-2.5 text-[13px] leading-normal transition-colors duration-100 ${
+        props.active
+          ? "bg-ghost-selected text-text-primary"
+          : "bg-transparent text-text-secondary hover:bg-ghost-hover hover:text-text-primary"
+      }`}
+      onClick={props.onClick}
+    >
+      {props.cat.label}
+    </button>
+  );
+}
+
 // ── Main Component ──
 
 export default function SettingsView() {
   const [activeCategory, setActiveCategory] = createSignal("general");
-  const [search, setSearch] = createSignal("");
 
   const mainCategories = () => CATEGORIES.filter((c) => !c.group);
   const advancedCategories = () => CATEGORIES.filter((c) => c.group === "Advanced");
@@ -259,17 +275,11 @@ export default function SettingsView() {
           {/* Main categories */}
           <For each={mainCategories()}>
             {(cat) => (
-              <button
-                type="button"
-                class={`flex h-7 w-full cursor-pointer items-center rounded-md border-none px-2.5 text-[13px] leading-normal transition-colors duration-100 ${
-                  activeCategory() === cat.id
-                    ? "bg-ghost-selected text-text-primary"
-                    : "bg-transparent text-text-secondary hover:bg-ghost-hover hover:text-text-primary"
-                }`}
+              <NavButton
+                cat={cat}
+                active={activeCategory() === cat.id}
                 onClick={() => setActiveCategory(cat.id)}
-              >
-                {cat.label}
-              </button>
+              />
             )}
           </For>
 
@@ -279,17 +289,11 @@ export default function SettingsView() {
           {/* Advanced categories */}
           <For each={advancedCategories()}>
             {(cat) => (
-              <button
-                type="button"
-                class={`flex h-7 w-full cursor-pointer items-center rounded-md border-none px-2.5 text-[13px] leading-normal transition-colors duration-100 ${
-                  activeCategory() === cat.id
-                    ? "bg-ghost-selected text-text-primary"
-                    : "bg-transparent text-text-secondary hover:bg-ghost-hover hover:text-text-primary"
-                }`}
+              <NavButton
+                cat={cat}
+                active={activeCategory() === cat.id}
                 onClick={() => setActiveCategory(cat.id)}
-              >
-                {cat.label}
-              </button>
+              />
             )}
           </For>
         </ScrollArea>
@@ -297,41 +301,13 @@ export default function SettingsView() {
 
       {/* ── Right Content ── */}
       <div class="flex min-w-0 flex-1 flex-col">
-        {/* Search bar */}
-        <div class="shrink-0 border-b border-border px-5 py-3">
-          <div class="flex h-8 items-center gap-2 rounded-md border border-border bg-bg-primary px-2.5 transition-colors focus-within:border-border-focused">
-            <SearchIcon size={14} class="shrink-0 text-icon-muted" />
-            <input
-              type="text"
-              placeholder="Search settings..."
-              class="min-w-0 flex-1 border-none bg-transparent text-[13px] text-text-primary outline-none placeholder:text-text-placeholder"
-              value={search()}
-              onInput={(e) => setSearch(e.currentTarget.value)}
-            />
-          </div>
-        </div>
-
         {/* Settings content */}
         <ScrollArea class="min-h-0 flex-1" axis="y" alwaysVisible>
           <div class="mx-auto max-w-140 px-5 py-2">
-            <Show when={!search().trim()} fallback={<SearchResults query={search()} />}>
-              <Dynamic component={sectionComponent()} />
-            </Show>
+            <Dynamic component={sectionComponent()} />
           </div>
         </ScrollArea>
       </div>
-    </div>
-  );
-}
-
-// ── Search Results (placeholder) ──
-
-function SearchResults(props: { query: string }) {
-  return (
-    <div class="py-8 text-center">
-      <p class="text-[13px] text-text-muted">
-        Search for "<span class="text-text-secondary">{props.query}</span>" — coming soon.
-      </p>
     </div>
   );
 }
