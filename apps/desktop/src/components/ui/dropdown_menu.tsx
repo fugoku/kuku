@@ -77,7 +77,7 @@ export function DropdownMenuItem(props: {
       onSelect={props.onSelect}
       disabled={props.disabled}
       class={[
-        "flex h-8 w-full cursor-pointer items-center justify-between gap-4 rounded-[5px] px-2.5 text-[13px] leading-normal text-text-primary outline-none",
+        "flex h-8 w-full cursor-pointer items-center justify-between gap-4 rounded-[5px] px-2.5 text-[0.8125rem] leading-normal text-text-primary outline-none",
         "transition-colors duration-75",
         "data-highlighted:bg-ghost-hover",
         "data-disabled:cursor-not-allowed data-disabled:text-text-disabled",
@@ -85,7 +85,7 @@ export function DropdownMenuItem(props: {
     >
       <span class="whitespace-nowrap">{props.label}</span>
       <Show when={props.shortcut}>
-        <span class="text-[11px] text-text-muted">{props.shortcut}</span>
+        <span class="text-[0.6875rem] text-text-muted">{props.shortcut}</span>
       </Show>
     </KMenu.Item>
   );
@@ -103,7 +103,7 @@ export function DropdownMenuSeparator() {
  */
 export function DropdownMenuGroupLabel(props: { children: JSX.Element }) {
   return (
-    <KMenu.GroupLabel class="px-2.5 py-1.5 text-[11px] font-medium tracking-wider text-text-muted uppercase">
+    <KMenu.GroupLabel class="px-2.5 py-1.5 text-[0.6875rem] font-medium tracking-wider text-text-muted uppercase">
       {props.children}
     </KMenu.GroupLabel>
   );

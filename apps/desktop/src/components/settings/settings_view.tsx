@@ -67,7 +67,7 @@ const DELETED_FILES_OPTIONS = [
 // ── Styles ──
 
 const INPUT_BASE =
-  "h-8 w-full rounded-md border border-border bg-bg-primary px-2.5 text-[13px] text-text-primary outline-none transition-colors placeholder:text-text-placeholder focus:border-border-focused";
+  "h-8 w-full rounded-md border border-border bg-bg-primary px-2.5 text-[0.8125rem] text-text-primary outline-none transition-colors placeholder:text-text-placeholder focus:border-border-focused";
 
 // ── Section Renderers ──
 
@@ -187,7 +187,7 @@ function FontInput(props: {
         }}
       />
       {/* Preview */}
-      <p class="truncate text-[13px] text-text-secondary" style={{ "font-family": draft() }}>
+      <p class="truncate text-[0.8125rem] text-text-secondary" style={{ "font-family": draft() }}>
         The quick brown fox jumps over the lazy dog. 0123456789
       </p>
     </div>
@@ -254,7 +254,7 @@ function KeybindingsSection() {
         label="Keybinding configuration"
         description="Keybinding customization will be available in a future update."
       >
-        <p class="text-[12px] text-text-muted">Coming soon.</p>
+        <p class="text-[0.75rem] text-text-muted">Coming soon.</p>
       </SettingItem>
     </SettingSection>
   );
@@ -264,7 +264,7 @@ function PluginsSection() {
   return (
     <SettingSection title="Plugins">
       <SettingItem label="Plugin system" description="The plugin system is under development.">
-        <p class="text-[12px] text-text-muted">Coming soon.</p>
+        <p class="text-[0.75rem] text-text-muted">Coming soon.</p>
       </SettingItem>
     </SettingSection>
   );
@@ -274,10 +274,10 @@ function AboutSection() {
   return (
     <SettingSection title="About">
       <SettingItem label="Version" description="Current application version.">
-        <span class="text-[13px] text-text-secondary">0.0.0-dev</span>
+        <span class="text-[0.8125rem] text-text-secondary">0.0.0-dev</span>
       </SettingItem>
       <SettingItem label="License" description="Open-source license.">
-        <span class="text-[13px] text-text-secondary">MIT</span>
+        <span class="text-[0.8125rem] text-text-secondary">MIT</span>
       </SettingItem>
     </SettingSection>
   );
@@ -299,7 +299,7 @@ function NavButton(props: { cat: NavCategory; active: boolean; onClick: () => vo
   return (
     <button
       type="button"
-      class={`flex h-8 w-full cursor-pointer items-center rounded-md border-none px-2.5 text-[13px] leading-normal transition-colors duration-100 ${
+      class={`flex h-8 w-full cursor-pointer items-center rounded-md border-none px-2.5 text-[0.8125rem] leading-normal transition-colors duration-100 ${
         props.active
           ? "bg-ghost-selected text-text-primary"
           : "bg-transparent text-text-secondary hover:bg-ghost-hover hover:text-text-primary"

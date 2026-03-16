@@ -79,7 +79,7 @@ export default function Switch(props: SwitchProps) {
         />
       </KSwitch.Control>
       {local.label && (
-        <KSwitch.Label class="cursor-pointer text-[13px] leading-normal text-text-primary data-disabled:cursor-not-allowed data-disabled:text-text-disabled">
+        <KSwitch.Label class="cursor-pointer text-[0.8125rem] leading-normal text-text-primary data-disabled:cursor-not-allowed data-disabled:text-text-disabled">
           {local.label}
         </KSwitch.Label>
       )}

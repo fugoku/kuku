@@ -26,7 +26,7 @@ export default function SettingItem(props: SettingItemProps) {
   return (
     <div class="flex flex-col gap-1.5 py-3">
       <div class="flex flex-col gap-0.5">
-        <span class="text-[13px] text-text-primary">{props.label}</span>
+        <span class="text-[0.8125rem] text-text-primary">{props.label}</span>
         {props.description && (
           <span class="text-xs/normal text-text-muted">{props.description}</span>
         )}

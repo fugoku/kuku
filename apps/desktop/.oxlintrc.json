@@ -24,7 +24,18 @@
         "better-tailwindcss/no-unnecessary-whitespace": "warn",
         // ── better-tailwindcss recommended (correctness: error) ──
         "better-tailwindcss/no-unknown-classes": "error",
-        "better-tailwindcss/no-conflicting-classes": "error"
+        "better-tailwindcss/no-conflicting-classes": "error",
+        "better-tailwindcss/no-restricted-classes": [
+          "error",
+          {
+            "restrict": [
+              {
+                "message": "Do not use px units. Use rem instead.",
+                "pattern": "^((?:[a-zA-Z0-9:/_-]*:)?[a-zA-Z0-9_/-]*-)\\[(\\d+(?:\\.\\d+)?)px\\](\\/[0-9]{1,3})?$"
+              }
+            ]
+          }
+        ]
       }
     }
   ],

@@ -110,7 +110,7 @@ export default function Select(props: SelectProps) {
         <KSelect.Item
           item={itemProps.item}
           class={[
-            "flex h-8 cursor-pointer items-center justify-between gap-2 rounded-[5px] px-2.5 text-[13px] leading-normal text-text-primary outline-none",
+            "flex h-8 cursor-pointer items-center justify-between gap-2 rounded-[5px] px-2.5 text-[0.8125rem] leading-normal text-text-primary outline-none",
             "transition-colors duration-75",
             "data-[highlighted]:bg-ghost-hover",
             "data-[disabled]:cursor-not-allowed data-[disabled]:text-text-disabled",
@@ -129,7 +129,7 @@ export default function Select(props: SelectProps) {
 
       <KSelect.Trigger
         class={[
-          "flex h-8 w-full items-center justify-between gap-2 rounded-md border border-border bg-bg-primary px-2.5 text-[13px] leading-normal text-text-primary outline-none",
+          "flex h-8 w-full items-center justify-between gap-2 rounded-md border border-border bg-bg-primary px-2.5 text-[0.8125rem] leading-normal text-text-primary outline-none",
           "transition-colors duration-100",
           "hover:border-border-focused",
           "focus-visible:border-border-focused",
