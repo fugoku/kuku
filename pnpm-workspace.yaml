@@ -7,8 +7,10 @@ minimumReleaseAge: 3333
 minimumReleaseAgeExclude:
   - oxlint
   - oxfmt
-  - '@oxlint/*'
-  - '@oxfmt/*'
+  - oxlint-tsgolint
+  - "@oxlint/*"
+  - "@oxfmt/*"
+  - "@oxlint-tsgolint/*"
 
 onlyBuiltDependencies:
   - esbuild
