@@ -80,7 +80,10 @@ const INPUT_BASE =
 function GeneralSection() {
   return (
     <SettingSection title="General">
-      <SettingItem label="Language" description="Select the display language for the interface.">
+      <SettingItem
+        label="Language (WIP)"
+        description="Select the display language for the interface."
+      >
         <Select
           options={LANGUAGE_OPTIONS}
           value={settingsState.general.language}
@@ -88,13 +91,16 @@ function GeneralSection() {
           placeholder="Select language"
         />
       </SettingItem>
-      <SettingItem label="Auto-save" description="Automatically save changes after editing.">
+      <SettingItem label="Auto-save (WIP)" description="Automatically save changes after editing.">
         <Switch
           checked={settingsState.general.autoSave}
           onChange={(v) => setGeneralSetting("autoSave", v)}
         />
       </SettingItem>
-      <SettingItem label="Spell check" description="Check spelling while typing in the editor.">
+      <SettingItem
+        label="Spell check (WIP)"
+        description="Check spelling while typing in the editor."
+      >
         <Switch
           checked={settingsState.general.spellCheck}
           onChange={(v) => setGeneralSetting("spellCheck", v)}
@@ -128,7 +134,7 @@ function AppearanceSection() {
           max="24"
         />
       </SettingItem>
-      <SettingItem label="Font family" description="Font used for the UI and editor.">
+      <SettingItem label="Font family (WIP)" description="Font used for the UI and editor.">
         <Select
           options={FONT_FAMILY_OPTIONS}
           value={settingsState.appearance.fontFamily}
@@ -143,7 +149,7 @@ function AppearanceSection() {
 function EditorSection() {
   return (
     <SettingSection title="Editor">
-      <SettingItem label="Tab size" description="Number of spaces per tab character.">
+      <SettingItem label="Tab size (WIP)" description="Number of spaces per tab character.">
         <Select
           options={TAB_SIZE_OPTIONS}
           value={String(settingsState.editor.tabSize)}
@@ -151,13 +157,13 @@ function EditorSection() {
           placeholder="Select tab size"
         />
       </SettingItem>
-      <SettingItem label="Word wrap" description="Wrap long lines to fit the editor width.">
+      <SettingItem label="Word wrap (WIP)" description="Wrap long lines to fit the editor width.">
         <Switch
           checked={settingsState.editor.wordWrap}
           onChange={(v) => setEditorSetting("wordWrap", v)}
         />
       </SettingItem>
-      <SettingItem label="Line numbers" description="Show line numbers in the gutter.">
+      <SettingItem label="Line numbers (WIP)" description="Show line numbers in the gutter.">
         <Switch
           checked={settingsState.editor.lineNumbers}
           onChange={(v) => setEditorSetting("lineNumbers", v)}
@@ -171,7 +177,7 @@ function FilesSection() {
   return (
     <SettingSection title="Files & Links">
       <SettingItem
-        label="Default new file location"
+        label="Default new file location (WIP)"
         description="Where new files are created by default."
       >
         <Select
@@ -181,7 +187,7 @@ function FilesSection() {
           placeholder="Select location"
         />
       </SettingItem>
-      <SettingItem label="Deleted files" description="What happens when you delete a file.">
+      <SettingItem label="Deleted files (WIP)" description="What happens when you delete a file.">
         <Select
           options={DELETED_FILES_OPTIONS}
           value={settingsState.files.deletedFiles}
