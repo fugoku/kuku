@@ -115,19 +115,6 @@ function AppearanceSection() {
           placeholder="Select theme"
         />
       </SettingItem>
-      <SettingItem label="Font size" description="Base font size for the interface (px).">
-        <input
-          type="number"
-          class={INPUT_BASE}
-          value={settingsState.appearance.fontSize}
-          onInput={(e) => {
-            const v = Number.parseInt(e.currentTarget.value, 10);
-            if (!Number.isNaN(v)) setAppearanceSetting("fontSize", v);
-          }}
-          min="10"
-          max="24"
-        />
-      </SettingItem>
       <SettingItem
         label="UI font"
         description="Font used for the interface. Enter a CSS font-family name."
@@ -136,16 +123,6 @@ function AppearanceSection() {
           value={settingsState.appearance.fontFamily}
           placeholder="e.g. Goorm Sans"
           onCommit={(v) => setAppearanceSetting("fontFamily", v)}
-        />
-      </SettingItem>
-      <SettingItem
-        label="Monospace font"
-        description="Monospace font used in the editor. Enter a CSS font-family name."
-      >
-        <FontInput
-          value={settingsState.appearance.fontMono}
-          placeholder="e.g. Goorm Sans Code"
-          onCommit={(v) => setAppearanceSetting("fontMono", v)}
         />
       </SettingItem>
     </SettingSection>
@@ -175,6 +152,7 @@ function FontInput(props: {
       <input
         type="text"
         class={INPUT_BASE}
+        style={{ "font-family": draft() }}
         value={draft()}
         placeholder={props.placeholder}
         onInput={(e) => setDraft(e.currentTarget.value)}
@@ -186,10 +164,6 @@ function FontInput(props: {
           }
         }}
       />
-      {/* Preview */}
-      <p class="truncate text-[0.8125rem] text-text-secondary" style={{ "font-family": draft() }}>
-        The quick brown fox jumps over the lazy dog. 0123456789
-      </p>
     </div>
   );
 }
@@ -215,6 +189,26 @@ function EditorSection() {
         <Switch
           checked={settingsState.editor.lineNumbers}
           onChange={(v) => setEditorSetting("lineNumbers", v)}
+        />
+      </SettingItem>
+      <SettingItem
+        label="Editor font"
+        description="Font used in the editor. Enter a CSS font-family name."
+      >
+        <FontInput
+          value={settingsState.editor.fontFamily}
+          placeholder="e.g. Goorm Sans"
+          onCommit={(v) => setEditorSetting("fontFamily", v)}
+        />
+      </SettingItem>
+      <SettingItem
+        label="Monospace font"
+        description="Monospace font used in the editor. Enter a CSS font-family name."
+      >
+        <FontInput
+          value={settingsState.editor.fontMono}
+          placeholder="e.g. Goorm Sans Code"
+          onCommit={(v) => setEditorSetting("fontMono", v)}
         />
       </SettingItem>
     </SettingSection>

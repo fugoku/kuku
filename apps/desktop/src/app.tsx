@@ -28,12 +28,13 @@ export default function App() {
 
   // Apply appearance settings reactively
   createEffect(() => {
-    document.documentElement.style.fontSize = `${settingsState.appearance.fontSize}px`;
+    const { fontFamily } = settingsState.appearance;
+    document.documentElement.style.setProperty("--font-sans", `"Emoji", "${fontFamily}"`);
   });
 
   createEffect(() => {
-    const { fontFamily, fontMono } = settingsState.appearance;
-    document.documentElement.style.setProperty("--font-sans", `"Emoji", "${fontFamily}"`);
+    const { fontFamily, fontMono } = settingsState.editor;
+    document.documentElement.style.setProperty("--font-editor", `"Emoji", "${fontFamily}"`);
     document.documentElement.style.setProperty("--font-mono", `"Emoji", "${fontMono}"`);
   });
 

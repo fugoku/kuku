@@ -13,17 +13,18 @@ interface GeneralSettings {
 
 interface AppearanceSettings {
   theme: ThemePreference;
-  fontSize: number;
   /** UI font — CSS font-family name, e.g. "Goorm Sans" */
   fontFamily: string;
-  /** Editor / monospace font — CSS font-family name, e.g. "Goorm Sans Code" */
-  fontMono: string;
 }
 
 interface EditorSettings {
   tabSize: number;
   wordWrap: boolean;
   lineNumbers: boolean;
+  /** General font for the editor — CSS font-family name, e.g. "Goorm Sans" */
+  fontFamily: string;
+  /** Monospace font for the editor — CSS font-family name, e.g. "Goorm Sans Code" */
+  fontMono: string;
 }
 
 interface FilesSettings {
@@ -48,14 +49,14 @@ const DEFAULTS: Settings = {
   },
   appearance: {
     theme: "system",
-    fontSize: 14,
     fontFamily: "Goorm Sans",
-    fontMono: "Goorm Sans Code",
   },
   editor: {
     tabSize: 2,
     wordWrap: true,
     lineNumbers: false,
+    fontFamily: "Goorm Sans",
+    fontMono: "Goorm Sans Code",
   },
   files: {
     newFileLocation: "root",
