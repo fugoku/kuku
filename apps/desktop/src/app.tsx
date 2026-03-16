@@ -3,7 +3,7 @@ import { createEffect, onCleanup, onMount } from "solid-js";
 import { PanelLeftIcon, PanelRightIcon } from "~/components/icons";
 import PanelLayout from "~/components/layout/panel_layout";
 import TitleBar from "~/components/layout/title_bar";
-import { destroyKeybindings, initKeybindings } from "~/keybindings";
+import { destroyKeybindings, initKeybindings, loadOverrides, startListening } from "~/keybindings";
 import { initFonts } from "~/lib/fonts";
 import { initTheme } from "~/stores/theme";
 import { settingsState } from "~/stores/settings";
@@ -40,6 +40,8 @@ export default function App() {
 
   onMount(() => {
     initKeybindings();
+    loadOverrides(settingsState.keybindings.overrides);
+    startListening();
     void initFonts();
     void initCloseHandler();
     void initWindowListeners();

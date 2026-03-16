@@ -35,8 +35,11 @@ export {
 export type { KeybindingEntry } from "~/keybindings/keybinding_manager";
 export {
   addKeybinding,
+  clearOverride,
   getAllBindings,
+  loadOverrides,
   removeKeybinding,
+  setOverride,
   startListening,
   stopListening,
 } from "~/keybindings/keybinding_manager";

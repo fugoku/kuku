@@ -1,4 +1,12 @@
-import { type Component, createEffect, createMemo, createSignal, For, Show } from "solid-js";
+import {
+  type Component,
+  createEffect,
+  createMemo,
+  createSignal,
+  For,
+  onMount,
+  Show,
+} from "solid-js";
 import { Dynamic } from "solid-js/web";
 
 import ScrollArea from "~/components/scroll_area";
@@ -6,13 +14,23 @@ import SettingItem from "~/components/settings/setting_item";
 import SettingSection from "~/components/settings/setting_section";
 import { Select, Switch } from "~/components/ui";
 import {
+  resetKeybindingOverride,
   setAppearanceSetting,
   setEditorSetting,
   setFilesSetting,
   setGeneralSetting,
+  setKeybindingOverride,
   settingsState,
 } from "~/stores/settings";
-import { getAllBindings, getAllCommands, type Command } from "~/keybindings";
+import {
+  clearOverride,
+  getAllBindings,
+  getAllCommands,
+  setOverride,
+  startListening,
+  stopListening,
+  type Command,
+} from "~/keybindings";
 
 // ── Types ──
 
@@ -151,6 +169,56 @@ function KeyBadge(props: { keys?: string }) {
         </div>
       )}
     </Show>
+  );
+}
+
+// ── Keybinding Recording ──
+
+function captureKeybinding(event: KeyboardEvent): string | null {
+  if (["Meta", "Control", "Shift", "Alt"].includes(event.key)) return null;
+
+  const parts: string[] = [];
+
+  if (IS_MAC) {
+    if (event.metaKey) parts.push("$mod");
+    if (event.ctrlKey) parts.push("Control");
+  } else {
+    if (event.ctrlKey) parts.push("$mod");
+    if (event.metaKey) parts.push("Meta");
+  }
+  if (event.shiftKey) parts.push("Shift");
+  if (event.altKey) parts.push("Alt");
+
+  // Require at least one modifier
+  if (parts.length === 0) return null;
+
+  parts.push(event.code);
+  return parts.join("+");
+}
+
+function RecordingInput(props: { onCapture: (keys: string) => void; onCancel: () => void }) {
+  let ref!: HTMLInputElement;
+  onMount(() => ref.focus());
+
+  return (
+    <input
+      ref={ref}
+      type="text"
+      class="w-36 rounded-sm border border-border-focused bg-bg-secondary px-2.5 py-0.5 text-[0.6875rem] text-text-muted outline-none placeholder:text-text-placeholder"
+      placeholder="Press shortcut..."
+      readOnly
+      onKeyDown={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.key === "Escape") {
+          props.onCancel();
+          return;
+        }
+        const captured = captureKeybinding(e);
+        if (captured) props.onCapture(captured);
+      }}
+      onBlur={props.onCancel}
+    />
   );
 }
 
@@ -328,9 +396,21 @@ function FilesSection() {
 
 function KeybindingsSection() {
   const [search, setSearch] = createSignal("");
+  const [recording, setRecording] = createSignal<string | null>(null);
 
   const commands = getAllCommands();
-  const bindingMap = new Map(getAllBindings().map((b) => [b.commandId, b.keys]));
+  const defaultBindingMap = new Map(getAllBindings().map((b) => [b.commandId, b.keys]));
+
+  // Merge defaults with user overrides reactively
+  const effectiveBindingMap = createMemo(() => {
+    const map = new Map(defaultBindingMap);
+    for (const [id, keys] of Object.entries(settingsState.keybindings.overrides)) {
+      map.set(id, keys);
+    }
+    return map;
+  });
+
+  const isOverridden = (commandId: string) => commandId in settingsState.keybindings.overrides;
 
   const filtered = createMemo(() => {
     const q = search().toLowerCase().trim();
@@ -338,7 +418,7 @@ function KeybindingsSection() {
     return commands.filter(
       (cmd) =>
         cmd.label.toLowerCase().includes(q) ||
-        (bindingMap.get(cmd.id) ?? "").toLowerCase().includes(q),
+        (effectiveBindingMap().get(cmd.id) ?? "").toLowerCase().includes(q),
     );
   });
 
@@ -351,6 +431,28 @@ function KeybindingsSection() {
       }, {}),
     ).sort(([a], [b]) => a.localeCompare(b)),
   );
+
+  function startRecording(commandId: string) {
+    stopListening();
+    setRecording(commandId);
+  }
+
+  function cancelRecording() {
+    setRecording(null);
+    startListening();
+  }
+
+  function handleCapture(commandId: string, keys: string) {
+    setKeybindingOverride(commandId, keys);
+    setOverride(commandId, keys);
+    setRecording(null);
+  }
+
+  function handleReset(commandId: string, e: MouseEvent) {
+    e.stopPropagation();
+    resetKeybindingOverride(commandId);
+    clearOverride(commandId);
+  }
 
   return (
     <SettingSection title="Keybindings">
@@ -379,10 +481,35 @@ function KeybindingsSection() {
                 <For each={cmds}>
                   {(cmd, i) => (
                     <div
-                      class={`flex items-center justify-between gap-4 px-3 py-2 hover:bg-ghost-hover ${i() > 0 ? "border-t border-border" : ""}`}
+                      class={`flex cursor-pointer items-center justify-between gap-4 px-3 py-2 ${i() > 0 ? "border-t border-border" : ""} ${recording() === cmd.id ? "bg-ghost-hover" : "hover:bg-ghost-hover"}`}
+                      onClick={() => {
+                        if (recording() !== cmd.id) startRecording(cmd.id);
+                      }}
                     >
                       <span class="text-[0.8125rem] text-text-primary">{cmd.label}</span>
-                      <KeyBadge keys={bindingMap.get(cmd.id)} />
+                      <Show
+                        when={recording() === cmd.id}
+                        fallback={
+                          <div class="flex items-center gap-1.5">
+                            <KeyBadge keys={effectiveBindingMap().get(cmd.id)} />
+                            <Show when={isOverridden(cmd.id)}>
+                              <button
+                                type="button"
+                                class="flex size-4 cursor-pointer items-center justify-center rounded-sm border-none bg-transparent text-text-disabled hover:text-text-primary"
+                                title="Reset to default"
+                                onClick={(e) => handleReset(cmd.id, e)}
+                              >
+                                ×
+                              </button>
+                            </Show>
+                          </div>
+                        }
+                      >
+                        <RecordingInput
+                          onCapture={(keys) => handleCapture(cmd.id, keys)}
+                          onCancel={cancelRecording}
+                        />
+                      </Show>
                     </div>
                   )}
                 </For>

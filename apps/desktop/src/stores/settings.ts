@@ -1,4 +1,4 @@
-import { createStore } from "solid-js/store";
+import { createStore, reconcile } from "solid-js/store";
 
 // ── Types ──
 
@@ -32,11 +32,17 @@ interface FilesSettings {
   deletedFiles: string;
 }
 
+interface KeybindingsSettings {
+  /** commandId → custom key combo (tinykeys format) */
+  overrides: Record<string, string>;
+}
+
 interface Settings {
   general: GeneralSettings;
   appearance: AppearanceSettings;
   editor: EditorSettings;
   files: FilesSettings;
+  keybindings: KeybindingsSettings;
 }
 
 // ── Defaults ──
@@ -62,6 +68,9 @@ const DEFAULTS: Settings = {
     newFileLocation: "root",
     deletedFiles: "trash",
   },
+  keybindings: {
+    overrides: {},
+  },
 };
 
 // ── Persistence ──
@@ -78,6 +87,7 @@ function loadSettingsSync(): Settings {
       appearance: { ...DEFAULTS.appearance, ...saved.appearance },
       editor: { ...DEFAULTS.editor, ...saved.editor },
       files: { ...DEFAULTS.files, ...saved.files },
+      keybindings: { ...DEFAULTS.keybindings, ...saved.keybindings },
     };
   } catch {
     return structuredClone(DEFAULTS);
@@ -133,6 +143,22 @@ function resetSettings(): void {
   setSettingsState("appearance", defaults.appearance);
   setSettingsState("editor", defaults.editor);
   setSettingsState("files", defaults.files);
+  setSettingsState("keybindings", defaults.keybindings);
+  saveSettingsSync();
+}
+
+function setKeybindingOverride(commandId: string, keys: string): void {
+  setSetting("keybindings", "overrides", {
+    ...settingsState.keybindings.overrides,
+    [commandId]: keys,
+  });
+}
+
+function resetKeybindingOverride(commandId: string): void {
+  const rest = Object.fromEntries(
+    Object.entries(settingsState.keybindings.overrides).filter(([key]) => key !== commandId),
+  );
+  setSettingsState("keybindings", "overrides", reconcile(rest));
   saveSettingsSync();
 }
 
@@ -145,7 +171,16 @@ export {
   setEditorSetting,
   setFilesSetting,
   setGeneralSetting,
+  setKeybindingOverride,
+  resetKeybindingOverride,
   setSetting,
   settingsState,
 };
-export type { AppearanceSettings, EditorSettings, FilesSettings, GeneralSettings, Settings };
+export type {
+  AppearanceSettings,
+  EditorSettings,
+  FilesSettings,
+  GeneralSettings,
+  KeybindingsSettings,
+  Settings,
+};

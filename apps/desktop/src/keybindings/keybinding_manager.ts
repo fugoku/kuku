@@ -22,6 +22,8 @@ interface KeybindingEntry {
 
 let unsubscribe: (() => void) | null = null;
 const bindings: KeybindingEntry[] = [];
+/** commandId → custom key combo, overrides the default keys */
+const overrides = new Map<string, string>();
 
 // ── API ──
 
@@ -45,8 +47,9 @@ function startListening(): void {
 
   for (const binding of bindings) {
     const { commandId, when, preventDefault, allowRepeat } = binding;
+    const effectiveKeys = overrides.get(commandId) ?? binding.keys;
 
-    keyMap[binding.keys] = (event: KeyboardEvent) => {
+    keyMap[effectiveKeys] = (event: KeyboardEvent) => {
       if (!allowRepeat && event.repeat) return;
       if (when && !when(getKeyboardContext())) return;
 
@@ -76,7 +79,39 @@ function getAllBindings(): KeybindingEntry[] {
   return [...bindings];
 }
 
+/**
+ * Load saved overrides (e.g. from persisted settings).
+ * Call before startListening to apply on init.
+ */
+function loadOverrides(data: Record<string, string>): void {
+  overrides.clear();
+  for (const [commandId, keys] of Object.entries(data)) {
+    overrides.set(commandId, keys);
+  }
+}
+
+/** Set a single override and rebuild the active keymap. */
+function setOverride(commandId: string, keys: string): void {
+  overrides.set(commandId, keys);
+  startListening();
+}
+
+/** Remove a single override and rebuild the active keymap. */
+function clearOverride(commandId: string): void {
+  overrides.delete(commandId);
+  startListening();
+}
+
 // ── Exports ──
 
-export { addKeybinding, getAllBindings, removeKeybinding, startListening, stopListening };
+export {
+  addKeybinding,
+  clearOverride,
+  getAllBindings,
+  loadOverrides,
+  removeKeybinding,
+  setOverride,
+  startListening,
+  stopListening,
+};
 export type { KeybindingEntry };
