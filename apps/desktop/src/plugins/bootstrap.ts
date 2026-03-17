@@ -24,6 +24,7 @@ import { coreCommandsPlugin } from "~/plugins/builtin/core_commands";
 import { editorCorePlugin } from "~/plugins/builtin/editor_core";
 import { themeDefaultPlugin } from "~/plugins/builtin/theme_default";
 import { destroyKeymap } from "~/plugins/commands";
+import { buildMarkdownService } from "~/plugins/markdown_service";
 import {
   activatePlugin,
   markPluginFailed,
@@ -115,6 +116,11 @@ async function bootstrapPlugins(): Promise<void> {
   console.debug(
     `[Bootstrap] Done. Activated: ${registryState.activated.length}/${order.length} plugins`,
   );
+
+  // Phase 3.5: Build markdown service from collected contributions
+  // [R2] Order guarantee: buildMarkdownService() completes before pluginsReady
+  // → MarkdownEditor mount point always has a valid service
+  buildMarkdownService();
 
   // Signal that all plugins are ready — editor can now mount safely
   setPluginsReady(true);

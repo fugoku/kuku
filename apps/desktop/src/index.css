@@ -1,5 +1,7 @@
 @import "tailwindcss";
 @import "overlayscrollbars/overlayscrollbars.css";
+@import "prosekit/extensions/list/style.css";
+@import "prosekit/extensions/table/style.css";
 @import "./styles/font.css";
 @import "./styles/scrollbar.css";
 @import "./styles/editor.css";

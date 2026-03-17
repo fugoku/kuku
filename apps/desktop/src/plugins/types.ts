@@ -9,6 +9,17 @@ import type { Component } from "solid-js";
 
 import type { Editor, Extension } from "prosekit/core";
 
+// ── Markdown Types ──
+
+import type {
+  MdastToPmBlockHandler,
+  MdastToPmInlineHandler,
+  PmToMdastBlockHandler,
+  PmToMdastInlineHandler,
+  PmToMdastMarkHandler,
+  RemarkPlugin,
+} from "~/lib/markdown";
+
 // ── Utility ──
 
 type Disposer = () => void;
@@ -123,6 +134,26 @@ interface EditorContribution {
 
   /** SolidJS components to render as ProseMirror mark views. */
   markViews?: Record<string, MarkViewContribution>;
+
+  /** Markdown ↔ PM JSON conversion handlers for this plugin's nodes/marks. */
+  markdown?: MarkdownContribution;
+}
+
+/** Markdown conversion handlers contributed by a plugin. */
+interface MarkdownContribution {
+  /** Additional remark plugins for parsing/stringifying custom syntax. */
+  remarkPlugins?: RemarkPlugin[];
+  /** mdast → PM JSON handlers. */
+  mdastToPm?: {
+    block?: Record<string, MdastToPmBlockHandler>;
+    inline?: Record<string, MdastToPmInlineHandler>;
+  };
+  /** PM JSON → mdast handlers. */
+  pmToMdast?: {
+    block?: Record<string, PmToMdastBlockHandler>;
+    inline?: Record<string, PmToMdastInlineHandler>;
+    mark?: Record<string, PmToMdastMarkHandler>;
+  };
 }
 
 interface NodeViewContribution {
@@ -541,6 +572,8 @@ export type {
   SettingsFieldMeta,
   // Context
   PluginContext,
+  // Markdown
+  MarkdownContribution,
   // Slots
   SlotName,
   SlotFill,

@@ -18,6 +18,7 @@ import {
   usePluginExtension,
   buildNodeViewExtension,
 } from "~/components/editor/system/editor_engine";
+import { contributeMarkdown } from "~/plugins/markdown_service";
 import { setActivationChecker, registerPluginCommand } from "~/plugins/commands";
 import { deleteContextKeysByPrefix } from "~/plugins/context_keys";
 import { removeListenersByPrefix } from "~/plugins/events";
@@ -390,6 +391,7 @@ function activateEditorContribution(pluginId: string, contribution: EditorContri
   // Node views are built async (dynamic import of prosekit/solid),
   // so we start with just the main extension and add node views when ready.
   const mainDisposer = usePluginExtension(pluginId, ext);
+  const disposers: Disposer[] = [mainDisposer];
 
   // Build and inject node view extensions if any
   if (contribution.nodeViews && Object.keys(contribution.nodeViews).length > 0) {
@@ -401,10 +403,14 @@ function activateEditorContribution(pluginId: string, contribution: EditorContri
     });
   }
 
+  // Markdown contribution
+  if (contribution.markdown) {
+    const mdDisposer = contributeMarkdown(pluginId, contribution.markdown);
+    disposers.push(mdDisposer);
+  }
+
   return () => {
-    mainDisposer();
-    // Also clean up node view extension if it was registered
-    // usePluginExtension handles cleanup via pluginExtensions map
+    for (const d of disposers) d();
   };
 }
 

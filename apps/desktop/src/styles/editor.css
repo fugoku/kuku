@@ -91,6 +91,88 @@
   color: var(--color-text-accent);
 }
 
+.ProseMirror s,
+.ProseMirror del,
+.ProseMirror strike {
+  text-decoration: line-through;
+  color: var(--color-text-secondary);
+}
+
+.ProseMirror a {
+  color: var(--color-text-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.ProseMirror a:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* ── Horizontal Rule ── */
+
+.ProseMirror hr {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 1.5em 0;
+}
+
+/* ── Blockquote ── */
+
+.ProseMirror blockquote {
+  border-left: 3px solid var(--color-border-focused);
+  margin: 0.75em 0;
+  padding: 0.25em 0 0.25em 1em;
+  color: var(--color-text-secondary);
+}
+
+.ProseMirror blockquote > *:first-child {
+  margin-top: 0;
+}
+
+.ProseMirror blockquote > *:last-child {
+  margin-bottom: 0;
+}
+
+/* ── Code Block ── */
+
+.ProseMirror pre {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  line-height: 1.6;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 0.75em 1em;
+  margin: 0.75em 0;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.ProseMirror pre code {
+  font-family: inherit;
+  font-size: inherit;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+}
+
+/* ── Image ── */
+
+.ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0.75em 0;
+  border-radius: 4px;
+}
+
+.ProseMirror img.ProseMirror-selectednode {
+  outline: 2px solid var(--color-border-selected);
+  outline-offset: 2px;
+}
+
 /* ── Selection ── */
 
 .ProseMirror ::selection {

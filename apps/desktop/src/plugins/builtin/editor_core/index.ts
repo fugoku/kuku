@@ -4,11 +4,11 @@
 // their corresponding commands with keybindings into the plugin system.
 //
 // This plugin provides the foundational editing experience:
-//   Marks: bold, italic, code
-//   Nodes: heading (h1–h6)
+//   Marks: bold, italic, code, strike, link
+//   Nodes: heading (h1–h6), horizontalRule, blockquote, codeBlock, image, list, table
 //
 // All extensions use ProseKit core primitives (defineMarkSpec, defineNodeSpec, etc.)
-// with NO predefined extensions — fully custom implementations.
+// vendored from ProseKit predefined extensions with customizations.
 
 import { union, type Extension } from "prosekit/core";
 
@@ -18,19 +18,36 @@ import type { KukuPlugin } from "~/plugins/types";
 import { defineBold } from "./marks/bold";
 import { defineCode } from "./marks/code";
 import { defineItalic } from "./marks/italic";
+import { defineLink } from "./marks/link";
+import { defineStrike } from "./marks/strike";
+import { editorCoreMarkdown } from "./markdown_handlers";
+import { defineBlockquote } from "./nodes/blockquote";
+import { defineCodeBlock } from "./nodes/code_block";
 import { defineHeading } from "./nodes/heading";
+import { defineHorizontalRule } from "./nodes/horizontal_rule";
+import { defineImage } from "./nodes/image";
+import { defineList } from "./nodes/list";
+import { defineTable } from "./nodes/table";
 
 // ── Extension Factory ──
 
 function defineEditorCoreExtension(): Extension {
   return union(
-    // Marks (custom implementations)
+    // Marks
     defineBold(),
     defineItalic(),
     defineCode(),
+    defineStrike(),
+    defineLink(),
 
-    // Nodes (custom implementations)
+    // Nodes
     defineHeading(),
+    defineHorizontalRule(),
+    defineBlockquote(),
+    defineCodeBlock(),
+    defineImage(),
+    defineList(),
+    defineTable(),
   );
 }
 
@@ -40,11 +57,13 @@ const editorCorePlugin: KukuPlugin = {
   id: "editor-core",
   name: "Editor Core",
   version: "0.1.0",
-  description: "Base editor extensions: bold, italic, code, headings",
+  description:
+    "Base editor extensions: bold, italic, code, strike, link, headings, horizontal rule, blockquote, code block, image, list, table",
 
   // ── Editor Contribution ──
   editor: {
     extension: defineEditorCoreExtension,
+    markdown: editorCoreMarkdown,
   },
 
   // ── Commands ──
