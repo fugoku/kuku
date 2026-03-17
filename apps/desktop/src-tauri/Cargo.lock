@@ -1823,6 +1823,7 @@ dependencies = [
 name = "kuku-app"
 version = "0.0.0"
 dependencies = [
+ "dirs",
  "serde",
  "serde_json",
  "tauri",
