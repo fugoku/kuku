@@ -171,6 +171,16 @@ describe("Inline code round-trip", () => {
   });
 });
 
+describe("Hard break round-trip", () => {
+  it("markdown hard break", () => {
+    assertDoubleRoundTrip("Line 1  \nLine 2");
+  });
+
+  it("raw br html", () => {
+    assertDoubleRoundTrip("Line 1<br>\nLine 2");
+  });
+});
+
 describe("Combined marks round-trip", () => {
   it("bold and italic nested", () => {
     assertDoubleRoundTrip("***bold italic***");

@@ -276,6 +276,10 @@ const htmlBlockMdastHandler: MdastToPmBlockHandler = (node) => {
 
 const htmlInlineMdastHandler: MdastToPmInlineHandler = (node, marks) => {
   const html = node as Html;
+  const normalized = html.value.trim().toLowerCase();
+  if (/^<br\s*\/?>$/.test(normalized)) {
+    return [{ type: "hardBreak" }];
+  }
   return [makeText(html.value.replace(/\n/g, " "), marks)];
 };
 

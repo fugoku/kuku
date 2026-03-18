@@ -11,6 +11,7 @@
 // vendored from ProseKit predefined extensions with customizations.
 
 import { union, type Extension } from "prosekit/core";
+import { defineHardBreak } from "prosekit/extensions/hard-break";
 
 import { getContextKey } from "~/plugins/context_keys";
 import type { KukuPlugin } from "~/plugins/types";
@@ -39,6 +40,7 @@ function defineEditorCoreExtension(): Extension {
     defineCode(),
     defineStrike(),
     defineLink(),
+    defineHardBreak(),
 
     // Nodes
     defineHeading(),

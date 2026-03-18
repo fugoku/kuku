@@ -185,7 +185,7 @@ export const textInlineHandler: PmToMdastInlineHandler = (node) => ({
   value: node.text ?? "",
 });
 
-export const hardBreakInlineHandler: PmToMdastInlineHandler = () => ({ type: "text", value: "\n" });
+export const hardBreakInlineHandler: PmToMdastInlineHandler = () => ({ type: "break" });
 
 // ── Mark-aware text handler factory ─────────────────────────────────────
 
