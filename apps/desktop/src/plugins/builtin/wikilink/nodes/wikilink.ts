@@ -4,15 +4,9 @@
  * Renders `[[target]]` / `[[target|alias]]` as inline atom nodes.
  */
 
-import type { EditorView } from "prosekit/pm/view";
-
-import { defineNodeSpec, definePlugin, union } from "prosekit/core";
+import { defineNodeSpec, union } from "prosekit/core";
 import { defineInputRule } from "prosekit/extensions/input-rule";
 import { InputRule } from "prosekit/pm/inputrules";
-import { Plugin } from "prosekit/pm/state";
-
-import { openTab } from "~/stores/files";
-import { existsInTree, vaultState } from "~/stores/vault";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -26,17 +20,6 @@ function displayText(target: string, alias?: string | null): string {
   const segments = target.split("/");
   const last = segments[segments.length - 1] ?? target;
   return last.endsWith(".md") ? last.slice(0, -3) : last;
-}
-
-/**
- * Resolve a wikilink target to a full vault file path.
- * Appends `.md` if the target doesn't already end with it.
- */
-function resolveTarget(target: string): string | null {
-  const root = vaultState.rootPath;
-  if (!root) return null;
-  const normalized = target.endsWith(".md") ? target : `${target}.md`;
-  return `${root}/${normalized}`;
 }
 
 // ── Node Spec ───────────────────────────────────────────────────────
@@ -108,43 +91,10 @@ function defineWikilinkInputRule() {
   );
 }
 
-// ── Click Handler ───────────────────────────────────────────────────
-
-/**
- * Click handler plugin — clicking a wikilink opens the target note.
- */
-function defineWikilinkClickHandler() {
-  return definePlugin(
-    new Plugin({
-      props: {
-        handleClick(view: EditorView, pos: number, event: MouseEvent) {
-          if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return false;
-
-          const resolved = view.state.doc.resolve(pos);
-          const node = resolved.nodeAfter ?? resolved.nodeBefore;
-          if (!node || node.type.name !== "wikilink") return false;
-
-          const target = node.attrs.target as string;
-          if (!target) return false;
-
-          const filePath = resolveTarget(target);
-          if (!filePath) return false;
-
-          if (!existsInTree(vaultState.files, filePath)) return false;
-
-          const fileName = displayText(target);
-          openTab(fileName, filePath);
-          return true;
-        },
-      },
-    }),
-  );
-}
-
 // ── Combined Extension ──────────────────────────────────────────────
 
 function defineWikilink() {
-  return union(defineWikilinkSpec(), defineWikilinkInputRule(), defineWikilinkClickHandler());
+  return union(defineWikilinkSpec(), defineWikilinkInputRule());
 }
 
 export { defineWikilink };

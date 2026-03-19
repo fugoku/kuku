@@ -3,14 +3,19 @@
 // Defines the "link" mark for hyperlinks with href, target, rel attributes.
 // Provides schema spec, add/remove/toggle/expand commands.
 //
+// Click handling: a single `handleDOMEvents.click` on `<a>` tags first
+// delegates to the anchor handler registry (see ~/plugins/anchor_handlers).
+// If no plugin claims the anchor, the default behaviour opens the href
+// in the system browser via @tauri-apps/plugin-opener.
+//
 // Vendored from ProseKit predefined extension with customizations.
 // Auto-linking rules are included from the upstream extension.
 
 import {
   addMark,
-  defineClickHandler,
   defineCommands,
   defineMarkSpec,
+  definePlugin,
   expandMark,
   removeMark,
   toggleMark,
@@ -19,12 +24,14 @@ import {
 } from "prosekit/core";
 import { defineInputRule } from "prosekit/extensions/input-rule";
 import { InputRule } from "prosekit/pm/inputrules";
+import { Plugin } from "prosekit/pm/state";
 import {
   defineLinkEnterRule,
   defineLinkInputRule,
   defineLinkPasteRule,
 } from "prosekit/extensions/link";
 
+import { dispatchAnchorClick } from "~/plugins/anchor_handlers";
 import { parseMarkdownLinkLikeSyntax } from "../markdown_input";
 
 function defineLinkSpec(): Extension {
@@ -94,20 +101,35 @@ function defineMarkdownLinkInputRule(): Extension {
 }
 
 function defineLinkClickHandler(): Extension {
-  return defineClickHandler((_view, _pos, event) => {
-    const target = event.target;
-    if (!(target instanceof Element)) return false;
+  return definePlugin(
+    new Plugin({
+      props: {
+        handleDOMEvents: {
+          click(_view, event) {
+            const target = event.target;
+            if (!(target instanceof Element)) return false;
 
-    const anchor = target.closest("a[href]");
-    if (!anchor) return false;
+            const anchor = target.closest("a");
+            if (!anchor) return false;
 
-    const href = anchor.getAttribute("href");
-    if (!href) return false;
+            // Delegate to registered plugin handlers first
+            if (dispatchAnchorClick(anchor)) {
+              event.preventDefault();
+              return true;
+            }
 
-    event.preventDefault();
-    void openExternalLink(href);
-    return true;
-  });
+            // Default: open href in external browser
+            const href = anchor.getAttribute("href");
+            if (!href) return false;
+
+            event.preventDefault();
+            void openExternalLink(href);
+            return true;
+          },
+        },
+      },
+    }),
+  );
 }
 
 async function openExternalLink(href: string): Promise<void> {

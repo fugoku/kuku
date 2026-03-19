@@ -2,13 +2,40 @@
 //
 // Adds `[[wikilink]]` support to the editor:
 //   - Remark plugin for parsing/serializing `[[target]]` / `[[target|alias]]`
-//   - ProseMirror inline atom node with input rule and click navigation
+//   - ProseMirror inline atom node with input rule
 //   - Markdown round-trip handlers (mdast ↔ PM JSON)
+//   - Anchor click handler: clicking a wikilink opens the target note
 
 import type { KukuPlugin } from "~/plugins/types";
 
+import { registerAnchorHandler } from "~/plugins/anchor_handlers";
+import { openTab } from "~/stores/files";
+import { existsInTree, vaultState } from "~/stores/vault";
+
 import { wikilinkMarkdown } from "./markdown_handlers";
 import { defineWikilink } from "./nodes/wikilink";
+
+// ── Helpers ─────────────────────────────────────────────────────────
+
+/**
+ * Extract the display text for a wikilink target.
+ * Takes the last path segment and strips `.md` extension.
+ */
+function displayText(target: string): string {
+  const segments = target.split("/");
+  const last = segments[segments.length - 1] ?? target;
+  return last.endsWith(".md") ? last.slice(0, -3) : last;
+}
+
+/**
+ * Resolve a wikilink target to a full vault file path.
+ * Appends `.md` if the target doesn't already end with it.
+ */
+function resolveTarget(target: string): string {
+  return target.endsWith(".md") ? target : `${target}.md`;
+}
+
+// ── Plugin Definition ───────────────────────────────────────────────
 
 const wikilinkPlugin: KukuPlugin = {
   id: "wikilink",
@@ -21,6 +48,23 @@ const wikilinkPlugin: KukuPlugin = {
   editor: {
     extension: defineWikilink,
     markdown: wikilinkMarkdown,
+  },
+
+  activate(ctx) {
+    // Register anchor click handler via the shared registry.
+    // editor_core's click plugin dispatches to this when <a data-wikilink> is clicked.
+    const dispose = registerAnchorHandler("a[data-wikilink]", (anchor) => {
+      const target = anchor.getAttribute("data-target");
+      if (!target) return false;
+
+      const filePath = resolveTarget(target);
+      if (!existsInTree(vaultState.files, filePath)) return false;
+
+      openTab(displayText(target), filePath);
+      return true;
+    });
+
+    ctx.track(dispose);
   },
 };
 
