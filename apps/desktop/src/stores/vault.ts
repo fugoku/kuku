@@ -3,6 +3,7 @@ import { createStore, produce } from "solid-js/store";
 
 import { clearEditorTabs } from "~/stores/files";
 import { setLastOpenedVault } from "~/lib/app_settings";
+import { emitEvent } from "~/plugins/events";
 import {
   closeVault as closeVaultCommand,
   listVaultFiles,
@@ -105,6 +106,7 @@ async function openVault(path: string): Promise<void> {
 
   await startWatcher();
   await loadFiles(path);
+  emitEvent("vault:opened", { rootPath: path });
 }
 
 async function closeVault(): Promise<void> {
@@ -121,6 +123,7 @@ async function closeVault(): Promise<void> {
       s.editState = null;
     }),
   );
+  emitEvent("vault:closed", undefined);
 }
 
 function toggleFolder(path: string): void {

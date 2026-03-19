@@ -22,6 +22,7 @@ import { createSignal } from "solid-js";
 import { initAppPaths } from "~/plugins/app_paths";
 import { coreCommandsPlugin } from "~/plugins/builtin/core_commands";
 import { editorCorePlugin } from "~/plugins/builtin/editor_core";
+import { graphViewPlugin } from "~/plugins/builtin/graph_view";
 import { themeDefaultPlugin } from "~/plugins/builtin/theme_default";
 import { destroyKeymap } from "~/plugins/commands";
 import { buildMarkdownService } from "~/plugins/markdown_service";
@@ -58,8 +59,9 @@ const [pluginsReady, setPluginsReady] = createSignal(false);
 const builtinPlugins: KukuPlugin[] = [
   coreCommandsPlugin,
   editorCorePlugin,
+  graphViewPlugin,
   themeDefaultPlugin,
-  // Future: graphViewPlugin, searchPlugin, consolePlugin
+  // Future: searchPlugin, consolePlugin
 ];
 
 // ── Bootstrap ──

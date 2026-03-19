@@ -116,6 +116,8 @@ interface EventDeclaration {
  * ```
  */
 interface PluginEventMap {
+  "vault:opened": { rootPath: string };
+  "vault:closed": void;
   "vault:fileCreated": { path: string };
   "vault:fileChanged": { path: string };
   "vault:fileDeleted": { path: string };

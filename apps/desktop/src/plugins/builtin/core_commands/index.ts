@@ -21,7 +21,14 @@ import {
   openTab,
   prevTab,
 } from "~/stores/files";
-import { layoutState, toggleBottomPanel, toggleLeftPanel, toggleRightPanel } from "~/stores/layout";
+import {
+  closeRightPanelView,
+  layoutState,
+  openRightPanelView,
+  toggleBottomPanel,
+  toggleLeftPanel,
+  toggleRightPanel,
+} from "~/stores/layout";
 import { toggleTheme } from "~/stores/theme";
 import { getContextKey } from "~/plugins/context_keys";
 import type { KukuPlugin } from "~/plugins/types";
@@ -143,17 +150,19 @@ const coreCommandsPlugin: KukuPlugin = {
       global: true,
       execute: () => {
         const graphTab = filesState.tabs.find((t) => t.type === "graph");
+        const rightHasGraph =
+          layoutState.rightPanelOpen && layoutState.activeRightPanelViewId === "graph-view.panel";
 
         if (graphTab) {
           // Graph tab open in center → close it
           closeTab(graphTab.id);
-        } else if (layoutState.rightPanelOpen) {
+        } else if (rightHasGraph) {
           // Right panel showing graph → move to center tab, close panel
           openTab("Graph", null, "graph");
-          toggleRightPanel();
+          closeRightPanelView();
         } else {
-          // Nothing open → open right panel
-          toggleRightPanel();
+          // Open the graph in the right panel
+          openRightPanelView("graph-view.panel");
         }
       },
     },
