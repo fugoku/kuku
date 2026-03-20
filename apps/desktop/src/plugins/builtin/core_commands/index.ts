@@ -124,14 +124,6 @@ const coreCommandsPlugin: KukuPlugin = {
       execute: () => toggleTheme(),
     },
     {
-      id: "app.openSearch",
-      label: "Open Search",
-      category: "App",
-      defaultKeys: ["$mod+Shift+KeyF"],
-      global: true,
-      execute: () => openTab("Search", null, "search"),
-    },
-    {
       id: "app.openSettings",
       label: "Open Settings",
       category: "App",

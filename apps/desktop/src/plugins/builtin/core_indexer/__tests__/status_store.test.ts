@@ -1,0 +1,40 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { indexerStatus, resetIndexerStatus, startStatusPolling } from "../status_store";
+import type { SearchService } from "../service";
+
+describe("startStatusPolling", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    resetIndexerStatus();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("updates the store from the polling service", async () => {
+    const service: SearchService = {
+      querySimple: vi.fn(),
+      queryAdvanced: vi.fn(),
+      requestRebuild: vi.fn(),
+      getStatus: vi.fn().mockResolvedValue({
+        state: "indexing",
+        totalDocs: 10,
+        indexedDocs: 3,
+        lastIndexedAt: null,
+        error: null,
+      }),
+    };
+
+    const dispose = startStatusPolling(service);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(indexerStatus.state).toBe("indexing");
+    expect(indexerStatus.totalDocs).toBe(10);
+    expect(indexerStatus.indexedDocs).toBe(3);
+
+    dispose();
+  });
+});

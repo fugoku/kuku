@@ -17,13 +17,21 @@ pub struct VaultInner {
 
 impl VaultState {
     pub fn new() -> Self {
-        Self { inner: Mutex::new(VaultInner { path: None, watcher_stop_tx: None }) }
+        Self {
+            inner: Mutex::new(VaultInner {
+                path: None,
+                watcher_stop_tx: None,
+            }),
+        }
     }
 }
 
 pub fn get_vault_root(state: &VaultState) -> Result<PathBuf, String> {
     let guard = state.inner.lock();
-    guard.path.clone().ok_or_else(|| "No vault is currently open".into())
+    guard
+        .path
+        .clone()
+        .ok_or_else(|| "No vault is currently open".into())
 }
 
 pub fn resolve_vault_path(vault_root: &Path, relative_path: &str) -> Result<PathBuf, String> {
@@ -52,7 +60,9 @@ pub fn resolve_vault_path(vault_root: &Path, relative_path: &str) -> Result<Path
     }
 
     if !resolved.starts_with(vault_root) {
-        return Err(format!("Path traversal denied: '{relative_path}' resolved outside vault"));
+        return Err(format!(
+            "Path traversal denied: '{relative_path}' resolved outside vault"
+        ));
     }
 
     Ok(resolved)

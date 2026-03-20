@@ -8,6 +8,7 @@ import VaultBrowser from "~/components/vault/vault_browser";
 import { getLastOpenedVault } from "~/lib/app_settings";
 import { initFonts } from "~/lib/fonts";
 import { bootstrapPlugins, destroyPlugins } from "~/plugins/bootstrap";
+import { Slot } from "~/plugins/slots";
 import { settingsState } from "~/stores/settings";
 import { initTheme } from "~/stores/theme";
 import { destroyCloseHandler, initCloseHandler } from "~/stores/files";
@@ -100,6 +101,9 @@ export default function App() {
         left={<VaultBrowser />}
         bottom={<p class="p-3 text-xs text-text-muted">Bottom Panel</p>}
       />
+      <div class="pointer-events-none fixed inset-0 z-50">
+        <Slot name="overlay" />
+      </div>
     </div>
   );
 }

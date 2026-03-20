@@ -20,9 +20,11 @@
 import { createSignal } from "solid-js";
 
 import { initAppPaths } from "~/plugins/app_paths";
+import { coreIndexerPlugin } from "~/plugins/builtin/core_indexer";
 import { coreCommandsPlugin } from "~/plugins/builtin/core_commands";
 import { editorCorePlugin } from "~/plugins/builtin/editor_core";
 import { graphViewPlugin } from "~/plugins/builtin/graph_view";
+import { searchPlugin } from "~/plugins/builtin/search";
 import { wikilinkPlugin } from "~/plugins/builtin/wikilink";
 import { themeDefaultPlugin } from "~/plugins/builtin/theme_default";
 import { destroyKeymap } from "~/plugins/commands";
@@ -59,11 +61,13 @@ const [pluginsReady, setPluginsReady] = createSignal(false);
  */
 const builtinPlugins: KukuPlugin[] = [
   coreCommandsPlugin,
+  coreIndexerPlugin,
   editorCorePlugin,
   wikilinkPlugin,
   graphViewPlugin,
+  searchPlugin,
   themeDefaultPlugin,
-  // Future: searchPlugin, consolePlugin
+  // Future: consolePlugin
 ];
 
 // ── Bootstrap ──

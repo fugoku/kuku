@@ -7,11 +7,17 @@ use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use tauri::{AppHandle, Emitter};
 
 use crate::models::FileChangeEvent;
+use crate::search::{SearchState, is_markdown_path};
 use crate::vault::{should_ignore_path, to_relative_path};
 
 struct PendingRename {
     path: PathBuf,
     at: Instant,
+}
+
+struct SearchStormState {
+    window_started_at: Instant,
+    modify_create_count: usize,
 }
 
 fn is_ignored(root: &Path, path: &Path) -> bool {
@@ -135,7 +141,10 @@ fn map_event(
                 if is_ignored(root, old_path) {
                     return None;
                 }
-                *pending = Some(PendingRename { path: old_path.clone(), at: Instant::now() });
+                *pending = Some(PendingRename {
+                    path: old_path.clone(),
+                    at: Instant::now(),
+                });
                 None
             }
             RenameMode::To => {
@@ -166,7 +175,11 @@ fn map_event(
     }
 }
 
-pub fn start_watching(app: AppHandle, vault_root: PathBuf) -> Result<Sender<()>, String> {
+pub fn start_watching_with_search(
+    app: AppHandle,
+    vault_root: PathBuf,
+    search_state: Option<SearchState>,
+) -> Result<Sender<()>, String> {
     let (event_tx, event_rx) = mpsc::channel::<notify::Result<Event>>();
     let mut watcher = RecommendedWatcher::new(
         move |res| {
@@ -185,8 +198,14 @@ pub fn start_watching(app: AppHandle, vault_root: PathBuf) -> Result<Sender<()>,
     std::thread::spawn(move || {
         let _watcher = watcher;
         let debounce = Duration::from_millis(300);
-        let mut last_emit = Instant::now().checked_sub(debounce).unwrap_or_else(Instant::now);
+        let mut last_emit = Instant::now()
+            .checked_sub(debounce)
+            .unwrap_or_else(Instant::now);
         let mut pending_rename: Option<PendingRename> = None;
+        let mut storm_state = SearchStormState {
+            window_started_at: Instant::now(),
+            modify_create_count: 0,
+        };
 
         loop {
             if stop_rx.try_recv().is_ok() {
@@ -204,6 +223,9 @@ pub fn start_watching(app: AppHandle, vault_root: PathBuf) -> Result<Sender<()>,
                     );
 
                     if let Some(mapped) = map_event(event, &vault_root, &mut pending_rename) {
+                        if let Some(search_state) = &search_state {
+                            handle_search_event(search_state, &mapped, &mut storm_state);
+                        }
                         if last_emit.elapsed() >= debounce || mapped.kind == "rename" {
                             let _ = app_handle.emit("vault:file-changed", mapped);
                             last_emit = Instant::now();
@@ -228,8 +250,34 @@ pub fn start_watching(app: AppHandle, vault_root: PathBuf) -> Result<Sender<()>,
     Ok(stop_tx)
 }
 
+fn handle_search_event(
+    search_state: &SearchState,
+    event: &FileChangeEvent,
+    storm_state: &mut SearchStormState,
+) {
+    if storm_state.window_started_at.elapsed() >= Duration::from_secs(1) {
+        storm_state.window_started_at = Instant::now();
+        storm_state.modify_create_count = 0;
+    }
+
+    if matches!(event.kind.as_str(), "create" | "modify")
+        && !event.is_dir
+        && is_markdown_path(&event.path)
+    {
+        storm_state.modify_create_count += 1;
+        if storm_state.modify_create_count > 100 {
+            let _ = search_state.request_rebuild();
+            return;
+        }
+    }
+
+    let _ = search_state.handle_watcher_event(event);
+}
+
 pub fn stop_watching(stop_tx: Sender<()>) -> Result<(), String> {
-    stop_tx.send(()).map_err(|e| format!("Failed to stop watcher: {e}"))
+    stop_tx
+        .send(())
+        .map_err(|e| format!("Failed to stop watcher: {e}"))
 }
 
 #[cfg(test)]

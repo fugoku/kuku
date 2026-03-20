@@ -204,6 +204,7 @@ interface ViewContribution {
 
 type ViewLocation =
   | { slot: "centerTab" }
+  | { slot: "overlay" }
   | { slot: "leftSection" }
   | { slot: "rightPanel" }
   | { slot: "bottomPanel" }
@@ -524,6 +525,7 @@ interface PluginContext {
 
 type SlotName =
   | "centerTab"
+  | "overlay"
   | "leftSection"
   | "rightPanel"
   | "bottomPanel"

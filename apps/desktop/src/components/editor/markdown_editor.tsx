@@ -7,6 +7,7 @@ import { setContextKey } from "~/plugins/context_keys";
 import { markTabDirty } from "~/stores/files";
 import { readFileWithChecksum, writeFileWithChecksum } from "~/lib/vault_fs";
 import { revealPath, setSelectedPath } from "~/stores/vault";
+import { applyPendingSearchNavigation } from "~/plugins/builtin/search/navigation";
 
 import "~/styles/editor.css";
 import "~/styles/wikilink.css";
@@ -33,6 +34,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
       settingContent = true;
       editor.setContent(markdown.parse(result.content), "start");
       settingContent = false;
+      applyPendingSearchNavigation(editor, props.filePath, { clearOnMiss: true });
 
       checksum = result.checksum;
       markTabDirty(props.tabId, false);

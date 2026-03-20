@@ -51,7 +51,10 @@ pub fn set_last_opened_vault(path: Option<&str>) -> Result<(), String> {
         .ok_or_else(|| "Settings must be a JSON object".to_string())?;
     match path {
         Some(p) => {
-            obj.insert("last_opened_vault".to_string(), Value::String(p.to_string()));
+            obj.insert(
+                "last_opened_vault".to_string(),
+                Value::String(p.to_string()),
+            );
         }
         None => {
             obj.remove("last_opened_vault");
@@ -73,11 +76,14 @@ pub async fn app_settings_set(settings: Value) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::{SystemTime, UNIX_EPOCH};
     use std::path::Path;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     fn unique_settings() -> Value {
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
         serde_json::json!({ "last_opened_vault": format!("test-{now}") })
     }
 
@@ -95,7 +101,8 @@ mod tests {
         if !path.exists() {
             return Ok(Value::Object(serde_json::Map::new()));
         }
-        let content = fs::read_to_string(path).map_err(|e| format!("Failed to read settings: {e}"))?;
+        let content =
+            fs::read_to_string(path).map_err(|e| format!("Failed to read settings: {e}"))?;
         let value: Value =
             serde_json::from_str(&content).map_err(|e| format!("Invalid settings JSON: {e}"))?;
         match value {
@@ -110,7 +117,10 @@ mod tests {
         let settings = unique_settings();
         write_settings_at(&path, settings.clone()).unwrap();
         let loaded = read_settings_at(&path).unwrap();
-        assert_eq!(loaded.get("last_opened_vault"), settings.get("last_opened_vault"));
+        assert_eq!(
+            loaded.get("last_opened_vault"),
+            settings.get("last_opened_vault")
+        );
         let _ = fs::remove_file(&path);
     }
 
@@ -119,7 +129,10 @@ mod tests {
         let path = std::env::temp_dir().join("kuku-settings-test-last-opened.json");
         let mut settings = Value::Object(serde_json::Map::new());
         if let Some(obj) = settings.as_object_mut() {
-            obj.insert("last_opened_vault".to_string(), Value::String("abc".to_string()));
+            obj.insert(
+                "last_opened_vault".to_string(),
+                Value::String("abc".to_string()),
+            );
         }
         write_settings_at(&path, settings).unwrap();
         let loaded = read_settings_at(&path).unwrap();

@@ -6,6 +6,7 @@
 //
 // Layout slots:
 //   centerTab       — editor-area tabs (graph, search, etc.)
+//   overlay         — app-wide overlays (omnibar, command palette)
 //   leftSection     — left sidebar sections
 //   rightPanel      — right panel tabs
 //   bottomPanel     — bottom panel tabs (console, etc.)
@@ -25,6 +26,7 @@ import type { Disposer, SlotFill, SlotName } from "~/plugins/types";
 
 const emptySlots: Record<SlotName, SlotFill[]> = {
   centerTab: [],
+  overlay: [],
   leftSection: [],
   rightPanel: [],
   bottomPanel: [],

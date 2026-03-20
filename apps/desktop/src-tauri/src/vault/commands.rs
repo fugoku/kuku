@@ -2,13 +2,14 @@ use std::future::Future;
 use std::path::Path;
 use std::pin::Pin;
 
-use tauri::{command, AppHandle, State};
+use tauri::{AppHandle, State, command};
 use tauri_plugin_dialog::DialogExt;
 
 use crate::app_settings::set_last_opened_vault;
 use crate::models::{ChecksumWriteResult, FileEntry, FileReadResult};
+use crate::search::SearchState;
+use crate::vault::{VaultState, watcher};
 use crate::vault::{get_vault_root, resolve_vault_path, should_ignore_path, to_relative_path};
-use crate::vault::{watcher, VaultState};
 
 fn compute_checksum(content: &str) -> String {
     blake3::hash(content.as_bytes()).to_hex().to_string()
@@ -28,20 +29,23 @@ fn read_directory_recursive<'a>(
 
         while let Some(entry) = reader.next_entry().await.map_err(|e| e.to_string())? {
             let path = entry.path();
-            let rel = path
-                .strip_prefix(root)
-                .unwrap_or(&path)
-                .to_path_buf();
+            let rel = path.strip_prefix(root).unwrap_or(&path).to_path_buf();
 
             if should_ignore_path(&rel) {
                 continue;
             }
 
             let name = entry.file_name().to_string_lossy().to_string();
-            let is_directory = entry.file_type().await.map(|ft| ft.is_dir()).unwrap_or(false);
+            let is_directory = entry
+                .file_type()
+                .await
+                .map(|ft| ft.is_dir())
+                .unwrap_or(false);
 
             if is_directory {
-                let children = read_directory_recursive(&path, root).await.unwrap_or_default();
+                let children = read_directory_recursive(&path, root)
+                    .await
+                    .unwrap_or_default();
                 folders.push(FileEntry {
                     name,
                     path: to_relative_path(root, &path),
@@ -70,6 +74,7 @@ fn read_directory_recursive<'a>(
 pub async fn vault_open(
     app: AppHandle,
     state: State<'_, VaultState>,
+    search: State<'_, SearchState>,
     path: String,
 ) -> Result<(), String> {
     if path.trim().is_empty() {
@@ -91,7 +96,10 @@ pub async fn vault_open(
         guard.path = Some(root.to_path_buf());
     }
 
-    let stop_tx = watcher::start_watching(app, root.to_path_buf())?;
+    search.switch_vault(root.to_path_buf())?;
+
+    let stop_tx =
+        watcher::start_watching_with_search(app, root.to_path_buf(), Some(search.inner().clone()))?;
     {
         let mut guard = state.inner.lock();
         guard.watcher_stop_tx = Some(stop_tx);
@@ -120,7 +128,10 @@ pub async fn vault_choose_directory(app: AppHandle) -> Result<Option<String>, St
 }
 
 #[command]
-pub async fn vault_close(state: State<'_, VaultState>) -> Result<(), String> {
+pub async fn vault_close(
+    state: State<'_, VaultState>,
+    search: State<'_, SearchState>,
+) -> Result<(), String> {
     {
         let mut guard = state.inner.lock();
         if let Some(stop_tx) = guard.watcher_stop_tx.take() {
@@ -128,34 +139,47 @@ pub async fn vault_close(state: State<'_, VaultState>) -> Result<(), String> {
         }
         guard.path = None;
     }
+    search.close_runtime()?;
     Ok(())
 }
 
 #[command]
 pub async fn vault_get_current(state: State<'_, VaultState>) -> Result<Option<String>, String> {
     let guard = state.inner.lock();
-    Ok(guard.path.as_ref().and_then(|p| p.to_str().map(|s| s.to_string())))
+    Ok(guard
+        .path
+        .as_ref()
+        .and_then(|p| p.to_str().map(|s| s.to_string())))
 }
 
 #[command]
 pub async fn vault_read_text(state: State<'_, VaultState>, path: String) -> Result<String, String> {
     let root = get_vault_root(&state)?;
     let resolved = resolve_vault_path(&root, &path)?;
-    tokio::fs::read_to_string(&resolved).await.map_err(|e| e.to_string())
+    tokio::fs::read_to_string(&resolved)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[command]
 pub async fn vault_write_text(
     state: State<'_, VaultState>,
+    search: State<'_, SearchState>,
     path: String,
     content: String,
 ) -> Result<(), String> {
     let root = get_vault_root(&state)?;
     let resolved = resolve_vault_path(&root, &path)?;
     if let Some(parent) = resolved.parent() {
-        tokio::fs::create_dir_all(parent).await.map_err(|e| e.to_string())?;
+        tokio::fs::create_dir_all(parent)
+            .await
+            .map_err(|e| e.to_string())?;
     }
-    tokio::fs::write(&resolved, &content).await.map_err(|e| e.to_string())
+    tokio::fs::write(&resolved, &content)
+        .await
+        .map_err(|e| e.to_string())?;
+    search.notify_written(&path)?;
+    Ok(())
 }
 
 #[command]
@@ -177,9 +201,13 @@ pub async fn vault_write_binary(
     let root = get_vault_root(&state)?;
     let resolved = resolve_vault_path(&root, &path)?;
     if let Some(parent) = resolved.parent() {
-        tokio::fs::create_dir_all(parent).await.map_err(|e| e.to_string())?;
+        tokio::fs::create_dir_all(parent)
+            .await
+            .map_err(|e| e.to_string())?;
     }
-    tokio::fs::write(&resolved, &data).await.map_err(|e| e.to_string())
+    tokio::fs::write(&resolved, &data)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[command]
@@ -189,7 +217,9 @@ pub async fn vault_read_with_checksum(
 ) -> Result<FileReadResult, String> {
     let root = get_vault_root(&state)?;
     let resolved = resolve_vault_path(&root, &path)?;
-    let content = tokio::fs::read_to_string(&resolved).await.map_err(|e| e.to_string())?;
+    let content = tokio::fs::read_to_string(&resolved)
+        .await
+        .map_err(|e| e.to_string())?;
     let checksum = compute_checksum(&content);
     Ok(FileReadResult { content, checksum })
 }
@@ -197,28 +227,41 @@ pub async fn vault_read_with_checksum(
 #[command]
 pub async fn vault_write_with_checksum(
     state: State<'_, VaultState>,
+    search: State<'_, SearchState>,
     path: String,
     content: String,
     checksum: String,
 ) -> Result<ChecksumWriteResult, String> {
     let root = get_vault_root(&state)?;
     let resolved = resolve_vault_path(&root, &path)?;
-    let current_content = tokio::fs::read_to_string(&resolved).await.map_err(|e| e.to_string())?;
+    let current_content = tokio::fs::read_to_string(&resolved)
+        .await
+        .map_err(|e| e.to_string())?;
     let current_checksum = compute_checksum(&current_content);
 
     if current_checksum != checksum {
-        return Ok(ChecksumWriteResult::Conflict { expected: checksum, actual: current_checksum });
+        return Ok(ChecksumWriteResult::Conflict {
+            expected: checksum,
+            actual: current_checksum,
+        });
     }
 
-    tokio::fs::write(&resolved, &content).await.map_err(|e| e.to_string())?;
-    Ok(ChecksumWriteResult::Written { checksum: compute_checksum(&content) })
+    tokio::fs::write(&resolved, &content)
+        .await
+        .map_err(|e| e.to_string())?;
+    search.notify_written(&path)?;
+    Ok(ChecksumWriteResult::Written {
+        checksum: compute_checksum(&content),
+    })
 }
 
 #[command]
 pub async fn vault_exists(state: State<'_, VaultState>, path: String) -> Result<bool, String> {
     let root = get_vault_root(&state)?;
     let resolved = resolve_vault_path(&root, &path)?;
-    tokio::fs::try_exists(&resolved).await.map_err(|e| e.to_string())
+    tokio::fs::try_exists(&resolved)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[command]
@@ -235,43 +278,71 @@ pub async fn vault_list_dir(
 pub async fn vault_mkdir(state: State<'_, VaultState>, path: String) -> Result<(), String> {
     let root = get_vault_root(&state)?;
     let resolved = resolve_vault_path(&root, &path)?;
-    tokio::fs::create_dir_all(&resolved).await.map_err(|e| e.to_string())
+    tokio::fs::create_dir_all(&resolved)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[command]
-pub async fn vault_remove(state: State<'_, VaultState>, path: String) -> Result<(), String> {
+pub async fn vault_remove(
+    state: State<'_, VaultState>,
+    search: State<'_, SearchState>,
+    path: String,
+) -> Result<(), String> {
     let root = get_vault_root(&state)?;
     let resolved = resolve_vault_path(&root, &path)?;
     if resolved == root {
         return Err("Cannot delete the vault root".into());
     }
 
-    match tokio::fs::metadata(&resolved).await {
-        Ok(metadata) if metadata.is_dir() => tokio::fs::remove_dir_all(&resolved)
+    let metadata = match tokio::fs::metadata(&resolved).await {
+        Ok(metadata) => Some(metadata),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => None,
+        Err(err) => return Err(err.to_string()),
+    };
+    let is_dir = metadata.as_ref().is_some_and(|entry| entry.is_dir());
+
+    match metadata {
+        Some(metadata) if metadata.is_dir() => tokio::fs::remove_dir_all(&resolved)
             .await
-            .map_err(|e| e.to_string()),
-        Ok(_) => tokio::fs::remove_file(&resolved).await.map_err(|e| e.to_string()),
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(err) => Err(err.to_string()),
+            .map_err(|e| e.to_string())?,
+        Some(_) => tokio::fs::remove_file(&resolved)
+            .await
+            .map_err(|e| e.to_string())?,
+        None => {}
     }
+
+    search.notify_removed(&path, is_dir)?;
+    Ok(())
 }
 
 #[command]
 pub async fn vault_rename(
     state: State<'_, VaultState>,
+    search: State<'_, SearchState>,
     from: String,
     to: String,
 ) -> Result<(), String> {
     let root = get_vault_root(&state)?;
     let from_resolved = resolve_vault_path(&root, &from)?;
     let to_resolved = resolve_vault_path(&root, &to)?;
+    let metadata = tokio::fs::metadata(&from_resolved)
+        .await
+        .map_err(|e| e.to_string())?;
+    let is_dir = metadata.is_dir();
     if from_resolved == root || to_resolved == root {
         return Err("Cannot rename the vault root".into());
     }
     if let Some(parent) = to_resolved.parent() {
-        tokio::fs::create_dir_all(parent).await.map_err(|e| e.to_string())?;
+        tokio::fs::create_dir_all(parent)
+            .await
+            .map_err(|e| e.to_string())?;
     }
-    tokio::fs::rename(&from_resolved, &to_resolved).await.map_err(|e| e.to_string())
+    tokio::fs::rename(&from_resolved, &to_resolved)
+        .await
+        .map_err(|e| e.to_string())?;
+    search.notify_renamed(&from, &to, is_dir)?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -283,7 +354,10 @@ mod tests {
     use tauri::async_runtime;
 
     fn temp_vault() -> PathBuf {
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
         let dir = std::env::temp_dir().join(format!("kuku-vault-test-{now}"));
         fs::create_dir_all(&dir).unwrap();
         dir

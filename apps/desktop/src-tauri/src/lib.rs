@@ -2,12 +2,14 @@ mod app_settings;
 mod models;
 mod plugin_fs;
 mod plugin_settings;
+mod search;
 mod vault;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .manage(vault::VaultState::new())
+        .manage(search::SearchState::new())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
@@ -43,6 +45,11 @@ pub fn run() {
             vault::commands::vault_mkdir,
             vault::commands::vault_remove,
             vault::commands::vault_rename,
+            // Search
+            search::commands::search_query_simple,
+            search::commands::search_query_advanced,
+            search::commands::search_get_status,
+            search::commands::search_request_rebuild,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
