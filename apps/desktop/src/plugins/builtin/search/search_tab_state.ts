@@ -84,10 +84,10 @@ function createSearchTabController(
       if (currentId !== sequenceId) return;
       setResults(res);
       setIsLoading(false);
-    } catch (error) {
+    } catch (caughtError) {
       if (currentId !== sequenceId) return;
       setResults(null);
-      setError(error instanceof Error ? error.message : "Search failed.");
+      setError(caughtError instanceof Error ? caughtError.message : "Search failed.");
       setIsLoading(false);
     }
   };

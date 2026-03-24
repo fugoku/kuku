@@ -2,6 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createWatcherRefreshScheduler } from "~/stores/watcher_refresh";
 
+function callIfPresent(fn: (() => void) | null): void {
+  if (fn) {
+    fn();
+  }
+}
+
 describe("watcher refresh scheduler", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -35,7 +41,9 @@ describe("watcher refresh scheduler", () => {
             resolve();
             return;
           }
-          resolveFirst = resolve;
+          resolveFirst = () => {
+            resolve();
+          };
         }),
     );
     const scheduler = createWatcherRefreshScheduler(runRefresh, 40);
@@ -48,7 +56,7 @@ describe("watcher refresh scheduler", () => {
     await vi.advanceTimersByTimeAsync(40);
     expect(runRefresh).toHaveBeenCalledTimes(1);
 
-    resolveFirst?.();
+    callIfPresent(resolveFirst);
     await Promise.resolve();
     await vi.advanceTimersByTimeAsync(40);
     expect(runRefresh).toHaveBeenCalledTimes(2);

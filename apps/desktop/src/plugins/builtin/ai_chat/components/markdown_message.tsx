@@ -1,23 +1,23 @@
 import type {
   Code,
-  Content,
   Heading,
   Image,
   Link,
   List,
   ListItem,
-  Parent,
-  Root,
+  PhrasingContent,
+  RootContent,
   Table,
   TableCell,
   TableRow,
 } from "mdast";
 
-import { createMemo } from "solid-js";
+import { createMemo, type JSX } from "solid-js";
 
 import { createProcessor } from "~/lib/markdown";
 
 const processor = createProcessor();
+type RenderableContent = RootContent | PhrasingContent;
 
 function escapeHtml(value: string): string {
   return value
@@ -28,8 +28,8 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#39;");
 }
 
-function renderChildren(node: Parent): string {
-  return node.children.map((child) => renderNode(child)).join("");
+function renderChildren(children: readonly RenderableContent[]): string {
+  return children.map((child) => renderNode(child)).join("");
 }
 
 function renderList(node: List): string {
@@ -39,13 +39,13 @@ function renderList(node: List): string {
 }
 
 function renderListItem(node: ListItem): string {
-  const content = node.children.map((child) => renderNode(child as Content)).join("");
+  const content = renderChildren(node.children as readonly RenderableContent[]);
   return `<li>${content || "<p></p>"}</li>`;
 }
 
 function renderHeading(node: Heading): string {
   const depth = Math.min(Math.max(node.depth, 1), 6);
-  return `<h${depth}>${renderChildren(node)}</h${depth}>`;
+  return `<h${depth}>${renderChildren(node.children)}</h${depth}>`;
 }
 
 function renderCode(node: Code): string {
@@ -55,7 +55,7 @@ function renderCode(node: Code): string {
 
 function renderLink(node: Link): string {
   const href = escapeHtml(node.url);
-  return `<a href="${href}" target="_blank" rel="noreferrer noopener">${renderChildren(node)}</a>`;
+  return `<a href="${href}" target="_blank" rel="noreferrer noopener">${renderChildren(node.children)}</a>`;
 }
 
 function renderImage(node: Image): string {
@@ -80,27 +80,27 @@ function renderTableRow(node: TableRow, isHead: boolean): string {
 
 function renderTableCell(node: TableCell, isHead: boolean): string {
   const tag = isHead ? "th" : "td";
-  return `<${tag}>${renderChildren(node)}</${tag}>`;
+  return `<${tag}>${renderChildren(node.children)}</${tag}>`;
 }
 
-function renderNode(node: Content): string {
+function renderNode(node: RenderableContent): string {
   switch (node.type) {
     case "paragraph":
-      return `<p>${renderChildren(node)}</p>`;
+      return `<p>${renderChildren(node.children)}</p>`;
     case "text":
       return escapeHtml(node.value);
     case "strong":
-      return `<strong>${renderChildren(node)}</strong>`;
+      return `<strong>${renderChildren(node.children)}</strong>`;
     case "emphasis":
-      return `<em>${renderChildren(node)}</em>`;
+      return `<em>${renderChildren(node.children)}</em>`;
     case "delete":
-      return `<del>${renderChildren(node)}</del>`;
+      return `<del>${renderChildren(node.children)}</del>`;
     case "inlineCode":
       return `<code>${escapeHtml(node.value)}</code>`;
     case "code":
       return renderCode(node);
     case "blockquote":
-      return `<blockquote>${renderChildren(node)}</blockquote>`;
+      return `<blockquote>${renderChildren(node.children as readonly RenderableContent[])}</blockquote>`;
     case "heading":
       return renderHeading(node);
     case "list":
@@ -125,7 +125,10 @@ function renderNode(node: Content): string {
       return `<code>${escapeHtml(node.value)}</code>`;
     default:
       if ("children" in node && Array.isArray(node.children)) {
-        return renderChildren(node as Parent);
+        return renderChildren(node.children as readonly RenderableContent[]);
+      }
+      if ("target" in node && typeof node.target === "string") {
+        return escapeHtml(node.target);
       }
       if ("value" in node && typeof node.value === "string") {
         return escapeHtml(node.value);
@@ -136,8 +139,8 @@ function renderNode(node: Content): string {
 
 function renderMarkdown(source: string): string {
   try {
-    const tree = processor.parse(source);
-    return tree.children.map((child) => renderNode(child)).join("");
+    const tree = processor.parse(source) as { children: RootContent[] };
+    return renderChildren(tree.children);
   } catch {
     return `<p>${escapeHtml(source)}</p>`;
   }

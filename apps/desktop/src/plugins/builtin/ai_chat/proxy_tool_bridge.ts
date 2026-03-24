@@ -10,34 +10,36 @@ async function createProxyToolBridge(): Promise<{
   const handlers = new Map<string, ProxyToolSpec["handler"]>();
   const specs = new Map<string, ProxyToolSpec>();
 
-  const unlisten = await listen<ProxyToolCallPayload>("ai:proxy-tool-call", async (event) => {
-    const { callId, toolName, arguments: args } = event.payload;
-    const handler = handlers.get(toolName);
+  const unlisten = await listen<ProxyToolCallPayload>("ai:proxy-tool-call", (event) => {
+    void (async () => {
+      const { callId, toolName, arguments: args } = event.payload;
+      const handler = handlers.get(toolName);
 
-    if (!handler) {
-      await invoke("plugin:ai|ai_submit_proxy_tool_result", {
-        callId,
-        output: `No handler registered for proxy tool: ${toolName}`,
-        isError: true,
-      }).catch(() => {});
-      return;
-    }
+      if (!handler) {
+        await invoke("plugin:ai|ai_submit_proxy_tool_result", {
+          callId,
+          output: `No handler registered for proxy tool: ${toolName}`,
+          isError: true,
+        }).catch(() => {});
+        return;
+      }
 
-    try {
-      const output = await handler(args);
-      await invoke("plugin:ai|ai_submit_proxy_tool_result", {
-        callId,
-        output,
-        isError: false,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      await invoke("plugin:ai|ai_submit_proxy_tool_result", {
-        callId,
-        output: message,
-        isError: true,
-      }).catch(() => {});
-    }
+      try {
+        const output = await handler(args);
+        await invoke("plugin:ai|ai_submit_proxy_tool_result", {
+          callId,
+          output,
+          isError: false,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        await invoke("plugin:ai|ai_submit_proxy_tool_result", {
+          callId,
+          output: message,
+          isError: true,
+        }).catch(() => {});
+      }
+    })();
   });
 
   const registry: AiProxyToolRegistry = {

@@ -81,7 +81,12 @@ export default function GraphPanel() {
             <Show when={currentFilePath()}>
               <PanelBtn
                 title="Locate current note"
-                onClick={() => handle()?.locateNode(currentFilePath()!)}
+                onClick={() => {
+                  const path = currentFilePath();
+                  if (path) {
+                    handle()?.locateNode(path);
+                  }
+                }}
               >
                 ◎
               </PanelBtn>

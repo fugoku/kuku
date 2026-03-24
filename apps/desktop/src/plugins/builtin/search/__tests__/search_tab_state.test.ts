@@ -103,9 +103,11 @@ describe("createSearchTabController", () => {
   });
 
   it("switches to regex mode and calls the advanced query path", async () => {
+    const querySimple = vi.fn().mockResolvedValue({ query: "note", total: 0, items: [] });
+    const queryAdvanced = vi.fn().mockResolvedValue({ query: "note", total: 0, items: [] });
     const service: SearchService = {
-      querySimple: vi.fn().mockResolvedValue({ query: "note", total: 0, items: [] }),
-      queryAdvanced: vi.fn().mockResolvedValue({ query: "note", total: 0, items: [] }),
+      querySimple,
+      queryAdvanced,
       getStatus: vi.fn(),
       requestRebuild: vi.fn(),
     };
@@ -123,8 +125,8 @@ describe("createSearchTabController", () => {
             await vi.advanceTimersByTimeAsync(250);
             await Promise.resolve();
 
-            expect(service.querySimple).toHaveBeenCalledTimes(1);
-            expect(service.queryAdvanced).toHaveBeenCalledWith({
+            expect(querySimple).toHaveBeenCalledTimes(1);
+            expect(queryAdvanced).toHaveBeenCalledWith({
               query: "note",
               caseSensitive: false,
             });

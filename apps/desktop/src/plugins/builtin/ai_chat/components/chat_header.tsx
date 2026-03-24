@@ -1,4 +1,4 @@
-import { Show } from "solid-js";
+import { Show, type JSX } from "solid-js";
 
 import { Switch } from "~/components/ui";
 
@@ -27,15 +27,16 @@ const STATUS_TONE_CLASSES: Record<ChatUiTone, string> = {
   success: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
 };
 
+function getAgentSession(current: ChatSessionState | null): ChatSessionState | null {
+  return current?.mode === "agent" ? current : null;
+}
+
 function ChatHeader(): JSX.Element {
   const session = () =>
     chatState.activeSessionId ? (chatState.sessions[chatState.activeSessionId] ?? null) : null;
   const statusMeta = () => getSessionStatusMeta(session());
-  const canCancel = () => {
-    const current = session();
-    return isSessionBusy(current);
-  };
-  const canAutoApprove = (current: ChatSessionState | null) => current?.mode === "agent";
+  const canCancel = () => isSessionBusy(session());
+  const agentSession = () => getAgentSession(session());
   const canChangeSession = () => !chatState.isCreatingSession && !isSessionBusy(session());
 
   return (
@@ -43,7 +44,7 @@ function ChatHeader(): JSX.Element {
       <div class="flex items-start justify-between gap-3">
         <div>
           <h2 class="text-sm font-semibold text-text-primary">AI Chat</h2>
-          <p class="mt-1 text-[11px] text-text-muted">
+          <p class="mt-1 text-[0.6875rem] text-text-muted">
             <Show when={session()} fallback={<span>Connect Gemini and start a session.</span>}>
               {(current) => (
                 <span>
@@ -55,17 +56,17 @@ function ChatHeader(): JSX.Element {
         </div>
         <div class="flex flex-col items-end gap-2">
           <div
-            class={`rounded-full border px-2.5 py-1 text-[11px] ${STATUS_TONE_CLASSES[statusMeta().tone]}`}
+            class={`rounded-full border px-2.5 py-1 text-[0.6875rem] ${STATUS_TONE_CLASSES[statusMeta().tone]}`}
           >
             {statusMeta().label}
           </div>
-          <Show when={canAutoApprove(session())}>
+          <Show when={agentSession()}>
             {(current) => (
               <Switch
                 checked={current().autoApprove}
                 onChange={(enabled) => setAutoApprove(current().id, enabled)}
                 label="Auto-approve"
-                class="text-[11px]"
+                class="text-[0.6875rem]"
               />
             )}
           </Show>

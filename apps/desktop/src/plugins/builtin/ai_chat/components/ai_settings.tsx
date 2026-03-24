@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createSignal } from "solid-js";
+import { For, Show, createEffect, createSignal, type JSX } from "solid-js";
 
 import { chatState, loadConfig, loadTools, saveConfig } from "../chat_store";
 
@@ -19,7 +19,7 @@ function AiSettings(): JSX.Element {
         <h3 class="text-xs font-semibold tracking-[0.12em] text-text-muted uppercase">Settings</h3>
         <button
           type="button"
-          class="rounded-md border border-border bg-bg-secondary px-2.5 py-1 text-[11px] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+          class="rounded-md border border-border bg-bg-secondary px-2.5 py-1 text-[0.6875rem] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
           onClick={() => void Promise.all([loadConfig(), loadTools()])}
         >
           Refresh
@@ -28,7 +28,7 @@ function AiSettings(): JSX.Element {
 
       <div class="space-y-3">
         <label class="block space-y-1.5">
-          <span class="text-[11px] text-text-muted">API Key</span>
+          <span class="text-[0.6875rem] text-text-muted">API Key</span>
           <input
             type="password"
             value={apiKey()}
@@ -39,7 +39,7 @@ function AiSettings(): JSX.Element {
         </label>
 
         <label class="block space-y-1.5">
-          <span class="text-[11px] text-text-muted">Model</span>
+          <span class="text-[0.6875rem] text-text-muted">Model</span>
           <input
             type="text"
             value={model()}
@@ -52,10 +52,10 @@ function AiSettings(): JSX.Element {
         <div class="flex items-center justify-between gap-2">
           <div class="space-y-1">
             <Show when={chatState.config.error}>
-              {(error) => <p class="text-[11px] text-red-400">{error()}</p>}
+              {(error) => <p class="text-[0.6875rem] text-red-400">{error()}</p>}
             </Show>
             <Show when={chatState.config.toolsError}>
-              {(error) => <p class="text-[11px] text-red-400">{error()}</p>}
+              {(error) => <p class="text-[0.6875rem] text-red-400">{error()}</p>}
             </Show>
           </div>
           <button
@@ -70,10 +70,10 @@ function AiSettings(): JSX.Element {
 
         <div class="space-y-1.5 rounded-xl border border-border bg-bg-secondary/70 p-3">
           <div class="flex items-center justify-between gap-2">
-            <span class="text-[11px] tracking-[0.12em] text-text-muted uppercase">
+            <span class="text-[0.6875rem] tracking-[0.12em] text-text-muted uppercase">
               Available Tools
             </span>
-            <span class="text-[11px] text-text-muted">
+            <span class="text-[0.6875rem] text-text-muted">
               {chatState.config.toolsLoading
                 ? "Loading..."
                 : `${chatState.config.availableTools.length}`}
@@ -82,12 +82,14 @@ function AiSettings(): JSX.Element {
 
           <Show
             when={chatState.config.availableTools.length > 0}
-            fallback={<p class="text-[11px] text-text-muted">No tools returned by the backend.</p>}
+            fallback={
+              <p class="text-[0.6875rem] text-text-muted">No tools returned by the backend.</p>
+            }
           >
             <div class="flex flex-wrap gap-2">
               <For each={chatState.config.availableTools}>
                 {(tool) => (
-                  <div class="rounded-full border border-border bg-bg-primary px-2.5 py-1 text-[11px] text-text-secondary">
+                  <div class="rounded-full border border-border bg-bg-primary px-2.5 py-1 text-[0.6875rem] text-text-secondary">
                     <span class="font-medium text-text-primary">{tool.name}</span>
                     <span class="ml-1 text-text-muted">· {tool.category}</span>
                   </div>

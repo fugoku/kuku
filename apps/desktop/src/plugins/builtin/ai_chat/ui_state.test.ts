@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+
 import type { ChatApprovalMessage, ChatSessionState, ChatToolMessage } from "./types";
 import {
   getApprovalStatusLabel,

@@ -1,4 +1,4 @@
-import { createEffect } from "solid-js";
+import { createEffect, type JSX } from "solid-js";
 
 import { chatState } from "./chat_store";
 import { AiSettings } from "./components/ai_settings";
@@ -12,8 +12,8 @@ function ChatPanel(): JSX.Element {
   createEffect(() => {
     const activeId = chatState.activeSessionId;
     const session = activeId ? (chatState.sessions[activeId] ?? null) : null;
-    session?.messages.length;
-    if (!activeId || !scrollHost) return;
+    const messageCount = session?.messages.length ?? 0;
+    if (!activeId || !scrollHost || messageCount === 0) return;
     requestAnimationFrame(() => {
       scrollHost?.scrollTo({ top: scrollHost.scrollHeight, behavior: "smooth" });
     });

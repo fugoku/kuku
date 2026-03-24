@@ -10,6 +10,7 @@ import type {
   ChatMode,
   ChatSessionState,
   ChatStoreState,
+  ChatTextMessage,
   ChatToolMessage,
   DonePayload,
   ErrorPayload,
@@ -70,7 +71,7 @@ function createSessionState(id: string, mode: ChatMode): ChatSessionState {
 }
 
 function isSessionBusy(session: ChatSessionState | null | undefined): boolean {
-  return Boolean(session) && BUSY_SESSION_STATUSES.includes(session!.status);
+  return session != null && BUSY_SESSION_STATUSES.includes(session.status);
 }
 
 function setSelectedMode(mode: ChatMode): void {
@@ -94,10 +95,8 @@ function appendTextMessage(
   message: Omit<Extract<ChatMessage, { kind: "text" }>, "id">,
 ): void {
   if (!chatState.sessions[sessionId]) return;
-  setChatState("sessions", sessionId, "messages", (prev) => [
-    ...prev,
-    { id: crypto.randomUUID(), ...message },
-  ]);
+  const nextMessage: ChatTextMessage = { id: crypto.randomUUID(), ...message };
+  setChatState("sessions", sessionId, "messages", (prev) => [...prev, nextMessage]);
 }
 
 function appendSystemMessage(sessionId: string, content: string): void {
@@ -117,10 +116,14 @@ function upsertAssistantPlaceholder(sessionId: string): string | null {
   }
 
   const id = crypto.randomUUID();
-  setChatState("sessions", sessionId, "messages", (prev) => [
-    ...prev,
-    { id, kind: "text", role: "assistant", content: "", streaming: true },
-  ]);
+  const assistantMessage: ChatTextMessage = {
+    id,
+    kind: "text",
+    role: "assistant",
+    content: "",
+    streaming: true,
+  };
+  setChatState("sessions", sessionId, "messages", (prev) => [...prev, assistantMessage]);
   setChatState("sessions", sessionId, "inflightAssistantId", id);
   setChatState("sessions", sessionId, "status", "streaming");
   return id;
@@ -141,7 +144,10 @@ function closeAssistantSegment(sessionId: string): void {
 
   const current = session.messages[index];
   if (current.kind === "text") {
-    setChatState("sessions", sessionId, "messages", index, "streaming", false);
+    setChatState("sessions", sessionId, "messages", index, {
+      ...current,
+      streaming: false,
+    });
   }
   setChatState("sessions", sessionId, "inflightAssistantId", null);
 }
@@ -159,8 +165,11 @@ function appendDelta(sessionId: string, delta: string): void {
   const current = session.messages[index];
   if (current.kind !== "text") return;
 
-  setChatState("sessions", sessionId, "messages", index, "content", `${current.content}${delta}`);
-  setChatState("sessions", sessionId, "messages", index, "streaming", true);
+  setChatState("sessions", sessionId, "messages", index, {
+    ...current,
+    content: `${current.content}${delta}`,
+    streaming: true,
+  });
   setChatState("sessions", sessionId, "status", "streaming");
 }
 
@@ -348,7 +357,10 @@ function toggleToolExpanded(sessionId: string, callId: string): void {
 
   const current = session.messages[index];
   if (current.kind !== "tool") return;
-  setChatState("sessions", sessionId, "messages", index, "expanded", !current.expanded);
+  setChatState("sessions", sessionId, "messages", index, {
+    ...current,
+    expanded: !current.expanded,
+  });
 }
 
 function toggleApprovalExpanded(sessionId: string, callId: string): void {
@@ -363,7 +375,10 @@ function toggleApprovalExpanded(sessionId: string, callId: string): void {
 
   const current = session.messages[index];
   if (current.kind !== "approval" || current.status === "pending") return;
-  setChatState("sessions", sessionId, "messages", index, "expanded", !current.expanded);
+  setChatState("sessions", sessionId, "messages", index, {
+    ...current,
+    expanded: !current.expanded,
+  });
 }
 
 function setAutoApprove(sessionId: string, enabled: boolean): void {
@@ -409,10 +424,10 @@ async function createSession(mode: ChatMode = chatState.selectedMode): Promise<s
     return payload.sessionId;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    const active = getActiveSession();
-    if (active) {
-      setError(active.id, { sessionId: active.id, message });
-      appendSystemMessage(active.id, message);
+    const currentSession = getActiveSession();
+    if (currentSession) {
+      setError(currentSession.id, { sessionId: currentSession.id, message });
+      appendSystemMessage(currentSession.id, message);
     }
     return null;
   } finally {
@@ -505,7 +520,7 @@ async function loadConfig(): Promise<void> {
   setChatState("config", "error", null);
   try {
     const config = await invoke<AiConfig>("plugin:ai|ai_get_config");
-    setChatState("config", "rawConfig", config as Record<string, unknown>);
+    setChatState("config", "rawConfig", config as unknown as Record<string, unknown>);
     setChatState("config", "apiKey", config.apiKey ?? "");
     setChatState("config", "model", config.model || DEFAULT_MODEL);
   } catch (error) {
@@ -532,7 +547,7 @@ async function saveConfig(nextApiKey: string, nextModel: string): Promise<void> 
       proxyToolTimeoutMs: currentConfig.proxyToolTimeoutMs ?? DEFAULT_PROXY_TIMEOUT_MS,
     };
     await invoke<void>("plugin:ai|ai_set_config", { config: nextConfig });
-    setChatState("config", "rawConfig", nextConfig as Record<string, unknown>);
+    setChatState("config", "rawConfig", nextConfig as unknown as Record<string, unknown>);
     setChatState("config", "apiKey", nextApiKey);
     setChatState("config", "model", nextModel || DEFAULT_MODEL);
   } catch (error) {

@@ -58,6 +58,7 @@ const watcherRefreshScheduler = createWatcherRefreshScheduler(async () => {
   try {
     await loadFiles(root);
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.error("Failed to refresh vault after watcher event", error);
   }
 });

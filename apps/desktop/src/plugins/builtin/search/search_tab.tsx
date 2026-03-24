@@ -11,6 +11,8 @@ const SEGMENT = "rounded-md px-3 py-1.5 text-xs transition-colors";
 
 export default function SearchTab() {
   const controller = createSearchTabController();
+  const searchResults = () => controller.results();
+  const items = () => searchResults()?.items ?? [];
 
   return (
     <div class="flex h-full min-h-0 flex-col bg-bg-primary">
@@ -89,20 +91,14 @@ export default function SearchTab() {
         <Show when={!controller.isLoading() && controller.error()}>
           {(error) => <p class="text-sm text-red-400">{error()}</p>}
         </Show>
-        <Show when={!controller.isLoading() && !controller.error() && !controller.results()}>
+        <Show when={!controller.isLoading() && !controller.error() && !searchResults()}>
           <p class="text-sm text-text-muted">Type to search indexed markdown content.</p>
         </Show>
-        <Show
-          when={
-            !controller.isLoading() &&
-            controller.results() &&
-            controller.results()!.items.length === 0
-          }
-        >
+        <Show when={!controller.isLoading() && searchResults() && items().length === 0}>
           <p class="text-sm text-text-muted">No matches found.</p>
         </Show>
-        <Show when={controller.results() && controller.results()!.items.length > 0}>
-          <SearchResultsList hits={controller.results()!.items} onSelect={openSearchHit} />
+        <Show when={items().length > 0}>
+          <SearchResultsList hits={items()} onSelect={openSearchHit} />
         </Show>
       </div>
     </div>

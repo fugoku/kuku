@@ -75,7 +75,7 @@ function buildSuggestLinksPayload(
   maxResults = 10,
 ): SuggestLinksPayload {
   const safeLimit = toNonNegativeInteger(maxResults, 10);
-  const linked = new Set(state.adjacencyMap[path] ?? []);
+  const linked = new Set(state.adjacencyMap[path]);
   const seen = new Set<string>();
   const candidates: SuggestLinkCandidate[] = [];
 

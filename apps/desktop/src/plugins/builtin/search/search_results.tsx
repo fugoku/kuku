@@ -27,7 +27,7 @@ export function SearchResultsList(props: SearchResultsListProps) {
             classList={{
               "bg-bg-tertiary": props.selectedIndex === index(),
               "px-3 py-2": compact(),
-              "p-3  hover:bg-bg-tertiary": !compact(),
+              "p-3 hover:bg-bg-tertiary": !compact(),
             }}
             onMouseEnter={() => props.onHoverIndexChange?.(index())}
             onClick={() => props.onSelect(hit)}
@@ -42,17 +42,19 @@ export function SearchResultsList(props: SearchResultsListProps) {
               >
                 {hit.title ?? fileNameFromPath(hit.docId)}
               </p>
-              <span class="shrink-0 text-[11px] text-text-muted">{hit.kind}</span>
+              <span class="shrink-0 text-[0.6875rem] text-text-muted">{hit.kind}</span>
             </div>
             <p class="mt-1 truncate text-xs text-text-muted">{hit.docId}</p>
             <Show when={hit.sectionPath.length > 0}>
-              <p class="mt-1 truncate text-[11px] text-text-muted">{hit.sectionPath.join(" / ")}</p>
+              <p class="mt-1 truncate text-[0.6875rem] text-text-muted">
+                {hit.sectionPath.join(" / ")}
+              </p>
             </Show>
             <p
               class={
                 compact()
-                  ? "mt-2 text-xs/5  text-text-secondary"
-                  : "mt-2 text-xs/5  text-text-secondary"
+                  ? "mt-2 text-xs/5 text-text-secondary"
+                  : "mt-2 text-xs/5 text-text-secondary"
               }
             >
               {hit.snippet}

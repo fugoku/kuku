@@ -1,10 +1,17 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import type {
+  applyPendingSearchNavigation as ApplyPendingSearchNavigation,
+  clearPendingSearchNavigation as ClearPendingSearchNavigation,
+  findSectionHeadingPosition as FindSectionHeadingPosition,
+  getPendingSearchNavigation as GetPendingSearchNavigation,
+  queuePendingSearchNavigation as QueuePendingSearchNavigation,
+} from "../navigation";
 
-let applyPendingSearchNavigation: typeof import("../navigation").applyPendingSearchNavigation;
-let clearPendingSearchNavigation: typeof import("../navigation").clearPendingSearchNavigation;
-let findSectionHeadingPosition: typeof import("../navigation").findSectionHeadingPosition;
-let getPendingSearchNavigation: typeof import("../navigation").getPendingSearchNavigation;
-let queuePendingSearchNavigation: typeof import("../navigation").queuePendingSearchNavigation;
+let applyPendingSearchNavigation: typeof ApplyPendingSearchNavigation;
+let clearPendingSearchNavigation: typeof ClearPendingSearchNavigation;
+let findSectionHeadingPosition: typeof FindSectionHeadingPosition;
+let getPendingSearchNavigation: typeof GetPendingSearchNavigation;
+let queuePendingSearchNavigation: typeof QueuePendingSearchNavigation;
 
 beforeAll(async () => {
   Object.defineProperty(globalThis, "localStorage", {

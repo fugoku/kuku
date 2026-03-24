@@ -1,4 +1,4 @@
-import { createEffect, createSignal } from "solid-js";
+import { createEffect, createSignal, type JSX } from "solid-js";
 
 import { chatState, sendMessage, setDraft } from "../chat_store";
 import { getSessionStatusMeta } from "../ui_state";
@@ -7,8 +7,7 @@ function ChatInput(): JSX.Element {
   const [draft, setLocalDraft] = createSignal("");
   const session = () =>
     chatState.activeSessionId ? (chatState.sessions[chatState.activeSessionId] ?? null) : null;
-  const isLocked = () =>
-    chatState.isCreatingSession || (Boolean(session()) && session()!.status !== "idle");
+  const isLocked = () => chatState.isCreatingSession || (session()?.status ?? "idle") !== "idle";
   const helperText = () =>
     session()
       ? getSessionStatusMeta(session()).description
@@ -50,7 +49,7 @@ function ChatInput(): JSX.Element {
         }}
       />
       <div class="mt-3 flex items-center justify-between gap-2">
-        <p class="text-[11px] text-text-muted">{helperText()}</p>
+        <p class="text-[0.6875rem] text-text-muted">{helperText()}</p>
         <button
           type="button"
           disabled={isLocked() || chatState.isSendingMessage || !draft().trim()}

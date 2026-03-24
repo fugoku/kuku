@@ -1,4 +1,4 @@
-import { For, Show } from "solid-js";
+import { For, Show, type JSX } from "solid-js";
 
 import { getActiveSession } from "../chat_store";
 import type { ChatMessage } from "../types";
@@ -17,7 +17,7 @@ function TextBubble(props: {
         "self-end border-accent/30 bg-accent/15": props.role === "user",
         "self-start border-border bg-bg-secondary": props.role !== "user",
       }}
-      class="max-w-[92%] rounded-2xl border px-3 py-2 text-sm/6  text-text-primary"
+      class="max-w-[92%] rounded-2xl border px-3 py-2 text-sm/6 text-text-primary"
     >
       <Show
         when={props.content.length > 0}

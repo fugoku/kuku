@@ -9,6 +9,8 @@ const INPUT =
 
 export default function SearchOmnibar() {
   const controller = createOmnibarController();
+  const results = () => controller.results();
+  const items = () => results()?.items ?? [];
   let inputRef: HTMLInputElement | undefined;
 
   const submitSelection = () => {
@@ -72,21 +74,15 @@ export default function SearchOmnibar() {
           <Show when={!controller.isLoading() && controller.error()}>
             {(error) => <p class="text-sm text-red-400">{error()}</p>}
           </Show>
-          <Show when={!controller.isLoading() && !controller.error() && !controller.results()}>
+          <Show when={!controller.isLoading() && !controller.error() && !results()}>
             <p class="text-sm text-text-muted">Type to search indexed markdown content.</p>
           </Show>
-          <Show
-            when={
-              !controller.isLoading() &&
-              controller.results() &&
-              controller.results()!.items.length === 0
-            }
-          >
+          <Show when={!controller.isLoading() && results() && items().length === 0}>
             <p class="text-sm text-text-muted">No matches found.</p>
           </Show>
-          <Show when={controller.results() && controller.results()!.items.length > 0}>
+          <Show when={items().length > 0}>
             <SearchResultsList
-              hits={controller.results()!.items}
+              hits={items()}
               compact
               selectedIndex={controller.selectedIndex()}
               onHoverIndexChange={(index) => controller.setSelectedIndex(index)}
