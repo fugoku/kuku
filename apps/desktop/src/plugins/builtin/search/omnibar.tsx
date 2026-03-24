@@ -76,7 +76,11 @@ export default function SearchOmnibar() {
             <p class="text-sm text-text-muted">Type to search indexed markdown content.</p>
           </Show>
           <Show
-            when={!controller.isLoading() && controller.results() && controller.results()!.items.length === 0}
+            when={
+              !controller.isLoading() &&
+              controller.results() &&
+              controller.results()!.items.length === 0
+            }
           >
             <p class="text-sm text-text-muted">No matches found.</p>
           </Show>

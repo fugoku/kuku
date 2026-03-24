@@ -30,6 +30,7 @@ import {
   toggleRightPanel,
 } from "~/stores/layout";
 import { toggleTheme } from "~/stores/theme";
+import type { AiProxyToolRegistry } from "~/plugins/builtin/ai_chat/types";
 import { getContextKey } from "~/plugins/context_keys";
 import type { KukuPlugin } from "~/plugins/types";
 
@@ -40,6 +41,7 @@ const coreCommandsPlugin: KukuPlugin = {
   name: "Core Commands",
   version: "0.1.0",
   description: "Built-in app commands: panels, tabs, theme, search, settings, graph",
+  dependencies: ["ai-chat"],
 
   commands: [
     // ── Panel ──
@@ -159,7 +161,57 @@ const coreCommandsPlugin: KukuPlugin = {
       },
     },
   ],
+
+  activate(ctx) {
+    const proxyTools = ctx.services.get<AiProxyToolRegistry>("ai-chat.proxyTools");
+    if (!proxyTools) {
+      return;
+    }
+
+    const dispose = proxyTools.register({
+      name: "open_file",
+      description:
+        "Open a vault file in an editor tab. This is a navigation action, not a mutation.",
+      category: "navigation",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string", description: "Vault-relative file path to open" },
+        },
+        required: ["path"],
+      },
+      handler: async (args) => {
+        const path = normalizeVaultPath(typeof args.path === "string" ? args.path : "");
+        if (!path) {
+          throw new Error("path is required");
+        }
+
+        const exists = await ctx.vault.exists(path);
+        if (!exists) {
+          throw new Error(`File does not exist: ${path}`);
+        }
+
+        ctx.tabs.open(baseName(path), path, "editor");
+        return JSON.stringify({ ok: true, path }, null, 2);
+      },
+    });
+
+    ctx.track(dispose);
+  },
 };
+
+function normalizeVaultPath(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed === "" || trimmed === "." || trimmed === "./") {
+    return "";
+  }
+
+  return trimmed.replace(/^\.\//, "").replace(/^\/+/, "").replace(/\/+$/, "");
+}
+
+function baseName(path: string): string {
+  return path.split("/").at(-1) ?? path;
+}
 
 // ── Exports ──
 

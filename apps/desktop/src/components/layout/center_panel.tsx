@@ -16,14 +16,14 @@ export default function CenterPanel() {
   const pluginTabType = () => activeTab()?.type ?? null;
   const editorTab = () => {
     const tab = activeTab();
-    if (tab?.type === "editor" && tab.filePath) {
+    if ((tab?.type === "editor" || tab?.type === "diff") && tab.filePath) {
       return tab;
     }
     return null;
   };
   const pluginFill = () => {
     const tabType = pluginTabType();
-    if (!tabType || tabType === "editor" || tabType === "settings") {
+    if (!tabType || tabType === "editor" || tabType === "diff" || tabType === "settings") {
       return null;
     }
     return getCenterTabFill(tabType);
@@ -47,7 +47,11 @@ export default function CenterPanel() {
           <Show when={editorTab()} keyed>
             {(tab) => (
               <Show when={pluginsReady()}>
-                <MarkdownEditor tabId={tab.id} filePath={tab.filePath ?? ""} />
+                <MarkdownEditor
+                  tabId={tab.id}
+                  filePath={tab.filePath ?? ""}
+                  mode={tab.type === "diff" ? "diff" : "editable"}
+                />
               </Show>
             )}
           </Show>

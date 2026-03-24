@@ -68,11 +68,7 @@ describe("findSectionHeadingPosition", () => {
 
   it("falls back when the section path no longer exists", () => {
     expect(
-      findSectionHeadingPosition(
-        [{ level: 1, text: "Alpha", pos: 5 }],
-        ["Alpha", "Missing"],
-        0,
-      ),
+      findSectionHeadingPosition([{ level: 1, text: "Alpha", pos: 5 }], ["Alpha", "Missing"], 0),
     ).toBeNull();
   });
 

@@ -46,4 +46,10 @@ function startStatusPolling(service: SearchService): Disposer {
   return () => clearInterval(timer);
 }
 
-export { applyIndexerStatus, indexerStatus, refreshIndexerStatus, resetIndexerStatus, startStatusPolling };
+export {
+  applyIndexerStatus,
+  indexerStatus,
+  refreshIndexerStatus,
+  resetIndexerStatus,
+  startStatusPolling,
+};

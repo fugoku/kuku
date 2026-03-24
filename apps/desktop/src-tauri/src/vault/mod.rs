@@ -3,6 +3,7 @@ use std::sync::mpsc::Sender;
 
 use parking_lot::Mutex;
 
+pub mod checksum;
 pub mod commands;
 pub mod watcher;
 

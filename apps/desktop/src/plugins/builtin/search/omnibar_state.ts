@@ -79,11 +79,11 @@ function createOmnibarController(
       setResults(res);
       setSelectedIndex(res.items.length > 0 ? 0 : -1);
       setIsLoading(false);
-    } catch (caught) {
+    } catch (error) {
       if (currentId !== sequenceId) return;
       setResults(null);
       setSelectedIndex(-1);
-      setError(caught instanceof Error ? caught.message : "Search failed.");
+      setError(error instanceof Error ? error.message : "Search failed.");
       setIsLoading(false);
     }
   };

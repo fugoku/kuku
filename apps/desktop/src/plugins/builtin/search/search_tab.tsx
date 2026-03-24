@@ -7,8 +7,7 @@ import { createSearchTabController } from "./search_tab_state";
 
 const INPUT =
   "w-full rounded-md border border-border bg-bg-secondary px-3 py-2 text-sm text-text-primary outline-none transition-colors focus:border-accent";
-const SEGMENT =
-  "rounded-md px-3 py-1.5 text-xs transition-colors";
+const SEGMENT = "rounded-md px-3 py-1.5 text-xs transition-colors";
 
 export default function SearchTab() {
   const controller = createSearchTabController();
@@ -94,7 +93,11 @@ export default function SearchTab() {
           <p class="text-sm text-text-muted">Type to search indexed markdown content.</p>
         </Show>
         <Show
-          when={!controller.isLoading() && controller.results() && controller.results()!.items.length === 0}
+          when={
+            !controller.isLoading() &&
+            controller.results() &&
+            controller.results()!.items.length === 0
+          }
         >
           <p class="text-sm text-text-muted">No matches found.</p>
         </Show>

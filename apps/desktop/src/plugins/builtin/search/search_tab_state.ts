@@ -1,7 +1,12 @@
 import { createSignal, onCleanup } from "solid-js";
 
 import { getSearchService } from "./runtime";
-import { getRegexCaseSensitive, getSearchMode, setRegexCaseSensitive, setSearchMode } from "./search_mode_state";
+import {
+  getRegexCaseSensitive,
+  getSearchMode,
+  setRegexCaseSensitive,
+  setSearchMode,
+} from "./search_mode_state";
 import type { SearchService } from "../core_indexer/service";
 import type { SimpleSearchResult } from "../core_indexer/types";
 import { onEvent } from "~/plugins/events";
@@ -79,10 +84,10 @@ function createSearchTabController(
       if (currentId !== sequenceId) return;
       setResults(res);
       setIsLoading(false);
-    } catch (caught) {
+    } catch (error) {
       if (currentId !== sequenceId) return;
       setResults(null);
-      setError(caught instanceof Error ? caught.message : "Search failed.");
+      setError(error instanceof Error ? error.message : "Search failed.");
       setIsLoading(false);
     }
   };

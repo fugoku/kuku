@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Sender};
 use std::time::{Duration, Instant};
@@ -12,6 +14,7 @@ use crate::vault::{should_ignore_path, to_relative_path};
 
 struct PendingRename {
     path: PathBuf,
+    is_dir: bool,
     at: Instant,
 }
 
@@ -19,6 +22,10 @@ struct SearchStormState {
     window_started_at: Instant,
     modify_create_count: usize,
 }
+
+type PathKindCache = HashMap<PathBuf, bool>;
+
+const PENDING_RENAME_TIMEOUT_MS: u64 = 600;
 
 fn is_ignored(root: &Path, path: &Path) -> bool {
     if let Ok(rel) = path.strip_prefix(root) {
@@ -29,48 +36,139 @@ fn is_ignored(root: &Path, path: &Path) -> bool {
 
 fn maybe_cleanup_pending(
     pending: &mut Option<PendingRename>,
-    app: &AppHandle,
     root: &Path,
-    last_emit: &mut Instant,
-    debounce: Duration,
-) {
+    cache: &mut PathKindCache,
+) -> Option<FileChangeEvent> {
     if let Some(p) = pending {
-        if p.at.elapsed() > Duration::from_millis(600) {
+        if p.at.elapsed() > Duration::from_millis(PENDING_RENAME_TIMEOUT_MS) {
+            let p = pending.take().expect("pending rename exists");
+            remove_cached_path(cache, &p.path, p.is_dir);
             let rel = to_relative_path(root, &p.path);
-            let event = FileChangeEvent {
+            return Some(FileChangeEvent {
                 kind: "delete".to_string(),
                 path: rel,
-                is_dir: p.path.is_dir(),
+                is_dir: p.is_dir,
                 old_path: None,
-            };
-            if last_emit.elapsed() >= debounce {
-                let _ = app.emit("vault:file-changed", event);
-                *last_emit = Instant::now();
-            }
-            *pending = None;
+            });
         }
     }
+
+    None
+}
+
+fn seed_path_kind_cache(root: &Path) -> Result<PathKindCache, String> {
+    let mut cache = PathKindCache::new();
+    collect_path_kinds(root, root, &mut cache)?;
+    Ok(cache)
+}
+
+fn collect_path_kinds(root: &Path, dir: &Path, cache: &mut PathKindCache) -> Result<(), String> {
+    let entries = fs::read_dir(dir)
+        .map_err(|error| format!("Failed to read watcher directory {}: {error}", dir.display()))?;
+
+    for entry in entries {
+        let entry =
+            entry.map_err(|error| format!("Failed to read watcher entry {}: {error}", dir.display()))?;
+        let path = entry.path();
+        let rel = path
+            .strip_prefix(root)
+            .map_err(|error| format!("Failed to strip watcher root prefix: {error}"))?;
+        if should_ignore_path(rel) {
+            continue;
+        }
+
+        let file_type = entry
+            .file_type()
+            .map_err(|error| format!("Failed to stat watcher path {}: {error}", path.display()))?;
+        let is_dir = file_type.is_dir();
+        cache.insert(path.clone(), is_dir);
+        if is_dir {
+            collect_path_kinds(root, &path, cache)?;
+        }
+    }
+
+    Ok(())
+}
+
+fn infer_path_kind(path: &Path, hinted_is_dir: Option<bool>, cache: &PathKindCache) -> bool {
+    hinted_is_dir
+        .or_else(|| fs::metadata(path).ok().map(|metadata| metadata.is_dir()))
+        .or_else(|| cache.get(path).copied())
+        .unwrap_or(false)
+}
+
+fn insert_cached_path(cache: &mut PathKindCache, path: &Path, is_dir: bool) {
+    cache.insert(path.to_path_buf(), is_dir);
+}
+
+fn remove_cached_path(cache: &mut PathKindCache, path: &Path, is_dir: bool) {
+    if !is_dir {
+        cache.remove(path);
+        return;
+    }
+
+    let to_remove = cache
+        .keys()
+        .filter(|candidate| candidate.starts_with(path))
+        .cloned()
+        .collect::<Vec<_>>();
+
+    for candidate in to_remove {
+        cache.remove(&candidate);
+    }
+}
+
+fn rename_cached_path(cache: &mut PathKindCache, from: &Path, to: &Path, is_dir: bool) {
+    if !is_dir {
+        let _ = cache.remove(from);
+        cache.insert(to.to_path_buf(), false);
+        return;
+    }
+
+    let descendants = cache
+        .iter()
+        .filter(|(candidate, _)| candidate.starts_with(from))
+        .map(|(candidate, cached_is_dir)| (candidate.clone(), *cached_is_dir))
+        .collect::<Vec<_>>();
+
+    for (candidate, cached_is_dir) in descendants {
+        cache.remove(&candidate);
+        let suffix = candidate.strip_prefix(from).unwrap_or(Path::new(""));
+        let remapped = if suffix.as_os_str().is_empty() {
+            to.to_path_buf()
+        } else {
+            to.join(suffix)
+        };
+        cache.insert(remapped, cached_is_dir);
+    }
+
+    cache.entry(to.to_path_buf()).or_insert(true);
 }
 
 fn map_event(
     event: Event,
     root: &Path,
     pending: &mut Option<PendingRename>,
+    cache: &mut PathKindCache,
 ) -> Option<FileChangeEvent> {
     if event.paths.is_empty() {
         return None;
     }
 
     match event.kind {
-        EventKind::Create(CreateKind::File) | EventKind::Create(CreateKind::Any) => {
+        EventKind::Create(CreateKind::File)
+        | EventKind::Create(CreateKind::Any)
+        | EventKind::Create(CreateKind::Other) => {
             let path = &event.paths[0];
             if is_ignored(root, path) {
                 return None;
             }
+            let is_dir = infer_path_kind(path, None, cache);
+            insert_cached_path(cache, path, is_dir);
             Some(FileChangeEvent {
                 kind: "create".to_string(),
                 path: to_relative_path(root, path),
-                is_dir: false,
+                is_dir,
                 old_path: None,
             })
         }
@@ -79,6 +177,7 @@ fn map_event(
             if is_ignored(root, path) {
                 return None;
             }
+            insert_cached_path(cache, path, true);
             Some(FileChangeEvent {
                 kind: "create".to_string(),
                 path: to_relative_path(root, path),
@@ -86,27 +185,40 @@ fn map_event(
                 old_path: None,
             })
         }
-        EventKind::Modify(ModifyKind::Data(_)) | EventKind::Modify(ModifyKind::Any) => {
+        EventKind::Modify(ModifyKind::Data(_))
+        | EventKind::Modify(ModifyKind::Metadata(_))
+        | EventKind::Modify(ModifyKind::Any)
+        | EventKind::Modify(ModifyKind::Other) => {
             let path = &event.paths[0];
             if is_ignored(root, path) {
                 return None;
             }
+            let is_dir = infer_path_kind(path, None, cache);
+            insert_cached_path(cache, path, is_dir);
             Some(FileChangeEvent {
                 kind: "modify".to_string(),
                 path: to_relative_path(root, path),
-                is_dir: path.is_dir(),
+                is_dir,
                 old_path: None,
             })
         }
-        EventKind::Remove(RemoveKind::File) | EventKind::Remove(RemoveKind::Any) => {
+        EventKind::Remove(RemoveKind::File)
+        | EventKind::Remove(RemoveKind::Any)
+        | EventKind::Remove(RemoveKind::Other) => {
             let path = &event.paths[0];
             if is_ignored(root, path) {
                 return None;
             }
+            let is_dir = infer_path_kind(
+                path,
+                matches!(event.kind, EventKind::Remove(RemoveKind::Folder)).then_some(true),
+                cache,
+            );
+            remove_cached_path(cache, path, is_dir);
             Some(FileChangeEvent {
                 kind: "delete".to_string(),
                 path: to_relative_path(root, path),
-                is_dir: false,
+                is_dir,
                 old_path: None,
             })
         }
@@ -115,6 +227,7 @@ fn map_event(
             if is_ignored(root, path) {
                 return None;
             }
+            remove_cached_path(cache, path, true);
             Some(FileChangeEvent {
                 kind: "delete".to_string(),
                 path: to_relative_path(root, path),
@@ -123,16 +236,19 @@ fn map_event(
             })
         }
         EventKind::Modify(ModifyKind::Name(rename)) => match rename {
-            RenameMode::Both if event.paths.len() >= 2 => {
+            RenameMode::Both | RenameMode::Any | RenameMode::Other if event.paths.len() >= 2 => {
                 let old_path = &event.paths[0];
                 let new_path = &event.paths[1];
                 if is_ignored(root, old_path) || is_ignored(root, new_path) {
                     return None;
                 }
+                let is_dir = infer_path_kind(new_path, None, cache)
+                    || cache.get(old_path).copied().unwrap_or(false);
+                rename_cached_path(cache, old_path, new_path, is_dir);
                 Some(FileChangeEvent {
                     kind: "rename".to_string(),
                     path: to_relative_path(root, new_path),
-                    is_dir: new_path.is_dir(),
+                    is_dir,
                     old_path: Some(to_relative_path(root, old_path)),
                 })
             }
@@ -141,8 +257,10 @@ fn map_event(
                 if is_ignored(root, old_path) {
                     return None;
                 }
+                let is_dir = infer_path_kind(old_path, None, cache);
                 *pending = Some(PendingRename {
                     path: old_path.clone(),
+                    is_dir,
                     at: Instant::now(),
                 });
                 None
@@ -153,19 +271,37 @@ fn map_event(
                     return None;
                 }
                 if let Some(prev) = pending.take() {
-                    if prev.at.elapsed() <= Duration::from_millis(600) {
+                    if prev.at.elapsed() <= Duration::from_millis(PENDING_RENAME_TIMEOUT_MS) {
+                        let is_dir = infer_path_kind(new_path, Some(prev.is_dir), cache);
+                        rename_cached_path(cache, &prev.path, new_path, is_dir);
                         return Some(FileChangeEvent {
                             kind: "rename".to_string(),
                             path: to_relative_path(root, new_path),
-                            is_dir: new_path.is_dir(),
+                            is_dir,
                             old_path: Some(to_relative_path(root, &prev.path)),
                         });
                     }
                 }
+                let is_dir = infer_path_kind(new_path, None, cache);
+                insert_cached_path(cache, new_path, is_dir);
                 Some(FileChangeEvent {
                     kind: "create".to_string(),
                     path: to_relative_path(root, new_path),
-                    is_dir: new_path.is_dir(),
+                    is_dir,
+                    old_path: None,
+                })
+            }
+            RenameMode::Any | RenameMode::Other => {
+                let path = &event.paths[0];
+                if is_ignored(root, path) {
+                    return None;
+                }
+                let is_dir = infer_path_kind(path, None, cache);
+                insert_cached_path(cache, path, is_dir);
+                Some(FileChangeEvent {
+                    kind: "modify".to_string(),
+                    path: to_relative_path(root, path),
+                    is_dir,
                     old_path: None,
                 })
             }
@@ -181,6 +317,7 @@ pub fn start_watching_with_search(
     search_state: Option<SearchState>,
 ) -> Result<Sender<()>, String> {
     let (event_tx, event_rx) = mpsc::channel::<notify::Result<Event>>();
+    let path_kind_cache = seed_path_kind_cache(&vault_root)?;
     let mut watcher = RecommendedWatcher::new(
         move |res| {
             let _ = event_tx.send(res);
@@ -197,10 +334,7 @@ pub fn start_watching_with_search(
     let app_handle = app.clone();
     std::thread::spawn(move || {
         let _watcher = watcher;
-        let debounce = Duration::from_millis(300);
-        let mut last_emit = Instant::now()
-            .checked_sub(debounce)
-            .unwrap_or_else(Instant::now);
+        let mut path_kind_cache = path_kind_cache;
         let mut pending_rename: Option<PendingRename> = None;
         let mut storm_state = SearchStormState {
             window_started_at: Instant::now(),
@@ -214,33 +348,34 @@ pub fn start_watching_with_search(
 
             match event_rx.recv_timeout(Duration::from_millis(50)) {
                 Ok(Ok(event)) => {
-                    maybe_cleanup_pending(
-                        &mut pending_rename,
-                        &app_handle,
-                        &vault_root,
-                        &mut last_emit,
-                        debounce,
-                    );
+                    if let Some(pending_delete) =
+                        maybe_cleanup_pending(&mut pending_rename, &vault_root, &mut path_kind_cache)
+                    {
+                        if let Some(search_state) = &search_state {
+                            handle_search_event(search_state, &pending_delete, &mut storm_state);
+                        }
+                        let _ = app_handle.emit("vault:file-changed", pending_delete);
+                    }
 
-                    if let Some(mapped) = map_event(event, &vault_root, &mut pending_rename) {
+                    if let Some(mapped) =
+                        map_event(event, &vault_root, &mut pending_rename, &mut path_kind_cache)
+                    {
                         if let Some(search_state) = &search_state {
                             handle_search_event(search_state, &mapped, &mut storm_state);
                         }
-                        if last_emit.elapsed() >= debounce || mapped.kind == "rename" {
-                            let _ = app_handle.emit("vault:file-changed", mapped);
-                            last_emit = Instant::now();
-                        }
+                        let _ = app_handle.emit("vault:file-changed", mapped);
                     }
                 }
                 Ok(Err(_)) => {}
                 Err(mpsc::RecvTimeoutError::Timeout) => {
-                    maybe_cleanup_pending(
-                        &mut pending_rename,
-                        &app_handle,
-                        &vault_root,
-                        &mut last_emit,
-                        debounce,
-                    );
+                    if let Some(pending_delete) =
+                        maybe_cleanup_pending(&mut pending_rename, &vault_root, &mut path_kind_cache)
+                    {
+                        if let Some(search_state) = &search_state {
+                            handle_search_event(search_state, &pending_delete, &mut storm_state);
+                        }
+                        let _ = app_handle.emit("vault:file-changed", pending_delete);
+                    }
                 }
                 Err(mpsc::RecvTimeoutError::Disconnected) => break,
             }
@@ -283,7 +418,7 @@ pub fn stop_watching(stop_tx: Sender<()>) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use notify::event::{CreateKind, ModifyKind};
+    use notify::event::{CreateKind, EventAttributes, ModifyKind, RemoveKind};
 
     #[test]
     fn test_map_create_event() {
@@ -291,12 +426,14 @@ mod tests {
         let event = Event {
             kind: EventKind::Create(CreateKind::File),
             paths: vec![root.join("notes/a.md")],
-            attrs: notify::event::EventAttributes::new(),
+            attrs: EventAttributes::new(),
         };
         let mut pending = None;
-        let mapped = map_event(event, &root, &mut pending).unwrap();
+        let mut cache = PathKindCache::new();
+        let mapped = map_event(event, &root, &mut pending, &mut cache).unwrap();
         assert_eq!(mapped.kind, "create");
         assert_eq!(mapped.path, "notes/a.md");
+        assert_eq!(cache.get(&root.join("notes/a.md")), Some(&false));
     }
 
     #[test]
@@ -305,10 +442,128 @@ mod tests {
         let event = Event {
             kind: EventKind::Modify(ModifyKind::Any),
             paths: vec![root.join("notes/a.md")],
-            attrs: notify::event::EventAttributes::new(),
+            attrs: EventAttributes::new(),
         };
         let mut pending = None;
-        let mapped = map_event(event, &root, &mut pending).unwrap();
+        let mut cache = PathKindCache::new();
+        cache.insert(root.join("notes/a.md"), false);
+        let mapped = map_event(event, &root, &mut pending, &mut cache).unwrap();
         assert_eq!(mapped.kind, "modify");
+    }
+
+    #[test]
+    fn test_pending_rename_cleanup_emits_directory_delete() {
+        let root = PathBuf::from("/tmp/vault");
+        let path = root.join("notes/archive");
+        let mut pending = Some(PendingRename {
+            path: path.clone(),
+            is_dir: true,
+            at: Instant::now() - Duration::from_millis(PENDING_RENAME_TIMEOUT_MS + 10),
+        });
+        let mut cache = PathKindCache::new();
+        cache.insert(path.clone(), true);
+        cache.insert(path.join("note.md"), false);
+
+        let mapped = maybe_cleanup_pending(&mut pending, &root, &mut cache).unwrap();
+
+        assert_eq!(mapped.kind, "delete");
+        assert_eq!(mapped.path, "notes/archive");
+        assert!(mapped.is_dir);
+        assert!(pending.is_none());
+        assert!(!cache.contains_key(&path));
+        assert!(!cache.contains_key(&path.join("note.md")));
+    }
+
+    #[test]
+    fn test_remove_any_uses_cached_directory_kind() {
+        let root = PathBuf::from("/tmp/vault");
+        let path = root.join("notes/archive");
+        let event = Event {
+            kind: EventKind::Remove(RemoveKind::Any),
+            paths: vec![path.clone()],
+            attrs: EventAttributes::new(),
+        };
+        let mut pending = None;
+        let mut cache = PathKindCache::new();
+        cache.insert(path.clone(), true);
+        cache.insert(path.join("nested.md"), false);
+
+        let mapped = map_event(event, &root, &mut pending, &mut cache).unwrap();
+
+        assert_eq!(mapped.kind, "delete");
+        assert!(mapped.is_dir);
+        assert!(!cache.contains_key(&path));
+        assert!(!cache.contains_key(&path.join("nested.md")));
+    }
+
+    #[test]
+    fn test_directory_rename_updates_cache() {
+        let root = PathBuf::from("/tmp/vault");
+        let old_path = root.join("notes/archive");
+        let new_path = root.join("notes/renamed");
+        let event = Event {
+            kind: EventKind::Modify(ModifyKind::Name(RenameMode::Both)),
+            paths: vec![old_path.clone(), new_path.clone()],
+            attrs: EventAttributes::new(),
+        };
+        let mut pending = None;
+        let mut cache = PathKindCache::new();
+        cache.insert(old_path.clone(), true);
+        cache.insert(old_path.join("nested.md"), false);
+
+        let mapped = map_event(event, &root, &mut pending, &mut cache).unwrap();
+
+        assert_eq!(mapped.kind, "rename");
+        assert_eq!(mapped.old_path.as_deref(), Some("notes/archive"));
+        assert_eq!(mapped.path, "notes/renamed");
+        assert!(mapped.is_dir);
+        assert!(!cache.contains_key(&old_path));
+        assert!(!cache.contains_key(&old_path.join("nested.md")));
+        assert_eq!(cache.get(&new_path), Some(&true));
+        assert_eq!(cache.get(&new_path.join("nested.md")), Some(&false));
+    }
+
+    #[test]
+    fn test_rename_any_with_two_paths_maps_to_rename() {
+        let root = PathBuf::from("/tmp/vault");
+        let old_path = root.join("notes/a.md");
+        let new_path = root.join("notes/b.md");
+        let event = Event {
+            kind: EventKind::Modify(ModifyKind::Name(RenameMode::Any)),
+            paths: vec![old_path.clone(), new_path.clone()],
+            attrs: EventAttributes::new(),
+        };
+        let mut pending = None;
+        let mut cache = PathKindCache::new();
+        cache.insert(old_path.clone(), false);
+
+        let mapped = map_event(event, &root, &mut pending, &mut cache).unwrap();
+
+        assert_eq!(mapped.kind, "rename");
+        assert_eq!(mapped.old_path.as_deref(), Some("notes/a.md"));
+        assert_eq!(mapped.path, "notes/b.md");
+        assert!(!mapped.is_dir);
+        assert!(!cache.contains_key(&old_path));
+        assert_eq!(cache.get(&new_path), Some(&false));
+    }
+
+    #[test]
+    fn test_rename_any_with_single_path_still_triggers_refreshable_modify() {
+        let root = PathBuf::from("/tmp/vault");
+        let path = root.join("notes/renamed.md");
+        let event = Event {
+            kind: EventKind::Modify(ModifyKind::Name(RenameMode::Any)),
+            paths: vec![path.clone()],
+            attrs: EventAttributes::new(),
+        };
+        let mut pending = None;
+        let mut cache = PathKindCache::new();
+        cache.insert(path.clone(), false);
+
+        let mapped = map_event(event, &root, &mut pending, &mut cache).unwrap();
+
+        assert_eq!(mapped.kind, "modify");
+        assert_eq!(mapped.path, "notes/renamed.md");
+        assert!(!mapped.is_dir);
     }
 }

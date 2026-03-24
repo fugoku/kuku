@@ -20,6 +20,7 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
+tauri-plugin-ai = { path = "../../../crates/tauri-plugin-ai" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rusqlite = { version = "0.32", features = ["bundled"] }
@@ -31,3 +32,4 @@ parking_lot = "0.12"
 human-sort = "0.2.2"
 kuku-search-core = { path = "../../../crates/kuku-search-core" }
 regex = "1"
+async-trait = "0.1"

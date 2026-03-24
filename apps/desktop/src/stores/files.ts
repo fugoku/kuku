@@ -2,12 +2,15 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { createStore, produce } from "solid-js/store";
 
 import type { PMNodeJSON } from "~/lib/markdown";
-import { writeVaultFile } from "~/lib/vault_fs";
+import { writeVaultFile, type FileEntry } from "~/lib/vault_fs";
+import { reconcileTabsWithExistingPaths } from "~/stores/file_tabs_reconcile";
+import { isDiffTabPath, removeDiffEntry } from "~/stores/diff_store";
+import { buildVaultTreeIndex } from "~/stores/vault_tree";
 import { existsInTree, loadFiles, vaultState } from "~/stores/vault";
 
 // ── Types ──
 
-type TabType = "editor" | "graph" | "search" | "settings";
+type TabType = "editor" | "diff" | "graph" | "search" | "settings";
 
 interface Tab {
   id: string;
@@ -61,9 +64,9 @@ function loadTabsSync(): FilesState {
       return { tabs: [], activeTabId: null, cachedContent: {}, viewportState: {} };
     }
 
-    const restored = data.tabs.map((t) =>
-      createTab(t.fileName, t.filePath || null, t.type ?? "editor"),
-    );
+    const restored = data.tabs
+      .filter((tab) => tab.type !== "diff")
+      .map((t) => createTab(t.fileName, t.filePath || null, t.type ?? "editor"));
     const active = data.activeFilePath
       ? restored.find((t) => t.filePath === data.activeFilePath)
       : restored[0];
@@ -80,14 +83,15 @@ function loadTabsSync(): FilesState {
 }
 
 function saveTabsSync(): void {
+  const persistedTabs = filesState.tabs.filter((tab) => tab.type !== "diff");
   const active = getActiveTab();
   const data = {
-    tabs: filesState.tabs.map((t) => ({
+    tabs: persistedTabs.map((t) => ({
       fileName: t.fileName,
       filePath: t.filePath ?? "",
       type: t.type,
     })),
-    activeFilePath: active?.filePath ?? null,
+    activeFilePath: active?.type === "diff" ? null : (active?.filePath ?? null),
   };
   localStorage.setItem(STORE_KEY, JSON.stringify(data));
 }
@@ -105,9 +109,9 @@ function getActiveTab(): Tab | undefined {
 // ── Actions ──
 
 function openTab(fileName: string, filePath: string | null = null, type: TabType = "editor"): void {
-  // Focus existing tab if same filePath
+  // Focus existing tab if same filePath + tab type
   if (filePath) {
-    const existing = filesState.tabs.find((t) => t.filePath === filePath);
+    const existing = filesState.tabs.find((t) => t.filePath === filePath && t.type === type);
     if (existing) {
       setFilesState("activeTabId", existing.id);
       saveTabsSync();
@@ -116,7 +120,7 @@ function openTab(fileName: string, filePath: string | null = null, type: TabType
   }
 
   // Focus existing singleton tab (graph, search, settings)
-  if (type !== "editor") {
+  if (type !== "editor" && type !== "diff") {
     const existing = filesState.tabs.find((t) => t.type === type);
     if (existing) {
       setFilesState("activeTabId", existing.id);
@@ -138,6 +142,7 @@ function openTab(fileName: string, filePath: string | null = null, type: TabType
 function closeTab(tabId: string): void {
   const idx = filesState.tabs.findIndex((t) => t.id === tabId);
   if (idx === -1) return;
+  const closedTab = filesState.tabs[idx];
 
   setFilesState(
     produce((s) => {
@@ -152,17 +157,17 @@ function closeTab(tabId: string): void {
       s.tabs.splice(idx, 1);
     }),
   );
-  purgeEditorRuntimeState(tabId);
+  purgeClosedTab(closedTab);
   saveTabsSync();
 }
 
 function clearEditorTabs(): void {
-  const editorTabIds = filesState.tabs.filter((t) => t.type === "editor").map((t) => t.id);
-  for (const tabId of editorTabIds) {
-    purgeEditorRuntimeState(tabId);
+  const editorTabs = filesState.tabs.filter((t) => t.type === "editor" || t.type === "diff");
+  for (const tab of editorTabs) {
+    purgeClosedTab(tab);
   }
 
-  const tabs = filesState.tabs.filter((t) => t.type !== "editor");
+  const tabs = filesState.tabs.filter((t) => t.type !== "editor" && t.type !== "diff");
   const active = tabs.find((t) => t.id === filesState.activeTabId) ?? tabs[0] ?? null;
   setFilesState(
     produce((s) => {
@@ -214,6 +219,42 @@ function purgeEditorRuntimeState(tabId: string): void {
       delete s.viewportState[tabId];
     }),
   );
+}
+
+function purgeClosedTab(tab: Tab): void {
+  purgeEditorRuntimeState(tab.id);
+  if (tab.type === "diff" && tab.filePath && isDiffTabPath(tab.filePath)) {
+    removeDiffEntry(tab.filePath);
+  }
+}
+
+function reconcileEditorTabsWithVault(entries: FileEntry[]): void {
+  const existingPaths = buildVaultTreeIndex(entries).allPaths;
+  const next = reconcileTabsWithExistingPaths(
+    filesState.tabs,
+    filesState.activeTabId,
+    existingPaths,
+  );
+
+  if (next.removedTabIds.length === 0) return;
+  const removedTabs = filesState.tabs.filter((tab) => next.removedTabIds.includes(tab.id));
+
+  setFilesState(
+    produce((s) => {
+      s.tabs = next.tabs;
+      s.activeTabId = next.activeTabId;
+      for (const tabId of next.removedTabIds) {
+        delete s.cachedContent[tabId];
+        delete s.viewportState[tabId];
+      }
+    }),
+  );
+  for (const tab of removedTabs) {
+    if (tab.type === "diff" && tab.filePath && isDiffTabPath(tab.filePath)) {
+      removeDiffEntry(tab.filePath);
+    }
+  }
+  saveTabsSync();
 }
 
 async function createAndOpenNewFile(): Promise<void> {
@@ -294,6 +335,7 @@ export {
   nextTab,
   openTab,
   prevTab,
+  reconcileEditorTabsWithVault,
   saveCachedContent,
   saveViewportState,
   setActiveTab,

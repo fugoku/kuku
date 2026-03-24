@@ -1,3 +1,5 @@
+mod ai_host;
+mod ai_tools;
 mod app_settings;
 mod models;
 mod plugin_fs;
@@ -5,13 +7,24 @@ mod plugin_settings;
 mod search;
 mod vault;
 
+use std::sync::Arc;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .manage(vault::VaultState::new())
         .manage(search::SearchState::new())
+        .plugin(tauri_plugin_ai::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .setup(|app| {
+            tauri_plugin_ai::register_host(
+                app.handle(),
+                Arc::new(ai_host::DesktopAiHost::new(app.handle().clone())),
+            );
+            ai_tools::register_all(app.handle());
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             // Plugin FS (sandboxed)
             plugin_fs::plugin_fs_read_text,

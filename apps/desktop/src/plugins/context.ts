@@ -104,7 +104,8 @@ function createPluginContext(
         return getActiveEditorInstance();
       },
       get activeFilePath() {
-        return getActiveTab()?.filePath ?? null;
+        const activeTab = getActiveTab();
+        return activeTab?.type === "editor" ? (activeTab.filePath ?? null) : null;
       },
       use(extension) {
         const dispose = usePluginExtension(pluginId, extension);

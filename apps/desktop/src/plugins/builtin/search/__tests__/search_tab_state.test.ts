@@ -45,7 +45,8 @@ describe("createSearchTabController", () => {
       createRoot((dispose) => {
         const controller = createSearchTabController(() => service);
         controller.scheduleSearch("first");
-        void vi.advanceTimersByTimeAsync(250)
+        void vi
+          .advanceTimersByTimeAsync(250)
           .then(() => {
             controller.scheduleSearch("second");
             return vi.advanceTimersByTimeAsync(250);

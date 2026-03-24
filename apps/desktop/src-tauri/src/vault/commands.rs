@@ -8,12 +8,9 @@ use tauri_plugin_dialog::DialogExt;
 use crate::app_settings::set_last_opened_vault;
 use crate::models::{ChecksumWriteResult, FileEntry, FileReadResult};
 use crate::search::SearchState;
+use crate::vault::checksum::compute_checksum;
 use crate::vault::{VaultState, watcher};
 use crate::vault::{get_vault_root, resolve_vault_path, should_ignore_path, to_relative_path};
-
-fn compute_checksum(content: &str) -> String {
-    blake3::hash(content.as_bytes()).to_hex().to_string()
-}
 
 fn read_directory_recursive<'a>(
     dir: &'a Path,

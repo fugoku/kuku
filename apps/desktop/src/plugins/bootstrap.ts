@@ -22,6 +22,7 @@ import { createSignal } from "solid-js";
 import { initAppPaths } from "~/plugins/app_paths";
 import { coreIndexerPlugin } from "~/plugins/builtin/core_indexer";
 import { coreCommandsPlugin } from "~/plugins/builtin/core_commands";
+import { aiChatPlugin } from "~/plugins/builtin/ai_chat";
 import { editorCorePlugin } from "~/plugins/builtin/editor_core";
 import { graphViewPlugin } from "~/plugins/builtin/graph_view";
 import { searchPlugin } from "~/plugins/builtin/search";
@@ -62,6 +63,7 @@ const [pluginsReady, setPluginsReady] = createSignal(false);
 const builtinPlugins: KukuPlugin[] = [
   coreCommandsPlugin,
   coreIndexerPlugin,
+  aiChatPlugin,
   editorCorePlugin,
   wikilinkPlugin,
   graphViewPlugin,

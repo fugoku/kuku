@@ -1,0 +1,841 @@
+use std::{collections::HashMap, sync::Arc};
+
+use parking_lot::{Mutex, RwLock};
+use serde_json::Value;
+use tauri::{AppHandle, Emitter, Wry};
+use tokio::sync::oneshot;
+use tokio::time::{Duration, timeout};
+use tokio_util::sync::CancellationToken;
+use uuid::Uuid;
+
+use crate::{
+    AiError,
+    mutation::{MutationApplyResult, MutationOp},
+    prompts::build_system_prompt,
+    provider::{CompletionEvent, CompletionTurnRequest},
+    state::AiState,
+    tools::{ToolAccess, ToolCallContext, ToolDescriptor, ToolSource, allowed_tools},
+    types::{
+        ChatMessage, ChatMode, DonePayload, EditorContext, ErrorPayload, FinishReason,
+        ModelToolCall, PendingApprovalPayload, ProxyToolCallPayload, StreamChunkPayload,
+        ToolCallEndPayload, ToolCallStartPayload,
+    },
+};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SessionStatus {
+    Idle,
+    Streaming,
+    AwaitingApproval,
+    Applying,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum ApprovalDecision {
+    Approve,
+    Reject,
+}
+
+// TEMP DEBUG: remove after tool round continuation is verified in runtime.
+#[cfg(debug_assertions)]
+fn debug_ai_log(message: impl AsRef<str>) {
+    eprintln!("[ai-debug][session] {}", message.as_ref());
+}
+
+#[cfg(not(debug_assertions))]
+fn debug_ai_log(_message: impl AsRef<str>) {}
+
+struct SessionControl {
+    status: SessionStatus,
+    cancel: Option<CancellationToken>,
+    deferred_cancel: bool,
+}
+
+#[derive(Debug, Clone)]
+struct PathSnapshot {
+    checksum: String,
+    is_dir: bool,
+}
+
+pub struct SessionRuntime {
+    pub id: String,
+    pub mode: ChatMode,
+    pub messages: RwLock<Vec<ChatMessage>>,
+    pub editor_context: RwLock<EditorContext>,
+    approvals: Mutex<HashMap<String, oneshot::Sender<ApprovalDecision>>>,
+    path_snapshots: Mutex<HashMap<String, PathSnapshot>>,
+    control: Mutex<SessionControl>,
+}
+
+impl SessionRuntime {
+    pub fn new(mode: ChatMode) -> Self {
+        Self {
+            id: Uuid::new_v4().to_string(),
+            mode,
+            messages: RwLock::new(Vec::new()),
+            editor_context: RwLock::new(EditorContext::default()),
+            approvals: Mutex::new(HashMap::new()),
+            path_snapshots: Mutex::new(HashMap::new()),
+            control: Mutex::new(SessionControl {
+                status: SessionStatus::Idle,
+                cancel: None,
+                deferred_cancel: false,
+            }),
+        }
+    }
+
+    pub fn start_run(&self) -> Result<CancellationToken, AiError> {
+        let mut control = self.control.lock();
+        if control.status != SessionStatus::Idle {
+            return Err(AiError::SessionBusy);
+        }
+
+        let cancel = CancellationToken::new();
+        control.status = SessionStatus::Streaming;
+        control.cancel = Some(cancel.clone());
+        control.deferred_cancel = false;
+        Ok(cancel)
+    }
+
+    pub fn cancel(&self) {
+        let mut control = self.control.lock();
+        match control.status {
+            SessionStatus::Applying => {
+                control.deferred_cancel = true;
+                if let Some(cancel) = control.cancel.as_ref() {
+                    cancel.cancel();
+                }
+            }
+            _ => {
+                if let Some(cancel) = control.cancel.take() {
+                    cancel.cancel();
+                }
+            }
+        }
+    }
+
+    pub fn begin_awaiting_approval(
+        &self,
+        call_id: String,
+    ) -> Result<oneshot::Receiver<ApprovalDecision>, AiError> {
+        let (tx, rx) = oneshot::channel();
+        self.approvals.lock().insert(call_id, tx);
+        self.control.lock().status = SessionStatus::AwaitingApproval;
+        Ok(rx)
+    }
+
+    pub fn resolve_approval(&self, call_id: &str, approved: bool) -> Result<(), AiError> {
+        let sender = self
+            .approvals
+            .lock()
+            .remove(call_id)
+            .ok_or(AiError::ApprovalNotFound)?;
+        sender
+            .send(if approved {
+                ApprovalDecision::Approve
+            } else {
+                ApprovalDecision::Reject
+            })
+            .map_err(|_| AiError::ApprovalNotFound)
+    }
+
+    pub fn clear_approval(&self, call_id: &str) {
+        self.approvals.lock().remove(call_id);
+    }
+
+    pub fn set_status(&self, status: SessionStatus) {
+        self.control.lock().status = status;
+    }
+
+    pub fn remember_path_snapshot(&self, path: String, checksum: String, is_dir: bool) {
+        self.path_snapshots.lock().insert(path, PathSnapshot { checksum, is_dir });
+    }
+
+    pub fn path_snapshot(&self, path: &str) -> Option<(String, bool)> {
+        self.path_snapshots
+            .lock()
+            .get(path)
+            .map(|snapshot| (snapshot.checksum.clone(), snapshot.is_dir))
+    }
+
+    pub fn apply_successful_mutation(&self, operations: &[MutationOp]) {
+        let mut snapshots = self.path_snapshots.lock();
+        for op in operations {
+            match op {
+                MutationOp::CreateFile { path, content }
+                | MutationOp::ReplaceFile { path, content, .. } => {
+                    snapshots.insert(
+                        path.clone(),
+                        PathSnapshot {
+                            checksum: checksum_for_content(content),
+                            is_dir: false,
+                        },
+                    );
+                }
+                MutationOp::CreateDirectory { path } => {
+                    snapshots.insert(
+                        path.clone(),
+                        PathSnapshot {
+                            checksum: empty_directory_checksum(),
+                            is_dir: true,
+                        },
+                    );
+                }
+                MutationOp::DeleteFile { path, .. } | MutationOp::DeleteDirectory { path, .. } => {
+                    snapshots.remove(path);
+                }
+                MutationOp::RenameFile { from, to } => {
+                    if let Some(snapshot) = snapshots.remove(from) {
+                        snapshots.insert(to.clone(), snapshot);
+                    } else {
+                        snapshots.remove(to);
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn clear_mutation_snapshots(&self, operations: &[MutationOp]) {
+        let mut snapshots = self.path_snapshots.lock();
+        for op in operations {
+            match op {
+                MutationOp::CreateFile { path, .. }
+                | MutationOp::CreateDirectory { path }
+                | MutationOp::ReplaceFile { path, .. }
+                | MutationOp::DeleteFile { path, .. }
+                | MutationOp::DeleteDirectory { path, .. } => {
+                    snapshots.remove(path);
+                }
+                MutationOp::RenameFile { from, to } => {
+                    snapshots.remove(from);
+                    snapshots.remove(to);
+                }
+            }
+        }
+    }
+
+    pub fn complete_run(&self) -> bool {
+        let mut control = self.control.lock();
+        let was_deferred = control.deferred_cancel;
+        control.status = SessionStatus::Idle;
+        control.cancel = None;
+        control.deferred_cancel = false;
+        was_deferred
+    }
+}
+
+pub async fn run_turn(
+    app: AppHandle<Wry>,
+    state: AiState,
+    session: Arc<SessionRuntime>,
+    content: String,
+    editor_context: EditorContext,
+) {
+    debug_ai_log(format!(
+        "run start session={} mode={:?} input_len={}",
+        session.id,
+        session.mode,
+        content.len()
+    ));
+    let result = run_turn_inner(&app, &state, session.clone(), content, editor_context).await;
+
+    match result {
+        Ok((finish_reason, usage)) => {
+            let finish_reason = if session.complete_run() {
+                FinishReason::Cancelled
+            } else {
+                finish_reason
+            };
+            debug_ai_log(format!(
+                "run complete session={} finish_reason={finish_reason:?} usage={usage:?}",
+                session.id
+            ));
+            emit_done(&app, &session.id, finish_reason, usage);
+        }
+        Err(error) => {
+            let finish_reason = if matches!(error, AiError::Cancelled) || session.complete_run() {
+                FinishReason::Cancelled
+            } else {
+                FinishReason::Error
+            };
+            debug_ai_log(format!(
+                "run error session={} finish_reason={finish_reason:?} error={error}",
+                session.id
+            ));
+            emit_error(&app, &session.id, &error);
+            emit_done(&app, &session.id, finish_reason, None);
+        }
+    }
+}
+
+async fn run_turn_inner(
+    app: &AppHandle<Wry>,
+    state: &AiState,
+    session: Arc<SessionRuntime>,
+    content: String,
+    editor_context: EditorContext,
+) -> Result<(FinishReason, Option<crate::types::TokenUsage>), AiError> {
+    let cancel = session.start_run()?;
+    *session.editor_context.write() = editor_context.clone();
+    session.messages.write().push(ChatMessage::User {
+        content,
+        editor_context: Some(editor_context),
+    });
+    debug_ai_log(format!(
+        "user message appended session={} total_messages={}",
+        session.id,
+        session.messages.read().len()
+    ));
+
+    let backend = state.backend()?;
+    let config = state.config();
+    let descriptors = state.tool_descriptors();
+    let allowed = allowed_tools(session.mode.clone(), &descriptors);
+
+    let mut final_usage = None;
+
+    for round in 0..config.round_limit {
+        let system_prompt = build_system_prompt(session.mode.clone(), &allowed);
+        let request = CompletionTurnRequest {
+            model: config.model.clone(),
+            system_prompt: Some(system_prompt),
+            messages: session.messages.read().clone(),
+            tools: allowed.clone(),
+        };
+        debug_ai_log(format!(
+            "round start session={} round={} history_messages={} allowed_tools={}",
+            session.id,
+            round + 1,
+            request.messages.len(),
+            request.tools.len()
+        ));
+
+        let mut stream = backend.stream_turn(request).await?;
+        let mut assistant_text = String::new();
+        let mut tool_calls = Vec::new();
+        let mut round_reason = FinishReason::Stop;
+        let mut round_usage = None;
+
+        loop {
+            tokio::select! {
+                _ = cancel.cancelled() => {
+                    return Err(AiError::Cancelled);
+                }
+                item = futures::StreamExt::next(&mut stream) => {
+                    let Some(item) = item else {
+                        break;
+                    };
+
+                    match item? {
+                        CompletionEvent::TextDelta(delta) => {
+                            assistant_text.push_str(&delta);
+                            emit_stream_chunk(app, &session.id, delta);
+                        }
+                        CompletionEvent::ToolCalls(calls) => {
+                            let summary = calls
+                                .iter()
+                                .map(|call| {
+                                    format!(
+                                        "{}(internal={}, tool_call_id={:?}, provider_call_id={:?})",
+                                        call.tool_name, call.call_id, call.tool_call_id, call.provider_call_id
+                                    )
+                                })
+                                .collect::<Vec<_>>()
+                                .join(", ");
+                            debug_ai_log(format!(
+                                "round tool calls session={} round={} count={} {summary}",
+                                session.id,
+                                round + 1,
+                                calls.len()
+                            ));
+                            tool_calls.extend(calls);
+                        }
+                        CompletionEvent::Finished { finish_reason, usage } => {
+                            debug_ai_log(format!(
+                                "round finished event session={} round={} finish_reason={finish_reason:?} usage={usage:?}",
+                                session.id,
+                                round + 1
+                            ));
+                            round_reason = finish_reason;
+                            round_usage = usage;
+                        }
+                    }
+                }
+            }
+        }
+
+        if !assistant_text.is_empty() || !tool_calls.is_empty() {
+            session.messages.write().push(ChatMessage::Assistant {
+                content: assistant_text,
+                tool_calls: tool_calls.clone(),
+            });
+            debug_ai_log(format!(
+                "assistant message appended session={} round={} text_len={} tool_calls={}",
+                session.id,
+                round + 1,
+                session
+                    .messages
+                    .read()
+                    .last()
+                    .and_then(|message| match message {
+                        ChatMessage::Assistant { content, .. } => Some(content.len()),
+                        _ => None,
+                    })
+                    .unwrap_or_default(),
+                tool_calls.len()
+            ));
+        }
+
+        final_usage = round_usage;
+
+        if tool_calls.is_empty() {
+            debug_ai_log(format!(
+                "round exit session={} round={} no_tool_calls finish_reason={round_reason:?}",
+                session.id,
+                round + 1
+            ));
+            return Ok((round_reason, final_usage));
+        }
+
+        for tool_call in tool_calls {
+            debug_ai_log(format!(
+                "tool dispatch session={} round={} tool={} internal_call_id={} tool_call_id={:?} provider_call_id={:?}",
+                session.id,
+                round + 1,
+                tool_call.tool_name,
+                tool_call.call_id,
+                tool_call.tool_call_id,
+                tool_call.provider_call_id
+            ));
+            let result = handle_tool_call(app, state, &session, &cancel, &tool_call).await?;
+            session.messages.write().push(ChatMessage::ToolResult {
+                call_id: tool_call.call_id.clone(),
+                tool_name: tool_call.tool_name.clone(),
+                output: result.0.clone(),
+                is_error: result.1,
+                tool_call_id: tool_call.tool_call_id.clone(),
+                provider_call_id: tool_call.provider_call_id.clone(),
+            });
+            debug_ai_log(format!(
+                "tool result appended session={} round={} tool={} is_error={} output_len={} tool_call_id={:?} provider_call_id={:?}",
+                session.id,
+                round + 1,
+                tool_call.tool_name,
+                result.1,
+                result.0.len(),
+                tool_call.tool_call_id,
+                tool_call.provider_call_id
+            ));
+        }
+
+        debug_ai_log(format!(
+            "tool phase complete session={} round={} continuing_to_next_round",
+            session.id,
+            round + 1
+        ));
+    }
+
+    Ok((FinishReason::ToolRoundLimit, final_usage))
+}
+
+async fn handle_tool_call(
+    app: &AppHandle<Wry>,
+    state: &AiState,
+    session: &Arc<SessionRuntime>,
+    cancel: &CancellationToken,
+    tool_call: &ModelToolCall,
+) -> Result<(String, bool), AiError> {
+    emit_tool_start(app, &session.id, tool_call);
+    debug_ai_log(format!(
+        "tool start session={} tool={} internal_call_id={}",
+        session.id, tool_call.tool_name, tool_call.call_id
+    ));
+
+    let descriptor = state
+        .tool_descriptors()
+        .into_iter()
+        .find(|tool| tool.name == tool_call.tool_name)
+        .ok_or_else(|| AiError::ToolNotFound(tool_call.tool_name.clone()));
+
+    let outcome = match descriptor {
+        Err(error) => (error.to_string(), true),
+        Ok(descriptor) => match descriptor.source {
+            ToolSource::Native => {
+                match execute_native_tool(app, state, session, cancel, tool_call, descriptor).await
+                {
+                    Ok(outcome) => outcome,
+                    Err(AiError::Cancelled) => return Err(AiError::Cancelled),
+                    Err(error) => (error.to_string(), true),
+                }
+            }
+            ToolSource::Proxy => {
+                match execute_proxy_tool(app, state, session, cancel, tool_call).await {
+                    Ok(outcome) => outcome,
+                    Err(AiError::Cancelled) => return Err(AiError::Cancelled),
+                    Err(error) => (error.to_string(), true),
+                }
+            }
+        },
+    };
+
+    emit_tool_end(
+        app,
+        &session.id,
+        &tool_call.call_id,
+        &tool_call.tool_name,
+        &outcome.0,
+        outcome.1,
+    );
+    debug_ai_log(format!(
+        "tool end session={} tool={} internal_call_id={} is_error={}",
+        session.id, tool_call.tool_name, tool_call.call_id, outcome.1
+    ));
+    Ok(outcome)
+}
+
+async fn execute_native_tool(
+    app: &AppHandle<Wry>,
+    state: &AiState,
+    session: &Arc<SessionRuntime>,
+    cancel: &CancellationToken,
+    tool_call: &ModelToolCall,
+    descriptor: ToolDescriptor,
+) -> Result<(String, bool), AiError> {
+    let tool = state
+        .tools()
+        .get_native(&tool_call.tool_name)
+        .ok_or_else(|| AiError::ToolNotFound(tool_call.tool_name.clone()))?;
+
+    let editor_context = session.editor_context.read().clone();
+    let ctx = ToolCallContext {
+        app,
+        session_id: &session.id,
+        mode: session.mode.clone(),
+        editor_context: &editor_context,
+    };
+
+    let native_result = match tool.call(&ctx, tool_call.arguments.clone()).await {
+        Ok(result) => result,
+        Err(error) => {
+            return Ok((error.to_string(), true));
+        }
+    };
+
+    if descriptor.access == ToolAccess::ReadOnly || native_result.mutation.is_none() {
+        debug_ai_log(format!(
+            "native tool read-only session={} tool={} output_len={}",
+            session.id,
+            tool_call.tool_name,
+            native_result.text.len()
+        ));
+        return Ok((native_result.text, false));
+    }
+
+    let mutation = native_result.mutation.clone().unwrap();
+    let mutation_operations = mutation.operations.clone();
+    let approval_rx = session.begin_awaiting_approval(tool_call.call_id.clone())?;
+    emit_pending_approval(
+        app,
+        &session.id,
+        &tool_call.call_id,
+        &tool_call.tool_name,
+        mutation.clone(),
+        native_result.preview_text.clone(),
+    );
+
+    let decision = tokio::select! {
+        _ = cancel.cancelled() => {
+            session.clear_approval(&tool_call.call_id);
+            return Err(AiError::Cancelled);
+        }
+        decision = approval_rx => decision.map_err(|_| AiError::ApprovalNotFound)?,
+    };
+    debug_ai_log(format!(
+        "approval resolved session={} tool={} decision={decision:?}",
+        session.id, tool_call.tool_name
+    ));
+
+    if matches!(decision, ApprovalDecision::Reject) {
+        session.set_status(SessionStatus::Streaming);
+        return Ok(("Rejected by user".to_string(), true));
+    }
+
+    let host = state.host().ok_or(AiError::HostUnavailable)?;
+    session.set_status(SessionStatus::Applying);
+    let apply_result = host.apply_mutation(mutation).await?;
+    match &apply_result {
+        MutationApplyResult::Applied { .. } => {
+            session.apply_successful_mutation(&mutation_operations);
+        }
+        MutationApplyResult::PartiallyApplied { .. } => {
+            session.clear_mutation_snapshots(&mutation_operations);
+        }
+        MutationApplyResult::Conflict { .. } => {}
+    }
+    let output = describe_apply_result(&apply_result);
+    session.set_status(SessionStatus::Streaming);
+    debug_ai_log(format!(
+        "mutation applied session={} tool={} result={apply_result:?}",
+        session.id, tool_call.tool_name
+    ));
+
+    if cancel.is_cancelled() {
+        return Err(AiError::Cancelled);
+    }
+
+    Ok((
+        output,
+        matches!(apply_result, MutationApplyResult::Conflict { .. }),
+    ))
+}
+
+async fn execute_proxy_tool(
+    app: &AppHandle<Wry>,
+    state: &AiState,
+    session: &Arc<SessionRuntime>,
+    cancel: &CancellationToken,
+    tool_call: &ModelToolCall,
+) -> Result<(String, bool), AiError> {
+    if state.tools().get_proxy(&tool_call.tool_name).is_none() {
+        return Ok((
+            format!("Proxy tool {} is not registered", tool_call.tool_name),
+            true,
+        ));
+    }
+
+    let receiver = state
+        .proxy_broker()
+        .register_pending(tool_call.call_id.clone());
+    emit_proxy_call(
+        app,
+        &session.id,
+        &tool_call.call_id,
+        &tool_call.tool_name,
+        tool_call.arguments.clone(),
+    );
+
+    let response = tokio::select! {
+        _ = cancel.cancelled() => {
+            state.proxy_broker().clear(&tool_call.call_id);
+            return Err(AiError::Cancelled);
+        }
+        result = timeout(Duration::from_millis(state.config().proxy_tool_timeout_ms), receiver) => {
+            match result {
+                Ok(Ok(output)) => output,
+                Ok(Err(_)) => return Ok(("Proxy tool responder dropped".to_string(), true)),
+                Err(_) => {
+                    state.proxy_broker().clear(&tool_call.call_id);
+                    return Err(AiError::ProxyTimeout(tool_call.tool_name.clone()));
+                }
+            }
+        }
+    };
+    debug_ai_log(format!(
+        "proxy tool response session={} tool={} is_error={} output_len={}",
+        session.id,
+        tool_call.tool_name,
+        response.is_error,
+        response.output.len()
+    ));
+
+    Ok((response.output, response.is_error))
+}
+
+fn describe_apply_result(result: &MutationApplyResult) -> String {
+    match result {
+        MutationApplyResult::Applied { summary, warnings } => {
+            if warnings.is_empty() {
+                format!("Applied: {summary}")
+            } else {
+                format!("Applied: {summary}\nWarnings: {}", warnings.join("; "))
+            }
+        }
+        MutationApplyResult::PartiallyApplied {
+            summary,
+            applied,
+            failed,
+            skipped,
+            warnings,
+        } => {
+            let mut parts = vec![format!("Partially applied: {summary}")];
+            if !applied.is_empty() {
+                parts.push(format!("Applied: {}", applied.join(", ")));
+            }
+            if !failed.is_empty() {
+                parts.push(format!("Failed: {}", failed.join(", ")));
+            }
+            if !skipped.is_empty() {
+                parts.push(format!("Skipped: {}", skipped.join(", ")));
+            }
+            if !warnings.is_empty() {
+                parts.push(format!("Warnings: {}", warnings.join("; ")));
+            }
+            parts.join("\n")
+        }
+        MutationApplyResult::Conflict { summary, conflicts } => {
+            let detail = conflicts
+                .iter()
+                .map(|conflict| format!("{} ({})", conflict.path, conflict.reason))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("Conflict: {summary}. {detail}")
+        }
+    }
+}
+
+pub fn emit_stream_chunk(app: &AppHandle<Wry>, session_id: &str, delta: String) {
+    let _ = app.emit(
+        "ai:stream-chunk",
+        StreamChunkPayload {
+            session_id: session_id.to_string(),
+            delta,
+        },
+    );
+}
+
+pub fn emit_done(
+    app: &AppHandle<Wry>,
+    session_id: &str,
+    finish_reason: FinishReason,
+    usage: Option<crate::types::TokenUsage>,
+) {
+    let _ = app.emit(
+        "ai:done",
+        DonePayload {
+            session_id: session_id.to_string(),
+            finish_reason,
+            usage,
+        },
+    );
+}
+
+pub fn emit_error(app: &AppHandle<Wry>, session_id: &str, error: &AiError) {
+    let _ = app.emit(
+        "ai:error",
+        ErrorPayload {
+            session_id: session_id.to_string(),
+            message: error.message(),
+        },
+    );
+}
+
+fn emit_tool_start(app: &AppHandle<Wry>, session_id: &str, tool_call: &ModelToolCall) {
+    let _ = app.emit(
+        "ai:tool-call-start",
+        ToolCallStartPayload {
+            session_id: session_id.to_string(),
+            call_id: tool_call.call_id.clone(),
+            tool_name: tool_call.tool_name.clone(),
+            arguments: tool_call.arguments.clone(),
+        },
+    );
+}
+
+fn emit_tool_end(
+    app: &AppHandle<Wry>,
+    session_id: &str,
+    call_id: &str,
+    tool_name: &str,
+    output: &str,
+    is_error: bool,
+) {
+    let output = summarize_output(output);
+    let _ = app.emit(
+        "ai:tool-call-end",
+        ToolCallEndPayload {
+            session_id: session_id.to_string(),
+            call_id: call_id.to_string(),
+            tool_name: tool_name.to_string(),
+            output,
+            is_error,
+        },
+    );
+}
+
+fn emit_pending_approval(
+    app: &AppHandle<Wry>,
+    session_id: &str,
+    call_id: &str,
+    tool_name: &str,
+    mutation: crate::mutation::MutationPlan,
+    preview_text: Option<String>,
+) {
+    let _ = app.emit(
+        "ai:pending-approval",
+        PendingApprovalPayload {
+            session_id: session_id.to_string(),
+            call_id: call_id.to_string(),
+            tool_name: tool_name.to_string(),
+            mutation,
+            preview_text,
+        },
+    );
+}
+
+fn emit_proxy_call(
+    app: &AppHandle<Wry>,
+    session_id: &str,
+    call_id: &str,
+    tool_name: &str,
+    arguments: Value,
+) {
+    let _ = app.emit(
+        "ai:proxy-tool-call",
+        ProxyToolCallPayload {
+            session_id: session_id.to_string(),
+            call_id: call_id.to_string(),
+            tool_name: tool_name.to_string(),
+            arguments,
+        },
+    );
+}
+
+fn summarize_output(output: &str) -> String {
+    const MAX: usize = 600;
+    let Some((end, _)) = output.char_indices().nth(MAX) else {
+        return output.to_string();
+    };
+    format!("{}...", &output[..end])
+}
+
+fn checksum_for_content(content: &str) -> String {
+    blake3::hash(content.as_bytes()).to_hex().to_string()
+}
+
+fn empty_directory_checksum() -> String {
+    blake3::Hasher::new().finalize().to_hex().to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{SessionRuntime, SessionStatus, summarize_output};
+    use crate::types::ChatMode;
+
+    #[test]
+    fn summarize_output_keeps_short_strings() {
+        let input = "short output";
+        assert_eq!(summarize_output(input), input);
+    }
+
+    #[test]
+    fn summarize_output_truncates_on_char_boundary() {
+        let input = format!("{}끝", "가".repeat(600));
+        let summarized = summarize_output(&input);
+
+        assert!(summarized.ends_with("..."));
+        assert_eq!(summarized.chars().count(), 603);
+        assert_eq!(summarized, format!("{}...", "가".repeat(600)));
+    }
+
+    #[test]
+    fn cancel_during_apply_cancels_the_running_token() {
+        let session = SessionRuntime::new(ChatMode::Agent);
+        let cancel = session.start_run().expect("start run");
+        session.set_status(SessionStatus::Applying);
+
+        session.cancel();
+
+        assert!(cancel.is_cancelled());
+        assert!(session.complete_run());
+    }
+}

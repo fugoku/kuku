@@ -1,3 +1,3 @@
 [workspace]
-members = ["apps/desktop/src-tauri", "crates/kuku-search-core"]
+members = ["apps/desktop/src-tauri", "crates/kuku-search-core", "crates/tauri-plugin-ai"]
 resolver = "2"

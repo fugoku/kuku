@@ -1,7 +1,9 @@
 import { type UnlistenFn, listen } from "@tauri-apps/api/event";
 import { createStore, produce } from "solid-js/store";
 
-import { clearEditorTabs } from "~/stores/files";
+import { clearEditorTabs, reconcileEditorTabsWithVault } from "~/stores/files";
+import { buildVaultTreeIndex, reconcileVaultUiState } from "~/stores/vault_tree";
+import { createWatcherRefreshScheduler } from "~/stores/watcher_refresh";
 import { setLastOpenedVault } from "~/lib/app_settings";
 import { emitEvent } from "~/plugins/events";
 import {
@@ -49,6 +51,16 @@ const [vaultState, setVaultState] = createStore<VaultState>({
 });
 
 let watcherUnlisten: UnlistenFn | null = null;
+const watcherRefreshScheduler = createWatcherRefreshScheduler(async () => {
+  const root = vaultState.rootPath;
+  if (!root) return;
+
+  try {
+    await loadFiles(root);
+  } catch (error) {
+    console.error("Failed to refresh vault after watcher event", error);
+  }
+});
 
 function rootNameFromPath(path: string): string {
   const parts = path.split("/").filter(Boolean);
@@ -57,9 +69,24 @@ function rootNameFromPath(path: string): string {
 
 async function loadFiles(rootPath: string): Promise<void> {
   const files = await listVaultFiles("");
-  setVaultState("files", files);
-  setVaultState("rootPath", rootPath);
-  setVaultState("rootName", rootNameFromPath(rootPath));
+  const index = buildVaultTreeIndex(files);
+  const nextUiState = reconcileVaultUiState(index, {
+    expandedFolders: vaultState.expandedFolders,
+    selectedPath: vaultState.selectedPath,
+    editState: vaultState.editState,
+  });
+
+  setVaultState(
+    produce((s) => {
+      s.files = files;
+      s.rootPath = rootPath;
+      s.rootName = rootNameFromPath(rootPath);
+      s.expandedFolders = nextUiState.expandedFolders;
+      s.selectedPath = nextUiState.selectedPath;
+      s.editState = nextUiState.editState;
+    }),
+  );
+  reconcileEditorTabsWithVault(files);
 }
 
 async function startWatcher(): Promise<void> {
@@ -69,18 +96,14 @@ async function startWatcher(): Promise<void> {
   }
 
   watcherUnlisten = await listen<FileChangeEvent>("vault:file-changed", () => {
-    void (async () => {
-      const root = vaultState.rootPath;
-      if (root) {
-        await loadFiles(root);
-      }
-    })();
+    watcherRefreshScheduler.schedule();
   });
 
   setVaultState("isWatching", true);
 }
 
 async function stopWatcher(): Promise<void> {
+  watcherRefreshScheduler.cancel();
   if (watcherUnlisten) {
     watcherUnlisten();
     watcherUnlisten = null;

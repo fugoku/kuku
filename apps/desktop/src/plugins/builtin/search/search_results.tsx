@@ -27,13 +27,19 @@ export function SearchResultsList(props: SearchResultsListProps) {
             classList={{
               "bg-bg-tertiary": props.selectedIndex === index(),
               "px-3 py-2": compact(),
-              "px-3 py-3 hover:bg-bg-tertiary": !compact(),
+              "p-3  hover:bg-bg-tertiary": !compact(),
             }}
             onMouseEnter={() => props.onHoverIndexChange?.(index())}
             onClick={() => props.onSelect(hit)}
           >
             <div class="flex items-center justify-between gap-3">
-              <p class={compact() ? "truncate text-sm text-text-primary" : "truncate text-sm font-medium text-text-primary"}>
+              <p
+                class={
+                  compact()
+                    ? "truncate text-sm text-text-primary"
+                    : "truncate text-sm font-medium text-text-primary"
+                }
+              >
                 {hit.title ?? fileNameFromPath(hit.docId)}
               </p>
               <span class="shrink-0 text-[11px] text-text-muted">{hit.kind}</span>
@@ -42,7 +48,13 @@ export function SearchResultsList(props: SearchResultsListProps) {
             <Show when={hit.sectionPath.length > 0}>
               <p class="mt-1 truncate text-[11px] text-text-muted">{hit.sectionPath.join(" / ")}</p>
             </Show>
-            <p class={compact() ? "mt-2 text-xs leading-5 text-text-secondary" : "mt-2 text-xs leading-5 text-text-secondary"}>
+            <p
+              class={
+                compact()
+                  ? "mt-2 text-xs/5  text-text-secondary"
+                  : "mt-2 text-xs/5  text-text-secondary"
+              }
+            >
               {hit.snippet}
             </p>
           </button>
