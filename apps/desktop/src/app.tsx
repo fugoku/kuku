@@ -5,11 +5,10 @@ import PanelLayout from "~/components/layout/panel_layout";
 import TitleBar from "~/components/layout/title_bar";
 import VaultBrowser from "~/components/vault/vault_browser";
 
-import { getLastOpenedVault } from "~/lib/app_settings";
 import { initFonts } from "~/lib/fonts";
 import { bootstrapPlugins, destroyPlugins } from "~/plugins/bootstrap";
 import { Slot } from "~/plugins/slots";
-import { settingsState } from "~/stores/settings";
+import { initSettings, settingsState } from "~/stores/settings";
 import { initTheme } from "~/stores/theme";
 import { destroyCloseHandler, initCloseHandler } from "~/stores/files";
 import { closeVault, openVault, vaultState } from "~/stores/vault";
@@ -38,19 +37,23 @@ export default function App() {
   });
 
   createEffect(() => {
-    const { fontFamily, fontMono } = settingsState.editor;
+    const { fontFamily, fontMono, fontSize, lineHeight, wordWrap } = settingsState.editor;
     document.documentElement.style.setProperty("--font-editor", `"Emoji", "${fontFamily}"`);
     document.documentElement.style.setProperty("--font-mono", `"Emoji", "${fontMono}"`);
+    document.documentElement.style.setProperty("--editor-font-size", `${fontSize / 16}rem`);
+    document.documentElement.style.setProperty("--editor-line-height", String(lineHeight));
+    document.documentElement.style.setProperty(
+      "--editor-overflow-wrap",
+      wordWrap ? "break-word" : "normal",
+    );
+    document.documentElement.style.setProperty(
+      "--editor-white-space",
+      wordWrap ? "pre-wrap" : "pre",
+    );
   });
 
   onMount(() => {
-    // Plugin system bootstrap
-    void bootstrapPlugins();
-
-    void initFonts();
-    void initCloseHandler();
-    void initWindowListeners();
-    void restoreLastVault();
+    void initializeApp();
   });
   onCleanup(() => {
     void closeVault();
@@ -59,9 +62,24 @@ export default function App() {
     destroyWindowListeners();
   });
 
+  async function initializeApp(): Promise<void> {
+    try {
+      await initSettings();
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error("[Settings] Failed to initialize settings", error);
+    }
+
+    await bootstrapPlugins();
+    void initFonts();
+    void initCloseHandler();
+    void initWindowListeners();
+    void restoreLastVault();
+  }
+
   async function restoreLastVault(): Promise<void> {
     try {
-      const lastVault = await getLastOpenedVault();
+      const lastVault = settingsState.lastOpenedVault;
       if (lastVault) {
         await openVault(lastVault);
       }

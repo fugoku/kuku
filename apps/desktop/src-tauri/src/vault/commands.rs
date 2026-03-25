@@ -5,7 +5,6 @@ use std::pin::Pin;
 use tauri::{AppHandle, State, command};
 use tauri_plugin_dialog::DialogExt;
 
-use crate::app_settings::set_last_opened_vault;
 use crate::models::{ChecksumWriteResult, FileEntry, FileReadResult};
 use crate::search::SearchState;
 use crate::vault::checksum::compute_checksum;
@@ -101,8 +100,6 @@ pub async fn vault_open(
         let mut guard = state.inner.lock();
         guard.watcher_stop_tx = Some(stop_tx);
     }
-
-    set_last_opened_vault(Some(&path))?;
     Ok(())
 }
 

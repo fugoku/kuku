@@ -9,6 +9,7 @@ import { defineDiffSchemaExtension, defineReadonly } from "~/plugins/builtin/dif
 import { markTabDirty } from "~/stores/files";
 import { getDiffEntry } from "~/stores/diff_store";
 import { readFileWithChecksum, writeFileWithChecksum } from "~/lib/vault_fs";
+import { settingsState } from "~/stores/settings";
 import { revealPath, setSelectedPath } from "~/stores/vault";
 import { applyPendingSearchNavigation } from "~/plugins/builtin/search/navigation";
 
@@ -31,6 +32,24 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
   let disposed = false;
   let settingContent = false;
   let checksum: string | null = null;
+  let autoSaveTimer: number | null = null;
+  let saveInFlight: Promise<void> | null = null;
+  let inFlightSaveContent: string | null = null;
+  let queuedSaveContent: string | null = null;
+
+  function clearAutoSaveTimer(): void {
+    if (autoSaveTimer === null) return;
+    window.clearTimeout(autoSaveTimer);
+    autoSaveTimer = null;
+  }
+
+  function scheduleAutoSave(): void {
+    clearAutoSaveTimer();
+    autoSaveTimer = window.setTimeout(() => {
+      autoSaveTimer = null;
+      void saveDocument();
+    }, 800);
+  }
 
   function getDiffSourcePath(): string | null {
     return getDiffEntry(props.filePath)?.sourceFilePath ?? null;
@@ -74,30 +93,72 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     markTabDirty(props.tabId, false);
   }
 
-  async function saveDocument(): Promise<void> {
-    if (isDiffMode || !checksum || disposed) return;
+  function getSaveContent(): string | null {
+    clearAutoSaveTimer();
+    if (isDiffMode || !checksum) return null;
 
     const markdown = getMarkdownService();
-    if (!markdown) return;
+    if (!markdown) return null;
 
     const json = editor.getDocJSON();
-    const content = markdown.stringify(json);
+    return markdown.stringify(json);
+  }
+
+  async function saveDocument(): Promise<void> {
+    const content = getSaveContent();
+    if (content === null) return;
+
+    if (content === queuedSaveContent || content === inFlightSaveContent) {
+      await (saveInFlight ?? Promise.resolve());
+      return;
+    }
+
+    queuedSaveContent = content;
+    if (saveInFlight) {
+      await saveInFlight;
+      return;
+    }
+
+    saveInFlight = (async () => {
+      while (queuedSaveContent !== null) {
+        const contentToWrite = queuedSaveContent;
+        queuedSaveContent = null;
+
+        const currentChecksum = checksum;
+        if (!currentChecksum) return;
+
+        inFlightSaveContent = contentToWrite;
+
+        try {
+          const result = await writeFileWithChecksum(props.filePath, contentToWrite, currentChecksum);
+
+          if (result.status === "Written") {
+            checksum = result.checksum;
+            if (queuedSaveContent === null) {
+              markTabDirty(props.tabId, false);
+            }
+          } else {
+            queuedSaveContent = null;
+            // oxlint-disable-next-line no-console -- intentional warning for save conflicts
+            console.warn("Save conflict:", result);
+            return;
+          }
+        } catch (error) {
+          queuedSaveContent = null;
+          // oxlint-disable-next-line no-console -- intentional error logging
+          console.error("Failed to save document:", error);
+          return;
+        } finally {
+          inFlightSaveContent = null;
+        }
+      }
+    })();
 
     try {
-      const result = await writeFileWithChecksum(props.filePath, content, checksum);
-      if (disposed) return;
-
-      if (result.status === "Written") {
-        checksum = result.checksum;
-        markTabDirty(props.tabId, false);
-      } else {
-        // oxlint-disable-next-line no-console -- intentional warning for save conflicts
-        console.warn("Save conflict:", result);
-      }
-    } catch (error) {
-      if (disposed) return;
-      // oxlint-disable-next-line no-console -- intentional error logging
-      console.error("Failed to save document:", error);
+      await saveInFlight;
+    } finally {
+      saveInFlight = null;
+      inFlightSaveContent = null;
     }
   }
 
@@ -120,6 +181,11 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
   });
 
   onCleanup(() => {
+    if (settingsState.general.autoSave && (autoSaveTimer !== null || saveInFlight !== null)) {
+      void saveDocument();
+    } else {
+      clearAutoSaveTimer();
+    }
     disposed = true;
     setContextKey("editorTextFocus", false);
     destroyEditor();
@@ -146,6 +212,9 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     () => {
       if (isDiffMode || settingContent || disposed) return;
       markTabDirty(props.tabId, true);
+      if (settingsState.general.autoSave) {
+        scheduleAutoSave();
+      }
     },
     { editor },
   );
@@ -169,6 +238,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
       <div
         class="size-full overflow-y-auto bg-bg-primary"
         data-diff-editor={isDiffMode ? "" : undefined}
+        spellcheck={!isDiffMode && settingsState.general.spellCheck}
         onFocusIn={handleFocusIn}
         onFocusOut={handleFocusOut}
       >

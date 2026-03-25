@@ -4,7 +4,8 @@ import { createStore, produce } from "solid-js/store";
 import type { PMNodeJSON } from "~/lib/markdown";
 import { writeVaultFile, type FileEntry } from "~/lib/vault_fs";
 import { reconcileTabsWithExistingPaths } from "~/stores/file_tabs_reconcile";
-import { isDiffTabPath, removeDiffEntry } from "~/stores/diff_store";
+import { getSourceFilePathFromDiffPath, isDiffTabPath, removeDiffEntry } from "~/stores/diff_store";
+import { settingsState } from "~/stores/settings";
 import { buildVaultTreeIndex } from "~/stores/vault_tree";
 import { existsInTree, loadFiles, vaultState } from "~/stores/vault";
 
@@ -104,6 +105,23 @@ const [filesState, setFilesState] = createStore<FilesState>(loadTabsSync());
 
 function getActiveTab(): Tab | undefined {
   return filesState.tabs.find((t) => t.id === filesState.activeTabId);
+}
+
+function getActiveEditorFolder(): string {
+  const activeTab = getActiveTab();
+  if (!activeTab?.filePath) return "";
+
+  let sourcePath: string | null = null;
+  if (activeTab.type === "diff") {
+    sourcePath = getSourceFilePathFromDiffPath(activeTab.filePath);
+  } else if (activeTab.type === "editor") {
+    sourcePath = activeTab.filePath;
+  }
+
+  if (!sourcePath) return "";
+
+  const idx = sourcePath.lastIndexOf("/");
+  return idx !== -1 ? sourcePath.slice(0, idx) : "";
 }
 
 // ── Actions ──
@@ -264,9 +282,12 @@ async function createAndOpenNewFile(): Promise<void> {
     return;
   }
 
+  const basePath =
+    settingsState.files.newFileLocation === "current" ? getActiveEditorFolder() : "";
+
   let name = "Untitled";
   let fileName = `${name}.md`;
-  let filePath = fileName;
+  let filePath = basePath ? `${basePath}/${fileName}` : fileName;
   let counter = 1;
 
   while (
@@ -275,7 +296,7 @@ async function createAndOpenNewFile(): Promise<void> {
   ) {
     name = `Untitled ${counter}`;
     fileName = `${name}.md`;
-    filePath = fileName;
+    filePath = basePath ? `${basePath}/${fileName}` : fileName;
     counter++;
   }
 

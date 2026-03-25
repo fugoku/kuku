@@ -12,12 +12,13 @@
   padding: 2rem 2.5rem;
   min-height: 100%;
   font-family: var(--font-editor);
-  font-size: 0.9375rem;
-  line-height: 1.7;
+  font-size: var(--editor-font-size, 0.9375rem);
+  line-height: var(--editor-line-height, 1.7);
   color: var(--color-text-primary);
   caret-color: var(--color-text-primary);
-  word-wrap: break-word;
-  white-space: pre-wrap;
+  overflow-x: auto;
+  overflow-wrap: var(--editor-overflow-wrap, break-word);
+  white-space: var(--editor-white-space, pre-wrap);
 }
 
 .ProseMirror:focus {

@@ -2,9 +2,9 @@ import { type UnlistenFn, listen } from "@tauri-apps/api/event";
 import { createStore, produce } from "solid-js/store";
 
 import { clearEditorTabs, reconcileEditorTabsWithVault } from "~/stores/files";
+import { setTopLevelSetting } from "~/stores/settings";
 import { buildVaultTreeIndex, reconcileVaultUiState } from "~/stores/vault_tree";
 import { createWatcherRefreshScheduler } from "~/stores/watcher_refresh";
-import { setLastOpenedVault } from "~/lib/app_settings";
 import { emitEvent } from "~/plugins/events";
 import {
   closeVault as closeVaultCommand,
@@ -116,7 +116,7 @@ async function openVault(path: string): Promise<void> {
   await stopWatcher();
   await openVaultCommand(path);
   clearEditorTabs();
-  await setLastOpenedVault(path);
+  setTopLevelSetting("lastOpenedVault", path);
 
   setVaultState(
     produce((s) => {

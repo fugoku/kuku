@@ -72,6 +72,24 @@ const TAB_SIZE_OPTIONS = [
   { value: "8", label: "8" },
 ];
 
+const FONT_SIZE_OPTIONS = [
+  { value: "13", label: "13 px" },
+  { value: "14", label: "14 px" },
+  { value: "15", label: "15 px" },
+  { value: "16", label: "16 px" },
+  { value: "18", label: "18 px" },
+  { value: "20", label: "20 px" },
+];
+
+const LINE_HEIGHT_OPTIONS = [
+  { value: "1.4", label: "1.4" },
+  { value: "1.5", label: "1.5" },
+  { value: "1.6", label: "1.6" },
+  { value: "1.7", label: "1.7" },
+  { value: "1.8", label: "1.8" },
+  { value: "2", label: "2.0" },
+];
+
 const NEW_FILE_LOCATION_OPTIONS = [
   { value: "root", label: "Vault root" },
   { value: "current", label: "Same folder as current file" },
@@ -238,16 +256,13 @@ function GeneralSection() {
           placeholder="Select language"
         />
       </SettingItem>
-      <SettingItem label="Auto-save (WIP)" description="Automatically save changes after editing.">
+      <SettingItem label="Auto-save" description="Automatically save changes after editing.">
         <Switch
           checked={settingsState.general.autoSave}
           onChange={(v) => setGeneralSetting("autoSave", v)}
         />
       </SettingItem>
-      <SettingItem
-        label="Spell check (WIP)"
-        description="Check spelling while typing in the editor."
-      >
+      <SettingItem label="Spell check" description="Check spelling while typing in the editor.">
         <Switch
           checked={settingsState.general.spellCheck}
           onChange={(v) => setGeneralSetting("spellCheck", v)}
@@ -332,7 +347,7 @@ function EditorSection() {
           placeholder="Select tab size"
         />
       </SettingItem>
-      <SettingItem label="Word wrap (WIP)" description="Wrap long lines to fit the editor width.">
+      <SettingItem label="Word wrap" description="Wrap long lines to fit the editor width.">
         <Switch
           checked={settingsState.editor.wordWrap}
           onChange={(v) => setEditorSetting("wordWrap", v)}
@@ -342,6 +357,22 @@ function EditorSection() {
         <Switch
           checked={settingsState.editor.lineNumbers}
           onChange={(v) => setEditorSetting("lineNumbers", v)}
+        />
+      </SettingItem>
+      <SettingItem label="Font size" description="Base text size used in the editor body.">
+        <Select
+          options={FONT_SIZE_OPTIONS}
+          value={String(settingsState.editor.fontSize)}
+          onChange={(v) => setEditorSetting("fontSize", Number.parseInt(v, 10))}
+          placeholder="Select font size"
+        />
+      </SettingItem>
+      <SettingItem label="Line height" description="Line spacing for editor paragraphs and text.">
+        <Select
+          options={LINE_HEIGHT_OPTIONS}
+          value={String(settingsState.editor.lineHeight)}
+          onChange={(v) => setEditorSetting("lineHeight", Number.parseFloat(v))}
+          placeholder="Select line height"
         />
       </SettingItem>
       <SettingItem
@@ -372,7 +403,7 @@ function FilesSection() {
   return (
     <SettingSection title="Files & Links">
       <SettingItem
-        label="Default new file location (WIP)"
+        label="Default new file location"
         description="Where new files are created by default."
       >
         <Select

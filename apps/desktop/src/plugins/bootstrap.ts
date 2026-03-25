@@ -37,6 +37,7 @@ import {
   registryState,
   validateAndTopologicalSort,
 } from "~/plugins/registry";
+import { settingsState } from "~/stores/settings";
 import type { KukuPlugin } from "~/plugins/types";
 
 // ── Ready Signal ──
@@ -150,8 +151,7 @@ function destroyPlugins(): void {
  * For now returns an empty array — will integrate with settings store in Stage 5.
  */
 function loadDisabledPlugins(): string[] {
-  // TODO (Stage 5): read from ~/.kuku/settings.json → disabledPlugins[]
-  return [];
+  return settingsState.disabledPlugins;
 }
 
 // ── Exports ──
