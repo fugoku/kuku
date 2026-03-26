@@ -134,6 +134,22 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     }
   }
 
+  function syncSpellcheckSetting(spellCheckEnabled = settingsState.general.spellCheck): void {
+    const enabled = !isDiffMode && spellCheckEnabled;
+
+    requestAnimationFrame(() => {
+      if (disposed) return;
+
+      const editableSurface =
+        containerRef?.querySelector<HTMLElement>('[contenteditable="true"]') ??
+        containerRef?.querySelector<HTMLElement>(".ProseMirror");
+
+      if (editableSurface) {
+        editableSurface.spellcheck = enabled;
+      }
+    });
+  }
+
   async function loadEditableDocument(): Promise<void> {
     const cachedContent = getCachedContent(props.tabId);
     const cachedChecksum = getCachedChecksum(props.tabId);
@@ -317,6 +333,10 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     void loadEditableDocument();
   });
 
+  createEffect(() => {
+    syncSpellcheckSetting(settingsState.general.spellCheck);
+  });
+
   useDocChange(
     () => {
       if (isDiffMode || settingContent || disposed) return;
@@ -345,7 +365,10 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
   return (
     <ProseKit editor={editor}>
       <div
-        ref={containerRef}
+        ref={(el) => {
+          containerRef = el;
+          syncSpellcheckSetting();
+        }}
         class="size-full overflow-y-auto bg-bg-primary"
         data-diff-editor={isDiffMode ? "" : undefined}
         spellcheck={!isDiffMode && settingsState.general.spellCheck}

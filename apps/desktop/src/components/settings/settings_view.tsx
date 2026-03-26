@@ -259,18 +259,6 @@ function GeneralSection() {
           placeholder="Select language"
         />
       </SettingItem>
-      <SettingItem label="Auto-save" description="Automatically save changes after editing.">
-        <Switch
-          checked={settingsState.general.autoSave}
-          onChange={(v) => setGeneralSetting("autoSave", v)}
-        />
-      </SettingItem>
-      <SettingItem label="Spell check" description="Check spelling while typing in the editor.">
-        <Switch
-          checked={settingsState.general.spellCheck}
-          onChange={(v) => setGeneralSetting("spellCheck", v)}
-        />
-      </SettingItem>
     </SettingSection>
   );
 }
@@ -342,6 +330,18 @@ function FontInput(props: {
 function EditorSection() {
   return (
     <SettingSection title="Editor">
+      <SettingItem label="Auto-save" description="Automatically save changes after editing.">
+        <Switch
+          checked={settingsState.general.autoSave}
+          onChange={(v) => setGeneralSetting("autoSave", v)}
+        />
+      </SettingItem>
+      <SettingItem label="Spell check" description="Check spelling while typing in the editor.">
+        <Switch
+          checked={settingsState.general.spellCheck}
+          onChange={(v) => setGeneralSetting("spellCheck", v)}
+        />
+      </SettingItem>
       <SettingItem label="Tab size (WIP)" description="Number of spaces per tab character.">
         <Select
           options={TAB_SIZE_OPTIONS}
