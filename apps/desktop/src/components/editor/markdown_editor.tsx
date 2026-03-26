@@ -1,4 +1,4 @@
-import { createEffect, onCleanup, onMount } from "solid-js";
+import { createEffect, onCleanup, onMount, untrack } from "solid-js";
 import { union } from "prosekit/core";
 import { TextSelection } from "prosekit/pm/state";
 import { ProseKit, useDocChange, useKeymap } from "prosekit/solid";
@@ -151,8 +151,14 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
   }
 
   async function loadEditableDocument(): Promise<void> {
-    const cachedContent = getCachedContent(props.tabId);
-    const cachedChecksum = getCachedChecksum(props.tabId);
+    // Read caches outside the reactive tracking context.
+    // These reads happen synchronously before the first `await`, so
+    // without `untrack` they become dependencies of the outer
+    // `createEffect` — causing the effect to re-run (and the editor
+    // to reset) whenever `saveCachedContent` / `saveCachedChecksum`
+    // updates the store during save.
+    const cachedContent = untrack(() => getCachedContent(props.tabId));
+    const cachedChecksum = untrack(() => getCachedChecksum(props.tabId));
     if (cachedContent) {
       setEditorDocument(cachedContent);
       if (cachedChecksum) {
@@ -201,10 +207,10 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
   }
 
   async function loadDiffDocument(): Promise<void> {
-    const diffEntry = getDiffEntry(props.filePath);
+    const diffEntry = untrack(() => getDiffEntry(props.filePath));
     if (!diffEntry || disposed) return;
 
-    const content = getCachedContent(props.tabId) ?? diffEntry.diffDoc;
+    const content = untrack(() => getCachedContent(props.tabId)) ?? diffEntry.diffDoc;
     setEditorDocument(content);
     saveCachedContent(props.tabId, content);
     restoreViewportSnapshot();
@@ -246,6 +252,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
         if (!currentChecksum) return;
 
         inFlightSaveContent = contentToWrite;
+        const docBeforeSave = editor.view.state.doc;
 
         try {
           const result = await writeFileWithChecksum(
@@ -257,8 +264,16 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
           if (result.status === "Written") {
             checksum = result.checksum;
             saveCachedChecksum(props.tabId, result.checksum);
-            saveCachedContent(props.tabId, editor.getDocJSON());
-            if (queuedSaveContent === null) {
+
+            // Only mark clean and snapshot cache when the document
+            // has not been edited while the async write was in flight.
+            // ProseMirror doc objects are immutable — a reference
+            // equality check is sufficient to detect changes.
+            const docUnchanged = editor.view.state.doc === docBeforeSave;
+            if (docUnchanged) {
+              saveCachedContent(props.tabId, editor.getDocJSON());
+            }
+            if (queuedSaveContent === null && docUnchanged) {
               markTabDirty(props.tabId, false);
             }
           } else {
