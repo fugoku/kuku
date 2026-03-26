@@ -30,7 +30,7 @@ export default function TypingIndicator() {
 
   // Don't render if disabled in settings
   const enabled = () => settingsState.general.typingIndicator;
-  const hasActivity = () => isTyping() || savedCharCount() > 0;
+  const hasActivity = () => isTyping() || (savedCharCount() > 0 && settingsState.general.autoSave);
 
   return (
     <Show when={enabled() && hasActivity()}>
@@ -38,7 +38,7 @@ export default function TypingIndicator() {
         <Show
           when={isTyping()}
           fallback={
-            <Show when={savedCharCount() > 0}>
+            <Show when={savedCharCount() > 0 && settingsState.general.autoSave}>
               <div class="flex animate-fade-in items-center gap-1.5">
                 <span class="text-xs text-text-muted">✓</span>
                 <span class="text-[0.6875rem] text-text-muted">
