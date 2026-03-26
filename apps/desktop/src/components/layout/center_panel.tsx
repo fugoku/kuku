@@ -2,12 +2,14 @@ import { ErrorBoundary, onCleanup, Show, Suspense } from "solid-js";
 import { Dynamic } from "solid-js/web";
 
 import MarkdownEditor from "~/components/editor/markdown_editor";
+import { KukuLogo } from "~/components/icons/kuku_logo";
 import SettingsView from "~/components/settings/settings_view";
 import TabBar from "~/components/layout/tab_bar";
 import { pluginsReady } from "~/plugins/bootstrap";
 import { createFocusZone } from "~/plugins/focus_zone";
 import { getCenterTabFill, PluginErrorUI, PluginSkeleton } from "~/plugins/slots";
-import { filesState, getActiveTab } from "~/stores/files";
+import { createAndOpenNewFile, filesState, getActiveTab, openTab } from "~/stores/files";
+import { toggleLeftPanel } from "~/stores/layout";
 
 // ── Component ──
 
@@ -38,8 +40,58 @@ export default function CenterPanel() {
       <Show
         when={filesState.tabs.length > 0}
         fallback={
-          <div class="flex min-h-0 flex-1 flex-col items-center justify-center">
-            <p class="text-sm tracking-wide text-text-muted opacity-50">Focus. Write. Flow.</p>
+          <div class="flex min-h-0 flex-1 flex-col items-center justify-center gap-12 p-12">
+            <KukuLogo size={260} class="opacity-15 grayscale" />
+            <p class="-mt-20 text-sm font-normal tracking-wider text-text-muted opacity-50">
+              Focus. Write. Flow.
+            </p>
+            <div class="flex w-full max-w-65 flex-col gap-0.5">
+              <button
+                type="button"
+                class="flex w-full cursor-pointer items-center justify-between rounded-lg border-none bg-transparent px-3 py-2.5 transition-all duration-150 hover:bg-bg-secondary active:scale-[0.98]"
+                onClick={() => void createAndOpenNewFile()}
+              >
+                <span class="text-[0.8125rem] text-text-muted">New File</span>
+                <div class="flex items-center gap-1.5">
+                  <kbd class="flex size-7 items-center justify-center rounded-md border border-border bg-bg-tertiary text-xs text-text-muted">
+                    ⌘
+                  </kbd>
+                  <kbd class="flex size-7 items-center justify-center rounded-md border border-border bg-bg-tertiary text-xs text-text-muted">
+                    N
+                  </kbd>
+                </div>
+              </button>
+              <button
+                type="button"
+                class="flex w-full cursor-pointer items-center justify-between rounded-lg border-none bg-transparent px-3 py-2.5 transition-all duration-150 hover:bg-bg-secondary active:scale-[0.98]"
+                onClick={() => toggleLeftPanel()}
+              >
+                <span class="text-[0.8125rem] text-text-muted">Toggle Sidebar</span>
+                <div class="flex items-center gap-1.5">
+                  <kbd class="flex size-7 items-center justify-center rounded-md border border-border bg-bg-tertiary text-xs text-text-muted">
+                    ⌘
+                  </kbd>
+                  <kbd class="flex size-7 items-center justify-center rounded-md border border-border bg-bg-tertiary text-xs text-text-muted">
+                    B
+                  </kbd>
+                </div>
+              </button>
+              <button
+                type="button"
+                class="flex w-full cursor-pointer items-center justify-between rounded-lg border-none bg-transparent px-3 py-2.5 transition-all duration-150 hover:bg-bg-secondary active:scale-[0.98]"
+                onClick={() => openTab("Settings", null, "settings")}
+              >
+                <span class="text-[0.8125rem] text-text-muted">Settings</span>
+                <div class="flex items-center gap-1.5">
+                  <kbd class="flex size-7 items-center justify-center rounded-md border border-border bg-bg-tertiary text-xs text-text-muted">
+                    ⌘
+                  </kbd>
+                  <kbd class="flex size-7 items-center justify-center rounded-md border border-border bg-bg-tertiary text-xs text-text-muted">
+                    ,
+                  </kbd>
+                </div>
+              </button>
+            </div>
           </div>
         }
       >
