@@ -28,6 +28,7 @@ import { registryState } from "~/plugins/registry";
 import { PluginErrorUI, PluginSkeleton, slotRegistry } from "~/plugins/slots";
 import {
   resetKeybindingOverride,
+  resetSettings,
   setAppearanceSetting,
   setEditorSetting,
   setFilesSetting,
@@ -865,6 +866,7 @@ function PluginSettingsSection(props: { fillId: string }) {
 
 export default function SettingsView() {
   const [activeCategory, setActiveCategory] = createSignal("general");
+  const [confirmReset, setConfirmReset] = createSignal(false);
 
   const primaryCategories = () => CATEGORIES.filter((c) => c.id !== "plugins" && c.id !== "about");
   const pluginCategories = () =>
@@ -894,7 +896,7 @@ export default function SettingsView() {
     <div class="flex h-full">
       {/* ── Left Nav ── */}
       <nav class="flex w-45 shrink-0 flex-col border-r border-border bg-bg-secondary py-2">
-        <ScrollArea class="flex-1 px-2" axis="y">
+        <ScrollArea class="flex-1 px-2" axis="y" autoHide="leave">
           {/* Main categories */}
           <For each={primaryCategories()}>
             {(cat) => (
@@ -946,6 +948,28 @@ export default function SettingsView() {
             )}
           </For>
         </ScrollArea>
+        <div class="shrink-0 border-t border-border px-3 py-2">
+          <button
+            type="button"
+            class={`w-full cursor-pointer rounded-md border px-3 py-1.5 text-xs transition-colors ${
+              confirmReset()
+                ? "border-error bg-error/10 text-error hover:bg-error/20"
+                : "border-border bg-transparent text-text-muted hover:bg-ghost-hover hover:text-error"
+            }`}
+            onClick={() => {
+              if (confirmReset()) {
+                resetSettings();
+                setConfirmReset(false);
+              } else {
+                setConfirmReset(true);
+                setTimeout(() => setConfirmReset(false), 3000);
+              }
+            }}
+            onBlur={() => setConfirmReset(false)}
+          >
+            {confirmReset() ? "Are you sure?" : "Reset All Settings"}
+          </button>
+        </div>
       </nav>
 
       {/* ── Right Content ── */}
