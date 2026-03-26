@@ -23,7 +23,7 @@
         "better-tailwindcss/no-deprecated-classes": "warn",
         "better-tailwindcss/no-unnecessary-whitespace": "warn",
         // ── better-tailwindcss recommended (correctness: error) ──
-        "better-tailwindcss/no-unknown-classes": "error",
+        "better-tailwindcss/no-unknown-classes": ["error", { "ignore": ["^tab-bar(-tabs)?$"] }],
         "better-tailwindcss/no-conflicting-classes": "error",
         "better-tailwindcss/no-restricted-classes": [
           "error",

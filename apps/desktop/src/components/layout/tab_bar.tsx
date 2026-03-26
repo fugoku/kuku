@@ -1,4 +1,6 @@
-import { For, Show } from "solid-js";
+import type { OverlayScrollbarsComponentRef } from "overlayscrollbars-solid";
+
+import { createEffect, For, Show } from "solid-js";
 
 import { CloseIcon, EllipsisVerticalIcon, FileIcon, PlusIcon } from "~/components/icons";
 import ScrollArea from "~/components/scroll_area";
@@ -10,6 +12,10 @@ import {
   DropdownMenuTrigger,
 } from "~/components/ui";
 import { closeTab, createAndOpenNewFile, filesState, openTab, setActiveTab } from "~/stores/files";
+
+// NOTE: The following CSS rules live in scrollbar.css (library DOM we can't add classes to):
+//   .tab-bar .os-scrollbar-horizontal { top: 0; bottom: auto; }
+//   .tab-bar-tabs [data-overlayscrollbars-contents] { display:flex; align-items:center; padding:4px 2px; }
 
 // ── Helpers ──
 
@@ -26,6 +32,45 @@ const ACTION_BTN =
 // ── Component ──
 
 export default function TabBar() {
+  let osRef: OverlayScrollbarsComponentRef | undefined;
+
+  const getViewport = () => osRef?.osInstance()?.elements().viewport;
+
+  // ── Scroll active tab into view with minimal movement ──
+
+  const PEEK_OFFSET = 48;
+
+  function scrollActiveTabIntoView() {
+    const activeId = filesState.activeTabId;
+    if (!activeId) return;
+    requestAnimationFrame(() => {
+      const viewport = getViewport();
+      if (!viewport) return;
+      const el = viewport.querySelector<HTMLElement>(`[data-tab-id="${activeId}"]`);
+      if (!el) return;
+
+      const containerLeft = viewport.scrollLeft;
+      const containerRight = containerLeft + viewport.clientWidth;
+      const elLeft = el.offsetLeft;
+      const elRight = elLeft + el.offsetWidth;
+
+      // Only scroll when the tab is outside (or nearly outside) the visible area.
+      // This gives us VSCode-style "minimum movement" behaviour.
+      if (elRight + PEEK_OFFSET > containerRight) {
+        viewport.scrollLeft = elRight + PEEK_OFFSET - viewport.clientWidth;
+      } else if (elLeft - PEEK_OFFSET < containerLeft) {
+        viewport.scrollLeft = Math.max(0, elLeft - PEEK_OFFSET);
+      }
+    });
+  }
+
+  createEffect(() => {
+    // Re-runs whenever activeTabId changes.
+    scrollActiveTabIntoView();
+  });
+
+  // ── Tab interaction handlers ──
+
   const handleMiddleClick = (tabId: string, e: MouseEvent) => {
     if (e.button === 1) {
       e.preventDefault();
@@ -39,11 +84,12 @@ export default function TabBar() {
   };
 
   return (
-    <div class="relative z-10 border-b border-border bg-bg-secondary">
+    <div class="tab-bar relative z-10 border-b border-border bg-bg-secondary">
       <div class="flex h-9.5 items-center gap-1 px-2">
-        {/* ── Tab list (horizontal scroll, hidden scrollbar) ── */}
+        {/* ── Tab list (horizontal scroll with visible scrollbar) ── */}
         <ScrollArea
-          class="min-w-0 flex-1"
+          ref={(r: OverlayScrollbarsComponentRef) => (osRef = r)}
+          class="tab-bar-tabs min-w-0 flex-1"
           axis="x"
           horizontalWheel
           options={{ scrollbars: { visibility: "hidden" } }}
