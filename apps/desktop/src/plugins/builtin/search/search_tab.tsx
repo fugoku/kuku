@@ -6,8 +6,7 @@ import { SearchResultsList } from "./search_results";
 import { createSearchTabController } from "./search_tab_state";
 
 const INPUT =
-  "w-full rounded-md border border-border bg-bg-secondary px-3 py-2 text-sm text-text-primary outline-none transition-colors focus:border-accent";
-const SEGMENT = "rounded-md px-3 py-1.5 text-xs transition-colors";
+  "w-full rounded-xs border border-border bg-bg-secondary px-3 py-2 text-sm text-text-primary outline-none transition-colors focus:border-accent";
 
 export default function SearchTab() {
   const controller = createSearchTabController();
@@ -16,60 +15,16 @@ export default function SearchTab() {
 
   return (
     <div class="flex h-full min-h-0 flex-col bg-bg-primary">
-      <div class="border-b border-border px-4 py-3">
-        <div class="flex items-center justify-between gap-3">
-          <div class="inline-flex rounded-lg border border-border bg-bg-secondary p-1">
-            <button
-              type="button"
-              class={SEGMENT}
-              classList={{
-                "bg-bg-tertiary text-text-primary": controller.mode() === "simple",
-                "text-text-muted": controller.mode() !== "simple",
-              }}
-              onClick={() => controller.setMode("simple")}
-            >
-              Simple
-            </button>
-            <button
-              type="button"
-              class={SEGMENT}
-              classList={{
-                "bg-bg-tertiary text-text-primary": controller.mode() === "regex",
-                "text-text-muted": controller.mode() !== "regex",
-              }}
-              onClick={() => controller.setMode("regex")}
-            >
-              Regex
-            </button>
-          </div>
-          <button
-            type="button"
-            class="cursor-pointer rounded-md border border-border bg-bg-secondary px-3 py-2 text-xs text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
-            onClick={() => void controller.requestRebuild()}
-          >
-            Rebuild
-          </button>
-        </div>
-
+      <div class="border-b border-border pb-2 px-2">
         <div class="mt-3 flex items-center gap-3">
           <input
             type="search"
-            placeholder={controller.mode() === "regex" ? "Search with regex" : "Search your vault"}
+            placeholder="Search your vault"
             class={INPUT}
             value={controller.query()}
             onInput={(event) => controller.scheduleSearch(event.currentTarget.value)}
           />
         </div>
-        <Show when={controller.mode() === "regex"}>
-          <label class="mt-3 flex items-center gap-2 text-xs text-text-secondary">
-            <input
-              type="checkbox"
-              checked={controller.caseSensitive()}
-              onChange={(event) => controller.setCaseSensitive(event.currentTarget.checked)}
-            />
-            <span>Case sensitive</span>
-          </label>
-        </Show>
 
         <div class="mt-2 flex items-center justify-between text-xs text-text-muted">
           <span>
@@ -80,7 +35,7 @@ export default function SearchTab() {
           </Show>
         </div>
         <Show when={indexerStatus.error}>
-          {(error) => <p class="mt-1 text-xs text-red-400">{error()}</p>}
+          {(error) => <p class="mt-1 text-xs text-error">{error()}</p>}
         </Show>
       </div>
 
@@ -89,7 +44,7 @@ export default function SearchTab() {
           <p class="text-sm text-text-muted">Searching…</p>
         </Show>
         <Show when={!controller.isLoading() && controller.error()}>
-          {(error) => <p class="text-sm text-red-400">{error()}</p>}
+          {(error) => <p class="text-sm text-error">{error()}</p>}
         </Show>
         <Show when={!controller.isLoading() && !controller.error() && !searchResults()}>
           <p class="text-sm text-text-muted">Type to search indexed markdown content.</p>
