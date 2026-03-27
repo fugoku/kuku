@@ -93,16 +93,16 @@ function ChatInput(): JSX.Element {
           </button>
           <Show when={showModeMenu()}>
             <div
-              class="absolute bottom-full left-0 z-50 mb-1 w-52 rounded-xs border border-border bg-bg-elevated p-1 shadow-lg"
+              class="absolute bottom-full left-0 z-50 mb-1 w-52 rounded-xs border border-border bg-bg-primary p-1 shadow-lg"
               onClick={() => setShowModeMenu(false)}
             >
               <For each={MODE_OPTIONS}>
                 {(opt) => (
                   <button
                     type="button"
-                    class="flex w-full flex-col rounded-xs px-3 py-2 text-left transition-colors hover:bg-ghost-hover"
+                    class="flex w-full flex-col rounded-xs px-3 py-2 text-left transition-colors hover:bg-bg-elevated"
                     classList={{
-                      "bg-ghost-selected": chatState.selectedMode === opt.value,
+                      "bg-ghost-hover": chatState.selectedMode === opt.value,
                     }}
                     onClick={() => void switchMode(opt.value)}
                   >
