@@ -696,7 +696,7 @@ export default function GraphCanvas(props: GraphCanvasProps) {
 
   return (
     <div
-      class={`relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-2xl border border-border/60 bg-linear-to-br from-bg-secondary via-bg-primary to-bg-secondary ${
+      class={`relative min-h-0 min-w-0 flex-1 overflow-hidden bg-linear-to-br from-bg-secondary via-bg-primary to-bg-secondary ${
         props.class ?? ""
       }`}
     >
