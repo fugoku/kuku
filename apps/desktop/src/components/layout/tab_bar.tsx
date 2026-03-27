@@ -35,7 +35,7 @@ function stripExtension(name: string): string {
 // ── Styles ──
 
 const ACTION_BTN =
-  "flex size-[26px] cursor-pointer items-center justify-center rounded-[6px] border-none bg-transparent text-icon-muted transition-all duration-100 hover:bg-ghost-hover hover:text-icon data-[expanded]:bg-ghost-hover data-[expanded]:text-icon";
+  "flex size-[26px] cursor-pointer items-center justify-center rounded-xs border-none bg-transparent text-icon-muted transition-all duration-100 hover:bg-ghost-hover hover:text-icon data-[expanded]:bg-ghost-hover data-[expanded]:text-icon";
 
 // ── Component ──
 
@@ -116,7 +116,7 @@ export default function TabBar() {
                     {/* Tab */}
                     <div
                       data-tab-id={tab.id}
-                      class={`group/tab flex h-7.5 max-w-48 shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-[0.8125rem] leading-normal whitespace-nowrap transition-all duration-100 select-none ${
+                      class={`group/tab flex h-7.5 max-w-48 shrink-0 cursor-pointer items-center gap-1.5 rounded-xs px-2.5 text-[0.8125rem] leading-normal whitespace-nowrap transition-all duration-100 select-none ${
                         isActive()
                           ? "text-text-primary ring-1 ring-border-focused"
                           : `text-text-muted hover:bg-ghost-hover hover:text-text-secondary`
@@ -154,7 +154,7 @@ export default function TabBar() {
                       {/* Close button */}
                       <button
                         type="button"
-                        class={`flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-sm border-none bg-transparent leading-none text-icon-muted transition-all duration-100 hover:bg-ghost-active hover:text-text-primary ${
+                        class={`flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-xs border-none bg-transparent leading-none text-icon-muted transition-all duration-100 hover:bg-ghost-active hover:text-text-primary ${
                           isActive()
                             ? "opacity-80 hover:opacity-100"
                             : "opacity-0 group-hover/tab:opacity-60 group-hover/tab:hover:opacity-100"

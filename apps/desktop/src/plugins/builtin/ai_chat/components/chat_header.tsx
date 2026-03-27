@@ -53,7 +53,7 @@ function ChatHeader(): JSX.Element {
         <Show when={canCancel()}>
           <button
             type="button"
-            class="flex size-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-ghost-hover hover:text-text-secondary"
+            class="flex size-7 items-center justify-center rounded-xs text-text-muted transition-colors hover:bg-ghost-hover hover:text-text-secondary"
             title="Cancel"
             onClick={() => void cancelSession()}
           >
@@ -65,7 +65,7 @@ function ChatHeader(): JSX.Element {
 
         <button
           type="button"
-          class="flex size-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-ghost-hover hover:text-text-secondary"
+          class="flex size-7 items-center justify-center rounded-xs text-text-muted transition-colors hover:bg-ghost-hover hover:text-text-secondary"
           title="Clear Chat"
           disabled={chatState.isCreatingSession || isSessionBusy(session())}
           onClick={() => {

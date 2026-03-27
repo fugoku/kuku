@@ -64,7 +64,7 @@ export default function Switch(props: SwitchProps) {
       <KSwitch.Input class="sr-only" />
       <KSwitch.Control
         class={[
-          "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full",
+          "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-xs",
           "bg-element transition-colors duration-200",
           "data-checked:bg-accent",
           "data-disabled:cursor-not-allowed data-disabled:opacity-50",
@@ -72,7 +72,7 @@ export default function Switch(props: SwitchProps) {
       >
         <KSwitch.Thumb
           class={[
-            "inline-block size-3.5 rounded-full bg-white shadow-sm",
+            "inline-block size-3.5 rounded-xs bg-white shadow-sm",
             "transition-transform duration-200",
             "translate-x-0.5 data-checked:translate-x-4.5",
           ].join(" ")}

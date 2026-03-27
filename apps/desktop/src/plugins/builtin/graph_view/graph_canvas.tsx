@@ -167,6 +167,14 @@ export default function GraphCanvas(props: GraphCanvasProps) {
 
   const summary = createMemo(() => getGraphSummary(store()?.state ?? null));
 
+  // ── Theme helpers for Canvas2D ─────────────────────────────
+
+  /** Resolve a CSS custom property from the host element (e.g. `--color-bg-primary`). */
+  function cssVar(name: string, fallback = ""): string {
+    if (!hostEl) return fallback;
+    return getComputedStyle(hostEl).getPropertyValue(name).trim() || fallback;
+  }
+
   // ── Canvas Painting ───────────────────────────────────────
   //
   // These functions are called from force-graph's rAF loop —
@@ -237,20 +245,19 @@ export default function GraphCanvas(props: GraphCanvasProps) {
         const labelY = minY - 22 / globalScale;
         const pad = 5 / globalScale;
 
-        ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
+        ctx.fillStyle = cssVar("--color-bg-secondary", "rgba(0,0,0,0.55)");
         ctx.beginPath();
         const pillH = fontSize + pad * 2;
-        const pillR = pillH / 2;
         ctx.roundRect(
           centX - textWidth / 2 - pad * 1.5,
           labelY - pillH / 2,
           textWidth + pad * 3,
           pillH,
-          pillR,
+          2,
         );
         ctx.fill();
 
-        ctx.fillStyle = clusterColor(clusterIdx);
+        ctx.fillStyle = cssVar("--color-text-primary", clusterColor(clusterIdx));
         ctx.fillText(label, centX, labelY);
       }
     }
@@ -318,24 +325,21 @@ export default function GraphCanvas(props: GraphCanvasProps) {
       const pad = 3;
       const labelY = y + size + 3.5;
 
-      let bgAlpha = "rgba(0,0,0,0.5)";
-      if (isSelected || isCurrent) bgAlpha = "rgba(0,0,0,0.7)";
-      else if (isConnected) bgAlpha = "rgba(0,0,0,0.65)";
-
-      ctx.fillStyle = bgAlpha;
+      ctx.fillStyle = cssVar("--color-bg-secondary", "rgba(0,0,0,0.5)");
       ctx.beginPath();
-      const r = (fontSize + pad * 2) / 2;
       ctx.roundRect(
         x - textWidth / 2 - pad,
         labelY - pad,
         textWidth + pad * 2,
         fontSize + pad * 2,
-        r,
+        2,
       );
       ctx.fill();
 
       const highlighted = isSelected || isCurrent || isConnected;
-      ctx.fillStyle = highlighted ? "#ffffff" : "rgba(255,255,255,0.85)";
+      ctx.fillStyle = highlighted
+        ? cssVar("--color-text-primary", "#ffffff")
+        : cssVar("--color-text-secondary", "rgba(255,255,255,0.85)");
       ctx.fillText(label, x, labelY);
     }
   }
@@ -706,14 +710,14 @@ export default function GraphCanvas(props: GraphCanvasProps) {
       {/* Status overlay */}
       <Show when={status() !== "ready" || initError()}>
         <div class="absolute inset-0 flex items-center justify-center p-6">
-          <div class="max-w-sm rounded-2xl border border-border/70 bg-bg-primary/90 px-5 py-4 text-center shadow-lg backdrop-blur-sm">
+          <div class="max-w-sm rounded-xs border border-border/70 bg-bg-primary/90 px-5 py-4 text-center shadow-lg backdrop-blur-sm">
             <Show when={initError()}>
               <p class="text-sm text-text-secondary">{initError()}</p>
             </Show>
 
             <Show when={!initError() && status() === "loading"}>
               <div class="space-y-2">
-                <div class="mx-auto h-2.5 w-24 animate-pulse rounded-full bg-ghost-hover" />
+                <div class="mx-auto h-2.5 w-24 animate-pulse rounded-xs bg-ghost-hover" />
                 <p class="text-sm text-text-secondary">Indexing graph data…</p>
               </div>
             </Show>
@@ -744,7 +748,7 @@ export default function GraphCanvas(props: GraphCanvasProps) {
       {/* Zoom & view controls */}
       <Show when={status() === "ready"}>
         <div
-          class="absolute right-3 bottom-3 flex items-center gap-1 rounded-xl border border-border/70 bg-bg-primary/80 p-1 shadow-md backdrop-blur-sm"
+          class="absolute right-3 bottom-3 flex items-center gap-1 rounded-xs border border-border/70 bg-bg-primary/80 p-1 shadow-md backdrop-blur-sm"
           classList={{ "right-2! bottom-2! p-0.5!": isCompact() }}
         >
           <CtrlBtn title="Zoom in" onClick={zoomIn}>
@@ -801,19 +805,17 @@ export default function GraphCanvas(props: GraphCanvasProps) {
       {/* Tooltip on hover */}
       <Show when={hoveredNode()}>
         {(node) => (
-          <div class="pointer-events-none absolute bottom-12 left-3 max-w-56 rounded-xl border border-border/70 bg-bg-primary/90 px-3 py-2 shadow-lg backdrop-blur-sm">
+          <div class="pointer-events-none absolute bottom-12 left-3 max-w-56 rounded-xs border border-border/70 bg-bg-primary/90 px-3 py-2 shadow-lg backdrop-blur-sm">
             <p class="truncate text-[0.8125rem] font-medium text-text-primary">{node().name}</p>
             <div class="mt-1 flex flex-wrap items-center gap-2 text-[0.6875rem] text-text-muted">
               <span>
                 {node().linkCount} connection{node().linkCount !== 1 ? "s" : ""}
               </span>
               <Show when={node().isOrphan}>
-                <span class="rounded-full bg-ghost-hover px-1.5 py-0.5 text-[0.625rem]">
-                  orphan
-                </span>
+                <span class="rounded-xs bg-ghost-hover px-1.5 py-0.5 text-[0.625rem]">orphan</span>
               </Show>
               <span
-                class="rounded-full px-1.5 py-0.5 text-[0.625rem]"
+                class="rounded-xs px-1.5 py-0.5 text-[0.625rem]"
                 style={{
                   background: `${clusterColor(node().clusterIndex)}20`,
                   color: clusterColor(node().clusterIndex),
@@ -841,7 +843,7 @@ function CtrlBtn(props: {
     <button
       type="button"
       title={props.title}
-      class="flex size-6 cursor-pointer items-center justify-center rounded-lg border-none bg-transparent text-[0.75rem] text-text-muted transition-colors hover:bg-ghost-hover hover:text-text-primary"
+      class="flex size-6 cursor-pointer items-center justify-center rounded-xs border-none bg-transparent text-[0.75rem] text-text-muted transition-colors hover:bg-ghost-hover hover:text-text-primary"
       classList={{ "bg-ghost-hover! text-text-primary!": props.active }}
       onClick={props.onClick}
     >

@@ -32,7 +32,7 @@ function IndexerSettings(): JSX.Element {
   }
 
   return (
-    <div class="overflow-hidden rounded-md border border-border bg-bg-primary">
+    <div class="overflow-hidden rounded-xs border border-border bg-bg-primary">
       {/* Header */}
       <div class="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
         <div>

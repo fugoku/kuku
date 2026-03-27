@@ -95,7 +95,7 @@ function InlineNameInput(props: { depth: number; guides: boolean[]; isLast: bool
 
       <input
         ref={inputRef}
-        class="ml-1 min-w-0 flex-1 rounded-sm border border-accent bg-bg-primary px-1 text-[0.8125rem]/4.5 text-text-primary outline-none"
+        class="ml-1 min-w-0 flex-1 rounded-xs border border-accent bg-bg-primary px-1 text-[0.8125rem]/4.5 text-text-primary outline-none"
         value={vaultState.editState?.name ?? ""}
         placeholder={vaultState.editState?.isDir ? "Folder name" : "File name"}
         onInput={(event) => updateEditName(event.currentTarget.value)}
@@ -232,7 +232,7 @@ function EmptyVaultState() {
 
   return (
     <div class="flex min-h-0 flex-1 items-center justify-center px-4 py-6">
-      <div class="flex w-full max-w-62 flex-col gap-3 rounded-xl border border-border bg-bg-primary p-4 text-center">
+      <div class="flex w-full max-w-62 flex-col gap-3 rounded-xs border border-border bg-bg-primary p-4 text-center">
         <div class="space-y-1">
           <p class="text-sm font-medium text-text-primary">{title()}</p>
           <p class="text-xs/5 text-text-secondary">{description()}</p>
@@ -240,7 +240,7 @@ function EmptyVaultState() {
 
         <Show when={status().path}>
           {(path) => (
-            <div class="rounded-md border border-border bg-bg-secondary px-2.5 py-2 text-left font-mono text-[0.6875rem]/4 break-all text-text-muted">
+            <div class="rounded-xs border border-border bg-bg-secondary px-2.5 py-2 text-left font-mono text-[0.6875rem]/4 break-all text-text-muted">
               {path()}
             </div>
           )}
@@ -252,7 +252,7 @@ function EmptyVaultState() {
 
         <button
           type="button"
-          class="rounded-md border border-border px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-ghost-hover hover:text-text-primary"
+          class="rounded-xs border border-border px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-ghost-hover hover:text-text-primary"
           onClick={() => openTab("Settings", null, "settings")}
         >
           Open Settings
@@ -288,7 +288,7 @@ export default function VaultBrowser() {
           <div class="flex items-center gap-2">
             <button
               type="button"
-              class="rounded-sm p-1 text-text-muted transition-colors hover:bg-accent-dim hover:text-text-secondary"
+              class="rounded-xs p-1 text-text-muted transition-colors hover:bg-accent-dim hover:text-text-secondary"
               title="New Folder"
               onClick={startCreateFolder}
             >
@@ -296,7 +296,7 @@ export default function VaultBrowser() {
             </button>
             <button
               type="button"
-              class="rounded-sm p-1 text-text-muted transition-colors hover:bg-accent-dim hover:text-text-secondary"
+              class="rounded-xs p-1 text-text-muted transition-colors hover:bg-accent-dim hover:text-text-secondary"
               title="New File"
               onClick={startCreateFile}
             >

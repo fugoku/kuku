@@ -39,7 +39,7 @@ export default function RightPanelTabBar() {
                 <button
                   type="button"
                   title={tab.label}
-                  class={`flex size-7 cursor-pointer items-center justify-center rounded-md border-none bg-transparent transition-all duration-100 ${
+                  class={`flex size-7 cursor-pointer items-center justify-center rounded-xs border-none bg-transparent transition-all duration-100 ${
                     isActive()
                       ? "text-icon ring-1 ring-border-focused"
                       : "text-icon-muted hover:bg-ghost-hover hover:text-icon"

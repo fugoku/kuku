@@ -14,7 +14,7 @@ function AiSettings(): JSX.Element {
   });
 
   return (
-    <div class="overflow-hidden rounded-md border border-border bg-bg-primary">
+    <div class="overflow-hidden rounded-xs border border-border bg-bg-primary">
       <div class="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
         <div>
           <h3 class="text-[0.8125rem] font-medium text-text-primary">AI Chat</h3>
@@ -24,7 +24,7 @@ function AiSettings(): JSX.Element {
         </div>
         <button
           type="button"
-          class="rounded-md border border-border bg-bg-secondary px-2.5 py-1 text-[0.6875rem] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+          class="rounded-xs border border-border bg-bg-secondary px-2.5 py-1 text-[0.6875rem] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
           onClick={() => void Promise.all([loadConfig(), loadTools()])}
         >
           Refresh
@@ -38,7 +38,7 @@ function AiSettings(): JSX.Element {
             type="password"
             value={apiKey()}
             placeholder="Gemini AI Studio API key"
-            class="w-full rounded-xl border border-border bg-bg-secondary px-3 py-2 text-sm text-text-primary transition-colors outline-none focus:border-accent"
+            class="w-full rounded-xs border border-border bg-bg-secondary px-3 py-2 text-sm text-text-primary transition-colors outline-none focus:border-accent"
             onInput={(event) => setApiKey(event.currentTarget.value)}
           />
         </label>
@@ -49,7 +49,7 @@ function AiSettings(): JSX.Element {
             type="text"
             value={model()}
             placeholder="gemini-2.5-flash"
-            class="w-full rounded-xl border border-border bg-bg-secondary px-3 py-2 text-sm text-text-primary transition-colors outline-none focus:border-accent"
+            class="w-full rounded-xs border border-border bg-bg-secondary px-3 py-2 text-sm text-text-primary transition-colors outline-none focus:border-accent"
             onInput={(event) => setModel(event.currentTarget.value)}
           />
         </label>
@@ -66,14 +66,14 @@ function AiSettings(): JSX.Element {
           <button
             type="button"
             disabled={chatState.config.saving}
-            class="ml-auto rounded-md border border-accent/30 bg-accent/15 px-3 py-1.5 text-xs text-accent transition-colors hover:bg-accent/20 disabled:cursor-not-allowed disabled:opacity-50"
+            class="ml-auto rounded-xs border border-accent/30 bg-accent/15 px-3 py-1.5 text-xs text-accent transition-colors hover:bg-accent/20 disabled:cursor-not-allowed disabled:opacity-50"
             onClick={() => void saveConfig(apiKey(), model())}
           >
             Save
           </button>
         </div>
 
-        <div class="space-y-1.5 rounded-xl border border-border bg-bg-secondary/70 p-3">
+        <div class="space-y-1.5 rounded-xs border border-border bg-bg-secondary/70 p-3">
           <div class="flex items-center justify-between gap-2">
             <span class="text-[0.6875rem] tracking-[0.12em] text-text-muted uppercase">
               Available Tools
@@ -94,7 +94,7 @@ function AiSettings(): JSX.Element {
             <div class="flex flex-wrap gap-2">
               <For each={chatState.config.availableTools}>
                 {(tool) => (
-                  <div class="rounded-full border border-border bg-bg-primary px-2.5 py-1 text-[0.6875rem] text-text-secondary">
+                  <div class="rounded-xs border border-border bg-bg-primary px-2.5 py-1 text-[0.6875rem] text-text-secondary">
                     <span class="font-medium text-text-primary">{tool.name}</span>
                     <span class="ml-1 text-text-muted">· {tool.category}</span>
                   </div>

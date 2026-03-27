@@ -110,7 +110,7 @@ const DELETED_FILES_OPTIONS = [
 // ── Styles ──
 
 const INPUT_BASE =
-  "h-8 w-full rounded-md border border-border bg-bg-primary px-2.5 text-[0.8125rem] text-text-primary outline-none transition-colors placeholder:text-text-placeholder focus:border-border-focused";
+  "h-8 w-full rounded-xs border border-border bg-bg-primary px-2.5 text-[0.8125rem] text-text-primary outline-none transition-colors placeholder:text-text-placeholder focus:border-border-focused";
 
 // ── Keybinding Utilities ──
 
@@ -185,7 +185,7 @@ function KeyBadge(props: { keys?: string }) {
         <div class="flex shrink-0 items-center gap-1">
           <For each={parseKeys(keys())}>
             {(k) => (
-              <kbd class="inline-flex min-w-5 items-center justify-center rounded-sm border border-border bg-bg-secondary px-1.5 py-0.5 font-mono text-[0.6875rem] leading-none text-text-secondary">
+              <kbd class="inline-flex min-w-5 items-center justify-center rounded-xs border border-border bg-bg-secondary px-1.5 py-0.5 font-mono text-[0.6875rem] leading-none text-text-secondary">
                 {k}
               </kbd>
             )}
@@ -228,7 +228,7 @@ function RecordingInput(props: { onCapture: (keys: string) => void; onCancel: ()
     <input
       ref={ref}
       type="text"
-      class="w-36 rounded-sm border border-border-focused bg-bg-secondary px-2.5 py-0.5 text-[0.6875rem] text-text-muted outline-none placeholder:text-text-placeholder"
+      class="w-36 rounded-xs border border-border-focused bg-bg-secondary px-2.5 py-0.5 text-[0.6875rem] text-text-muted outline-none placeholder:text-text-placeholder"
       placeholder="Press shortcut..."
       readOnly
       onKeyDown={(e) => {
@@ -308,7 +308,7 @@ function VaultFolderControl() {
 
   return (
     <div class="flex flex-col gap-2">
-      <div class="rounded-md border border-border bg-bg-primary px-3 py-2">
+      <div class="rounded-xs border border-border bg-bg-primary px-3 py-2">
         <p class="text-[0.6875rem] font-medium tracking-wider text-text-muted uppercase">
           Current path
         </p>
@@ -326,7 +326,7 @@ function VaultFolderControl() {
       <div class="flex flex-wrap gap-2">
         <button
           type="button"
-          class="rounded-md border border-border px-3 py-2 text-[0.8125rem] text-text-secondary transition-colors hover:bg-ghost-hover hover:text-text-primary disabled:cursor-default disabled:opacity-60"
+          class="rounded-xs border border-border px-3 py-2 text-[0.8125rem] text-text-secondary transition-colors hover:bg-ghost-hover hover:text-text-primary disabled:cursor-default disabled:opacity-60"
           disabled={isBusy()}
           onClick={() => void browseForVault()}
         >
@@ -334,7 +334,7 @@ function VaultFolderControl() {
         </button>
         <button
           type="button"
-          class="rounded-md border border-border px-3 py-2 text-[0.8125rem] text-text-secondary transition-colors hover:bg-ghost-hover hover:text-text-primary disabled:cursor-default disabled:opacity-60"
+          class="rounded-xs border border-border px-3 py-2 text-[0.8125rem] text-text-secondary transition-colors hover:bg-ghost-hover hover:text-text-primary disabled:cursor-default disabled:opacity-60"
           disabled={isBusy() || !configuredPath()}
           onClick={() => void clearVaultFolder()}
         >
@@ -591,7 +591,7 @@ function KeybindingsSection() {
         value={search()}
         onInput={(e) => setSearch(e.currentTarget.value)}
       />
-      <div class="mt-3 overflow-hidden rounded-md border border-border">
+      <div class="mt-3 overflow-hidden rounded-xs border border-border">
         <Show
           when={grouped().length > 0}
           fallback={
@@ -626,7 +626,7 @@ function KeybindingsSection() {
                             <Show when={isOverridden(cmd.contribution.id)}>
                               <button
                                 type="button"
-                                class="flex size-4 cursor-pointer items-center justify-center rounded-sm border-none bg-transparent text-text-disabled hover:text-text-primary"
+                                class="flex size-4 cursor-pointer items-center justify-center rounded-xs border-none bg-transparent text-text-disabled hover:text-text-primary"
                                 title="Reset to default"
                                 onClick={(e) => handleReset(cmd.contribution.id, e)}
                               >
@@ -703,7 +703,7 @@ function PluginsOverviewSection() {
         </p>
         <button
           type="button"
-          class="shrink-0 rounded-md border border-border px-2.5 py-1.5 text-[0.75rem] font-medium text-text-secondary transition-colors hover:bg-ghost-hover hover:text-text-primary disabled:cursor-default disabled:opacity-60"
+          class="shrink-0 rounded-xs border border-border px-2.5 py-1.5 text-[0.75rem] font-medium text-text-secondary transition-colors hover:bg-ghost-hover hover:text-text-primary disabled:cursor-default disabled:opacity-60"
           disabled={isRestarting()}
           onClick={() => void restartApp()}
         >
@@ -711,7 +711,7 @@ function PluginsOverviewSection() {
         </button>
       </div>
 
-      <div class="overflow-hidden rounded-md border border-border">
+      <div class="overflow-hidden rounded-xs border border-border">
         <Show
           when={plugins().length > 0}
           fallback={
@@ -820,7 +820,7 @@ function NavButton(props: {
   return (
     <button
       type="button"
-      class={`flex h-8 w-full cursor-pointer items-center rounded-md border-none px-2.5 text-[0.8125rem] leading-normal transition-colors duration-100 ${props.class ?? ""} ${
+      class={`flex h-8 w-full cursor-pointer items-center rounded-xs border-none px-2.5 text-[0.8125rem] leading-normal transition-colors duration-100 ${props.class ?? ""} ${
         props.active
           ? "bg-ghost-selected text-text-primary"
           : "bg-transparent text-text-secondary hover:bg-ghost-hover hover:text-text-primary"
@@ -842,7 +842,7 @@ function PluginSettingsSection(props: { fillId: string }) {
     <Show
       when={fill()}
       fallback={
-        <div class="rounded-md border border-border px-4 py-8 text-center text-[0.8125rem] text-text-muted">
+        <div class="rounded-xs border border-border px-4 py-8 text-center text-[0.8125rem] text-text-muted">
           Plugin settings are unavailable.
         </div>
       }
@@ -951,7 +951,7 @@ export default function SettingsView() {
         <div class="shrink-0 border-t border-border px-3 py-2">
           <button
             type="button"
-            class={`w-full cursor-pointer rounded-md border px-3 py-1.5 text-xs transition-colors ${
+            class={`w-full cursor-pointer rounded-xs border px-3 py-1.5 text-xs transition-colors ${
               confirmReset()
                 ? "border-error bg-error/10 text-error hover:bg-error/20"
                 : "border-border bg-transparent text-text-muted hover:bg-ghost-hover hover:text-error"

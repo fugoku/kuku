@@ -49,75 +49,75 @@ export default function CenterPanel() {
             <div class="flex w-full max-w-65 flex-col gap-0.5">
               <button
                 type="button"
-                class="flex w-full cursor-pointer items-center justify-between rounded-lg border-none bg-transparent px-3 py-2.5 transition-all duration-150 hover:bg-bg-secondary active:scale-[0.98]"
+                class="flex w-full cursor-pointer items-center justify-between rounded-xs border-none bg-transparent px-3 py-2.5 transition-all duration-150 hover:bg-bg-secondary active:scale-[0.98]"
                 onClick={() => void createAndOpenNewFile()}
               >
                 <span class="text-[0.8125rem] text-text-muted">New File</span>
                 <div class="flex items-center gap-1.5">
-                  <kbd class="flex size-7 items-center justify-center rounded-md border border-border bg-bg-tertiary text-xs text-text-muted">
+                  <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
                     ⌘
                   </kbd>
-                  <kbd class="flex size-7 items-center justify-center rounded-md border border-border bg-bg-tertiary text-xs text-text-muted">
+                  <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
                     N
                   </kbd>
                 </div>
               </button>
               <button
                 type="button"
-                class="flex w-full cursor-pointer items-center justify-between rounded-lg border-none bg-transparent px-3 py-2.5 transition-all duration-150 hover:bg-bg-secondary active:scale-[0.98]"
+                class="flex w-full cursor-pointer items-center justify-between rounded-xs border-none bg-transparent px-3 py-2.5 transition-all duration-150 hover:bg-bg-secondary active:scale-[0.98]"
                 onClick={() => toggleLeftPanel()}
               >
                 <span class="text-[0.8125rem] text-text-muted">Toggle Sidebar</span>
                 <div class="flex items-center gap-1.5">
-                  <kbd class="flex size-7 items-center justify-center rounded-md border border-border bg-bg-tertiary text-xs text-text-muted">
+                  <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
                     ⌘
                   </kbd>
-                  <kbd class="flex size-7 items-center justify-center rounded-md border border-border bg-bg-tertiary text-xs text-text-muted">
+                  <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
                     B
                   </kbd>
                 </div>
               </button>
               <button
                 type="button"
-                class="flex w-full cursor-pointer items-center justify-between rounded-lg border-none bg-transparent px-3 py-2.5 transition-all duration-150 hover:bg-bg-secondary active:scale-[0.98]"
+                class="flex w-full cursor-pointer items-center justify-between rounded-xs border-none bg-transparent px-3 py-2.5 transition-all duration-150 hover:bg-bg-secondary active:scale-[0.98]"
                 onClick={() => openTab("Settings", null, "settings")}
               >
                 <span class="text-[0.8125rem] text-text-muted">Settings</span>
                 <div class="flex items-center gap-1.5">
-                  <kbd class="flex size-7 items-center justify-center rounded-md border border-border bg-bg-tertiary text-xs text-text-muted">
+                  <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
                     ⌘
                   </kbd>
-                  <kbd class="flex size-7 items-center justify-center rounded-md border border-border bg-bg-tertiary text-xs text-text-muted">
+                  <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
                     ,
                   </kbd>
                 </div>
               </button>
               <button
                 type="button"
-                class="flex w-full cursor-pointer items-center justify-between rounded-lg border-none bg-transparent px-3 py-2.5 transition-all duration-150 hover:bg-bg-secondary active:scale-[0.98]"
+                class="flex w-full cursor-pointer items-center justify-between rounded-xs border-none bg-transparent px-3 py-2.5 transition-all duration-150 hover:bg-bg-secondary active:scale-[0.98]"
                 onClick={() => openSearchOmnibar()}
               >
                 <span class="text-[0.8125rem] text-text-muted">Quick Search</span>
                 <div class="flex items-center gap-1.5">
-                  <kbd class="flex size-7 items-center justify-center rounded-md border border-border bg-bg-tertiary text-xs text-text-muted">
+                  <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
                     ⌘
                   </kbd>
-                  <kbd class="flex size-7 items-center justify-center rounded-md border border-border bg-bg-tertiary text-xs text-text-muted">
+                  <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
                     P
                   </kbd>
                 </div>
               </button>
               <button
                 type="button"
-                class="flex w-full cursor-pointer items-center justify-between rounded-lg border-none bg-transparent px-3 py-2.5 transition-all duration-150 hover:bg-bg-secondary active:scale-[0.98]"
+                class="flex w-full cursor-pointer items-center justify-between rounded-xs border-none bg-transparent px-3 py-2.5 transition-all duration-150 hover:bg-bg-secondary active:scale-[0.98]"
                 onClick={() => openRightPanelView("graph-view.panel")}
               >
                 <span class="text-[0.8125rem] text-text-muted">Graph View</span>
                 <div class="flex items-center gap-1.5">
-                  <kbd class="flex size-7 items-center justify-center rounded-md border border-border bg-bg-tertiary text-xs text-text-muted">
+                  <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
                     ⌘
                   </kbd>
-                  <kbd class="flex size-7 items-center justify-center rounded-md border border-border bg-bg-tertiary text-xs text-text-muted">
+                  <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
                     G
                   </kbd>
                 </div>

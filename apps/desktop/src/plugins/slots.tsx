@@ -121,7 +121,7 @@ function PluginErrorUI(props: {
       </p>
       <button
         type="button"
-        class="cursor-pointer rounded-sm border border-border bg-bg-secondary px-2 py-0.5 text-[0.6875rem] text-text-secondary hover:bg-bg-tertiary"
+        class="cursor-pointer rounded-xs border border-border bg-bg-secondary px-2 py-0.5 text-[0.6875rem] text-text-secondary hover:bg-bg-tertiary"
         onClick={props.onReset}
       >
         Retry

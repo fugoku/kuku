@@ -51,7 +51,7 @@ export function DropdownMenuContent(props: { children: JSX.Element; class?: stri
     <KMenu.Portal>
       <KMenu.Content
         class={[
-          "z-1000 min-w-44 overflow-hidden rounded-lg border border-border bg-bg-secondary p-1",
+          "z-1000 min-w-44 overflow-hidden rounded-xs border border-border bg-bg-secondary p-1",
           "shadow-[0_4px_16px_rgba(0,0,0,0.28),0_0_0_1px_rgba(0,0,0,0.06)]",
           "origin-[var(--kb-menu-content-transform-origin)]",
           props.class ?? "",
@@ -77,7 +77,7 @@ export function DropdownMenuItem(props: {
       onSelect={props.onSelect}
       disabled={props.disabled}
       class={[
-        "flex h-8 w-full cursor-pointer items-center justify-between gap-4 rounded-[5px] px-2.5 text-[0.8125rem] leading-normal text-text-primary outline-none",
+        "flex h-8 w-full cursor-pointer items-center justify-between gap-4 rounded-xs px-2.5 text-[0.8125rem] leading-normal text-text-primary outline-none",
         "transition-colors duration-75",
         "data-highlighted:bg-ghost-hover",
         "data-disabled:cursor-not-allowed data-disabled:text-text-disabled",

@@ -123,7 +123,7 @@ function ChatInput(): JSX.Element {
               <button
                 type="button"
                 disabled={isLocked() || !draft().trim()}
-                class="flex size-7 items-center justify-center rounded-md bg-text-primary text-bg-primary transition-opacity hover:opacity-80 disabled:opacity-30"
+                class="flex size-7 items-center justify-center rounded-xs bg-text-primary text-bg-primary transition-opacity hover:opacity-80 disabled:opacity-30"
                 title="Send"
                 onClick={() => void submit()}
               >
@@ -142,7 +142,7 @@ function ChatInput(): JSX.Element {
           >
             <button
               type="button"
-              class="flex size-7 items-center justify-center rounded-md bg-error/15 text-error transition-colors hover:bg-error/25"
+              class="flex size-7 items-center justify-center rounded-xs bg-error/15 text-error transition-colors hover:bg-error/25"
               title="Stop"
               onClick={() => void cancelSession()}
             >

@@ -30,10 +30,10 @@ function ToolCallCard(props: { sessionId: string; item: ChatToolMessage }): JSX.
   const statusTone = () => getToolStatusTone(props.item);
 
   return (
-    <div class="rounded-xl border border-border bg-bg-secondary text-xs">
+    <div class="rounded-xs border border-border bg-bg-secondary text-xs">
       <button
         type="button"
-        class="flex w-full items-start justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-ghost-hover"
+        class="flex w-full items-start justify-between gap-3 rounded-xs px-3 py-2.5 text-left transition-colors hover:bg-ghost-hover"
         onClick={() => toggleToolExpanded(props.sessionId, props.item.callId)}
       >
         <div class="flex min-w-0 items-center gap-2">
@@ -76,7 +76,7 @@ function ToolCallCard(props: { sessionId: string; item: ChatToolMessage }): JSX.
             <span class="mb-1 block text-[0.625rem] font-medium tracking-wider text-text-muted uppercase">
               Arguments
             </span>
-            <pre class="max-h-28 overflow-auto rounded-lg bg-bg-primary/70 p-2 text-[0.6875rem] wrap-break-word whitespace-pre-wrap text-text-secondary">
+            <pre class="max-h-28 overflow-auto rounded-xs bg-bg-primary/70 p-2 text-[0.6875rem] wrap-break-word whitespace-pre-wrap text-text-secondary">
               {JSON.stringify(props.item.arguments, null, 2)}
             </pre>
           </div>
@@ -87,7 +87,7 @@ function ToolCallCard(props: { sessionId: string; item: ChatToolMessage }): JSX.
               <span class="mb-1 block text-[0.625rem] font-medium tracking-wider text-text-muted uppercase">
                 Result
               </span>
-              <pre class="max-h-28 overflow-auto rounded-lg border border-border bg-bg-primary/70 p-2 text-[0.6875rem] wrap-break-word whitespace-pre-wrap text-text-secondary">
+              <pre class="max-h-28 overflow-auto rounded-xs border border-border bg-bg-primary/70 p-2 text-[0.6875rem] wrap-break-word whitespace-pre-wrap text-text-secondary">
                 {props.item.output}
               </pre>
             </div>
@@ -95,7 +95,7 @@ function ToolCallCard(props: { sessionId: string; item: ChatToolMessage }): JSX.
 
           {/* Error */}
           <Show when={props.item.error}>
-            <div class="rounded-lg border border-error-border bg-error-bg px-2.5 py-2 text-[0.6875rem] text-error">
+            <div class="rounded-xs border border-error-border bg-error-bg px-2.5 py-2 text-[0.6875rem] text-error">
               {props.item.error}
             </div>
           </Show>
