@@ -16,6 +16,7 @@ import { lazy } from "solid-js";
 
 import type { AiProxyToolRegistry } from "~/plugins/builtin/ai_chat/types";
 import type { SearchService } from "~/plugins/builtin/core_indexer/service";
+import { registerFill } from "~/plugins/slots";
 import type { KukuPlugin } from "~/plugins/types";
 
 import { createGraphParser } from "./graph_parser";
@@ -25,6 +26,7 @@ import {
   buildSuggestLinksQuery,
   buildVaultStatsPayload,
 } from "./graph_proxy_tools";
+import { GraphSettingsPanel, loadGraphSettings } from "./graph_settings";
 import { createGraphStore, setGraphStore } from "./graph_store";
 
 // ── Lazy-loaded view components ──
@@ -62,6 +64,21 @@ const graphViewPlugin: KukuPlugin = {
   ],
 
   async activate(ctx) {
+    // ── Load persisted graph settings ───────────────────────
+    await loadGraphSettings();
+
+    // ── Register settings section fill ──────────────────────
+    const disposeFill = registerFill({
+      id: "graph-view.settings",
+      pluginId: "graph-view",
+      slot: "settingsSection",
+      label: "Graph View",
+      order: 30,
+      isActive: () => true,
+      component: GraphSettingsPanel,
+    });
+    ctx.track(disposeFill);
+
     const parser = createGraphParser();
     const store = createGraphStore({
       readFile: (path) => ctx.vault.readFile(path),

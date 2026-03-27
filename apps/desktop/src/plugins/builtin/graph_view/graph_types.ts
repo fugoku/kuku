@@ -112,6 +112,70 @@ export function hasGraphData(state: GraphState | null | undefined): boolean {
   return (state?.nodes.length ?? 0) > 0;
 }
 
+// ── Graph Settings ────────────────────────────────────────────
+
+export interface GraphSettings {
+  // ── Forces ──
+  chargeStrength: number;
+  chargeStrengthOrphan: number;
+  linkDistanceSameFolder: number;
+  linkDistanceCrossFolder: number;
+  centerStrength: number;
+  clusterStrength: number;
+  clusterRadiusFactor: number;
+
+  // ── Simulation ──
+  alphaDecay: number;
+  velocityDecay: number;
+  warmupTicks: number;
+  cooldownTicks: number;
+
+  // ── Node sizing ──
+  nodeMinSize: number;
+  nodeMaxSize: number;
+  nodeSizeScale: number;
+  orphanNodeSize: number;
+
+  // ── Links ──
+  linkCurvature: number;
+  arrowLength: number;
+
+  // ── Clusters ──
+  clusterPadding: number;
+  showClusters: boolean;
+}
+
+export const GRAPH_SETTINGS_DEFAULTS: GraphSettings = {
+  // Forces
+  chargeStrength: -200,
+  chargeStrengthOrphan: -80,
+  linkDistanceSameFolder: 50,
+  linkDistanceCrossFolder: 180,
+  centerStrength: 0.03,
+  clusterStrength: 0.25,
+  clusterRadiusFactor: 0.4,
+
+  // Simulation
+  alphaDecay: 0.01,
+  velocityDecay: 0.3,
+  warmupTicks: 80,
+  cooldownTicks: 300,
+
+  // Node sizing
+  nodeMinSize: 3.5,
+  nodeMaxSize: 11,
+  nodeSizeScale: 0.7,
+  orphanNodeSize: 4,
+
+  // Links
+  linkCurvature: 0.12,
+  arrowLength: 3,
+
+  // Clusters
+  clusterPadding: 50,
+  showClusters: true,
+};
+
 // ── Cluster Palette ───────────────────────────────────────────
 
 // ── Infinite cluster color generation ────────────────────────

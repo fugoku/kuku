@@ -40,6 +40,7 @@ import {
 } from "solid-js";
 import ForceGraph from "force-graph";
 
+import { getGraphSettings, updateGraphSetting } from "./graph_settings";
 import { getGraphStore } from "./graph_store";
 import {
   clusterBgColor,
@@ -139,7 +140,9 @@ export default function GraphCanvas(props: GraphCanvasProps) {
   const [hoveredNode, setHoveredNode] = createSignal<FGNode | null>(null);
   const [selectedNode, setSelectedNode] = createSignal<string | null>(null);
   const [zoomLevel, setZoomLevel] = createSignal(1);
-  const [showClusters, setShowClusters] = createSignal(true);
+  /** Shorthand — reads are fine outside tracking scope (rAF paint callbacks). */
+  const cfg = () => getGraphSettings();
+  const showClusters = () => cfg().showClusters;
   const [followMode, setFollowMode] = createSignal(false);
   const [dimensions, setDimensions] = createSignal({ width: 400, height: 300 });
 
@@ -209,7 +212,7 @@ export default function GraphCanvas(props: GraphCanvasProps) {
 
       if (points.length < 1) continue;
 
-      const pad = 50 / globalScale;
+      const pad = cfg().clusterPadding / globalScale;
 
       ctx.beginPath();
 
@@ -287,7 +290,10 @@ export default function GraphCanvas(props: GraphCanvasProps) {
     const isCurrent = node.filePath === currentFilePath();
     const isConnected = connectedToHovered().has(node.filePath);
 
-    const baseSize = node.isOrphan ? 4 : Math.max(3.5, Math.min(11, 3.5 + node.linkCount * 0.7));
+    const { nodeMinSize, nodeMaxSize, nodeSizeScale, orphanNodeSize } = cfg();
+    const baseSize = node.isOrphan
+      ? orphanNodeSize
+      : Math.max(nodeMinSize, Math.min(nodeMaxSize, nodeMinSize + node.linkCount * nodeSizeScale));
     let size = baseSize;
     if (isSelected || isHovered) size = baseSize * 1.3;
     else if (isConnected) size = baseSize * 1.15;
@@ -405,24 +411,28 @@ export default function GraphCanvas(props: GraphCanvasProps) {
 
     const s = store()?.state;
 
+    const fc = cfg();
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (graphEl.d3Force("charge") as any)?.strength((node: FGNode) => (node.isOrphan ? -80 : -200));
+    (graphEl.d3Force("charge") as any)?.strength((node: FGNode) =>
+      node.isOrphan ? fc.chargeStrengthOrphan : fc.chargeStrength,
+    );
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (graphEl.d3Force("link") as any)?.distance((link: FGLink) => {
       const source = typeof link.source === "object" ? link.source : null;
       const target = typeof link.target === "object" ? link.target : null;
-      if (source && target && source.folder === target.folder) return 50;
-      return 180;
+      if (source && target && source.folder === target.folder) return fc.linkDistanceSameFolder;
+      return fc.linkDistanceCrossFolder;
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (graphEl.d3Force("center") as any)?.strength(0.03);
+    (graphEl.d3Force("center") as any)?.strength(fc.centerStrength);
 
     const clusters = s?.clusters ?? [];
     if (clusters.length > 1) {
       const { width, height } = dimensions();
-      const clusterRadius = Math.min(width, height) * 0.4;
+      const clusterRadius = Math.min(width, height) * fc.clusterRadiusFactor;
       const angleStep = (2 * Math.PI) / clusters.length;
       const centers = new Map<number, { x: number; y: number }>();
 
@@ -440,7 +450,7 @@ export default function GraphCanvas(props: GraphCanvasProps) {
         for (const node of data.nodes) {
           const center = centers.get(node.clusterIndex);
           if (!center) continue;
-          const strength = 0.25 * alpha;
+          const strength = fc.clusterStrength * alpha;
           node.vx = (node.vx ?? 0) + (center.x - (node.x ?? 0)) * strength;
           node.vy = (node.vy ?? 0) + (center.y - (node.y ?? 0)) * strength;
         }
@@ -546,7 +556,11 @@ export default function GraphCanvas(props: GraphCanvasProps) {
         .nodeCanvasObjectMode(() => "replace")
         .nodePointerAreaPaint((node, color, ctx) => {
           const n = node as FGNode;
-          const baseSize = Math.max(3.5, Math.min(11, 3.5 + n.linkCount * 0.7));
+          const ns = getGraphSettings();
+          const baseSize = Math.max(
+            ns.nodeMinSize,
+            Math.min(ns.nodeMaxSize, ns.nodeMinSize + n.linkCount * ns.nodeSizeScale),
+          );
           const hitArea = Math.max(12, baseSize + 6);
           ctx.fillStyle = color;
           ctx.beginPath();
@@ -555,9 +569,9 @@ export default function GraphCanvas(props: GraphCanvasProps) {
         })
         .linkColor((link) => getLinkColor(link as FGLink))
         .linkWidth((link) => getLinkWidth(link as FGLink))
-        .linkDirectionalArrowLength(3)
+        .linkDirectionalArrowLength(getGraphSettings().arrowLength)
         .linkDirectionalArrowRelPos(0.9)
-        .linkCurvature(0.12)
+        .linkCurvature(getGraphSettings().linkCurvature)
         .onNodeClick((node) => handleNodeClick(node as FGNode))
         .onNodeHover((node) => setHoveredNode((node as FGNode) ?? null))
         .onNodeDrag((node) => handleNodeDrag(node as FGNode))
@@ -569,10 +583,10 @@ export default function GraphCanvas(props: GraphCanvasProps) {
         .onRenderFramePre((ctx, globalScale) => paintClusterBackgrounds(ctx, globalScale))
         .onZoom(({ k }) => setZoomLevel(k))
         .backgroundColor("transparent")
-        .d3AlphaDecay(0.01)
-        .d3VelocityDecay(0.3)
-        .warmupTicks(80)
-        .cooldownTicks(300)
+        .d3AlphaDecay(getGraphSettings().alphaDecay)
+        .d3VelocityDecay(getGraphSettings().velocityDecay)
+        .warmupTicks(getGraphSettings().warmupTicks)
+        .cooldownTicks(getGraphSettings().cooldownTicks)
         .minZoom(0.1)
         .maxZoom(8)
         .enableNodeDrag(true)
@@ -687,6 +701,53 @@ export default function GraphCanvas(props: GraphCanvasProps) {
     }
   });
 
+  //
+  // Effect 5 — Reconfigure forces & ForceGraph params when settings change.
+  //
+  // Reads every settings key so any change triggers re-application.
+  // `configureForces()` updates d3 forces; the remaining calls update
+  // ForceGraph's own parameters that aren't exposed via d3.
+
+  createEffect(() => {
+    const s = cfg(); // track all keys
+    // Read every field to establish dependency tracking
+    void [
+      s.chargeStrength,
+      s.chargeStrengthOrphan,
+      s.linkDistanceSameFolder,
+      s.linkDistanceCrossFolder,
+      s.centerStrength,
+      s.clusterStrength,
+      s.clusterRadiusFactor,
+      s.alphaDecay,
+      s.velocityDecay,
+      s.warmupTicks,
+      s.cooldownTicks,
+      s.nodeMinSize,
+      s.nodeMaxSize,
+      s.nodeSizeScale,
+      s.orphanNodeSize,
+      s.linkCurvature,
+      s.arrowLength,
+      s.clusterPadding,
+      s.showClusters,
+    ];
+
+    if (!graphEl) return;
+
+    configureForces();
+
+    graphEl
+      .linkDirectionalArrowLength(s.arrowLength)
+      .linkCurvature(s.linkCurvature)
+      .d3AlphaDecay(s.alphaDecay)
+      .d3VelocityDecay(s.velocityDecay)
+      .cooldownTicks(s.cooldownTicks);
+
+    // Poke zoom to force a repaint
+    graphEl.zoom(graphEl.zoom());
+  });
+
   // ── Cleanup ───────────────────────────────────────────────
   //
   // Mirrors kuku-oss: pause, manually remove canvas children,
@@ -779,7 +840,7 @@ export default function GraphCanvas(props: GraphCanvasProps) {
             <div class="mx-0.5 h-4 w-px bg-border/50" />
             <CtrlBtn
               title="Toggle clusters"
-              onClick={() => setShowClusters(!showClusters())}
+              onClick={() => updateGraphSetting("showClusters", !showClusters())}
               active={showClusters()}
             >
               <ClustersIcon />
