@@ -9,7 +9,7 @@
 //     inside JSX expressions for fine-grained tracking
 //   - GraphCanvas handle stored in a signal for zoom control access
 
-import { createMemo, createSignal, Show } from "solid-js";
+import { createMemo, createSignal, For, onCleanup, Show } from "solid-js";
 
 import { getActiveTab, openTab } from "~/stores/files";
 
@@ -66,6 +66,44 @@ export default function GraphTab() {
     }).format(new Date(ts));
   });
 
+  // ── Dynamic legend overflow ─────────────────────────────
+
+  const clusters = createMemo(() => store()?.state.clusters ?? []);
+  const [legendWidth, setLegendWidth] = createSignal(0);
+
+  const visibleCount = createMemo(() => {
+    const width = legendWidth();
+    const all = clusters();
+    if (width === 0 || all.length === 0) return all.length;
+
+    const itemGap = 12; // gap-3
+    const moreBadgeWidth = 70;
+    let used = 0;
+
+    for (let i = 0; i < all.length; i++) {
+      const label = all[i].split("/").pop() ?? all[i];
+      // Estimate: dot(8) + dot-text gap(6) + text(~6.5px per char)
+      const itemWidth = 14 + label.length * 6.5;
+      const step = i > 0 ? itemGap + itemWidth : itemWidth;
+      const remaining = all.length - (i + 1);
+      const moreCost = remaining > 0 ? itemGap + moreBadgeWidth : 0;
+
+      if (used + step + moreCost > width) return Math.max(1, i);
+      used += step;
+    }
+    return all.length;
+  });
+
+  const hiddenCount = createMemo(() => clusters().length - visibleCount());
+
+  function legendRef(el: HTMLDivElement): void {
+    const ro = new ResizeObserver((entries) => {
+      for (const e of entries) setLegendWidth(e.contentRect.width);
+    });
+    ro.observe(el);
+    onCleanup(() => ro.disconnect());
+  }
+
   return (
     <div class="flex h-full min-h-0 flex-col overflow-hidden bg-bg-primary">
       {/* ── Header ── */}
@@ -106,22 +144,25 @@ export default function GraphTab() {
         />
       </div>
 
-      {/* ── Legend (clusters) ── */}
+      {/* ── Legend (clusters — dynamically overflows based on width) ── */}
       <Show when={summary().clusterCount > 0}>
-        <div class="flex items-center gap-3 border-t border-border/70 bg-bg-secondary/40 px-4 py-2">
-          {(store()?.state.clusters ?? []).slice(0, 5).map((cluster, i) => (
-            <div class="flex items-center gap-1.5 text-[0.6875rem] text-text-muted">
-              <span
-                class="inline-block size-2 rounded-full"
-                style={{ background: clusterColor(i) }}
-              />
-              <span>{cluster.split("/").pop() ?? cluster}</span>
-            </div>
-          ))}
-          <Show when={(store()?.state.clusters.length ?? 0) > 5}>
-            <span class="text-[0.6875rem] text-text-muted">
-              +{(store()?.state.clusters.length ?? 0) - 5} more
-            </span>
+        <div
+          ref={legendRef}
+          class="flex items-center gap-3 overflow-hidden border-t border-border/70 bg-bg-secondary/40 px-4 py-2"
+        >
+          <For each={clusters().slice(0, visibleCount())}>
+            {(cluster, i) => (
+              <div class="flex shrink-0 items-center gap-1.5 text-[0.6875rem] text-text-muted">
+                <span
+                  class="inline-block size-2 rounded-full"
+                  style={{ background: clusterColor(i()) }}
+                />
+                <span class="whitespace-nowrap">{cluster.split("/").pop() ?? cluster}</span>
+              </div>
+            )}
+          </For>
+          <Show when={hiddenCount() > 0}>
+            <span class="shrink-0 text-[0.6875rem] text-text-muted">+{hiddenCount()} more</span>
           </Show>
         </div>
       </Show>
