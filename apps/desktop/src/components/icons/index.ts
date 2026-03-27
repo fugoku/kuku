@@ -1,5 +1,14 @@
 export { PanelLeftIcon, PanelRightIcon } from "./layout_icons";
 export {
+  ClustersIcon,
+  FitViewIcon,
+  GraphEmptyIcon,
+  LocateIcon,
+  ResetViewIcon,
+  ZoomInIcon,
+  ZoomOutIcon,
+} from "./graph_icons";
+export {
   ChevronIcon,
   CloseIcon,
   EllipsisVerticalIcon,

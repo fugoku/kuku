@@ -20,6 +20,15 @@
 //      which can race with any in-flight ForceGraph callbacks.
 
 import {
+  ClustersIcon,
+  FitViewIcon,
+  LocateIcon,
+  ResetViewIcon,
+  ZoomInIcon,
+  ZoomOutIcon,
+} from "~/components/icons";
+
+import {
   type JSX,
   createEffect,
   createMemo,
@@ -727,10 +736,10 @@ export default function GraphCanvas(props: GraphCanvasProps) {
           classList={{ "right-2! bottom-2! p-0.5!": isCompact() }}
         >
           <CtrlBtn title="Zoom in" onClick={zoomIn}>
-            +
+            <ZoomInIcon />
           </CtrlBtn>
           <CtrlBtn title="Zoom out" onClick={zoomOut}>
-            −
+            <ZoomOutIcon />
           </CtrlBtn>
 
           <Show when={!isCompact()}>
@@ -740,12 +749,12 @@ export default function GraphCanvas(props: GraphCanvasProps) {
               onClick={() => setShowClusters(!showClusters())}
               active={showClusters()}
             >
-              ⊞
+              <ClustersIcon />
             </CtrlBtn>
           </Show>
 
           <CtrlBtn title="Fit all nodes" onClick={fitView}>
-            ⊡
+            <FitViewIcon />
           </CtrlBtn>
 
           <Show when={currentFilePath()}>
@@ -756,13 +765,13 @@ export default function GraphCanvas(props: GraphCanvasProps) {
                 if (fp) locateNode(fp);
               }}
             >
-              ◎
+              <LocateIcon />
             </CtrlBtn>
           </Show>
 
           <Show when={!isCompact()}>
             <CtrlBtn title="Reset view" onClick={resetView}>
-              ↺
+              <ResetViewIcon />
             </CtrlBtn>
           </Show>
 

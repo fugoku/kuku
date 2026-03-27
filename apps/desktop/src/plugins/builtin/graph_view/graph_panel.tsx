@@ -9,6 +9,7 @@
 
 import { type JSX, createMemo, createSignal, Show } from "solid-js";
 
+import { FitViewIcon, LocateIcon } from "~/components/icons";
 import { getActiveTab, openTab } from "~/stores/files";
 
 import { getGraphStore } from "./graph_store";
@@ -76,7 +77,7 @@ export default function GraphPanel() {
         <div class="flex items-center justify-between border-t border-border/70 px-3 py-1.5">
           <div class="flex items-center gap-1">
             <PanelBtn title="Fit view" onClick={() => handle()?.fitView()}>
-              ⊡
+              <FitViewIcon />
             </PanelBtn>
             <Show when={currentFilePath()}>
               <PanelBtn
@@ -88,7 +89,7 @@ export default function GraphPanel() {
                   }
                 }}
               >
-                ◎
+                <LocateIcon />
               </PanelBtn>
             </Show>
           </div>
