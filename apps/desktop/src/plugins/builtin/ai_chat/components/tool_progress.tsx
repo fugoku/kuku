@@ -1,6 +1,6 @@
-import { For, Switch, Match, type JSX } from "solid-js";
+import { For, Show, Switch, Match, type JSX } from "solid-js";
 
-import type { ChatToolMessage } from "../types";
+import type { ChatApprovalMessage, ChatToolMessage } from "../types";
 
 const TOOL_DISPLAY: Record<string, { label: string; activeLabel: string }> = {
   search_notes: { label: "Search Notes", activeLabel: "Searching" },
@@ -50,6 +50,8 @@ function getToolDetail(item: ChatToolMessage): string | null {
 
 interface ToolProgressProps {
   tools: ChatToolMessage[];
+  linkedApproval?: ChatApprovalMessage;
+  onHintClick?: () => void;
 }
 
 function ToolProgress(props: ToolProgressProps): JSX.Element {
@@ -60,13 +62,13 @@ function ToolProgress(props: ToolProgressProps): JSX.Element {
           const info = getToolInfo(item.toolName);
           const isActive = !item.success && !item.error;
           const detail = getToolDetail(item);
+          const isLinked = () =>
+            props.linkedApproval !== undefined && props.linkedApproval.callId === item.callId;
 
           return (
             <div
               class="flex items-center gap-2 pt-0.5 text-xs"
-              classList={{
-                "animate-fade-in": true,
-              }}
+              classList={{ "animate-fade-in": true }}
             >
               {/* Status indicator */}
               <Switch>
@@ -81,18 +83,22 @@ function ToolProgress(props: ToolProgressProps): JSX.Element {
                 </Match>
               </Switch>
 
-              {/* Label */}
+              {/* Label — underlined and clickable when linked to an approval */}
               <span
                 classList={{
                   "text-text-secondary": isActive,
                   "text-text-muted": !isActive,
+                  "cursor-pointer underline underline-offset-2": isLinked(),
                 }}
+                onClick={() => isLinked() && props.onHintClick?.()}
               >
                 {isActive ? info.activeLabel : info.label}
               </span>
 
               {/* Detail */}
-              {detail && <span class="truncate text-text-muted">{detail}</span>}
+              <Show when={detail}>
+                {(d) => <span class="truncate text-text-muted">{d()}</span>}
+              </Show>
             </div>
           );
         }}

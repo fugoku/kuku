@@ -1,8 +1,9 @@
-import { For, Show, createMemo, type JSX } from "solid-js";
+import { For, Show, createEffect, createMemo, type JSX } from "solid-js";
+import { createStore } from "solid-js/store";
 
 import { chatState, getActiveSession, sendMessage } from "../chat_store";
 import { ChatWelcome } from "./chat_welcome";
-import type { ChatMessage, ChatToolMessage } from "../types";
+import type { ChatApprovalMessage, ChatMessage, ChatToolMessage } from "../types";
 import { ApprovalWidget } from "./approval_widget";
 import { MarkdownMessage } from "./markdown_message";
 import { ToolProgress } from "./tool_progress";
@@ -12,34 +13,68 @@ import { ToolProgress } from "./tool_progress";
 /**
  * Group consecutive tool messages into runs so we can render them
  * as a single compact ToolProgress block instead of individual cards.
+ *
+ * 2-pass approach:
+ *  Pass 1 — build a callId → approval map from all messages.
+ *  Pass 2 — group messages; when flushing a tool-run, attach the matching
+ *            approval as `linkedApproval` and mark it so it is skipped as
+ *            a standalone approval group.
  */
 interface MessageGroup {
   kind: "text" | "tool-run" | "approval";
   messages: ChatMessage[];
+  linkedApproval?: ChatApprovalMessage;
 }
 
 function groupMessages(messages: readonly ChatMessage[]): MessageGroup[] {
+  // Pass 1: index all approvals by callId
+  const approvalsByCallId = new Map<string, ChatApprovalMessage>();
+  for (const msg of messages) {
+    if (msg.kind === "approval") {
+      approvalsByCallId.set(msg.callId, msg);
+    }
+  }
+
+  const linkedCallIds = new Set<string>();
   const groups: MessageGroup[] = [];
   let currentToolRun: ChatToolMessage[] = [];
 
   const flushToolRun = () => {
-    if (currentToolRun.length > 0) {
-      groups.push({ kind: "tool-run", messages: [...currentToolRun] });
-      currentToolRun = [];
+    if (currentToolRun.length === 0) return;
+
+    // Find the first approval that matches any tool in this run
+    let linkedApproval: ChatApprovalMessage | undefined;
+    for (const tool of currentToolRun) {
+      const approval = approvalsByCallId.get(tool.callId);
+      if (approval) {
+        linkedApproval = approval;
+        linkedCallIds.add(approval.callId);
+        break;
+      }
     }
+
+    groups.push({ kind: "tool-run", messages: [...currentToolRun], linkedApproval });
+    currentToolRun = [];
   };
 
+  // Pass 2: group messages sequentially
   for (const msg of messages) {
     if (msg.kind === "tool") {
       currentToolRun.push(msg);
     } else {
       flushToolRun();
-      groups.push({
-        kind: msg.kind === "approval" ? "approval" : "text",
-        messages: [msg],
-      });
+
+      if (msg.kind === "approval") {
+        // Skip standalone rendering if already linked to a tool-run
+        if (!linkedCallIds.has(msg.callId)) {
+          groups.push({ kind: "approval", messages: [msg] });
+        }
+      } else {
+        groups.push({ kind: "text", messages: [msg] });
+      }
     }
   }
+
   flushToolRun();
   return groups;
 }
@@ -95,12 +130,53 @@ function LoadingIndicator(): JSX.Element {
   );
 }
 
+// ── Tool-run + linked approval ──
+
+function ToolRunGroup(props: {
+  tools: ChatToolMessage[];
+  linkedApproval: ChatApprovalMessage | undefined;
+  sessionId: string;
+  showApproval: boolean;
+  onToggle: () => void;
+  onClose: () => void;
+}): JSX.Element {
+  const approval = () => props.linkedApproval;
+  const visibleApproval = () => (props.showApproval ? approval() : undefined);
+
+  return (
+    <div class="flex flex-col gap-1">
+      <ToolProgress tools={props.tools} linkedApproval={approval()} onHintClick={props.onToggle} />
+
+      {/* ApprovalWidget — shown when toggled open */}
+      <Show when={visibleApproval()}>
+        {(a) => <ApprovalWidget sessionId={props.sessionId} item={a()} onClose={props.onClose} />}
+      </Show>
+    </div>
+  );
+}
+
 // ── Main Component ──
 
 function ChatMessages(): JSX.Element {
   const session = () => getActiveSession();
   const messages = () => session()?.messages ?? [];
   const groups = createMemo(() => groupMessages(messages()));
+
+  // Approval open states keyed by callId — lifted here so ToolRunGroup
+  // remounts (caused by groups() recomputation) don't reset the state.
+  const [approvalOpen, setApprovalOpen] = createStore<Record<string, boolean>>({});
+
+  // Auto-open only on first appearance of a pending approval.
+  // Once a callId is recorded in approvalOpen (true OR false),
+  // we never touch it again — so close/reopen is purely user-driven.
+  createEffect(() => {
+    for (const group of groups()) {
+      const callId = group.linkedApproval?.callId;
+      if (callId && group.linkedApproval?.status === "pending" && !(callId in approvalOpen)) {
+        setApprovalOpen(callId, true);
+      }
+    }
+  });
 
   const isStreaming = () => {
     const s = session();
@@ -121,16 +197,29 @@ function ChatMessages(): JSX.Element {
         <div class="flex flex-col gap-2.5">
           <For each={groups()}>
             {(group) => {
-              // ── Tool run: render as compact progress list ──
+              // ── Tool run ──
               if (group.kind === "tool-run") {
-                const tools = group.messages as ChatToolMessage[];
-                return <ToolProgress tools={tools} />;
+                const callId = group.linkedApproval?.callId ?? "";
+                return (
+                  <ToolRunGroup
+                    tools={group.messages as ChatToolMessage[]}
+                    linkedApproval={group.linkedApproval}
+                    sessionId={session()?.id ?? ""}
+                    showApproval={callId ? (approvalOpen[callId] ?? false) : false}
+                    onToggle={() => {
+                      if (callId) setApprovalOpen(callId, (v) => !v);
+                    }}
+                    onClose={() => {
+                      if (callId) setApprovalOpen(callId, false);
+                    }}
+                  />
+                );
               }
 
-              // ── Approval widget ──
+              // ── Standalone approval (unlinked) ──
               if (group.kind === "approval") {
                 const msg = group.messages[0];
-                if (msg.kind === "approval") {
+                if (msg?.kind === "approval") {
                   return <ApprovalWidget sessionId={session()?.id ?? ""} item={msg} />;
                 }
                 return null;
@@ -138,13 +227,13 @@ function ChatMessages(): JSX.Element {
 
               // ── Text message ──
               const msg = group.messages[0];
-              if (msg.kind !== "text") return null;
+              if (msg?.kind !== "text") return null;
 
               return <TextBubble role={msg.role} content={msg.content} streaming={msg.streaming} />;
             }}
           </For>
 
-          {/* Loading indicator when streaming and the last message isn't already streaming */}
+          {/* Loading indicator when streaming but no streaming text bubble yet */}
           <Show
             when={
               isStreaming() &&

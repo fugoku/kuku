@@ -18,7 +18,11 @@ const STATUS_TONE_CLASSES: Record<ChatUiTone, string> = {
   success: "border-success-border bg-success-bg text-success",
 };
 
-function ApprovalWidget(props: { sessionId: string; item: ChatApprovalMessage }): JSX.Element {
+function ApprovalWidget(props: {
+  sessionId: string;
+  item: ChatApprovalMessage;
+  onClose?: () => void;
+}): JSX.Element {
   const statusLabel = () => getApprovalStatusLabel(props.item);
   const statusTone = () => getApprovalStatusTone(props.item);
   const isPending = () => props.item.status === "pending";
@@ -82,14 +86,20 @@ function ApprovalWidget(props: { sessionId: string; item: ChatApprovalMessage })
           <button
             type="button"
             class="rounded-xs border border-success-border bg-success-bg px-3 py-1.5 text-[0.6875rem] text-success transition-colors hover:opacity-80"
-            onClick={() => void resolveApproval(props.sessionId, props.item.callId, "Approve")}
+            onClick={() => {
+              void resolveApproval(props.sessionId, props.item.callId, "Approve");
+              props.onClose?.();
+            }}
           >
             Approve
           </button>
           <button
             type="button"
             class="rounded-xs border border-error-border bg-error-bg px-3 py-1.5 text-[0.6875rem] text-error transition-colors hover:opacity-80"
-            onClick={() => void resolveApproval(props.sessionId, props.item.callId, "Reject")}
+            onClick={() => {
+              void resolveApproval(props.sessionId, props.item.callId, "Reject");
+              props.onClose?.();
+            }}
           >
             Reject
           </button>
