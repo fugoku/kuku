@@ -15,7 +15,7 @@ export default function SearchTab() {
 
   return (
     <div class="flex h-full min-h-0 flex-col bg-bg-primary">
-      <div class="border-b border-border pb-2 px-2">
+      <div class="border-b border-border px-2 pb-2">
         <div class="mt-3 flex items-center gap-3">
           <input
             type="search"
