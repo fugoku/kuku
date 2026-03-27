@@ -160,10 +160,15 @@ function toggleLeftPanel(): void {
   saveNow();
 }
 
+const DEFAULT_RIGHT_PANEL_VIEW = "graph-view.panel";
+
 function toggleRightPanel(): void {
   if (layoutState.rightPanelOpen) {
     setLayoutState("rightPanelOpen", false);
   } else {
+    if (!layoutState.activeRightPanelViewId) {
+      setLayoutState("activeRightPanelViewId", DEFAULT_RIGHT_PANEL_VIEW);
+    }
     setLayoutState("rightPanelOpen", true);
     fitHorizontalPanels("right");
   }
