@@ -140,6 +140,7 @@ export default function GraphCanvas(props: GraphCanvasProps) {
   const [selectedNode, setSelectedNode] = createSignal<string | null>(null);
   const [zoomLevel, setZoomLevel] = createSignal(1);
   const [showClusters, setShowClusters] = createSignal(true);
+  const [followMode, setFollowMode] = createSignal(false);
   const [dimensions, setDimensions] = createSignal({ width: 400, height: 300 });
 
   // ── Derived State ──────────────────────────────────────────
@@ -654,6 +655,17 @@ export default function GraphCanvas(props: GraphCanvasProps) {
     ),
   );
 
+  //
+  // Effect 4 — Follow mode: auto-locate node when active tab changes (compact only).
+
+  createEffect(() => {
+    if (!followMode()) return;
+    const fp = currentFilePath();
+    if (fp && graphEl) {
+      locateNode(fp);
+    }
+  });
+
   // ── Cleanup ───────────────────────────────────────────────
   //
   // Mirrors kuku-oss: pause, manually remove canvas children,
@@ -757,13 +769,18 @@ export default function GraphCanvas(props: GraphCanvasProps) {
             <FitViewIcon />
           </CtrlBtn>
 
-          <Show when={currentFilePath()}>
+          <Show when={isCompact()}>
             <CtrlBtn
-              title="Locate current note"
+              title={followMode() ? "Stop following current note" : "Follow current note"}
               onClick={() => {
-                const fp = currentFilePath();
-                if (fp) locateNode(fp);
+                const next = !followMode();
+                setFollowMode(next);
+                if (next) {
+                  const fp = currentFilePath();
+                  if (fp) locateNode(fp);
+                }
               }}
+              active={followMode()}
             >
               <LocateIcon />
             </CtrlBtn>
