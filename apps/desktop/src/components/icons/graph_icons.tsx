@@ -123,7 +123,7 @@ export function LocateIcon(props: IconProps) {
       stroke-linejoin="round"
       class={props.class}
     >
-      <circle cx="12" cy="12" r="3" />
+      <circle cx="12" cy="12" r="8" />
       <path d="M12 2v4" />
       <path d="M12 18v4" />
       <path d="M2 12h4" />
