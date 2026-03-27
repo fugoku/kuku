@@ -62,7 +62,7 @@ function ChatWelcome(props: ChatWelcomeProps): JSX.Element {
             {(item) => (
               <button
                 type="button"
-                class="group flex w-full flex-col gap-1 rounded-xl border border-border bg-bg-secondary/60 px-4 py-3 text-left transition-colors hover:border-border-focused hover:bg-bg-tertiary"
+                class="group flex w-full flex-col gap-1 rounded-xs border border-border bg-bg-secondary/60 px-4 py-3 text-left transition-colors hover:border-border-focused hover:bg-bg-tertiary"
                 onClick={() => props.onSubmit(item.prompt)}
               >
                 <span class="text-sm text-text-primary/70 group-hover:text-text-primary">

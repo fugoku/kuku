@@ -77,7 +77,7 @@ function ChatInput(): JSX.Element {
           <div class="relative">
             <button
               type="button"
-              class="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-ghost-hover hover:text-text-primary"
+              class="flex items-center gap-1 rounded-xs px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-ghost-hover hover:text-text-primary"
               onClick={() => setShowModeMenu(!showModeMenu())}
             >
               <span class="capitalize">{chatState.selectedMode}</span>
@@ -94,14 +94,14 @@ function ChatInput(): JSX.Element {
             </button>
             <Show when={showModeMenu()}>
               <div
-                class="absolute bottom-full left-0 z-50 mb-1 w-52 rounded-lg border border-border bg-bg-elevated p-1 shadow-lg"
+                class="absolute bottom-full left-0 z-50 mb-1 w-52 rounded-xs border border-border bg-bg-elevated p-1 shadow-lg"
                 onClick={() => setShowModeMenu(false)}
               >
                 <For each={MODE_OPTIONS}>
                   {(opt) => (
                     <button
                       type="button"
-                      class="flex w-full flex-col rounded-md px-3 py-2 text-left transition-colors hover:bg-ghost-hover"
+                      class="flex w-full flex-col rounded-xs px-3 py-2 text-left transition-colors hover:bg-ghost-hover"
                       classList={{
                         "bg-ghost-selected": chatState.selectedMode === opt.value,
                       }}
@@ -124,7 +124,7 @@ function ChatInput(): JSX.Element {
                 <button
                   type="button"
                   disabled={isLocked() || !draft().trim()}
-                  class="flex size-7 items-center justify-center rounded-lg bg-text-primary text-bg-primary transition-opacity hover:opacity-80 disabled:opacity-30"
+                  class="flex size-7 items-center justify-center rounded-md bg-text-primary text-bg-primary transition-opacity hover:opacity-80 disabled:opacity-30"
                   title="Send"
                   onClick={() => void submit()}
                 >
@@ -143,7 +143,7 @@ function ChatInput(): JSX.Element {
             >
               <button
                 type="button"
-                class="flex size-7 items-center justify-center rounded-lg bg-error/15 text-error transition-colors hover:bg-error/25"
+                class="flex size-7 items-center justify-center rounded-md bg-error/15 text-error transition-colors hover:bg-error/25"
                 title="Stop"
                 onClick={() => void cancelSession()}
               >
