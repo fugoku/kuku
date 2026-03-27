@@ -1,5 +1,5 @@
 import { Switch as KSwitch } from "@kobalte/core/switch";
-import { type JSX, splitProps } from "solid-js";
+import { type JSX, createEffect, createSignal, splitProps } from "solid-js";
 
 // ── Types ──
 
@@ -24,19 +24,20 @@ interface SwitchProps {
 // ── Component ──
 
 /**
- * Toggle switch built on Kobalte's Switch primitive.
- * Styled with Tailwind v4 `data-[checked]` selectors.
+ * Horizontal rocker switch built on Kobalte's Switch primitive.
+ *
+ * Visual concept:
+ *   - A flat rectangular plate split into two halves by a center pivot.
+ *   - Clicking tilts the plate so the active side presses down while
+ *     the opposite side lifts up — mimicking a physical rocker switch.
+ *   - The ON (right) side shows the accent colour when pressed.
+ *
+ * The 3D tilt is achieved with CSS `perspective` + `rotateY`, and
+ * a cubic-bezier overshoot curve sells the mechanical "snap".
  *
  * @example
  * ```tsx
  * <Switch checked={enabled()} onChange={setEnabled} label="Auto-save" />
- * ```
- *
- * @example
- * ```tsx
- * <Switch defaultChecked>
- *   <SwitchLabel>Dark mode</SwitchLabel>
- * </Switch>
  * ```
  */
 export default function Switch(props: SwitchProps) {
@@ -51,33 +52,99 @@ export default function Switch(props: SwitchProps) {
     "children",
   ]);
 
+  // Internal signal keeps styling in sync for both controlled & uncontrolled modes.
+  const [isOn, setIsOn] = createSignal(local.checked ?? local.defaultChecked ?? false);
+
+  // Sync with controlled `checked` prop when it changes externally.
+  createEffect(() => {
+    if (local.checked !== undefined) setIsOn(local.checked);
+  });
+
+  function handleChange(checked: boolean) {
+    setIsOn(checked);
+    local.onChange?.(checked);
+  }
+
   return (
     <KSwitch
       checked={local.checked}
       defaultChecked={local.defaultChecked}
-      onChange={local.onChange}
+      onChange={handleChange}
       disabled={local.disabled}
       name={local.name}
       class={`inline-flex items-center gap-2 ${local.class ?? ""}`}
       {...rest}
     >
       <KSwitch.Input class="sr-only" />
+
+      {/* ── Rocker housing ── */}
       <KSwitch.Control
         class={[
-          "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-xs",
-          "bg-element transition-colors duration-200",
-          "data-checked:bg-accent",
+          "relative flex h-5 w-10 shrink-0 cursor-pointer overflow-hidden rounded-xs",
+          "border border-border/60 bg-bg-secondary",
+          "transition-shadow duration-150",
+          "hover:border-border",
+          "active:scale-[0.97]",
           "data-disabled:cursor-not-allowed data-disabled:opacity-50",
         ].join(" ")}
+        style={{ perspective: "300px" }}
       >
-        <KSwitch.Thumb
-          class={[
-            "inline-block size-3.5 rounded-xs bg-white shadow-sm",
-            "transition-transform duration-200",
-            "translate-x-0.5 data-checked:translate-x-4.5",
-          ].join(" ")}
-        />
+        {/* ── Rocker plate (tilts L/R) ── */}
+        <span
+          class="flex size-full"
+          style={{
+            transform: isOn() ? "rotateY(7deg)" : "rotateY(-7deg)",
+            "transform-style": "preserve-3d",
+            // Overshoot curve → mechanical snap feel
+            transition: "transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1)",
+          }}
+        >
+          {/* OFF side (left) — pressed when unchecked */}
+          <span
+            class="flex flex-1 items-center justify-center transition-all duration-150"
+            classList={{
+              "bg-element shadow-[inset_0_1px_4px_rgba(0,0,0,0.3)]": !isOn(),
+              "bg-bg-secondary/80": isOn(),
+            }}
+          >
+            <span
+              class="text-[0.5rem] leading-none font-bold transition-colors duration-150 select-none"
+              classList={{
+                "text-text-muted/70": !isOn(),
+                "text-text-muted/25": isOn(),
+              }}
+            >
+              O
+            </span>
+          </span>
+
+          {/* Center pivot ridge */}
+          <span class="w-px shrink-0 bg-border/40" />
+
+          {/* ON side (right) — pressed when checked */}
+          <span
+            class="flex flex-1 items-center justify-center transition-all duration-150"
+            classList={{
+              "bg-bg-secondary/80": !isOn(),
+              "bg-accent shadow-[inset_0_1px_4px_rgba(0,0,0,0.3)]": isOn(),
+            }}
+          >
+            <span
+              class="text-[0.5rem] leading-none font-bold transition-colors duration-150 select-none"
+              classList={{
+                "text-text-muted/25": !isOn(),
+                "text-white/80": isOn(),
+              }}
+            >
+              I
+            </span>
+          </span>
+        </span>
+
+        {/* Kobalte Thumb — visually hidden, present for a11y internals */}
+        <KSwitch.Thumb class="sr-only" />
       </KSwitch.Control>
+
       {local.label && (
         <KSwitch.Label class="cursor-pointer text-[0.8125rem] leading-normal text-text-primary data-disabled:cursor-not-allowed data-disabled:text-text-disabled">
           {local.label}

@@ -15,6 +15,8 @@ import { type JSX, For, Show } from "solid-js";
 import { createStore, reconcile, unwrap } from "solid-js/store";
 import { invoke } from "@tauri-apps/api/core";
 
+import Switch from "~/components/ui/switch";
+
 import { GRAPH_SETTINGS_DEFAULTS, type GraphSettings } from "./graph_types";
 
 // ── Reactive Store (module-level singleton) ──────────────────
@@ -290,25 +292,12 @@ function ToggleRow(props: { field: FieldDesc }): JSX.Element {
     <div class="flex items-center gap-3 px-3 py-2">
       <span class="w-36 shrink-0 text-[0.6875rem] text-text-muted">{props.field.label}</span>
       <div class="flex-1" />
-      <button
-        type="button"
-        class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-xs transition-colors"
-        classList={{
-          "bg-accent": value(),
-          "bg-element": !value(),
+      <Switch
+        checked={value()}
+        onChange={(v) => {
+          updateGraphSetting(props.field.key, v as GraphSettings[keyof GraphSettings]);
         }}
-        onClick={() => {
-          updateGraphSetting(props.field.key, !value() as GraphSettings[keyof GraphSettings]);
-        }}
-      >
-        <span
-          class="inline-block size-3.5 rounded-xs bg-white shadow-sm transition-transform"
-          classList={{
-            "translate-x-4.5": value(),
-            "translate-x-0.5": !value(),
-          }}
-        />
-      </button>
+      />
     </div>
   );
 }
