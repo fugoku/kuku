@@ -27,13 +27,9 @@ const TABS: RightPanelTab[] = [
 // ── Component ──
 
 export default function RightPanelTabBar() {
-  const activeLabel = () =>
-    TABS.find((t) => t.viewId === layoutState.activeRightPanelViewId)?.label ?? "";
-
   return (
     <div class="shrink-0 border-b border-border">
-      <div class="flex h-9.5 items-center justify-between px-5">
-        <span class="text-xs font-medium text-text-muted">{activeLabel()}</span>
+      <div class="flex h-9.5 items-center justify-between px-2">
         <div class="flex items-center gap-0.5">
           <For each={TABS}>
             {(tab) => {
