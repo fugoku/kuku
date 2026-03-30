@@ -1,4 +1,5 @@
 import { createEffect, onCleanup, onMount, untrack } from "solid-js";
+import type { OverlayScrollbars } from "overlayscrollbars";
 import { union } from "prosekit/core";
 import { TextSelection } from "prosekit/pm/state";
 import { ProseKit, useDocChange, useKeymap } from "prosekit/solid";
@@ -57,6 +58,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
   let pendingViewportAction: (() => void) | null = null;
   let viewportScrollCleanup: (() => void) | null = null;
   let viewportPersistRaf: number | null = null;
+  let lastKnownScrollTop = 0;
 
   /** Returns the scroll viewport element managed by OverlayScrollbars. */
   function getScrollViewport(): HTMLElement | undefined {
@@ -87,14 +89,19 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     });
   }
 
-  function saveCurrentViewportState(): void {
+  function saveCurrentViewportState(source: "live" | "cleanup" = "live"): void {
+    const viewport = getScrollViewport();
+    const scrollTop =
+      source === "cleanup" ? lastKnownScrollTop : (viewport?.scrollTop ?? lastKnownScrollTop);
     const { anchor, head } = editor.view.state.selection;
-    saveViewportState(props.tabId, {
-      scrollTop: getScrollViewport()?.scrollTop ?? 0,
+    const snapshot = {
+      scrollTop,
       selectionAnchor: anchor,
       selectionHead: head,
       wasFocused: containerRef?.contains(document.activeElement) ?? false,
-    });
+    };
+    lastKnownScrollTop = snapshot.scrollTop;
+    saveViewportState(props.tabId, snapshot);
   }
 
   function scheduleViewportStatePersist(): void {
@@ -111,13 +118,15 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     });
   }
 
-  function ensureViewportScrollListener(): void {
-    const viewport = getScrollViewport();
+  function ensureViewportScrollListener(viewport = getScrollViewport()): void {
     if (!viewport || viewportScrollCleanup) {
       return;
     }
 
+    lastKnownScrollTop = viewport.scrollTop;
+
     const handleScroll = () => {
+      lastKnownScrollTop = viewport.scrollTop;
       scheduleViewportStatePersist();
     };
 
@@ -176,6 +185,9 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     const viewport = getScrollViewport();
     if (viewport) {
       viewport.scrollTop = snapshot.scrollTop;
+      lastKnownScrollTop = viewport.scrollTop;
+    } else {
+      lastKnownScrollTop = snapshot.scrollTop;
     }
   }
 
@@ -216,7 +228,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     if (!contentReady) return;
 
     saveCachedContent(props.tabId, editor.getDocJSON());
-    saveCurrentViewportState();
+    saveCurrentViewportState("cleanup");
 
     if (checksum) {
       saveCachedChecksum(props.tabId, checksum);
@@ -491,9 +503,9 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
           osRef = r;
         }}
         events={{
-          initialized: () => {
+          initialized: (instance: OverlayScrollbars) => {
             osReady = true;
-            ensureViewportScrollListener();
+            ensureViewportScrollListener(instance.elements().viewport);
             if (pendingViewportAction) {
               const action = pendingViewportAction;
               clearPendingViewportAction();
