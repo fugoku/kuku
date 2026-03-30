@@ -5,6 +5,22 @@
    Uses the app's semantic CSS tokens (--color-*, --font-*) for consistency.
    ═══════════════════════════════════════════════════════════════════════════ */
 
+/* ── ScrollArea content stretch ──
+   - Flex column so the editor wrapper (flex-1) fills the viewport height,
+     preserving ProseMirror's `min-height: 100%` click-to-focus area.
+   - `width` switches between `auto` (word-wrap on, text wraps normally)
+     and `max-content` (word-wrap off, content expands → horizontal scroll).
+   - `min-width: 100%` ensures the content is never narrower than the
+     viewport even when content is short.                                  */
+
+.editor-scroll [data-overlayscrollbars-contents] {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  width: var(--editor-content-width, auto);
+  min-width: 100%;
+}
+
 /* ── Editor Surface ── */
 
 .ProseMirror {
@@ -16,7 +32,6 @@
   line-height: var(--editor-line-height, 1.7);
   color: var(--color-text-primary);
   caret-color: var(--color-text-primary);
-  overflow-x: auto;
   overflow-wrap: var(--editor-overflow-wrap, break-word);
   white-space: var(--editor-white-space, pre-wrap);
 }

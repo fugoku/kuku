@@ -2,8 +2,10 @@ import { createEffect, onCleanup, onMount, untrack } from "solid-js";
 import { union } from "prosekit/core";
 import { TextSelection } from "prosekit/pm/state";
 import { ProseKit, useDocChange, useKeymap } from "prosekit/solid";
+import type { OverlayScrollbarsComponentRef } from "overlayscrollbars-solid";
 
 import { createKukuEditor, destroyEditor } from "~/components/editor/system/editor_engine";
+import ScrollArea from "~/components/scroll_area";
 import type { PMNodeJSON } from "~/lib/markdown";
 import { getMarkdownService } from "~/plugins/markdown_service";
 import { setContextKey } from "~/plugins/context_keys";
@@ -50,6 +52,68 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
   let inFlightSaveContent: string | null = null;
   let queuedSaveContent: string | null = null;
   let containerRef: HTMLDivElement | undefined;
+  let osRef: OverlayScrollbarsComponentRef | undefined;
+  let osReady = false;
+  let pendingViewportAction: (() => void) | null = null;
+
+  /** Returns the scroll viewport element managed by OverlayScrollbars. */
+  function getScrollViewport(): HTMLElement | undefined {
+    return osRef?.osInstance()?.elements().viewport;
+  }
+
+  /**
+   * Schedule an action that requires the OverlayScrollbars viewport to be
+   * ready (e.g. scroll restore, search-result navigation).
+   *
+   * - If OS is already initialised the action runs after one rAF so the
+   *   browser has a chance to compute layout.
+   * - Otherwise it is queued and flushed from the `initialized` event.
+   */
+  function scheduleViewportAction(action: () => void): void {
+    if (osReady) {
+      requestAnimationFrame(() => {
+        if (!disposed) action();
+      });
+    } else {
+      pendingViewportAction = action;
+    }
+  }
+
+  /**
+   * Apply viewport snapshot restore (selection + scroll position).
+   * Must only be called when the OS viewport is ready.
+   */
+  function applyViewportRestore(): void {
+    const snapshot = getViewportState(props.tabId);
+    if (
+      snapshot.scrollTop === 0 &&
+      snapshot.selectionAnchor === 0 &&
+      snapshot.selectionHead === 0 &&
+      !snapshot.wasFocused
+    ) {
+      return;
+    }
+
+    const anchor = clampSelectionPosition(Math.max(1, snapshot.selectionAnchor));
+    const head = clampSelectionPosition(Math.max(1, snapshot.selectionHead));
+
+    try {
+      const tr = editor.view.state.tr;
+      tr.setSelection(TextSelection.create(tr.doc, anchor, head));
+      editor.view.dispatch(tr);
+    } catch {
+      // Ignore invalid selection snapshots.
+    }
+
+    if (snapshot.wasFocused) {
+      editor.view.focus();
+    }
+
+    const viewport = getScrollViewport();
+    if (viewport) {
+      viewport.scrollTop = snapshot.scrollTop;
+    }
+  }
 
   function clearAutoSaveTimer(): void {
     if (autoSaveTimer === null) return;
@@ -84,40 +148,6 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     return Math.max(1, Math.min(position, maxPosition));
   }
 
-  function restoreViewportSnapshot(): void {
-    const snapshot = getViewportState(props.tabId);
-    if (
-      snapshot.scrollTop === 0 &&
-      snapshot.selectionAnchor === 0 &&
-      snapshot.selectionHead === 0 &&
-      !snapshot.wasFocused
-    ) {
-      return;
-    }
-
-    requestAnimationFrame(() => {
-      if (disposed) return;
-
-      const anchor = clampSelectionPosition(Math.max(1, snapshot.selectionAnchor));
-      const head = clampSelectionPosition(Math.max(1, snapshot.selectionHead));
-
-      try {
-        const tr = editor.view.state.tr;
-        tr.setSelection(TextSelection.create(tr.doc, anchor, head));
-        editor.view.dispatch(tr);
-      } catch {
-        // Ignore invalid selection snapshots.
-      }
-
-      if (snapshot.wasFocused) {
-        editor.view.focus();
-      }
-      if (containerRef) {
-        containerRef.scrollTop = snapshot.scrollTop;
-      }
-    });
-  }
-
   function persistEditorRuntimeState(): void {
     if (!contentReady) return;
 
@@ -125,7 +155,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
 
     const { anchor, head } = editor.view.state.selection;
     saveViewportState(props.tabId, {
-      scrollTop: containerRef?.scrollTop ?? 0,
+      scrollTop: getScrollViewport()?.scrollTop ?? 0,
       selectionAnchor: anchor,
       selectionHead: head,
       wasFocused: containerRef?.contains(document.activeElement) ?? false,
@@ -167,10 +197,14 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
         checksum = cachedChecksum;
       }
 
-      const navigated = applyPendingSearchNavigation(editor, props.filePath, { clearOnMiss: true });
-      if (!navigated) {
-        restoreViewportSnapshot();
-      }
+      scheduleViewportAction(() => {
+        const navigated = applyPendingSearchNavigation(editor, props.filePath, {
+          clearOnMiss: true,
+        });
+        if (!navigated) {
+          applyViewportRestore();
+        }
+      });
 
       if (cachedChecksum) {
         return;
@@ -195,10 +229,14 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
       setEditorDocument(parsed);
       saveCachedContent(props.tabId, parsed);
 
-      const navigated = applyPendingSearchNavigation(editor, props.filePath, { clearOnMiss: true });
-      if (!navigated) {
-        restoreViewportSnapshot();
-      }
+      scheduleViewportAction(() => {
+        const navigated = applyPendingSearchNavigation(editor, props.filePath, {
+          clearOnMiss: true,
+        });
+        if (!navigated) {
+          applyViewportRestore();
+        }
+      });
 
       markTabDirty(props.tabId, false);
     } catch (error) {
@@ -215,7 +253,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     const content = untrack(() => getCachedContent(props.tabId)) ?? diffEntry.diffDoc;
     setEditorDocument(content);
     saveCachedContent(props.tabId, content);
-    restoreViewportSnapshot();
+    scheduleViewportAction(applyViewportRestore);
     markTabDirty(props.tabId, false);
   }
 
@@ -382,19 +420,40 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
 
   return (
     <ProseKit editor={editor}>
-      <div
-        ref={(el) => {
-          containerRef = el;
-          syncSpellcheckSetting();
+      <ScrollArea
+        axis="both"
+        class="editor-scroll size-full bg-bg-primary"
+        ref={(r) => {
+          osRef = r;
         }}
-        class="size-full overflow-y-auto bg-bg-primary"
-        data-diff-editor={isDiffMode ? "" : undefined}
-        spellcheck={!isDiffMode && settingsState.general.spellCheck}
-        onFocusIn={handleFocusIn}
-        onFocusOut={handleFocusOut}
+        events={{
+          initialized: () => {
+            osReady = true;
+            if (pendingViewportAction) {
+              const action = pendingViewportAction;
+              pendingViewportAction = null;
+              // One rAF so the browser settles layout after OS DOM restructuring.
+              requestAnimationFrame(() => {
+                if (!disposed) action();
+              });
+            }
+          },
+        }}
       >
-        <div ref={editor.mount} />
-      </div>
+        <div
+          class="flex-1"
+          ref={(el) => {
+            containerRef = el;
+            syncSpellcheckSetting();
+          }}
+          data-diff-editor={isDiffMode ? "" : undefined}
+          spellcheck={!isDiffMode && settingsState.general.spellCheck}
+          onFocusIn={handleFocusIn}
+          onFocusOut={handleFocusOut}
+        >
+          <div ref={editor.mount} />
+        </div>
+      </ScrollArea>
     </ProseKit>
   );
 }

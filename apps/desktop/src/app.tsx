@@ -50,6 +50,10 @@ export default function App() {
       "--editor-white-space",
       wordWrap ? "pre-wrap" : "pre",
     );
+    document.documentElement.style.setProperty(
+      "--editor-content-width",
+      wordWrap ? "auto" : "max-content",
+    );
   });
 
   onMount(() => {
