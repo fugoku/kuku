@@ -58,3 +58,106 @@ export function ContextMenuItem(props: {
     </KMenu.Item>
   );
 }
+
+/**
+ * A visual separator between menu items.
+ */
+export function ContextMenuSeparator() {
+  return <KMenu.Separator class="mx-1.5 my-1 h-px bg-border" />;
+}
+
+/**
+ * A group label for a section of menu items (e.g. "AI Skills").
+ */
+export function ContextMenuGroupLabel(props: { children: JSX.Element }) {
+  return (
+    <KMenu.GroupLabel class="px-2.5 py-1.5 text-[0.6875rem] font-medium tracking-wider text-text-muted uppercase">
+      {props.children}
+    </KMenu.GroupLabel>
+  );
+}
+
+/**
+ * A group of related menu items.
+ */
+export function ContextMenuGroup(props: { children: JSX.Element }) {
+  return <KMenu.Group>{props.children}</KMenu.Group>;
+}
+
+/**
+ * Root wrapper for a submenu.
+ */
+export function ContextMenuSub(props: { children: JSX.Element }) {
+  return <KMenu.Sub>{props.children}</KMenu.Sub>;
+}
+
+/**
+ * Trigger item for a submenu. Renders like a regular menu item
+ * but displays a right-pointing chevron to indicate a nested menu.
+ */
+export function ContextMenuSubTrigger(props: { label: string; disabled?: boolean }) {
+  return (
+    <KMenu.SubTrigger
+      disabled={props.disabled}
+      class={[
+        "flex h-8 w-full cursor-pointer items-center justify-between gap-4 rounded-xs px-2.5 text-[0.8125rem] leading-normal text-text-primary outline-none",
+        "transition-colors duration-75",
+        "data-highlighted:bg-ghost-hover",
+        "data-disabled:cursor-not-allowed data-disabled:text-text-disabled",
+      ].join(" ")}
+    >
+      <span class="whitespace-nowrap">{props.label}</span>
+      <span class="text-[0.75rem] text-text-muted">›</span>
+    </KMenu.SubTrigger>
+  );
+}
+
+/**
+ * Portaled content panel for a submenu.
+ * Uses the same portal + styling as `ContextMenuContent`.
+ */
+export function ContextMenuSubContent(props: { children: JSX.Element; class?: string }) {
+  return (
+    <KMenu.Portal>
+      <KMenu.SubContent
+        class={[
+          "z-1000 min-w-44 overflow-hidden rounded-xs border border-border bg-bg-secondary p-1",
+          "shadow-[0_4px_16px_rgba(0,0,0,0.28),0_0_0_1px_rgba(0,0,0,0.06)]",
+          "origin-[var(--kb-menu-content-transform-origin)]",
+          props.class ?? "",
+        ].join(" ")}
+      >
+        {props.children}
+      </KMenu.SubContent>
+    </KMenu.Portal>
+  );
+}
+
+/**
+ * Compact icon-only button for use in a formatting toolbar grid
+ * inside a context menu.
+ */
+export function ContextMenuIconButton(props: {
+  children: JSX.Element;
+  onSelect: () => void;
+  active?: boolean;
+  disabled?: boolean;
+  title?: string;
+}) {
+  return (
+    <KMenu.Item
+      onSelect={props.onSelect}
+      disabled={props.disabled}
+      class={[
+        "inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-xs outline-none",
+        "transition-colors duration-75",
+        "data-highlighted:bg-ghost-hover",
+        "data-disabled:cursor-not-allowed data-disabled:text-text-disabled",
+        props.active ? "bg-ghost-hover text-text-primary" : "text-text-secondary",
+      ].join(" ")}
+      title={props.title}
+    >
+      {props.children}
+    </KMenu.Item>
+  );
+}

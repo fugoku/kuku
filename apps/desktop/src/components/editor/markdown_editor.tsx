@@ -1,4 +1,4 @@
-import { createEffect, onCleanup, onMount, untrack } from "solid-js";
+import { createEffect, onCleanup, onMount, Show, untrack } from "solid-js";
 import type { OverlayScrollbars } from "overlayscrollbars";
 import { union } from "prosekit/core";
 import { TextSelection } from "prosekit/pm/state";
@@ -6,6 +6,7 @@ import { ProseKit, useDocChange, useKeymap } from "prosekit/solid";
 import type { OverlayScrollbarsComponentRef } from "overlayscrollbars-solid";
 
 import { createKukuEditor, destroyEditor } from "~/components/editor/system/editor_engine";
+import EditorContextMenu from "~/components/editor/editor_context_menu";
 import ScrollArea from "~/components/scroll_area";
 import type { PMNodeJSON } from "~/lib/markdown";
 import { getMarkdownService } from "~/plugins/markdown_service";
@@ -514,19 +515,38 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
           },
         }}
       >
-        <div
-          class="w-full flex-1"
-          ref={(el) => {
-            containerRef = el;
-            syncSpellcheckSetting();
-          }}
-          data-diff-editor={isDiffMode ? "" : undefined}
-          spellcheck={!isDiffMode && settingsState.general.spellCheck}
-          onFocusIn={handleFocusIn}
-          onFocusOut={handleFocusOut}
+        <Show
+          when={!isDiffMode}
+          fallback={
+            <div
+              class="w-full flex-1"
+              ref={(el) => {
+                containerRef = el;
+                syncSpellcheckSetting();
+              }}
+              data-diff-editor=""
+              onFocusIn={handleFocusIn}
+              onFocusOut={handleFocusOut}
+            >
+              <div ref={editor.mount} />
+            </div>
+          }
         >
-          <div ref={editor.mount} />
-        </div>
+          <EditorContextMenu>
+            <div
+              class="w-full flex-1"
+              ref={(el) => {
+                containerRef = el;
+                syncSpellcheckSetting();
+              }}
+              spellcheck={settingsState.general.spellCheck}
+              onFocusIn={handleFocusIn}
+              onFocusOut={handleFocusOut}
+            >
+              <div ref={editor.mount} />
+            </div>
+          </EditorContextMenu>
+        </Show>
       </ScrollArea>
     </ProseKit>
   );

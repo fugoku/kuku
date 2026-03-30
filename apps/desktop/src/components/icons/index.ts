@@ -23,3 +23,20 @@ export {
 } from "./general_icons";
 export { KukuLogo } from "./kuku_logo";
 export { KukuLogoSmall } from "./kuku_logo_small";
+export {
+  BoldIcon,
+  ItalicIcon,
+  StrikethroughIcon,
+  CodeIcon,
+  LinkIcon,
+  Heading1Icon,
+  Heading2Icon,
+  Heading3Icon,
+  QuoteIcon,
+  ListIcon,
+  ListOrderedIcon,
+  ScissorsIcon,
+  CopyIcon,
+  ClipboardIcon,
+  SparklesIcon,
+} from "./editor_icons";
