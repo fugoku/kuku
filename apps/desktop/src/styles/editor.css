@@ -159,8 +159,13 @@
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xs);
+  box-sizing: border-box;
+  width: var(--editor-code-width, 100%);
+  min-width: 100%;
   padding: 0.75em 1em;
   margin: 0.75em 0;
+  overflow-x: var(--editor-code-overflow-x, auto);
+  overflow-y: hidden;
   white-space: pre;
 }
 

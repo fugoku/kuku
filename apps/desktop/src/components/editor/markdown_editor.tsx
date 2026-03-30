@@ -55,6 +55,8 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
   let osRef: OverlayScrollbarsComponentRef | undefined;
   let osReady = false;
   let pendingViewportAction: (() => void) | null = null;
+  let viewportScrollCleanup: (() => void) | null = null;
+  let viewportPersistRaf: number | null = null;
 
   /** Returns the scroll viewport element managed by OverlayScrollbars. */
   function getScrollViewport(): HTMLElement | undefined {
@@ -63,6 +65,66 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
 
   function clearPendingViewportAction(): void {
     pendingViewportAction = null;
+  }
+
+  function clearViewportScrollListener(): void {
+    viewportScrollCleanup?.();
+    viewportScrollCleanup = null;
+  }
+
+  function clearViewportPersistRaf(): void {
+    if (viewportPersistRaf !== null) {
+      cancelAnimationFrame(viewportPersistRaf);
+      viewportPersistRaf = null;
+    }
+  }
+
+  function runAfterLayoutSettles(action: () => void): void {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!disposed) action();
+      });
+    });
+  }
+
+  function saveCurrentViewportState(): void {
+    const { anchor, head } = editor.view.state.selection;
+    saveViewportState(props.tabId, {
+      scrollTop: getScrollViewport()?.scrollTop ?? 0,
+      selectionAnchor: anchor,
+      selectionHead: head,
+      wasFocused: containerRef?.contains(document.activeElement) ?? false,
+    });
+  }
+
+  function scheduleViewportStatePersist(): void {
+    if (!contentReady || disposed || viewportPersistRaf !== null) {
+      return;
+    }
+
+    viewportPersistRaf = requestAnimationFrame(() => {
+      viewportPersistRaf = null;
+      if (!contentReady || disposed) {
+        return;
+      }
+      saveCurrentViewportState();
+    });
+  }
+
+  function ensureViewportScrollListener(): void {
+    const viewport = getScrollViewport();
+    if (!viewport || viewportScrollCleanup) {
+      return;
+    }
+
+    const handleScroll = () => {
+      scheduleViewportStatePersist();
+    };
+
+    viewport.addEventListener("scroll", handleScroll, { passive: true });
+    viewportScrollCleanup = () => {
+      viewport.removeEventListener("scroll", handleScroll);
+    };
   }
 
   /**
@@ -75,9 +137,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
    */
   function scheduleViewportAction(action: () => void): void {
     if (osReady) {
-      requestAnimationFrame(() => {
-        if (!disposed) action();
-      });
+      runAfterLayoutSettles(action);
     } else {
       pendingViewportAction = action;
     }
@@ -156,14 +216,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     if (!contentReady) return;
 
     saveCachedContent(props.tabId, editor.getDocJSON());
-
-    const { anchor, head } = editor.view.state.selection;
-    saveViewportState(props.tabId, {
-      scrollTop: getScrollViewport()?.scrollTop ?? 0,
-      selectionAnchor: anchor,
-      selectionHead: head,
-      wasFocused: containerRef?.contains(document.activeElement) ?? false,
-    });
+    saveCurrentViewportState();
 
     if (checksum) {
       saveCachedChecksum(props.tabId, checksum);
@@ -348,6 +401,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
   function handleFocusIn() {
     if (isDiffMode) return;
     setContextKey("editorTextFocus", true);
+    scheduleViewportStatePersist();
   }
 
   function handleFocusOut(e: FocusEvent) {
@@ -357,6 +411,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     if (!related || !container.contains(related)) {
       setContextKey("editorTextFocus", false);
     }
+    scheduleViewportStatePersist();
   }
 
   onMount(() => {
@@ -365,6 +420,8 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
 
   onCleanup(() => {
     clearPendingViewportAction();
+    clearViewportPersistRaf();
+    clearViewportScrollListener();
     persistEditorRuntimeState();
     if (settingsState.general.autoSave && (autoSaveTimer !== null || saveInFlight !== null)) {
       void saveDocument();
@@ -402,6 +459,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
       if (isDiffMode || settingContent || disposed) return;
       markTabDirty(props.tabId, true);
       recordTyping();
+      scheduleViewportStatePersist();
       if (settingsState.general.autoSave) {
         scheduleAutoSave();
       }
@@ -435,13 +493,11 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
         events={{
           initialized: () => {
             osReady = true;
+            ensureViewportScrollListener();
             if (pendingViewportAction) {
               const action = pendingViewportAction;
               clearPendingViewportAction();
-              // One rAF so the browser settles layout after OS DOM restructuring.
-              requestAnimationFrame(() => {
-                if (!disposed) action();
-              });
+              runAfterLayoutSettles(action);
             }
           },
         }}

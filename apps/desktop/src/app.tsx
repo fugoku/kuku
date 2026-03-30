@@ -54,6 +54,14 @@ export default function App() {
       "--editor-content-width",
       wordWrap ? "100%" : "max-content",
     );
+    document.documentElement.style.setProperty(
+      "--editor-code-width",
+      wordWrap ? "100%" : "fit-content",
+    );
+    document.documentElement.style.setProperty(
+      "--editor-code-overflow-x",
+      wordWrap ? "auto" : "visible",
+    );
   });
 
   onMount(() => {
