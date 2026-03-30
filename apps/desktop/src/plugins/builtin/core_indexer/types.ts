@@ -31,7 +31,10 @@ export interface AdvancedQueryRequest {
   maxResults?: number;
 }
 
+export type IndexerStorageLocation = "app-global" | "vault-local";
+
 export interface IndexerConfig {
+  storageLocation: IndexerStorageLocation;
   incrementalUpdates: boolean;
   reindexOnVaultOpen: boolean;
   resolutionPolicy: "closest-folder";

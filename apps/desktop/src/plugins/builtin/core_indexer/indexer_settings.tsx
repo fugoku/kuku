@@ -1,10 +1,17 @@
 import { Show, type JSX } from "solid-js";
 
+import { Select } from "~/components/ui";
 import Switch from "~/components/ui/switch";
 
 import { indexerConfig, updateIndexerConfig } from "./settings";
+import type { IndexerConfig } from "./types";
 import { indexerStatus, refreshIndexerStatus } from "../core_indexer/status_store";
 import { getSearchService } from "../search/runtime";
+
+const STORAGE_LOCATION_OPTIONS = [
+  { value: "app-global", label: "App data (~/.kuku/search)" },
+  { value: "vault-local", label: "Vault local (.kuku/search.sqlite3)" },
+] satisfies { value: IndexerConfig["storageLocation"]; label: string }[];
 
 function formatTimestamp(ts: number | null): string {
   if (!ts) return "Never";
@@ -34,9 +41,9 @@ function IndexerSettings(): JSX.Element {
     await refreshIndexerStatus(service);
   }
 
-  async function handleConfigToggle(
-    key: "incrementalUpdates" | "reindexOnVaultOpen",
-    value: boolean,
+  async function handleConfigChange<K extends keyof IndexerConfig>(
+    key: K,
+    value: IndexerConfig[K],
   ): Promise<void> {
     const service = getSearchService();
     if (!service) return;
@@ -126,12 +133,32 @@ function IndexerSettings(): JSX.Element {
 
           <div class="mt-4 space-y-3">
             <SettingRow
+              title="Index storage location"
+              description="Choose whether the SQLite index lives in app data or inside the current vault. Changing this switches to a different DB and queues a rebuild."
+              control={
+                <div class="w-64">
+                  <Select
+                    options={STORAGE_LOCATION_OPTIONS}
+                    value={indexerConfig.storageLocation}
+                    onChange={(value) =>
+                      void handleConfigChange(
+                        "storageLocation",
+                        value as IndexerConfig["storageLocation"],
+                      )
+                    }
+                    placeholder="Select location"
+                    label="Index storage location"
+                  />
+                </div>
+              }
+            />
+            <SettingRow
               title="Incremental updates"
               description="Apply file changes as targeted link/index updates instead of full rebuilds."
               control={
                 <Switch
                   checked={indexerConfig.incrementalUpdates}
-                  onChange={(checked) => void handleConfigToggle("incrementalUpdates", checked)}
+                  onChange={(checked) => void handleConfigChange("incrementalUpdates", checked)}
                 />
               }
             />
@@ -141,7 +168,7 @@ function IndexerSettings(): JSX.Element {
               control={
                 <Switch
                   checked={indexerConfig.reindexOnVaultOpen}
-                  onChange={(checked) => void handleConfigToggle("reindexOnVaultOpen", checked)}
+                  onChange={(checked) => void handleConfigChange("reindexOnVaultOpen", checked)}
                 />
               }
             />

@@ -13,7 +13,8 @@ use regex::RegexBuilder;
 
 use crate::models::{
     AdvancedQueryRequest, FileChangeEvent, GraphLinkDto, GraphNodeDto, GraphSnapshot,
-    IndexerConfig, IndexerStatus, ResolveWikilinkResult, SimpleSearchResult,
+    IndexerConfig, IndexerStatus, IndexerStorageLocation, ResolveWikilinkResult,
+    SimpleSearchResult,
 };
 
 pub mod commands;
@@ -46,6 +47,7 @@ struct SearchManager {
 }
 
 struct SearchRuntime {
+    vault_root: PathBuf,
     db_path: PathBuf,
     job_tx: Sender<WriterJob>,
     status: Arc<Mutex<IndexerStatus>>,
@@ -64,15 +66,23 @@ impl SearchState {
     }
 
     pub fn switch_vault(&self, vault_root: PathBuf) -> Result<(), String> {
+        self.switch_vault_internal(vault_root, true)
+    }
+
+    fn switch_vault_internal(
+        &self,
+        vault_root: PathBuf,
+        request_reindex_on_open: bool,
+    ) -> Result<(), String> {
         let canonical_root = fs::canonicalize(&vault_root)
             .map_err(|e| format!("Failed to canonicalize vault root: {e}"))?;
-        let db_path = search_db_path(&canonical_root)?;
+        let config = self.get_config();
+        let db_path = search_db_path(&canonical_root, &config.storage_location)?;
         if let Some(parent) = db_path.parent() {
             fs::create_dir_all(parent)
                 .map_err(|e| format!("Failed to create search directory: {e}"))?;
         }
 
-        let config = self.get_config();
         let status = Arc::new(Mutex::new(IndexerStatus::default()));
         let rebuild_state = Arc::new(Mutex::new(RebuildQueueState::default()));
         let runtime_config = Arc::new(Mutex::new(config.clone()));
@@ -84,6 +94,7 @@ impl SearchState {
             runtime_config.clone(),
         );
         let runtime = SearchRuntime {
+            vault_root: canonical_root,
             db_path,
             job_tx,
             status,
@@ -98,7 +109,7 @@ impl SearchState {
         manager.runtime = Some(runtime);
         drop(manager);
 
-        if config.reindex_on_vault_open {
+        if request_reindex_on_open && config.reindex_on_vault_open {
             self.request_rebuild()?;
         }
 
@@ -124,9 +135,26 @@ impl SearchState {
     }
 
     pub fn set_config(&self, config: IndexerConfig) -> Result<(), String> {
-        {
+        let restart_vault_root = {
             let mut manager = self.inner.lock();
+            let storage_changed = manager.config.storage_location != config.storage_location;
             manager.config = config.clone();
+            if let Some(runtime) = manager.runtime.as_ref() {
+                if storage_changed {
+                    Some(runtime.vault_root.clone())
+                } else {
+                    *runtime.config.lock() = config.clone();
+                    None
+                }
+            } else {
+                None
+            }
+        };
+
+        if let Some(vault_root) = restart_vault_root {
+            self.switch_vault_internal(vault_root, false)?;
+        } else {
+            let manager = self.inner.lock();
             if let Some(runtime) = manager.runtime.as_ref() {
                 *runtime.config.lock() = config.clone();
             }
@@ -136,10 +164,14 @@ impl SearchState {
     }
 
     pub fn request_rebuild(&self) -> Result<(), String> {
-        self.with_runtime_result(|runtime| {
+        {
+            let manager = self.inner.lock();
+            let Some(runtime) = manager.runtime.as_ref() else {
+                return Ok(());
+            };
             queue_rebuild(&runtime.rebuild_state, &runtime.job_tx);
-            Ok(())
-        })
+        }
+        Ok(())
     }
 
     pub fn notify_written(&self, path: &str) -> Result<(), String> {
@@ -529,13 +561,21 @@ struct RuntimeSnapshot {
     db_path: PathBuf,
 }
 
-pub fn search_db_path(vault_root: &Path) -> Result<PathBuf, String> {
-    let home = dirs::home_dir().ok_or("Cannot resolve home directory")?;
-    let app_root = home.join(".kuku").join("search");
+pub fn search_db_path(
+    vault_root: &Path,
+    storage_location: &IndexerStorageLocation,
+) -> Result<PathBuf, String> {
     let canonical = fs::canonicalize(vault_root)
         .map_err(|e| format!("Failed to canonicalize vault path for hashing: {e}"))?;
-    let hash = hash_path(&canonical);
-    Ok(app_root.join(format!("{hash}.sqlite3")))
+    match storage_location {
+        IndexerStorageLocation::AppGlobal => {
+            let home = dirs::home_dir().ok_or("Cannot resolve home directory")?;
+            let app_root = home.join(".kuku").join("search");
+            let hash = hash_path(&canonical);
+            Ok(app_root.join(format!("{hash}.sqlite3")))
+        }
+        IndexerStorageLocation::VaultLocal => Ok(canonical.join(".kuku").join("search.sqlite3")),
+    }
 }
 
 fn hash_path(path: &Path) -> String {
@@ -576,6 +616,8 @@ mod tests {
     }
 
     fn build_state(docs: Vec<IndexedDocument>) -> SearchState {
+        let vault_root = unique_path("kuku-search-root");
+        fs::create_dir_all(&vault_root).unwrap();
         let db_path = unique_path("kuku-search-db").with_extension("sqlite3");
         let mut conn = open_connection(&db_path).unwrap();
         let tx = conn.transaction().unwrap();
@@ -588,6 +630,7 @@ mod tests {
         SearchState {
             inner: Arc::new(Mutex::new(SearchManager {
                 runtime: Some(SearchRuntime {
+                    vault_root,
                     db_path,
                     job_tx,
                     status: Arc::new(Mutex::new(IndexerStatus::default())),
@@ -668,9 +711,27 @@ mod tests {
     fn search_db_path_is_stable_for_same_root() {
         let root = unique_path("kuku-search-root");
         fs::create_dir_all(&root).unwrap();
-        let first = search_db_path(&root).unwrap();
-        let second = search_db_path(&root).unwrap();
+        let first = search_db_path(&root, &IndexerStorageLocation::AppGlobal).unwrap();
+        let second = search_db_path(&root, &IndexerStorageLocation::AppGlobal).unwrap();
         assert_eq!(first, second);
+    }
+
+    #[test]
+    fn search_db_path_supports_vault_local_storage() {
+        let root = unique_path("kuku-search-root");
+        fs::create_dir_all(&root).unwrap();
+        let db_path = search_db_path(&root, &IndexerStorageLocation::VaultLocal).unwrap();
+        let canonical_root = fs::canonicalize(&root).unwrap();
+        assert_eq!(db_path, canonical_root.join(".kuku").join("search.sqlite3"));
+    }
+
+    #[test]
+    fn search_db_path_changes_with_storage_location() {
+        let root = unique_path("kuku-search-root");
+        fs::create_dir_all(&root).unwrap();
+        let app_global = search_db_path(&root, &IndexerStorageLocation::AppGlobal).unwrap();
+        let vault_local = search_db_path(&root, &IndexerStorageLocation::VaultLocal).unwrap();
+        assert_ne!(app_global, vault_local);
     }
 
     #[test]

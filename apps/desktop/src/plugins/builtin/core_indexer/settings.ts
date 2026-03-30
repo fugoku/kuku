@@ -2,15 +2,20 @@ import { invoke } from "@tauri-apps/api/core";
 import { createStore, unwrap } from "solid-js/store";
 
 import type { SearchService } from "./service";
-import type { IndexerConfig } from "./types";
+import type { IndexerConfig, IndexerStorageLocation } from "./types";
 
 const DEFAULT_INDEXER_CONFIG: IndexerConfig = {
+  storageLocation: "app-global",
   incrementalUpdates: true,
   reindexOnVaultOpen: true,
   resolutionPolicy: "closest-folder",
 };
 
 const [indexerConfig, setIndexerConfig] = createStore<IndexerConfig>({ ...DEFAULT_INDEXER_CONFIG });
+
+function isStorageLocation(value: unknown): value is IndexerStorageLocation {
+  return value === "app-global" || value === "vault-local";
+}
 
 async function loadIndexerConfig(service: SearchService): Promise<void> {
   try {
@@ -19,6 +24,7 @@ async function loadIndexerConfig(service: SearchService): Promise<void> {
     });
     const merged = {
       ...DEFAULT_INDEXER_CONFIG,
+      ...(isStorageLocation(raw.storageLocation) ? { storageLocation: raw.storageLocation } : {}),
       ...(typeof raw.incrementalUpdates === "boolean"
         ? { incrementalUpdates: raw.incrementalUpdates }
         : {}),

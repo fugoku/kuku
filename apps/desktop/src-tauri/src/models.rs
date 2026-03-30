@@ -66,14 +66,25 @@ impl Default for IndexerStatus {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct IndexerConfig {
+    #[serde(default)]
+    pub storage_location: IndexerStorageLocation,
     pub incremental_updates: bool,
     pub reindex_on_vault_open: bool,
     pub resolution_policy: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum IndexerStorageLocation {
+    #[default]
+    AppGlobal,
+    VaultLocal,
+}
+
 impl Default for IndexerConfig {
     fn default() -> Self {
         Self {
+            storage_location: IndexerStorageLocation::AppGlobal,
             incremental_updates: true,
             reindex_on_vault_open: true,
             resolution_policy: "closest-folder".to_string(),
