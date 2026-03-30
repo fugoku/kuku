@@ -52,7 +52,7 @@ export default function App() {
     );
     document.documentElement.style.setProperty(
       "--editor-content-width",
-      wordWrap ? "auto" : "max-content",
+      wordWrap ? "100%" : "max-content",
     );
   });
 

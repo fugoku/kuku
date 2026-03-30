@@ -61,6 +61,10 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     return osRef?.osInstance()?.elements().viewport;
   }
 
+  function clearPendingViewportAction(): void {
+    pendingViewportAction = null;
+  }
+
   /**
    * Schedule an action that requires the OverlayScrollbars viewport to be
    * ready (e.g. scroll restore, search-result navigation).
@@ -360,6 +364,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
   });
 
   onCleanup(() => {
+    clearPendingViewportAction();
     persistEditorRuntimeState();
     if (settingsState.general.autoSave && (autoSaveTimer !== null || saveInFlight !== null)) {
       void saveDocument();
@@ -422,7 +427,8 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     <ProseKit editor={editor}>
       <ScrollArea
         axis="both"
-        class="editor-scroll size-full bg-bg-primary"
+        class="size-full bg-bg-primary"
+        data-editor-scroll=""
         ref={(r) => {
           osRef = r;
         }}
@@ -431,7 +437,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
             osReady = true;
             if (pendingViewportAction) {
               const action = pendingViewportAction;
-              pendingViewportAction = null;
+              clearPendingViewportAction();
               // One rAF so the browser settles layout after OS DOM restructuring.
               requestAnimationFrame(() => {
                 if (!disposed) action();
@@ -441,7 +447,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
         }}
       >
         <div
-          class="flex-1"
+          class="w-full flex-1"
           ref={(el) => {
             containerRef = el;
             syncSpellcheckSetting();

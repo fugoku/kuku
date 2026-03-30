@@ -1,4 +1,4 @@
-import { For, Show } from "solid-js";
+import { createEffect, For, Show } from "solid-js";
 
 import type { SimpleSearchHit } from "../core_indexer/types";
 
@@ -16,12 +16,22 @@ function fileNameFromPath(path: string): string {
 
 export function SearchResultsList(props: SearchResultsListProps) {
   const compact = () => props.compact === true;
+  const itemRefs: HTMLButtonElement[] = [];
+
+  createEffect(() => {
+    const index = props.selectedIndex;
+    if (index === undefined || index < 0) return;
+    itemRefs[index]?.scrollIntoView({ block: "nearest" });
+  });
 
   return (
     <div class={compact() ? "flex flex-col gap-1" : "flex flex-col gap-2"}>
       <For each={props.hits}>
         {(hit, index) => (
           <button
+            ref={(el) => {
+              itemRefs[index()] = el;
+            }}
             type="button"
             class="cursor-pointer rounded-xs border border-border bg-bg-secondary text-left transition-colors"
             classList={{

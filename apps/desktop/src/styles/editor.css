@@ -8,12 +8,12 @@
 /* ── ScrollArea content stretch ──
    - Flex column so the editor wrapper (flex-1) fills the viewport height,
      preserving ProseMirror's `min-height: 100%` click-to-focus area.
-   - `width` switches between `auto` (word-wrap on, text wraps normally)
+   - `width` switches between `100%` (word-wrap on, content fills viewport)
      and `max-content` (word-wrap off, content expands → horizontal scroll).
    - `min-width: 100%` ensures the content is never narrower than the
      viewport even when content is short.                                  */
 
-.editor-scroll [data-overlayscrollbars-contents] {
+[data-editor-scroll] [data-overlayscrollbars-contents] {
   display: flex;
   flex-direction: column;
   min-height: 100%;
@@ -161,7 +161,6 @@
   border-radius: var(--radius-xs);
   padding: 0.75em 1em;
   margin: 0.75em 0;
-  overflow-x: auto;
   white-space: pre;
 }
 
