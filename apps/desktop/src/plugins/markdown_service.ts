@@ -27,6 +27,7 @@ import type { MarkdownContribution } from "./types";
 export interface MarkdownService {
   parse(source: string): PMNodeJSON;
   stringify(doc: PMNodeJSON): string;
+  parseMdast(source: string): Root;
 }
 
 type Disposer = () => void;
@@ -113,6 +114,7 @@ export function buildMarkdownService(): void {
       const tree = applyBeforeStringify(proseMirrorToMdast(doc, registry));
       return processor.stringify(tree);
     },
+    parseMdast: (source) => applyAfterParse(processor.parse(source)),
   };
 }
 

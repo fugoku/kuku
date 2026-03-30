@@ -1,11 +1,11 @@
 import type {
-  Code,
   Heading,
   Image,
   Link,
   List,
   ListItem,
   PhrasingContent,
+  Root,
   RootContent,
   Table,
   TableCell,
@@ -14,93 +14,173 @@ import type {
 
 import { createMemo, type JSX } from "solid-js";
 
+import ScrollArea from "~/components/scroll_area";
 import { createProcessor } from "~/lib/markdown";
+import { getMarkdownService } from "~/plugins/markdown_service";
 
-const processor = createProcessor();
+const fallbackProcessor = createProcessor();
+
 type RenderableContent = RootContent | PhrasingContent;
+type WikiLinkNode = RenderableContent & {
+  type: "wikilink";
+  alias?: string;
+  target: string;
+  value?: string;
+};
 
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
+// ── Render helpers ──────────────────────────────────────────────────────
+
+function renderChildren(children: readonly RenderableContent[]): JSX.Element {
+  return <>{children.map(renderNode)}</>;
 }
 
-function renderChildren(children: readonly RenderableContent[]): string {
-  return children.map((child) => renderNode(child)).join("");
-}
-
-function renderList(node: List): string {
-  const tag = node.ordered ? "ol" : "ul";
-  const start = node.ordered && node.start && node.start > 1 ? ` start="${node.start}"` : "";
-  return `<${tag}${start}>${node.children.map((child) => renderListItem(child)).join("")}</${tag}>`;
-}
-
-function renderListItem(node: ListItem): string {
-  const content = renderChildren(node.children as readonly RenderableContent[]);
-  return `<li>${content || "<p></p>"}</li>`;
-}
-
-function renderHeading(node: Heading): string {
+function renderHeading(node: Heading): JSX.Element {
   const depth = Math.min(Math.max(node.depth, 1), 6);
-  return `<h${depth}>${renderChildren(node.children)}</h${depth}>`;
+  const children = renderChildren(node.children);
+  switch (depth) {
+    case 1:
+      return <h1>{children}</h1>;
+    case 2:
+      return <h2>{children}</h2>;
+    case 3:
+      return <h3>{children}</h3>;
+    case 4:
+      return <h4>{children}</h4>;
+    case 5:
+      return <h5>{children}</h5>;
+    default:
+      return <h6>{children}</h6>;
+  }
 }
 
-function renderCode(node: Code): string {
-  const language = node.lang ? ` data-language="${escapeHtml(node.lang)}"` : "";
-  return `<pre><code${language}>${escapeHtml(node.value)}</code></pre>`;
+function renderList(node: List): JSX.Element {
+  const items = node.children.map(renderListItem);
+  if (node.ordered) {
+    return <ol start={node.start && node.start > 1 ? node.start : undefined}>{items}</ol>;
+  }
+  return <ul>{items}</ul>;
 }
 
-function renderLink(node: Link): string {
-  const href = escapeHtml(node.url);
-  return `<a href="${href}" target="_blank" rel="noreferrer noopener">${renderChildren(node.children)}</a>`;
+function renderListItem(node: ListItem): JSX.Element {
+  const content =
+    node.children.length > 0 ? (
+      renderChildren(node.children as readonly RenderableContent[])
+    ) : (
+      <p />
+    );
+
+  if (typeof node.checked === "boolean") {
+    return (
+      <li>
+        <div class="flex items-start gap-2">
+          <input
+            type="checkbox"
+            checked={node.checked}
+            disabled
+            class="mt-1 shrink-0 accent-accent"
+          />
+          <div class="min-w-0 flex-1">{content}</div>
+        </div>
+      </li>
+    );
+  }
+
+  return <li>{content}</li>;
 }
 
-function renderImage(node: Image): string {
-  const label = escapeHtml(node.alt || node.url);
-  const href = escapeHtml(node.url);
-  return `<a href="${href}" target="_blank" rel="noreferrer noopener">${label}</a>`;
+function renderLink(node: Link): JSX.Element {
+  return (
+    <a href={node.url} target="_blank" rel="noreferrer noopener">
+      {renderChildren(node.children)}
+    </a>
+  );
 }
 
-function renderTable(node: Table): string {
-  const [head, ...body] = node.children;
-  const headHtml = head ? `<thead>${renderTableRow(head, true)}</thead>` : "";
-  const bodyHtml =
-    body.length > 0
-      ? `<tbody>${body.map((row) => renderTableRow(row, false)).join("")}</tbody>`
-      : "";
-  return `<div class="overflow-x-auto"><table>${headHtml}${bodyHtml}</table></div>`;
+function renderImage(node: Image): JSX.Element {
+  return (
+    <a href={node.url} target="_blank" rel="noreferrer noopener">
+      {node.alt || node.url}
+    </a>
+  );
 }
 
-function renderTableRow(node: TableRow, isHead: boolean): string {
-  return `<tr>${node.children.map((cell) => renderTableCell(cell, isHead)).join("")}</tr>`;
+function renderWikiLink(node: WikiLinkNode): JSX.Element {
+  const label = node.alias || node.value || node.target;
+  return (
+    <span class="text-accent underline underline-offset-2" title={node.target}>
+      {label}
+    </span>
+  );
 }
 
-function renderTableCell(node: TableCell, isHead: boolean): string {
-  const tag = isHead ? "th" : "td";
-  return `<${tag}>${renderChildren(node.children)}</${tag}>`;
+function renderTableRow(node: TableRow, isHead: boolean): JSX.Element {
+  return <tr>{node.children.map((cell) => renderTableCell(cell, isHead))}</tr>;
 }
 
-function renderNode(node: RenderableContent): string {
+function renderTableCell(node: TableCell, isHead: boolean): JSX.Element {
+  const children = renderChildren(node.children);
+  return isHead ? <th>{children}</th> : <td>{children}</td>;
+}
+
+function renderFallback(node: RenderableContent): JSX.Element {
+  if ("children" in node && Array.isArray(node.children)) {
+    return renderChildren(node.children as readonly RenderableContent[]);
+  }
+  if ("target" in node && typeof node.target === "string") {
+    return node.target as unknown as JSX.Element;
+  }
+  if ("value" in node && typeof node.value === "string") {
+    return node.value as unknown as JSX.Element;
+  }
+  return null as unknown as JSX.Element;
+}
+
+// ── ScrollArea-wrapped blocks ───────────────────────────────────────────
+
+function MarkdownCodeBlock(props: { value: string; language?: string }): JSX.Element {
+  return (
+    <ScrollArea axis="x" class="rounded-xs bg-bg-primary/70">
+      <pre class="p-3">
+        <code data-language={props.language}>{props.value}</code>
+      </pre>
+    </ScrollArea>
+  );
+}
+
+function MarkdownTable(props: { node: Table }): JSX.Element {
+  const [head, ...body] = props.node.children;
+  return (
+    <ScrollArea axis="x">
+      <table>
+        {head && <thead>{renderTableRow(head, true)}</thead>}
+        {body.length > 0 && <tbody>{body.map((row) => renderTableRow(row, false))}</tbody>}
+      </table>
+    </ScrollArea>
+  );
+}
+
+// ── Main node dispatch ──────────────────────────────────────────────────
+
+function renderNode(node: RenderableContent): JSX.Element {
   switch (node.type) {
     case "paragraph":
-      return `<p>${renderChildren(node.children)}</p>`;
+      return <p>{renderChildren(node.children)}</p>;
     case "text":
-      return escapeHtml(node.value);
+      return node.value as unknown as JSX.Element;
     case "strong":
-      return `<strong>${renderChildren(node.children)}</strong>`;
+      return <strong>{renderChildren(node.children)}</strong>;
     case "emphasis":
-      return `<em>${renderChildren(node.children)}</em>`;
+      return <em>{renderChildren(node.children)}</em>;
     case "delete":
-      return `<del>${renderChildren(node.children)}</del>`;
+      return <del>{renderChildren(node.children)}</del>;
     case "inlineCode":
-      return `<code>${escapeHtml(node.value)}</code>`;
+      return <code>{node.value}</code>;
     case "code":
-      return renderCode(node);
+      return <MarkdownCodeBlock value={node.value} language={node.lang || undefined} />;
     case "blockquote":
-      return `<blockquote>${renderChildren(node.children as readonly RenderableContent[])}</blockquote>`;
+      return (
+        <blockquote>{renderChildren(node.children as readonly RenderableContent[])}</blockquote>
+      );
     case "heading":
       return renderHeading(node);
     case "list":
@@ -108,53 +188,85 @@ function renderNode(node: RenderableContent): string {
     case "listItem":
       return renderListItem(node);
     case "thematicBreak":
-      return "<hr />";
+      return <hr />;
     case "break":
-      return "<br />";
+      return <br />;
     case "link":
       return renderLink(node);
     case "image":
       return renderImage(node);
+    case "wikilink":
+      return renderWikiLink(node as WikiLinkNode);
     case "table":
-      return renderTable(node);
+      return <MarkdownTable node={node} />;
     case "tableRow":
       return renderTableRow(node, false);
     case "tableCell":
       return renderTableCell(node, false);
     case "html":
-      return `<code>${escapeHtml(node.value)}</code>`;
+      return <code>{node.value}</code>;
     default:
-      if ("children" in node && Array.isArray(node.children)) {
-        return renderChildren(node.children as readonly RenderableContent[]);
-      }
-      if ("target" in node && typeof node.target === "string") {
-        return escapeHtml(node.target);
-      }
-      if ("value" in node && typeof node.value === "string") {
-        return escapeHtml(node.value);
-      }
-      return "";
+      return renderFallback(node);
   }
 }
 
-function renderMarkdown(source: string): string {
+// ── Markdown → JSX ──────────────────────────────────────────────────────
+
+function parseMarkdownTree(source: string): Root {
+  const markdown = getMarkdownService();
+  if (markdown) {
+    return markdown.parseMdast(source);
+  }
+  return fallbackProcessor.parse(source);
+}
+
+function renderMarkdown(source: string): JSX.Element {
   try {
-    const tree = processor.parse(source) as { children: RootContent[] };
+    const tree = parseMarkdownTree(source) as { children: RootContent[] };
     return renderChildren(tree.children);
   } catch {
-    return `<p>${escapeHtml(source)}</p>`;
+    return <p>{source}</p>;
   }
 }
 
-function MarkdownMessage(props: { content: string }): JSX.Element {
-  const html = createMemo(() => renderMarkdown(props.content));
+// ── Wrapper typography styles ───────────────────────────────────────────
+//
+// Code-block overflow and table overflow are handled by <ScrollArea> in
+// their respective components above. Only typography / colour rules remain.
 
-  return (
-    <div
-      class="space-y-3 text-inherit [&_a]:text-accent [&_a]:underline [&_a]:underline-offset-2 [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-text-muted [&_code]:rounded-xs [&_code]:bg-bg-primary/60 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_del]:opacity-80 [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:text-base [&_h2]:font-semibold [&_h3]:font-semibold [&_hr]:border-border [&_li]:ml-5 [&_ol]:list-decimal [&_p]:whitespace-pre-wrap [&_pre]:overflow-auto [&_pre]:rounded-xs [&_pre]:bg-bg-primary/70 [&_pre]:p-3 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_table]:w-full [&_table]:border-collapse [&_tbody_tr:not(:last-child)]:border-b [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1.5 [&_th]:border [&_th]:border-border [&_th]:bg-bg-primary/60 [&_th]:px-2 [&_th]:py-1.5 [&_ul]:list-disc"
-      innerHTML={html()}
-    />
-  );
+const MARKDOWN_STYLES = [
+  // Layout
+  "space-y-3 text-inherit",
+  // Links
+  "[&_a]:text-accent [&_a]:underline [&_a]:underline-offset-2",
+  // Blockquote
+  "[&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-text-muted",
+  // Inline code (overridden inside <pre> by the next rule)
+  "[&_code]:rounded-xs [&_code]:bg-bg-primary/60 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono",
+  // Code inside code-blocks — reset inline-code background / padding
+  "[&_pre_code]:bg-transparent [&_pre_code]:p-0",
+  // Strikethrough
+  "[&_del]:opacity-80",
+  // Headings
+  "[&_h1]:text-lg [&_h1]:font-semibold [&_h2]:text-base [&_h2]:font-semibold [&_h3]:font-semibold",
+  // Horizontal rule
+  "[&_hr]:border-border",
+  // Lists
+  "[&_li]:ml-5 [&_ol]:list-decimal [&_ul]:list-disc",
+  // Paragraphs
+  "[&_p]:whitespace-pre-wrap",
+  // Tables
+  "[&_table]:w-full [&_table]:border-collapse",
+  "[&_tbody_tr:not(:last-child)]:border-b",
+  "[&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1.5",
+  "[&_th]:border [&_th]:border-border [&_th]:bg-bg-primary/60 [&_th]:px-2 [&_th]:py-1.5",
+].join(" ");
+
+// ── Component ───────────────────────────────────────────────────────────
+
+function MarkdownMessage(props: { content: string }): JSX.Element {
+  const rendered = createMemo(() => renderMarkdown(props.content));
+  return <div class={MARKDOWN_STYLES}>{rendered()}</div>;
 }
 
 export { MarkdownMessage };
