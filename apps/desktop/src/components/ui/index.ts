@@ -4,6 +4,13 @@ export { default as Select } from "./select";
 export type { SelectOption, SelectProps } from "./select";
 
 export {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "./context_menu";
+
+export {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,

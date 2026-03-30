@@ -3,8 +3,14 @@ import { createStore, produce } from "solid-js/store";
 
 import type { PMNodeJSON } from "~/lib/markdown";
 import { writeVaultFile, type FileEntry } from "~/lib/vault_fs";
+import { getTabIdsForDeletedPath, renameTabsForMovedPathInList } from "~/stores/tab_path_updates";
 import { reconcileTabsWithExistingPaths } from "~/stores/file_tabs_reconcile";
-import { getSourceFilePathFromDiffPath, isDiffTabPath, removeDiffEntry } from "~/stores/diff_store";
+import {
+  getSourceFilePathFromDiffPath,
+  isDiffTabPath,
+  removeDiffEntry,
+  renameDiffEntriesForMovedPath,
+} from "~/stores/diff_store";
 import { settingsState } from "~/stores/settings";
 import { buildVaultTreeIndex } from "~/stores/vault_tree";
 import { existsInTree, loadFiles, vaultState } from "~/stores/vault";
@@ -206,6 +212,26 @@ function clearEditorTabs(): void {
   saveTabsSync();
 }
 
+function renameTabsForMovedPath(from: string, to: string, isDir: boolean): void {
+  const nextTabs = renameTabsForMovedPathInList(filesState.tabs, from, to, isDir);
+  if (nextTabs === filesState.tabs) return;
+
+  setFilesState(
+    produce((s) => {
+      s.tabs = nextTabs;
+    }),
+  );
+  renameDiffEntriesForMovedPath(from, to, isDir);
+  saveTabsSync();
+}
+
+function closeTabsForDeletedPath(path: string, isDir: boolean): void {
+  const tabIds = getTabIdsForDeletedPath(filesState.tabs, path, isDir);
+  for (const tabId of tabIds) {
+    closeTab(tabId);
+  }
+}
+
 function setActiveTab(tabId: string): void {
   setFilesState("activeTabId", tabId);
   saveTabsSync();
@@ -362,6 +388,7 @@ function destroyCloseHandler(): void {
 // ── Exports ──
 
 export {
+  closeTabsForDeletedPath,
   closeTab,
   clearEditorTabs,
   createAndOpenNewFile,
@@ -377,6 +404,7 @@ export {
   openTab,
   prevTab,
   reconcileEditorTabsWithVault,
+  renameTabsForMovedPath,
   saveCachedChecksum,
   saveCachedContent,
   saveViewportState,

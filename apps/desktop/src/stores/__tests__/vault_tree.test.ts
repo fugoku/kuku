@@ -41,9 +41,12 @@ describe("vault tree reconciliation", () => {
       expandedFolders: new Set(["notes", "notes/missing"]),
       selectedPath: "notes/missing.md",
       editState: {
+        kind: "create",
+        targetPath: "notes/missing",
         parentPath: "notes/missing",
         isDir: false,
         name: "draft.md",
+        preservedExtension: null,
       },
     });
 
@@ -58,13 +61,34 @@ describe("vault tree reconciliation", () => {
       expandedFolders: new Set(),
       selectedPath: null,
       editState: {
+        kind: "create",
+        targetPath: "",
         parentPath: "",
         isDir: true,
         name: "new-folder",
+        preservedExtension: null,
       },
     });
 
     expect(next.editState).not.toBeNull();
     expect(next.editState?.parentPath).toBe("");
+  });
+
+  it("drops rename edit state when the target path disappears", () => {
+    const index = buildVaultTreeIndex(FILES);
+    const next = reconcileVaultUiState(index, {
+      expandedFolders: new Set(),
+      selectedPath: null,
+      editState: {
+        kind: "rename",
+        targetPath: "notes/missing.md",
+        parentPath: "notes",
+        isDir: false,
+        name: "missing",
+        preservedExtension: ".md",
+      },
+    });
+
+    expect(next.editState).toBeNull();
   });
 });

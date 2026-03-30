@@ -1,6 +1,7 @@
 import { createStore, produce } from "solid-js/store";
 
 import type { PMNodeJSON } from "~/lib/markdown";
+import { remapMovedPath } from "~/lib/vault_path";
 
 interface DiffEntry {
   sourceFilePath: string;
@@ -64,12 +65,51 @@ function removeDiffEntry(diffTabPath: string): void {
   );
 }
 
+function renameDiffEntriesMap(
+  entries: Record<string, DiffEntry>,
+  from: string,
+  to: string,
+  isDir: boolean,
+): Record<string, DiffEntry> {
+  let didChange = false;
+  const nextEntries: Record<string, DiffEntry> = {};
+
+  for (const entry of Object.values(entries)) {
+    const nextSourceFilePath = remapMovedPath(entry.sourceFilePath, from, to, isDir);
+    if (nextSourceFilePath !== entry.sourceFilePath) {
+      didChange = true;
+    }
+
+    const nextEntry =
+      nextSourceFilePath === entry.sourceFilePath
+        ? entry
+        : {
+            ...entry,
+            sourceFilePath: nextSourceFilePath,
+          };
+
+    nextEntries[createDiffTabPath(nextSourceFilePath)] = nextEntry;
+  }
+
+  return didChange ? nextEntries : entries;
+}
+
+function renameDiffEntriesForMovedPath(from: string, to: string, isDir: boolean): void {
+  setDiffStoreState(
+    produce((state) => {
+      state.entries = renameDiffEntriesMap(state.entries, from, to, isDir);
+    }),
+  );
+}
+
 export {
   createDiffTabPath,
   getDiffEntry,
   getSourceFilePathFromDiffPath,
   isDiffTabPath,
   registerDiff,
+  renameDiffEntriesForMovedPath,
+  renameDiffEntriesMap,
   removeDiffEntry,
 };
 export type { DiffEntry };

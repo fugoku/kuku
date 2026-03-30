@@ -1,7 +1,12 @@
 import { type UnlistenFn, listen } from "@tauri-apps/api/event";
 import { createStore, produce } from "solid-js/store";
 
-import { clearEditorTabs, reconcileEditorTabsWithVault } from "~/stores/files";
+import {
+  clearEditorTabs,
+  closeTabsForDeletedPath,
+  reconcileEditorTabsWithVault,
+  renameTabsForMovedPath,
+} from "~/stores/files";
 import { setTopLevelSetting } from "~/stores/settings";
 import {
   getConfiguredVaultStatus,
@@ -11,6 +16,15 @@ import {
 import { buildVaultTreeIndex, reconcileVaultUiState } from "~/stores/vault_tree";
 import { createWatcherRefreshScheduler } from "~/stores/watcher_refresh";
 import { emitEvent } from "~/plugins/events";
+import {
+  buildNameFromEditable,
+  getParentPath,
+  joinVaultPath,
+  isSameOrDescendantPath,
+  remapMovedPath,
+  remapPathSet,
+  splitNameForEditing,
+} from "~/lib/vault_path";
 import {
   closeVault as closeVaultCommand,
   listVaultFiles,
@@ -30,9 +44,12 @@ import {
 } from "~/lib/vault_fs";
 
 interface EditState {
+  kind: "create" | "rename";
+  targetPath: string;
   parentPath: string;
   isDir: boolean;
   name: string;
+  preservedExtension: string | null;
 }
 
 interface VaultState {
@@ -275,13 +292,43 @@ function existsInTree(entries: FileEntry[], targetPath: string): boolean {
   return false;
 }
 
+function remapEditStateForMovedPath(
+  editState: EditState,
+  from: string,
+  to: string,
+  isDir: boolean,
+): EditState {
+  return {
+    ...editState,
+    targetPath: remapMovedPath(editState.targetPath, from, to, isDir),
+    parentPath: remapMovedPath(editState.parentPath, from, to, isDir),
+  };
+}
+
+function applyMovedPathToVaultUiState(from: string, to: string, isDir: boolean): void {
+  setVaultState(
+    produce((s) => {
+      s.selectedPath = s.selectedPath ? remapMovedPath(s.selectedPath, from, to, isDir) : null;
+      s.expandedFolders = remapPathSet(s.expandedFolders, from, to, isDir);
+      s.editState = s.editState ? remapEditStateForMovedPath(s.editState, from, to, isDir) : null;
+    }),
+  );
+}
+
 function startCreateFile(): void {
   const root = vaultState.rootPath;
   if (!root) return;
 
   const base = getCreationFolder();
   if (base) expandFolder(base);
-  setVaultState("editState", { parentPath: base, isDir: false, name: "" });
+  setVaultState("editState", {
+    kind: "create",
+    targetPath: base,
+    parentPath: base,
+    isDir: false,
+    name: "",
+    preservedExtension: null,
+  });
 }
 
 function startCreateFolder(): void {
@@ -290,7 +337,33 @@ function startCreateFolder(): void {
 
   const base = getCreationFolder();
   if (base) expandFolder(base);
-  setVaultState("editState", { parentPath: base, isDir: true, name: "" });
+  setVaultState("editState", {
+    kind: "create",
+    targetPath: base,
+    parentPath: base,
+    isDir: true,
+    name: "",
+    preservedExtension: null,
+  });
+}
+
+function startRename(path: string): void {
+  if (!vaultState.rootPath) return;
+
+  const entry = findInTree(vaultState.files, path);
+  if (!entry) return;
+
+  const { editableName, preservedExtension } = splitNameForEditing(entry.name, entry.is_directory);
+
+  setSelectedPath(entry.path);
+  setVaultState("editState", {
+    kind: "rename",
+    targetPath: entry.path,
+    parentPath: getParentPath(entry.path),
+    isDir: entry.is_directory,
+    name: editableName,
+    preservedExtension,
+  });
 }
 
 function updateEditName(name: string): void {
@@ -309,22 +382,71 @@ async function confirmEdit(): Promise<void> {
     return;
   }
 
-  const targetPath = edit.parentPath ? `${edit.parentPath}/${name}` : name;
+  if (edit.kind === "rename" && (name.includes("/") || name.includes("\\"))) {
+    cancelEdit();
+    return;
+  }
 
-  if (existsInTree(vaultState.files, targetPath)) {
+  const nextName = buildNameFromEditable(name, edit.preservedExtension);
+  const destinationPath = joinVaultPath(edit.parentPath, nextName);
+
+  if (edit.kind === "rename") {
+    if (destinationPath === edit.targetPath) {
+      cancelEdit();
+      return;
+    }
+  } else if (existsInTree(vaultState.files, destinationPath)) {
+    cancelEdit();
+    return;
+  }
+
+  if (edit.kind === "rename" && existsInTree(vaultState.files, destinationPath)) {
     cancelEdit();
     return;
   }
 
   setVaultState("editState", null);
 
-  await (edit.isDir ? vaultMkdir(targetPath) : writeVaultFile(targetPath, ""));
+  try {
+    if (edit.kind === "create") {
+      await (edit.isDir ? vaultMkdir(destinationPath) : writeVaultFile(destinationPath, ""));
+      await loadFiles(root);
+      return;
+    }
 
-  await loadFiles(root);
+    await vaultRename(edit.targetPath, destinationPath);
+    renameTabsForMovedPath(edit.targetPath, destinationPath, edit.isDir);
+    applyMovedPathToVaultUiState(edit.targetPath, destinationPath, edit.isDir);
+    await loadFiles(root);
+  } catch {
+    // Intentionally silent: current UX exits edit mode without a dedicated error surface.
+  }
 }
 
 function cancelEdit(): void {
   setVaultState("editState", null);
+}
+
+async function deleteEntry(path: string): Promise<void> {
+  const root = vaultState.rootPath;
+  if (!root) return;
+
+  const entry = findInTree(vaultState.files, path);
+  if (!entry) return;
+
+  try {
+    await vaultRemove(path);
+    closeTabsForDeletedPath(path, entry.is_directory);
+    if (
+      vaultState.editState &&
+      isSameOrDescendantPath(vaultState.editState.targetPath, path, entry.is_directory)
+    ) {
+      cancelEdit();
+    }
+    await loadFiles(root);
+  } catch {
+    // Intentionally silent: current delete UX has no dedicated error surface.
+  }
 }
 
 async function readFile(path: string): Promise<string> {
@@ -364,6 +486,7 @@ export {
   clearConfiguredVault,
   closeVault,
   confirmEdit,
+  deleteEntry,
   exists,
   expandFolder,
   findInTree,
@@ -380,6 +503,7 @@ export {
   setSelectedPath,
   startCreateFile,
   startCreateFolder,
+  startRename,
   startWatcher,
   stopWatcher,
   syncConfiguredVaultSelection,

@@ -5,6 +5,7 @@ import {
   getDiffEntry,
   getSourceFilePathFromDiffPath,
   isDiffTabPath,
+  renameDiffEntriesForMovedPath,
   registerDiff,
   removeDiffEntry,
 } from "~/stores/diff_store";
@@ -39,5 +40,24 @@ describe("diff store", () => {
     expect(isDiffTabPath("notes/topic.md")).toBe(false);
     expect(getSourceFilePathFromDiffPath(diffPath)).toBe("notes/topic.md");
     expect(getSourceFilePathFromDiffPath("notes/topic.md")).toBeNull();
+  });
+
+  it("renames diff entries for moved files and folders", () => {
+    const fileDiffPath = registerDiff("notes/a.md", "old", "new", { type: "doc", content: [] });
+    const folderDiffPath = registerDiff("notes/archive/b.md", "older", "newer", {
+      type: "doc",
+      content: [],
+    });
+
+    renameDiffEntriesForMovedPath("notes/a.md", "notes/b.md", false);
+    renameDiffEntriesForMovedPath("notes/archive", "notes/renamed", true);
+
+    expect(getDiffEntry(fileDiffPath)).toBeUndefined();
+    expect(getDiffEntry(folderDiffPath)).toBeUndefined();
+    expect(getDiffEntry("diff://notes/b.md")?.sourceFilePath).toBe("notes/b.md");
+    expect(getDiffEntry("diff://notes/renamed/b.md")?.sourceFilePath).toBe("notes/renamed/b.md");
+
+    removeDiffEntry("diff://notes/b.md");
+    removeDiffEntry("diff://notes/renamed/b.md");
   });
 });

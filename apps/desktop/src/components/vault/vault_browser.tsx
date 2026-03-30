@@ -2,6 +2,12 @@ import { For, onMount, Show } from "solid-js";
 
 import ScrollArea from "~/components/scroll_area";
 import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "~/components/ui";
+import {
   ChevronIcon,
   FileIcon,
   FolderIcon,
@@ -16,14 +22,17 @@ import { getActiveTab, openTab } from "~/stores/files";
 import {
   cancelEdit,
   confirmEdit,
+  deleteEntry,
   isFolderExpanded,
   revealPath,
   setSelectedPath,
   startCreateFile,
   startCreateFolder,
+  startRename,
   toggleFolder,
   updateEditName,
   vaultState,
+  type EditState,
 } from "~/stores/vault";
 
 type GuideType = "line" | "branch" | "corner" | "empty";
@@ -47,7 +56,39 @@ function TreeGuide(props: { type: GuideType }) {
   );
 }
 
-function InlineNameInput(props: { depth: number; guides: boolean[]; isLast: boolean }) {
+function TreeRowLeadingIcons(props: { isDir: boolean; expanded?: boolean }) {
+  return (
+    <Show
+      when={props.isDir}
+      fallback={
+        <>
+          <span class="w-3.5 shrink-0" />
+          <span class="flex h-4.5 shrink-0 items-center">
+            <FileIcon class="text-text-muted" />
+          </span>
+        </>
+      }
+    >
+      <span
+        class="flex h-4.5 w-3.5 shrink-0 items-center justify-center transition-transform"
+        classList={{ "rotate-90": props.expanded === true }}
+      >
+        <ChevronIcon size={12} />
+      </span>
+      <span class="flex h-4.5 shrink-0 items-center">
+        <FolderIcon class="text-text-muted" />
+      </span>
+    </Show>
+  );
+}
+
+function InlineNameInput(props: {
+  editState: EditState;
+  depth: number;
+  guides: boolean[];
+  isLast: boolean;
+  expanded?: boolean;
+}) {
   let inputRef: HTMLInputElement | undefined;
 
   const handleKeyDown = (event: KeyboardEvent) => {
@@ -74,33 +115,18 @@ function InlineNameInput(props: { depth: number; guides: boolean[]; isLast: bool
         <TreeGuide type={props.isLast ? "corner" : "branch"} />
       </Show>
 
-      <Show
-        when={vaultState.editState?.isDir}
-        fallback={
-          <>
-            <span class="w-3.5 shrink-0" />
-            <span class="flex h-4.5 shrink-0 items-center">
-              <FileIcon class="text-text-muted" />
-            </span>
-          </>
-        }
-      >
-        <span class="flex h-4.5 w-3.5 shrink-0 items-center justify-center">
-          <ChevronIcon size={12} />
-        </span>
-        <span class="flex h-4.5 shrink-0 items-center">
-          <FolderIcon class="text-text-muted" />
-        </span>
-      </Show>
+      <TreeRowLeadingIcons isDir={props.editState.isDir} expanded={props.expanded} />
 
       <input
         ref={inputRef}
         class="ml-1 min-w-0 flex-1 rounded-xs border border-accent bg-bg-primary px-1 text-[0.8125rem]/4.5 text-text-primary outline-none"
-        value={vaultState.editState?.name ?? ""}
-        placeholder={vaultState.editState?.isDir ? "Folder name" : "File name"}
+        value={props.editState.name}
+        placeholder={props.editState.isDir ? "Folder name" : "File name"}
         onInput={(event) => updateEditName(event.currentTarget.value)}
         onKeyDown={handleKeyDown}
         onBlur={() => void confirmEdit()}
+        onClick={(event) => event.stopPropagation()}
+        onMouseDown={(event) => event.stopPropagation()}
       />
     </div>
   );
@@ -119,11 +145,20 @@ function FileTreeNode(props: FileTreeNodeProps) {
   const childGuides = () => [...props.guides, !props.isLast];
   const isSelected = () => vaultState.selectedPath === props.entry.path;
   const isActive = () => getActiveTab()?.filePath === props.entry.path;
-  const showEditInput = () =>
-    vaultState.editState !== null &&
+  const rowEditState = () =>
+    vaultState.editState?.kind === "rename" && vaultState.editState.targetPath === props.entry.path
+      ? vaultState.editState
+      : null;
+  const childCreateEditState = () =>
+    vaultState.editState?.kind === "create" &&
     props.entry.is_directory &&
     expanded() &&
-    vaultState.editState.parentPath === props.entry.path;
+    vaultState.editState.parentPath === props.entry.path
+      ? vaultState.editState
+      : null;
+
+  const rowButtonClass =
+    "flex w-full items-center py-0.75 pl-0.5 text-left text-[0.8125rem] text-text-secondary select-none hover:bg-accent-dim";
 
   const handleClick = () => {
     setSelectedPath(props.entry.path);
@@ -136,56 +171,73 @@ function FileTreeNode(props: FileTreeNodeProps) {
     openTab(props.entry.name, props.entry.path, "editor");
   };
 
+  const handleRename = () => {
+    startRename(props.entry.path);
+  };
+
+  const handleDelete = () => {
+    void deleteEntry(props.entry.path);
+  };
+
   return (
     <>
-      <button
-        type="button"
-        class="flex w-full items-center py-0.75 pl-0.5 text-left text-[0.8125rem] text-text-secondary select-none hover:bg-accent-dim"
-        classList={{
-          "bg-list-active! text-text-primary!": isSelected() && panelFocused(),
-          "bg-list-inactive!": isActive() && !(isSelected() && panelFocused()),
-        }}
-        onClick={handleClick}
+      <Show
+        when={rowEditState()}
+        fallback={
+          <ContextMenu onOpenChange={(open) => open && setSelectedPath(props.entry.path)}>
+            <ContextMenuTrigger>
+              <button
+                type="button"
+                class={rowButtonClass}
+                classList={{
+                  "bg-list-active! text-text-primary!": isSelected() && panelFocused(),
+                  "bg-list-inactive!": isActive() && !(isSelected() && panelFocused()),
+                }}
+                onClick={handleClick}
+              >
+                <For each={props.depth > 0 ? props.guides.slice(0, -1) : []}>
+                  {(active) => <TreeGuide type={active ? "line" : "empty"} />}
+                </For>
+                <Show when={props.depth > 0}>
+                  <TreeGuide type={props.isLast ? "corner" : "branch"} />
+                </Show>
+
+                <TreeRowLeadingIcons isDir={props.entry.is_directory} expanded={expanded()} />
+
+                <span class="pointer-events-none ml-1 truncate leading-4.5">
+                  {props.entry.name}
+                </span>
+              </button>
+            </ContextMenuTrigger>
+
+            <ContextMenuContent>
+              <ContextMenuItem label="Rename" onSelect={handleRename} />
+              <ContextMenuItem label="Delete" danger onSelect={handleDelete} />
+            </ContextMenuContent>
+          </ContextMenu>
+        }
       >
-        <For each={props.depth > 0 ? props.guides.slice(0, -1) : []}>
-          {(active) => <TreeGuide type={active ? "line" : "empty"} />}
-        </For>
-        <Show when={props.depth > 0}>
-          <TreeGuide type={props.isLast ? "corner" : "branch"} />
-        </Show>
-
-        <Show
-          when={props.entry.is_directory}
-          fallback={
-            <>
-              <span class="w-3.5 shrink-0" />
-              <span class="flex h-4.5 shrink-0 items-center">
-                <FileIcon class="text-text-muted" />
-              </span>
-            </>
-          }
-        >
-          <span
-            class="flex h-4.5 w-3.5 shrink-0 items-center justify-center transition-transform"
-            classList={{ "rotate-90": expanded() }}
-          >
-            <ChevronIcon size={12} />
-          </span>
-          <span class="flex h-4.5 shrink-0 items-center">
-            <FolderIcon class="text-text-muted" />
-          </span>
-        </Show>
-
-        <span class="pointer-events-none ml-1 truncate leading-4.5">{props.entry.name}</span>
-      </button>
+        {(editState) => (
+          <InlineNameInput
+            editState={editState()}
+            depth={props.depth}
+            guides={props.guides}
+            isLast={props.isLast}
+            expanded={expanded()}
+          />
+        )}
+      </Show>
 
       <Show when={props.entry.is_directory && expanded()}>
-        <Show when={showEditInput()}>
-          <InlineNameInput
-            depth={props.depth + 1}
-            guides={childGuides()}
-            isLast={!props.entry.children?.length}
-          />
+        <Show when={childCreateEditState()}>
+          {(editState) => (
+            <InlineNameInput
+              editState={editState()}
+              depth={props.depth + 1}
+              guides={childGuides()}
+              isLast={!props.entry.children?.length}
+            />
+          )}
         </Show>
         <For each={props.entry.children ?? []}>
           {(child, index) => (
@@ -271,7 +323,9 @@ function handleEmptySpaceClick(event: MouseEvent) {
 export default function VaultBrowser() {
   const isAiResponding = () => getContextKey<boolean>("aiResponding") === true;
   const showRootEditInput = () =>
-    vaultState.editState !== null && vaultState.editState.parentPath === "";
+    vaultState.editState?.kind === "create" && vaultState.editState.parentPath === ""
+      ? vaultState.editState
+      : null;
 
   return (
     <div class="flex h-full min-h-0 flex-col overflow-hidden">
@@ -315,7 +369,14 @@ export default function VaultBrowser() {
             }
           >
             <Show when={showRootEditInput()}>
-              <InlineNameInput depth={0} guides={[]} isLast={vaultState.files.length === 0} />
+              {(editState) => (
+                <InlineNameInput
+                  editState={editState()}
+                  depth={0}
+                  guides={[]}
+                  isLast={vaultState.files.length === 0}
+                />
+              )}
             </Show>
             <For each={vaultState.files}>
               {(entry, index) => (

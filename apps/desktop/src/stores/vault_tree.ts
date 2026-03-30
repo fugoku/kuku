@@ -1,9 +1,12 @@
 import type { FileEntry } from "~/lib/vault_fs";
 
 interface EditStateLike {
+  kind: "create" | "rename";
+  targetPath: string;
   parentPath: string;
   isDir: boolean;
   name: string;
+  preservedExtension: string | null;
 }
 
 interface VaultTreeIndex {
@@ -46,7 +49,9 @@ function reconcileVaultUiState(index: VaultTreeIndex, current: VaultUiStateLike)
 
   const editState =
     current.editState &&
-    (current.editState.parentPath === "" || index.directoryPaths.has(current.editState.parentPath))
+    (current.editState.parentPath === "" ||
+      index.directoryPaths.has(current.editState.parentPath)) &&
+    (current.editState.kind === "create" || index.allPaths.has(current.editState.targetPath))
       ? current.editState
       : null;
 
