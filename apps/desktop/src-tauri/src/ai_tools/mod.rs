@@ -8,8 +8,8 @@ use tauri::AppHandle;
 use tauri_plugin_ai::{AiNativeTool, register_tool};
 
 use document_tools::{GetOutlineTool, GetTagsTool};
-use file_tools::{CreateFileTool, DeleteFileTool, EditFileTool, ListFilesTool, ReadFileTool};
 use file_tools::MoveFileTool;
+use file_tools::{CreateFileTool, DeleteFileTool, EditFileTool, ListFilesTool, ReadFileTool};
 use search_tools::SearchVaultTool;
 
 pub fn register_all(app: &AppHandle) {

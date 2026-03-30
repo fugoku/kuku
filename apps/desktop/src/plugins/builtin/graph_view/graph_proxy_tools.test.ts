@@ -72,6 +72,9 @@ describe("graph proxy tools", () => {
       totalDocs: 4,
       indexedDocs: 4,
       lastIndexedAt: 123,
+      resolvedLinks: 1,
+      unresolvedLinks: 0,
+      ambiguousLinks: 0,
       error: null,
     });
 
@@ -84,6 +87,9 @@ describe("graph proxy tools", () => {
         totalDocs: 4,
         indexedDocs: 4,
         lastIndexedAt: 123,
+        resolvedLinks: 1,
+        unresolvedLinks: 0,
+        ambiguousLinks: 0,
         error: null,
       },
     });

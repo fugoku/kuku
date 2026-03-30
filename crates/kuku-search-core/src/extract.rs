@@ -4,6 +4,7 @@ use serde_json::{Map, Value};
 
 use crate::chunk::split_chunk_text;
 use crate::normalize::normalize_text;
+use crate::wikilink::{ExtractedWikilink, extract_wikilinks};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct FrontmatterEntry {
@@ -49,6 +50,7 @@ pub struct ExtractedDocument {
     pub title: Option<String>,
     pub frontmatter: Vec<FrontmatterEntry>,
     pub sections: Vec<Section>,
+    pub wikilinks: Vec<ExtractedWikilink>,
     pub normalized_text: String,
 }
 
@@ -185,6 +187,7 @@ fn section_path_to_json(path: &[FrontmatterEntry]) -> Map<String, Value> {
 
 pub fn extract_document(markdown: &str) -> ExtractedDocument {
     let (frontmatter, body) = split_frontmatter(markdown);
+    let wikilinks = extract_wikilinks(&body);
     let frontmatter_json = section_path_to_json(&frontmatter);
     let mut title = frontmatter_json
         .get("title")
@@ -343,6 +346,7 @@ pub fn extract_document(markdown: &str) -> ExtractedDocument {
         title,
         frontmatter,
         sections,
+        wikilinks,
         normalized_text,
     }
 }

@@ -19,7 +19,6 @@ import type { SearchService } from "~/plugins/builtin/core_indexer/service";
 import { registerFill } from "~/plugins/slots";
 import type { KukuPlugin } from "~/plugins/types";
 
-import { createGraphParser } from "./graph_parser";
 import {
   buildFindOrphanNotesPayload,
   buildSuggestLinksPayload,
@@ -79,29 +78,18 @@ const graphViewPlugin: KukuPlugin = {
     });
     ctx.track(disposeFill);
 
-    const parser = createGraphParser();
-    const store = createGraphStore({
-      readFile: (path) => ctx.vault.readFile(path),
-      listFiles: () => ctx.vault.listFiles(""),
-      parser,
-    });
-
-    // Publish to the module-level signal so all consumers
-    // (GraphTab, GraphPanel, GraphCanvas) react immediately.
-    setGraphStore(store);
-
-    // Auto-cleanup: clear the signal and dispose the store on deactivate.
-    ctx.track(() => {
-      setGraphStore(null);
-      store.dispose();
-    });
-
-    // Expose store as a named service for other plugins (e.g. search).
-    ctx.services.register("store", store);
     const search = ctx.services.get<SearchService>("core-indexer.search");
     if (!search) {
       throw new Error("core-indexer.search service not found");
     }
+    const store = createGraphStore({ service: search });
+
+    setGraphStore(store);
+    ctx.track(() => {
+      setGraphStore(null);
+      store.dispose();
+    });
+    ctx.services.register("store", store);
 
     const proxyTools = ctx.services.get<AiProxyToolRegistry>("ai-chat.proxyTools");
     if (proxyTools) {

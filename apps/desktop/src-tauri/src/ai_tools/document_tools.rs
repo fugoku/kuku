@@ -175,14 +175,19 @@ fn build_tags_payload(path: String, markdown: &str) -> TagsPayload {
 }
 
 fn is_top_level_tag_key(key: &str) -> bool {
-    matches!(key, "tag" | "tags") || is_indexed_tag_key(key, "tag") || is_indexed_tag_key(key, "tags")
+    matches!(key, "tag" | "tags")
+        || is_indexed_tag_key(key, "tag")
+        || is_indexed_tag_key(key, "tags")
 }
 
 fn is_indexed_tag_key(key: &str, prefix: &str) -> bool {
     let Some(rest) = key.strip_prefix(prefix) else {
         return false;
     };
-    let Some(index) = rest.strip_prefix('[').and_then(|value| value.strip_suffix(']')) else {
+    let Some(index) = rest
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+    else {
         return false;
     };
     !index.is_empty() && index.chars().all(|ch| ch.is_ascii_digit())
@@ -229,7 +234,8 @@ mod tests {
         );
 
         assert_eq!(
-            payload.outline
+            payload
+                .outline
                 .iter()
                 .map(|item| (item.level, item.text.as_str(), item.breadcrumb.as_str()))
                 .collect::<Vec<_>>(),

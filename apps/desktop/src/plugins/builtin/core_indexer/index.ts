@@ -3,7 +3,9 @@ import { lazy } from "solid-js";
 import type { KukuPlugin } from "~/plugins/types";
 
 import { createSearchService, type SearchService } from "./service";
+import { loadIndexerConfig } from "./settings";
 import { resetIndexerStatus, startStatusPolling } from "./status_store";
+import { setSearchService } from "../search/runtime";
 
 const IndexerSettingsView = lazy(() =>
   import("./indexer_settings").then((m) => ({ default: m.IndexerSettings })),
@@ -43,6 +45,8 @@ const coreIndexerPlugin: KukuPlugin = {
     const service = createSearchService();
     searchServiceRef = service;
     ctx.services.register("search", service);
+    setSearchService(service);
+    void loadIndexerConfig(service);
 
     const stopPolling = startStatusPolling(service);
     ctx.track(stopPolling);
@@ -52,6 +56,7 @@ const coreIndexerPlugin: KukuPlugin = {
     });
 
     ctx.track(() => {
+      setSearchService(null);
       searchServiceRef = null;
     });
   },

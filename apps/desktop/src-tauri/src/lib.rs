@@ -64,6 +64,10 @@ pub fn run() {
             search::commands::search_query_advanced,
             search::commands::search_get_status,
             search::commands::search_request_rebuild,
+            search::commands::search_get_graph_snapshot,
+            search::commands::search_resolve_wikilink,
+            search::commands::search_get_config,
+            search::commands::search_set_config,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

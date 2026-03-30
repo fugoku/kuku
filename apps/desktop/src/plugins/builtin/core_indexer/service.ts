@@ -1,12 +1,23 @@
 import { invoke } from "@tauri-apps/api/core";
 
-import type { AdvancedQueryRequest, IndexerStatus, SimpleSearchResult } from "./types";
+import type {
+  AdvancedQueryRequest,
+  GraphSnapshot,
+  IndexerConfig,
+  IndexerStatus,
+  ResolveWikilinkResult,
+  SimpleSearchResult,
+} from "./types";
 
 interface SearchService {
   querySimple(query: string, options?: { maxResults?: number }): Promise<SimpleSearchResult>;
   queryAdvanced(request: AdvancedQueryRequest): Promise<SimpleSearchResult>;
   getStatus(): Promise<IndexerStatus>;
   requestRebuild(): Promise<void>;
+  getGraphSnapshot(): Promise<GraphSnapshot>;
+  resolveWikilink(sourcePath: string, rawTarget: string): Promise<ResolveWikilinkResult>;
+  getConfig(): Promise<IndexerConfig>;
+  setConfig(config: IndexerConfig): Promise<void>;
 }
 
 function createSearchService(): SearchService {
@@ -31,6 +42,21 @@ function createSearchService(): SearchService {
     },
     async requestRebuild() {
       await invoke<void>("search_request_rebuild");
+    },
+    async getGraphSnapshot() {
+      return invoke<GraphSnapshot>("search_get_graph_snapshot");
+    },
+    async resolveWikilink(sourcePath, rawTarget) {
+      return invoke<ResolveWikilinkResult>("search_resolve_wikilink", {
+        sourcePath,
+        rawTarget,
+      });
+    },
+    async getConfig() {
+      return invoke<IndexerConfig>("search_get_config");
+    },
+    async setConfig(config) {
+      await invoke<void>("search_set_config", { config });
     },
   };
 }

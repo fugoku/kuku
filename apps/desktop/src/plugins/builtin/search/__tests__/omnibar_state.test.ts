@@ -58,6 +58,10 @@ describe("createOmnibarController", () => {
       queryAdvanced: vi.fn(),
       getStatus: vi.fn(),
       requestRebuild: vi.fn(),
+      getGraphSnapshot: vi.fn(),
+      resolveWikilink: vi.fn(),
+      getConfig: vi.fn(),
+      setConfig: vi.fn(),
     };
 
     await new Promise<void>((resolve, reject) => {

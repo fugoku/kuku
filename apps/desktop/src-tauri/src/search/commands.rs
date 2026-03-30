@@ -1,6 +1,9 @@
 use tauri::{State, command};
 
-use crate::models::{AdvancedQueryRequest, IndexerStatus, SimpleSearchResult};
+use crate::models::{
+    AdvancedQueryRequest, GraphSnapshot, IndexerConfig, IndexerStatus, ResolveWikilinkResult,
+    SimpleSearchResult,
+};
 
 use super::SearchState;
 
@@ -29,4 +32,33 @@ pub async fn search_get_status(state: State<'_, SearchState>) -> Result<IndexerS
 #[command]
 pub async fn search_request_rebuild(state: State<'_, SearchState>) -> Result<(), String> {
     state.request_rebuild()
+}
+
+#[command]
+pub async fn search_get_graph_snapshot(
+    state: State<'_, SearchState>,
+) -> Result<GraphSnapshot, String> {
+    state.get_graph_snapshot()
+}
+
+#[command]
+pub async fn search_resolve_wikilink(
+    state: State<'_, SearchState>,
+    source_path: String,
+    raw_target: String,
+) -> Result<ResolveWikilinkResult, String> {
+    state.resolve_wikilink(&source_path, &raw_target)
+}
+
+#[command]
+pub async fn search_get_config(state: State<'_, SearchState>) -> Result<IndexerConfig, String> {
+    Ok(state.get_config())
+}
+
+#[command]
+pub async fn search_set_config(
+    state: State<'_, SearchState>,
+    config: IndexerConfig,
+) -> Result<(), String> {
+    state.set_config(config)
 }

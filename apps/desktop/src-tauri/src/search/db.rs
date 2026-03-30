@@ -1,8 +1,11 @@
 use std::path::Path;
 
-use rusqlite::{Connection, Transaction, params};
+use rusqlite::{Connection, OptionalExtension, Transaction, params};
 
 use crate::models::SimpleSearchHit;
+use crate::search::wikilink::{
+    DocIdentity, LinkResolution, RESOLUTION_UNRESOLVED, to_doc_identity,
+};
 
 #[derive(Debug, Clone)]
 pub struct IndexedChunkRow {
@@ -15,12 +18,23 @@ pub struct IndexedChunkRow {
 }
 
 #[derive(Debug, Clone)]
+pub struct IndexedWikilinkRow {
+    pub raw_target: String,
+    pub alias: Option<String>,
+    pub normalized_target: String,
+    pub target_basename: String,
+    pub ordinal: i64,
+}
+
+#[derive(Debug, Clone)]
 pub struct IndexedDocument {
+    pub note_uid: Option<i64>,
     pub doc_id: String,
     pub title: Option<String>,
     pub mtime_ms: i64,
     pub meta_json: String,
     pub chunks: Vec<IndexedChunkRow>,
+    pub wikilink_refs: Vec<IndexedWikilinkRow>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -39,6 +53,91 @@ pub struct AdvancedBodyRow {
     pub raw_text: String,
     pub global_start: i64,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoredWikilinkRefRow {
+    pub rowid: i64,
+    pub source_note_uid: i64,
+    pub source_doc_id: String,
+    pub raw_target: String,
+    pub alias: Option<String>,
+    pub normalized_target: String,
+    pub target_basename: String,
+    pub resolved_target_uid: Option<i64>,
+    pub resolution_kind: String,
+    pub folder_distance: Option<i64>,
+    pub ordinal: i64,
+}
+
+const CREATE_SCHEMA_SQL: &str = r#"
+CREATE TABLE IF NOT EXISTS documents (
+    note_uid INTEGER PRIMARY KEY AUTOINCREMENT,
+    doc_id TEXT NOT NULL UNIQUE,
+    title TEXT,
+    mtime_ms INTEGER NOT NULL,
+    meta_json TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS chunk_rows (
+    rowid INTEGER PRIMARY KEY,
+    doc_id TEXT NOT NULL,
+    section_path TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    text TEXT NOT NULL,
+    raw_text TEXT NOT NULL,
+    global_start INTEGER NOT NULL,
+    global_end INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_chunk_doc ON chunk_rows(doc_id);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
+    doc_id UNINDEXED,
+    section_path,
+    kind UNINDEXED,
+    text,
+    content = 'chunk_rows',
+    content_rowid = 'rowid',
+    tokenize = 'unicode61',
+    prefix = '2 3 4'
+);
+
+CREATE TRIGGER IF NOT EXISTS chunk_rows_ai AFTER INSERT ON chunk_rows BEGIN
+  INSERT INTO chunks_fts(rowid, doc_id, section_path, kind, text)
+  VALUES (new.rowid, new.doc_id, new.section_path, new.kind, new.text);
+END;
+
+CREATE TRIGGER IF NOT EXISTS chunk_rows_ad AFTER DELETE ON chunk_rows BEGIN
+  INSERT INTO chunks_fts(chunks_fts, rowid, doc_id, section_path, kind, text)
+  VALUES ('delete', old.rowid, old.doc_id, old.section_path, old.kind, old.text);
+END;
+
+CREATE TRIGGER IF NOT EXISTS chunk_rows_au AFTER UPDATE ON chunk_rows BEGIN
+  INSERT INTO chunks_fts(chunks_fts, rowid, doc_id, section_path, kind, text)
+  VALUES ('delete', old.rowid, old.doc_id, old.section_path, old.kind, old.text);
+  INSERT INTO chunks_fts(rowid, doc_id, section_path, kind, text)
+  VALUES (new.rowid, new.doc_id, new.section_path, new.kind, new.text);
+END;
+
+CREATE TABLE IF NOT EXISTS wikilink_refs (
+    rowid INTEGER PRIMARY KEY,
+    source_note_uid INTEGER NOT NULL,
+    source_doc_id TEXT NOT NULL,
+    raw_target TEXT NOT NULL,
+    alias TEXT,
+    normalized_target TEXT NOT NULL,
+    target_basename TEXT NOT NULL,
+    resolved_target_uid INTEGER,
+    resolution_kind TEXT NOT NULL,
+    folder_distance INTEGER,
+    ordinal INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_wikilink_source_uid ON wikilink_refs(source_note_uid);
+CREATE INDEX IF NOT EXISTS idx_wikilink_normalized_target ON wikilink_refs(normalized_target);
+CREATE INDEX IF NOT EXISTS idx_wikilink_target_basename ON wikilink_refs(target_basename);
+CREATE INDEX IF NOT EXISTS idx_wikilink_resolved_target_uid ON wikilink_refs(resolved_target_uid);
+"#;
 
 pub fn open_connection(path: &Path) -> Result<Connection, String> {
     let conn = Connection::open(path).map_err(|e| format!("Failed to open search DB: {e}"))?;
@@ -59,71 +158,68 @@ pub fn configure_connection(conn: &Connection) -> Result<(), String> {
 }
 
 pub fn init_schema(conn: &Connection) -> Result<(), String> {
-    conn.execute_batch(
-        r#"
-        CREATE TABLE IF NOT EXISTS documents (
-            doc_id TEXT PRIMARY KEY,
-            title TEXT,
-            mtime_ms INTEGER NOT NULL,
-            meta_json TEXT NOT NULL
-        );
+    if schema_reset_required(conn)? {
+        reset_schema(conn)?;
+    }
 
-        CREATE TABLE IF NOT EXISTS chunk_rows (
-            rowid INTEGER PRIMARY KEY,
-            doc_id TEXT NOT NULL,
-            section_path TEXT NOT NULL,
-            kind TEXT NOT NULL,
-            text TEXT NOT NULL,
-            raw_text TEXT NOT NULL,
-            global_start INTEGER NOT NULL,
-            global_end INTEGER NOT NULL
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_chunk_doc ON chunk_rows(doc_id);
-
-        CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
-            doc_id UNINDEXED,
-            section_path,
-            kind UNINDEXED,
-            text,
-            content = 'chunk_rows',
-            content_rowid = 'rowid',
-            tokenize = 'unicode61',
-            prefix = '2 3 4'
-        );
-
-        CREATE TRIGGER IF NOT EXISTS chunk_rows_ai AFTER INSERT ON chunk_rows BEGIN
-          INSERT INTO chunks_fts(rowid, doc_id, section_path, kind, text)
-          VALUES (new.rowid, new.doc_id, new.section_path, new.kind, new.text);
-        END;
-
-        CREATE TRIGGER IF NOT EXISTS chunk_rows_ad AFTER DELETE ON chunk_rows BEGIN
-          INSERT INTO chunks_fts(chunks_fts, rowid, doc_id, section_path, kind, text)
-          VALUES ('delete', old.rowid, old.doc_id, old.section_path, old.kind, old.text);
-        END;
-
-        CREATE TRIGGER IF NOT EXISTS chunk_rows_au AFTER UPDATE ON chunk_rows BEGIN
-          INSERT INTO chunks_fts(chunks_fts, rowid, doc_id, section_path, kind, text)
-          VALUES ('delete', old.rowid, old.doc_id, old.section_path, old.kind, old.text);
-          INSERT INTO chunks_fts(rowid, doc_id, section_path, kind, text)
-          VALUES (new.rowid, new.doc_id, new.section_path, new.kind, new.text);
-        END;
-        "#,
-    )
-    .map_err(|e| format!("Failed to initialize search schema: {e}"))
+    conn.execute_batch(CREATE_SCHEMA_SQL)
+        .map_err(|e| format!("Failed to initialize search schema: {e}"))
 }
 
-pub fn replace_document(tx: &Transaction<'_>, doc: &IndexedDocument) -> Result<(), String> {
-    tx.execute("DELETE FROM chunk_rows WHERE doc_id = ?", [&doc.doc_id])
-        .map_err(|e| format!("Failed to delete existing chunks: {e}"))?;
-    tx.execute("DELETE FROM documents WHERE doc_id = ?", [&doc.doc_id])
-        .map_err(|e| format!("Failed to delete existing document: {e}"))?;
-
-    tx.execute(
-        "INSERT INTO documents (doc_id, title, mtime_ms, meta_json) VALUES (?, ?, ?, ?)",
-        params![doc.doc_id, doc.title, doc.mtime_ms, doc.meta_json],
-    )
-    .map_err(|e| format!("Failed to insert document: {e}"))?;
+pub fn replace_document(tx: &Transaction<'_>, doc: &IndexedDocument) -> Result<i64, String> {
+    let note_uid = match doc.note_uid {
+        Some(note_uid) => {
+            tx.execute(
+                "DELETE FROM chunk_rows
+                 WHERE doc_id = ?1
+                    OR doc_id IN (SELECT doc_id FROM documents WHERE note_uid = ?2)",
+                params![doc.doc_id, note_uid],
+            )
+            .map_err(|e| format!("Failed to delete existing chunks: {e}"))?;
+            tx.execute(
+                "DELETE FROM documents WHERE doc_id = ?1 AND note_uid <> ?2",
+                params![doc.doc_id, note_uid],
+            )
+            .map_err(|e| format!("Failed to delete conflicting document row: {e}"))?;
+            tx.execute(
+                "DELETE FROM wikilink_refs WHERE source_note_uid = ?1",
+                params![note_uid],
+            )
+            .map_err(|e| format!("Failed to delete existing wikilinks: {e}"))?;
+            tx.execute(
+                r#"
+                INSERT INTO documents (note_uid, doc_id, title, mtime_ms, meta_json)
+                VALUES (?1, ?2, ?3, ?4, ?5)
+                ON CONFLICT(note_uid) DO UPDATE SET
+                    doc_id = excluded.doc_id,
+                    title = excluded.title,
+                    mtime_ms = excluded.mtime_ms,
+                    meta_json = excluded.meta_json
+                "#,
+                params![note_uid, doc.doc_id, doc.title, doc.mtime_ms, doc.meta_json],
+            )
+            .map_err(|e| format!("Failed to upsert document: {e}"))?;
+            note_uid
+        }
+        None => {
+            tx.execute(
+                "DELETE FROM chunk_rows WHERE doc_id = ?",
+                params![doc.doc_id],
+            )
+            .map_err(|e| format!("Failed to delete existing chunks: {e}"))?;
+            tx.execute(
+                "DELETE FROM documents WHERE doc_id = ?",
+                params![doc.doc_id],
+            )
+            .map_err(|e| format!("Failed to delete existing document: {e}"))?;
+            tx.execute(
+                "INSERT INTO documents (doc_id, title, mtime_ms, meta_json) VALUES (?, ?, ?, ?)",
+                params![doc.doc_id, doc.title, doc.mtime_ms, doc.meta_json],
+            )
+            .map_err(|e| format!("Failed to insert document: {e}"))?;
+            tx.last_insert_rowid()
+        }
+    };
 
     for chunk in &doc.chunks {
         tx.execute(
@@ -142,20 +238,79 @@ pub fn replace_document(tx: &Transaction<'_>, doc: &IndexedDocument) -> Result<(
         .map_err(|e| format!("Failed to insert chunk: {e}"))?;
     }
 
-    Ok(())
+    for wikilink in &doc.wikilink_refs {
+        tx.execute(
+            r#"
+            INSERT INTO wikilink_refs (
+                source_note_uid,
+                source_doc_id,
+                raw_target,
+                alias,
+                normalized_target,
+                target_basename,
+                resolved_target_uid,
+                resolution_kind,
+                folder_distance,
+                ordinal
+            )
+            VALUES (?, ?, ?, ?, ?, ?, NULL, ?, NULL, ?)
+            "#,
+            params![
+                note_uid,
+                doc.doc_id,
+                wikilink.raw_target,
+                wikilink.alias,
+                wikilink.normalized_target,
+                wikilink.target_basename,
+                RESOLUTION_UNRESOLVED,
+                wikilink.ordinal
+            ],
+        )
+        .map_err(|e| format!("Failed to insert wikilink ref: {e}"))?;
+    }
+
+    Ok(note_uid)
 }
 
-pub fn remove_document(tx: &Transaction<'_>, doc_id: &str) -> Result<(), String> {
-    tx.execute("DELETE FROM chunk_rows WHERE doc_id = ?", [doc_id])
+pub fn remove_document(tx: &Transaction<'_>, doc_id: &str) -> Result<Option<i64>, String> {
+    let note_uid = tx
+        .query_row(
+            "SELECT note_uid FROM documents WHERE doc_id = ?1",
+            params![doc_id],
+            |row| row.get::<_, i64>(0),
+        )
+        .optional()
+        .map_err(|e| format!("Failed to load note uid: {e}"))?;
+
+    if let Some(note_uid) = note_uid {
+        tx.execute(
+            "DELETE FROM wikilink_refs WHERE source_note_uid = ?",
+            params![note_uid],
+        )
+        .map_err(|e| format!("Failed to delete wikilink refs: {e}"))?;
+    }
+
+    tx.execute("DELETE FROM chunk_rows WHERE doc_id = ?", params![doc_id])
         .map_err(|e| format!("Failed to delete chunks: {e}"))?;
-    tx.execute("DELETE FROM documents WHERE doc_id = ?", [doc_id])
+    tx.execute("DELETE FROM documents WHERE doc_id = ?", params![doc_id])
         .map_err(|e| format!("Failed to delete document: {e}"))?;
-    Ok(())
+
+    Ok(note_uid)
+}
+
+pub fn find_note_uid_by_doc_id(conn: &Connection, doc_id: &str) -> Result<Option<i64>, String> {
+    conn.query_row(
+        "SELECT note_uid FROM documents WHERE doc_id = ?1",
+        params![doc_id],
+        |row| row.get::<_, i64>(0),
+    )
+    .optional()
+    .map_err(|e| format!("Failed to query note uid: {e}"))
 }
 
 pub fn list_indexed_doc_ids(conn: &Connection) -> Result<Vec<String>, String> {
     let mut stmt = conn
-        .prepare("SELECT doc_id FROM documents")
+        .prepare("SELECT doc_id FROM documents ORDER BY doc_id ASC")
         .map_err(|e| format!("Failed to list docs: {e}"))?;
     let rows = stmt
         .query_map([], |row| row.get::<_, String>(0))
@@ -166,6 +321,103 @@ pub fn list_indexed_doc_ids(conn: &Connection) -> Result<Vec<String>, String> {
         ids.push(row.map_err(|e| format!("Failed to read doc row: {e}"))?);
     }
     Ok(ids)
+}
+
+pub fn load_doc_identities(conn: &Connection) -> Result<Vec<DocIdentity>, String> {
+    let mut stmt = conn
+        .prepare("SELECT note_uid, doc_id FROM documents ORDER BY doc_id ASC")
+        .map_err(|e| format!("Failed to prepare document identities query: {e}"))?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(to_doc_identity(
+                row.get::<_, i64>(0)?,
+                row.get::<_, String>(1)?,
+            ))
+        })
+        .map_err(|e| format!("Failed to execute document identities query: {e}"))?;
+
+    let mut docs = Vec::new();
+    for row in rows {
+        docs.push(row.map_err(|e| format!("Failed to read document identity: {e}"))?);
+    }
+    Ok(docs)
+}
+
+pub fn load_wikilink_rows(conn: &Connection) -> Result<Vec<StoredWikilinkRefRow>, String> {
+    let mut stmt = conn
+        .prepare(
+            r#"
+            SELECT
+                rowid,
+                source_note_uid,
+                source_doc_id,
+                raw_target,
+                alias,
+                normalized_target,
+                target_basename,
+                resolved_target_uid,
+                resolution_kind,
+                folder_distance,
+                ordinal
+            FROM wikilink_refs
+            ORDER BY source_doc_id ASC, ordinal ASC, rowid ASC
+            "#,
+        )
+        .map_err(|e| format!("Failed to prepare wikilink row query: {e}"))?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(StoredWikilinkRefRow {
+                rowid: row.get(0)?,
+                source_note_uid: row.get(1)?,
+                source_doc_id: row.get(2)?,
+                raw_target: row.get(3)?,
+                alias: row.get(4)?,
+                normalized_target: row.get(5)?,
+                target_basename: row.get(6)?,
+                resolved_target_uid: row.get(7)?,
+                resolution_kind: row.get(8)?,
+                folder_distance: row.get(9)?,
+                ordinal: row.get(10)?,
+            })
+        })
+        .map_err(|e| format!("Failed to execute wikilink row query: {e}"))?;
+
+    let mut refs = Vec::new();
+    for row in rows {
+        refs.push(row.map_err(|e| format!("Failed to read wikilink row: {e}"))?);
+    }
+    Ok(refs)
+}
+
+pub fn update_wikilink_resolution(
+    tx: &Transaction<'_>,
+    rowid: i64,
+    resolution: &LinkResolution,
+) -> Result<(), String> {
+    tx.execute(
+        r#"
+        UPDATE wikilink_refs
+        SET resolved_target_uid = ?1,
+            resolution_kind = ?2,
+            folder_distance = ?3
+        WHERE rowid = ?4
+        "#,
+        params![
+            resolution.resolved_target_uid,
+            resolution.resolution_kind,
+            resolution.folder_distance,
+            rowid
+        ],
+    )
+    .map_err(|e| format!("Failed to update wikilink resolution: {e}"))?;
+    Ok(())
+}
+
+pub fn load_link_counts(conn: &Connection) -> Result<(usize, usize, usize), String> {
+    let resolved = count_by_resolution(conn, "resolved_target_uid IS NOT NULL")?;
+    let unresolved = count_by_resolution(conn, "resolution_kind = 'unresolved'")?;
+    let ambiguous = count_by_resolution(conn, "resolution_kind = 'ambiguous'")?;
+    Ok((resolved, unresolved, ambiguous))
 }
 
 pub fn query_metadata_hits(
@@ -419,6 +671,71 @@ pub fn load_advanced_body_rows(conn: &Connection) -> Result<Vec<AdvancedBodyRow>
     Ok(body_rows)
 }
 
+fn count_by_resolution(conn: &Connection, predicate_sql: &str) -> Result<usize, String> {
+    conn.query_row(
+        &format!("SELECT COUNT(*) FROM wikilink_refs WHERE {predicate_sql}"),
+        [],
+        |row| row.get::<_, i64>(0),
+    )
+    .map(|count| count as usize)
+    .map_err(|e| format!("Failed to count wikilink refs: {e}"))
+}
+
+fn schema_reset_required(conn: &Connection) -> Result<bool, String> {
+    let has_documents = table_exists(conn, "documents")?;
+    if !has_documents {
+        return Ok(false);
+    }
+
+    Ok(!table_has_column(conn, "documents", "note_uid")?)
+}
+
+fn table_exists(conn: &Connection, table_name: &str) -> Result<bool, String> {
+    conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type IN ('table', 'view') AND name = ?1)",
+        params![table_name],
+        |row| row.get::<_, i64>(0),
+    )
+    .map(|exists| exists != 0)
+    .map_err(|e| format!("Failed to inspect sqlite schema: {e}"))
+}
+
+fn table_has_column(
+    conn: &Connection,
+    table_name: &str,
+    column_name: &str,
+) -> Result<bool, String> {
+    let mut stmt = conn
+        .prepare(&format!("PRAGMA table_info({table_name})"))
+        .map_err(|e| format!("Failed to inspect table columns: {e}"))?;
+    let rows = stmt
+        .query_map([], |row| row.get::<_, String>(1))
+        .map_err(|e| format!("Failed to query table columns: {e}"))?;
+
+    for row in rows {
+        if row.map_err(|e| format!("Failed to read table column: {e}"))? == column_name {
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
+}
+
+fn reset_schema(conn: &Connection) -> Result<(), String> {
+    conn.execute_batch(
+        r#"
+        DROP TRIGGER IF EXISTS chunk_rows_ai;
+        DROP TRIGGER IF EXISTS chunk_rows_ad;
+        DROP TRIGGER IF EXISTS chunk_rows_au;
+        DROP TABLE IF EXISTS wikilink_refs;
+        DROP TABLE IF EXISTS chunk_rows;
+        DROP TABLE IF EXISTS documents;
+        DROP TABLE IF EXISTS chunks_fts;
+        "#,
+    )
+    .map_err(|e| format!("Failed to reset legacy search schema: {e}"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -457,6 +774,7 @@ mod tests {
         replace_document(
             &tx,
             &IndexedDocument {
+                note_uid: None,
                 doc_id: "note.md".to_string(),
                 title: Some("Alpha Title".to_string()),
                 mtime_ms: 1,
@@ -469,6 +787,7 @@ mod tests {
                     global_start: 12,
                     global_end: 22,
                 }],
+                wikilink_refs: vec![],
             },
         )
         .unwrap();
@@ -488,5 +807,39 @@ mod tests {
         assert_eq!(body_rows[0].section_path, vec!["Section".to_string()]);
         assert_eq!(body_rows[0].section_ordinal, 0);
         assert_eq!(body_rows[0].global_start, 12);
+    }
+
+    #[test]
+    fn replace_document_persists_wikilinks() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        configure_connection(&conn).unwrap();
+        init_schema(&conn).unwrap();
+
+        let tx = conn.transaction().unwrap();
+        let note_uid = replace_document(
+            &tx,
+            &IndexedDocument {
+                note_uid: None,
+                doc_id: "note.md".to_string(),
+                title: None,
+                mtime_ms: 1,
+                meta_json: "{}".to_string(),
+                chunks: vec![],
+                wikilink_refs: vec![IndexedWikilinkRow {
+                    raw_target: "target".to_string(),
+                    alias: Some("alias".to_string()),
+                    normalized_target: "target".to_string(),
+                    target_basename: "target".to_string(),
+                    ordinal: 0,
+                }],
+            },
+        )
+        .unwrap();
+        tx.commit().unwrap();
+
+        let refs = load_wikilink_rows(&conn).unwrap();
+        assert_eq!(refs.len(), 1);
+        assert_eq!(refs[0].source_note_uid, note_uid);
+        assert_eq!(refs[0].raw_target, "target");
     }
 }

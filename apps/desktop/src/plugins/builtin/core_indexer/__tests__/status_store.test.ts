@@ -18,11 +18,18 @@ describe("startStatusPolling", () => {
       querySimple: vi.fn(),
       queryAdvanced: vi.fn(),
       requestRebuild: vi.fn(),
+      getGraphSnapshot: vi.fn(),
+      resolveWikilink: vi.fn(),
+      getConfig: vi.fn(),
+      setConfig: vi.fn(),
       getStatus: vi.fn().mockResolvedValue({
         state: "indexing",
         totalDocs: 10,
         indexedDocs: 3,
         lastIndexedAt: null,
+        resolvedLinks: 4,
+        unresolvedLinks: 1,
+        ambiguousLinks: 0,
         error: null,
       }),
     };

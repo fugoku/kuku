@@ -63,12 +63,16 @@ fn seed_path_kind_cache(root: &Path) -> Result<PathKindCache, String> {
 }
 
 fn collect_path_kinds(root: &Path, dir: &Path, cache: &mut PathKindCache) -> Result<(), String> {
-    let entries = fs::read_dir(dir)
-        .map_err(|error| format!("Failed to read watcher directory {}: {error}", dir.display()))?;
+    let entries = fs::read_dir(dir).map_err(|error| {
+        format!(
+            "Failed to read watcher directory {}: {error}",
+            dir.display()
+        )
+    })?;
 
     for entry in entries {
-        let entry =
-            entry.map_err(|error| format!("Failed to read watcher entry {}: {error}", dir.display()))?;
+        let entry = entry
+            .map_err(|error| format!("Failed to read watcher entry {}: {error}", dir.display()))?;
         let path = entry.path();
         let rel = path
             .strip_prefix(root)
@@ -348,18 +352,23 @@ pub fn start_watching_with_search(
 
             match event_rx.recv_timeout(Duration::from_millis(50)) {
                 Ok(Ok(event)) => {
-                    if let Some(pending_delete) =
-                        maybe_cleanup_pending(&mut pending_rename, &vault_root, &mut path_kind_cache)
-                    {
+                    if let Some(pending_delete) = maybe_cleanup_pending(
+                        &mut pending_rename,
+                        &vault_root,
+                        &mut path_kind_cache,
+                    ) {
                         if let Some(search_state) = &search_state {
                             handle_search_event(search_state, &pending_delete, &mut storm_state);
                         }
                         let _ = app_handle.emit("vault:file-changed", pending_delete);
                     }
 
-                    if let Some(mapped) =
-                        map_event(event, &vault_root, &mut pending_rename, &mut path_kind_cache)
-                    {
+                    if let Some(mapped) = map_event(
+                        event,
+                        &vault_root,
+                        &mut pending_rename,
+                        &mut path_kind_cache,
+                    ) {
                         if let Some(search_state) = &search_state {
                             handle_search_event(search_state, &mapped, &mut storm_state);
                         }
@@ -368,9 +377,11 @@ pub fn start_watching_with_search(
                 }
                 Ok(Err(_)) => {}
                 Err(mpsc::RecvTimeoutError::Timeout) => {
-                    if let Some(pending_delete) =
-                        maybe_cleanup_pending(&mut pending_rename, &vault_root, &mut path_kind_cache)
-                    {
+                    if let Some(pending_delete) = maybe_cleanup_pending(
+                        &mut pending_rename,
+                        &vault_root,
+                        &mut path_kind_cache,
+                    ) {
                         if let Some(search_state) = &search_state {
                             handle_search_event(search_state, &pending_delete, &mut storm_state);
                         }

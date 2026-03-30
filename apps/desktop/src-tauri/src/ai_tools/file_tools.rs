@@ -5,8 +5,8 @@ use std::pin::Pin;
 use async_trait::async_trait;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_ai::{
-    AiNativeTool, AiState, MutationOp, MutationPlan, NativeToolResult, ToolAccess,
-    ToolCallContext, ToolDescriptor, ToolError, ToolSource,
+    AiNativeTool, AiState, MutationOp, MutationPlan, NativeToolResult, ToolAccess, ToolCallContext,
+    ToolDescriptor, ToolError, ToolSource,
 };
 
 use crate::models::FileEntry;
@@ -277,7 +277,8 @@ impl AiNativeTool for DeleteFileTool {
 
         let root = vault_root(ctx.app)?;
         let resolved = resolve_vault_path(&root, &path).map_err(ToolError::InvalidArguments)?;
-        let (detected_kind, expected_checksum) = delete_target_snapshot(ctx, &path, &resolved).await?;
+        let (detected_kind, expected_checksum) =
+            delete_target_snapshot(ctx, &path, &resolved).await?;
 
         if let Some(requested_kind) = optional_kind_arg(&args)? {
             if requested_kind != detected_kind {
@@ -583,7 +584,10 @@ async fn missing_snapshot_error(
     }
 }
 
-async fn build_move_plan(root: &Path, args: &serde_json::Value) -> Result<NativeToolResult, ToolError> {
+async fn build_move_plan(
+    root: &Path,
+    args: &serde_json::Value,
+) -> Result<NativeToolResult, ToolError> {
     let (from, to) = move_paths_arg(args)?;
     let from_resolved = resolve_vault_path(root, &from).map_err(ToolError::InvalidArguments)?;
     let to_resolved = resolve_vault_path(root, &to).map_err(ToolError::InvalidArguments)?;
@@ -684,9 +688,7 @@ mod tests {
     use serde_json::json;
     use tauri::async_runtime;
 
-    use super::{
-        PathKind, build_move_plan, kind_arg, move_paths_arg, normalize_vault_path,
-    };
+    use super::{PathKind, build_move_plan, kind_arg, move_paths_arg, normalize_vault_path};
 
     #[test]
     fn normalize_vault_path_maps_root_aliases_to_empty() {
@@ -723,13 +725,17 @@ mod tests {
 
     #[test]
     fn move_paths_arg_rejects_root_aliases_and_same_path() {
-        let missing_from = move_paths_arg(&json!({ "from": "/", "to": "notes/renamed.md" }))
-            .unwrap_err();
-        assert!(matches!(missing_from, super::ToolError::InvalidArguments(message) if message == "Missing from"));
+        let missing_from =
+            move_paths_arg(&json!({ "from": "/", "to": "notes/renamed.md" })).unwrap_err();
+        assert!(
+            matches!(missing_from, super::ToolError::InvalidArguments(message) if message == "Missing from")
+        );
 
         let same_path =
             move_paths_arg(&json!({ "from": "notes/a.md", "to": "./notes/a.md" })).unwrap_err();
-        assert!(matches!(same_path, super::ToolError::InvalidArguments(message) if message.contains("different")));
+        assert!(
+            matches!(same_path, super::ToolError::InvalidArguments(message) if message.contains("different"))
+        );
     }
 
     #[test]
@@ -741,7 +747,9 @@ mod tests {
         ))
         .unwrap_err();
 
-        assert!(matches!(error, super::ToolError::InvalidArguments(message) if message.contains("Source path does not exist")));
+        assert!(
+            matches!(error, super::ToolError::InvalidArguments(message) if message.contains("Source path does not exist"))
+        );
         let _ = std::fs::remove_dir_all(root);
     }
 
@@ -758,7 +766,10 @@ mod tests {
         .unwrap();
 
         let mutation = result.mutation.expect("rename plan");
-        assert_eq!(mutation.summary, "Move notes/original.md to archive/renamed.md");
+        assert_eq!(
+            mutation.summary,
+            "Move notes/original.md to archive/renamed.md"
+        );
         assert!(matches!(
             mutation.operations.as_slice(),
             [super::MutationOp::RenameFile { from, to }]

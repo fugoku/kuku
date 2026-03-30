@@ -9,6 +9,7 @@
 import type { KukuPlugin } from "~/plugins/types";
 
 import { registerAnchorHandler } from "~/plugins/anchor_handlers";
+import type { SearchService } from "~/plugins/builtin/core_indexer/service";
 import { openTab } from "~/stores/files";
 import { existsInTree, vaultState } from "~/stores/vault";
 
@@ -27,23 +28,13 @@ function displayText(target: string): string {
   return last.endsWith(".md") ? last.slice(0, -3) : last;
 }
 
-/**
- * Resolve a wikilink target to a full vault file path.
- * Appends `.md` if the target doesn't already end with it.
- */
-function resolveTarget(target: string): string {
-  return target.endsWith(".md") ? target : `${target}.md`;
-}
-
-// ── Plugin Definition ───────────────────────────────────────────────
-
 const wikilinkPlugin: KukuPlugin = {
   id: "wikilink",
   name: "Wikilink",
   version: "0.1.0",
   description:
     "[[wikilink]] syntax: inline node, input rule, click-to-navigate, markdown round-trip",
-  dependencies: ["editor-core"],
+  dependencies: ["editor-core", "core-indexer"],
 
   editor: {
     extension: defineWikilink,
@@ -51,16 +42,24 @@ const wikilinkPlugin: KukuPlugin = {
   },
 
   activate(ctx) {
+    const search = ctx.services.get<SearchService>("core-indexer.search");
+    if (!search) {
+      throw new Error("core-indexer.search service not found");
+    }
+
     // Register anchor click handler via the shared registry.
     // editor_core's click plugin dispatches to this when <a data-wikilink> is clicked.
     const dispose = registerAnchorHandler("a[data-wikilink]", (anchor) => {
       const target = anchor.getAttribute("data-target");
       if (!target) return false;
 
-      const filePath = resolveTarget(target);
-      if (!existsInTree(vaultState.files, filePath)) return false;
-
-      openTab(displayText(target), filePath);
+      const sourcePath = ctx.editor.activeFilePath;
+      void search.resolveWikilink(sourcePath ?? "", target).then((resolved) => {
+        const filePath = resolved.resolvedPath;
+        if (!filePath) return;
+        if (!existsInTree(vaultState.files, filePath)) return;
+        openTab(displayText(target), filePath);
+      });
       return true;
     });
 

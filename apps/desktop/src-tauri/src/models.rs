@@ -41,6 +41,9 @@ pub struct IndexerStatus {
     pub total_docs: usize,
     pub indexed_docs: usize,
     pub last_indexed_at: Option<i64>,
+    pub resolved_links: usize,
+    pub unresolved_links: usize,
+    pub ambiguous_links: usize,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
 }
@@ -52,7 +55,28 @@ impl Default for IndexerStatus {
             total_docs: 0,
             indexed_docs: 0,
             last_indexed_at: None,
+            resolved_links: 0,
+            unresolved_links: 0,
+            ambiguous_links: 0,
             error: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IndexerConfig {
+    pub incremental_updates: bool,
+    pub reindex_on_vault_open: bool,
+    pub resolution_policy: String,
+}
+
+impl Default for IndexerConfig {
+    fn default() -> Self {
+        Self {
+            incremental_updates: true,
+            reindex_on_vault_open: true,
+            resolution_policy: "closest-folder".to_string(),
         }
     }
 }
@@ -85,4 +109,40 @@ pub struct AdvancedQueryRequest {
     pub case_sensitive: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_results: Option<usize>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GraphNodeDto {
+    pub id: String,
+    pub name: String,
+    pub file_path: String,
+    pub folder: String,
+    pub cluster_index: usize,
+    pub link_count: usize,
+    pub is_orphan: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GraphLinkDto {
+    pub source: String,
+    pub target: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GraphSnapshot {
+    pub nodes: Vec<GraphNodeDto>,
+    pub links: Vec<GraphLinkDto>,
+    pub adjacency_map: std::collections::BTreeMap<String, Vec<String>>,
+    pub unresolved_count: usize,
+    pub ambiguous_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResolveWikilinkResult {
+    pub resolved_path: Option<String>,
+    pub resolution_kind: String,
 }

@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -11,16 +11,21 @@ use kuku_search_core::{
 use parking_lot::Mutex;
 use regex::RegexBuilder;
 
-use crate::models::{AdvancedQueryRequest, FileChangeEvent, IndexerStatus, SimpleSearchResult};
+use crate::models::{
+    AdvancedQueryRequest, FileChangeEvent, GraphLinkDto, GraphNodeDto, GraphSnapshot,
+    IndexerConfig, IndexerStatus, ResolveWikilinkResult, SimpleSearchResult,
+};
 
 pub mod commands;
 mod db;
+mod wikilink;
 mod writer;
 
 use db::{
-    open_connection, query_body_hits, query_metadata_hits, visit_advanced_body_rows,
-    visit_advanced_title_rows,
+    load_doc_identities, load_wikilink_rows, open_connection, query_body_hits, query_metadata_hits,
+    visit_advanced_body_rows, visit_advanced_title_rows,
 };
+use wikilink::{DocIndex, RESOLUTION_AMBIGUOUS, doc_display_name, folder_label, resolve_wikilink};
 use writer::{WriterJob, queue_rebuild, start_writer_thread};
 
 #[derive(Debug, Default)]
@@ -37,6 +42,7 @@ pub struct SearchState {
 
 struct SearchManager {
     runtime: Option<SearchRuntime>,
+    config: IndexerConfig,
 }
 
 struct SearchRuntime {
@@ -44,12 +50,16 @@ struct SearchRuntime {
     job_tx: Sender<WriterJob>,
     status: Arc<Mutex<IndexerStatus>>,
     rebuild_state: Arc<Mutex<RebuildQueueState>>,
+    config: Arc<Mutex<IndexerConfig>>,
 }
 
 impl SearchState {
     pub fn new() -> Self {
         Self {
-            inner: Arc::new(Mutex::new(SearchManager { runtime: None })),
+            inner: Arc::new(Mutex::new(SearchManager {
+                runtime: None,
+                config: IndexerConfig::default(),
+            })),
         }
     }
 
@@ -62,19 +72,23 @@ impl SearchState {
                 .map_err(|e| format!("Failed to create search directory: {e}"))?;
         }
 
+        let config = self.get_config();
         let status = Arc::new(Mutex::new(IndexerStatus::default()));
         let rebuild_state = Arc::new(Mutex::new(RebuildQueueState::default()));
+        let runtime_config = Arc::new(Mutex::new(config.clone()));
         let job_tx = start_writer_thread(
             canonical_root.clone(),
             db_path.clone(),
             status.clone(),
             rebuild_state.clone(),
+            runtime_config.clone(),
         );
         let runtime = SearchRuntime {
             db_path,
             job_tx,
             status,
             rebuild_state,
+            config: runtime_config,
         };
 
         let mut manager = self.inner.lock();
@@ -84,7 +98,11 @@ impl SearchState {
         manager.runtime = Some(runtime);
         drop(manager);
 
-        self.request_rebuild()
+        if config.reindex_on_vault_open {
+            self.request_rebuild()?;
+        }
+
+        Ok(())
     }
 
     pub fn close_runtime(&self) -> Result<(), String> {
@@ -100,6 +118,23 @@ impl SearchState {
             .unwrap_or_default()
     }
 
+    pub fn get_config(&self) -> IndexerConfig {
+        let manager = self.inner.lock();
+        manager.config.clone()
+    }
+
+    pub fn set_config(&self, config: IndexerConfig) -> Result<(), String> {
+        {
+            let mut manager = self.inner.lock();
+            manager.config = config.clone();
+            if let Some(runtime) = manager.runtime.as_ref() {
+                *runtime.config.lock() = config.clone();
+            }
+        }
+
+        self.request_rebuild()
+    }
+
     pub fn request_rebuild(&self) -> Result<(), String> {
         self.with_runtime_result(|runtime| {
             queue_rebuild(&runtime.rebuild_state, &runtime.job_tx);
@@ -109,20 +144,29 @@ impl SearchState {
 
     pub fn notify_written(&self, path: &str) -> Result<(), String> {
         self.with_runtime_result(|runtime| {
-            if is_markdown_path(path) {
-                runtime
-                    .job_tx
-                    .send(WriterJob::IndexFile {
-                        path: path.to_string(),
-                    })
-                    .map_err(|e| format!("Failed to enqueue index job: {e}"))?;
+            if !is_markdown_path(path) {
+                return Ok(());
             }
+            if !runtime.config.lock().incremental_updates {
+                queue_rebuild(&runtime.rebuild_state, &runtime.job_tx);
+                return Ok(());
+            }
+            runtime
+                .job_tx
+                .send(WriterJob::IndexFile {
+                    path: path.to_string(),
+                })
+                .map_err(|e| format!("Failed to enqueue index job: {e}"))?;
             Ok(())
         })
     }
 
     pub fn notify_removed(&self, path: &str, is_dir: bool) -> Result<(), String> {
         self.with_runtime_result(|runtime| {
+            if !runtime.config.lock().incremental_updates {
+                queue_rebuild(&runtime.rebuild_state, &runtime.job_tx);
+                return Ok(());
+            }
             runtime
                 .job_tx
                 .send(WriterJob::RemoveFile {
@@ -141,6 +185,10 @@ impl SearchState {
         is_dir: bool,
     ) -> Result<(), String> {
         self.with_runtime_result(|runtime| {
+            if !runtime.config.lock().incremental_updates {
+                queue_rebuild(&runtime.rebuild_state, &runtime.job_tx);
+                return Ok(());
+            }
             runtime
                 .job_tx
                 .send(WriterJob::RenameFile {
@@ -306,6 +354,154 @@ impl SearchState {
         })
     }
 
+    pub fn get_graph_snapshot(&self) -> Result<GraphSnapshot, String> {
+        let runtime = match self.runtime_snapshot() {
+            Some(runtime) => runtime,
+            None => {
+                return Ok(GraphSnapshot {
+                    nodes: vec![],
+                    links: vec![],
+                    adjacency_map: BTreeMap::new(),
+                    unresolved_count: 0,
+                    ambiguous_count: 0,
+                });
+            }
+        };
+
+        let conn = open_connection(&runtime.db_path)?;
+        let docs = load_doc_identities(&conn)?;
+        let refs = load_wikilink_rows(&conn)?;
+
+        let mut adjacency: HashMap<String, HashSet<String>> = HashMap::new();
+        let mut links = Vec::new();
+        let mut link_keys = HashSet::new();
+        let mut unresolved_count = 0usize;
+        let mut ambiguous_count = 0usize;
+        let doc_by_uid = docs
+            .iter()
+            .map(|doc| (doc.note_uid, doc.doc_id.clone()))
+            .collect::<HashMap<_, _>>();
+
+        for row in refs {
+            if row.resolution_kind == RESOLUTION_AMBIGUOUS {
+                ambiguous_count += 1;
+                continue;
+            }
+            if row.resolved_target_uid.is_none() {
+                unresolved_count += 1;
+                continue;
+            }
+
+            let Some(target_uid) = row.resolved_target_uid else {
+                continue;
+            };
+            let Some(target_doc_id) = doc_by_uid.get(&target_uid) else {
+                continue;
+            };
+            if row.source_doc_id == *target_doc_id {
+                continue;
+            }
+
+            let link_key = (row.source_doc_id.clone(), target_doc_id.clone());
+            if link_keys.insert(link_key.clone()) {
+                links.push(GraphLinkDto {
+                    source: link_key.0.clone(),
+                    target: link_key.1.clone(),
+                });
+            }
+            adjacency
+                .entry(link_key.0.clone())
+                .or_default()
+                .insert(link_key.1.clone());
+            adjacency
+                .entry(link_key.1.clone())
+                .or_default()
+                .insert(link_key.0.clone());
+        }
+
+        let mut folders = docs
+            .iter()
+            .map(|doc| folder_label(&doc.doc_id))
+            .collect::<Vec<_>>();
+        folders.sort();
+        folders.dedup();
+        let cluster_map = folders
+            .iter()
+            .enumerate()
+            .map(|(idx, folder)| (folder.clone(), idx))
+            .collect::<HashMap<_, _>>();
+
+        let mut nodes = docs
+            .iter()
+            .map(|doc| {
+                let folder = folder_label(&doc.doc_id);
+                let neighbours = adjacency
+                    .get(&doc.doc_id)
+                    .map(|items| items.len())
+                    .unwrap_or(0);
+                GraphNodeDto {
+                    id: doc.doc_id.clone(),
+                    name: doc_display_name(&doc.doc_id),
+                    file_path: doc.doc_id.clone(),
+                    folder: folder.clone(),
+                    cluster_index: *cluster_map.get(&folder).unwrap_or(&0),
+                    link_count: neighbours,
+                    is_orphan: neighbours == 0,
+                }
+            })
+            .collect::<Vec<_>>();
+        nodes.sort_by(|left, right| left.file_path.cmp(&right.file_path));
+        links.sort_by(|left, right| {
+            left.source
+                .cmp(&right.source)
+                .then_with(|| left.target.cmp(&right.target))
+        });
+
+        let mut adjacency_map = BTreeMap::new();
+        for doc in &docs {
+            let mut neighbours = adjacency
+                .remove(&doc.doc_id)
+                .unwrap_or_default()
+                .into_iter()
+                .collect::<Vec<_>>();
+            neighbours.sort();
+            adjacency_map.insert(doc.doc_id.clone(), neighbours);
+        }
+
+        Ok(GraphSnapshot {
+            nodes,
+            links,
+            adjacency_map,
+            unresolved_count,
+            ambiguous_count,
+        })
+    }
+
+    pub fn resolve_wikilink(
+        &self,
+        source_path: &str,
+        raw_target: &str,
+    ) -> Result<ResolveWikilinkResult, String> {
+        let runtime = match self.runtime_snapshot() {
+            Some(runtime) => runtime,
+            None => {
+                return Ok(ResolveWikilinkResult {
+                    resolved_path: None,
+                    resolution_kind: "unresolved".to_string(),
+                });
+            }
+        };
+
+        let conn = open_connection(&runtime.db_path)?;
+        let docs = load_doc_identities(&conn)?;
+        let index = DocIndex::new(&docs);
+        let resolution = resolve_wikilink(source_path, raw_target, &index);
+        Ok(ResolveWikilinkResult {
+            resolved_path: resolution.resolved_doc_id,
+            resolution_kind: resolution.resolution_kind,
+        })
+    }
+
     fn with_runtime<T>(&self, f: impl FnOnce(&SearchRuntime) -> T) -> Option<T> {
         let manager = self.inner.lock();
         manager.runtime.as_ref().map(f)
@@ -366,8 +562,7 @@ mod tests {
     use std::sync::mpsc;
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use crate::models::AdvancedQueryRequest;
-    use crate::search::db::{IndexedChunkRow, IndexedDocument, open_connection, replace_document};
+    use crate::search::db::{IndexedChunkRow, IndexedDocument};
 
     static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -385,7 +580,7 @@ mod tests {
         let mut conn = open_connection(&db_path).unwrap();
         let tx = conn.transaction().unwrap();
         for doc in &docs {
-            replace_document(&tx, doc).unwrap();
+            db::replace_document(&tx, doc).unwrap();
         }
         tx.commit().unwrap();
 
@@ -397,7 +592,9 @@ mod tests {
                     job_tx,
                     status: Arc::new(Mutex::new(IndexerStatus::default())),
                     rebuild_state: Arc::new(Mutex::new(RebuildQueueState::default())),
+                    config: Arc::new(Mutex::new(IndexerConfig::default())),
                 }),
+                config: IndexerConfig::default(),
             })),
         }
     }
@@ -408,6 +605,7 @@ mod tests {
         chunks: Vec<(&[&str], &str, &str, i64)>,
     ) -> IndexedDocument {
         IndexedDocument {
+            note_uid: None,
             doc_id: doc_id.to_string(),
             title: title.map(ToString::to_string),
             mtime_ms: 1,
@@ -430,6 +628,31 @@ mod tests {
                         global_end: global_start + raw_text.chars().count() as i64,
                     },
                 )
+                .collect(),
+            wikilink_refs: vec![],
+        }
+    }
+
+    fn make_linked_doc(doc_id: &str, wikilinks: &[&str]) -> IndexedDocument {
+        IndexedDocument {
+            note_uid: None,
+            doc_id: doc_id.to_string(),
+            title: None,
+            mtime_ms: 1,
+            meta_json: "{}".to_string(),
+            chunks: vec![],
+            wikilink_refs: wikilinks
+                .iter()
+                .enumerate()
+                .map(|(idx, target)| db::IndexedWikilinkRow {
+                    raw_target: (*target).to_string(),
+                    alias: None,
+                    normalized_target: wikilink::normalize_link_target(target),
+                    target_basename: wikilink::basename_from_normalized(
+                        &wikilink::normalize_link_target(target),
+                    ),
+                    ordinal: idx as i64,
+                })
                 .collect(),
         }
     }
@@ -615,5 +838,18 @@ mod tests {
                 "a.md:Prose".to_string(),
             ]
         );
+    }
+
+    #[test]
+    fn graph_snapshot_uses_resolved_links() {
+        let state = build_state(vec![
+            make_linked_doc("notes/alpha.md", &["beta"]),
+            make_linked_doc("notes/beta.md", &[]),
+        ]);
+        state.request_rebuild().unwrap();
+
+        let snapshot = state.get_graph_snapshot().unwrap();
+        assert_eq!(snapshot.nodes.len(), 2);
+        assert_eq!(snapshot.links.len(), 0);
     }
 }

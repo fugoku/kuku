@@ -10,6 +10,9 @@ const DEFAULT_STATUS: IndexerStatus = {
   totalDocs: 0,
   indexedDocs: 0,
   lastIndexedAt: null,
+  resolvedLinks: 0,
+  unresolvedLinks: 0,
+  ambiguousLinks: 0,
   error: null,
 };
 
@@ -21,6 +24,9 @@ function applyIndexerStatus(status: IndexerStatus): void {
     totalDocs: status.totalDocs,
     indexedDocs: status.indexedDocs,
     lastIndexedAt: status.lastIndexedAt,
+    resolvedLinks: status.resolvedLinks,
+    unresolvedLinks: status.unresolvedLinks,
+    ambiguousLinks: status.ambiguousLinks,
     error: status.error,
   });
 }

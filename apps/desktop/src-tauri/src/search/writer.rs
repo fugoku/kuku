@@ -6,14 +6,17 @@ use std::sync::mpsc::{self, Sender};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use parking_lot::Mutex;
-
-use kuku_search_core::extract_document;
 use rusqlite::Connection;
 
-use crate::models::IndexerStatus;
+use crate::models::{IndexerConfig, IndexerStatus};
 use crate::search::db::{
-    IndexedChunkRow, IndexedDocument, list_indexed_doc_ids, open_connection, remove_document,
-    replace_document,
+    IndexedChunkRow, IndexedDocument, IndexedWikilinkRow, StoredWikilinkRefRow,
+    find_note_uid_by_doc_id, list_indexed_doc_ids, load_doc_identities, load_link_counts,
+    load_wikilink_rows, open_connection, remove_document, replace_document,
+    update_wikilink_resolution,
+};
+use crate::search::wikilink::{
+    DocIndex, basename_from_normalized, normalize_link_target, resolve_wikilink,
 };
 use crate::search::{RebuildQueueState, is_markdown_path, to_relative_path};
 use crate::vault::should_ignore_path;
@@ -36,11 +39,20 @@ pub enum WriterJob {
     Shutdown,
 }
 
+#[derive(Debug, Default)]
+struct ReResolutionPlan {
+    source_note_uids: HashSet<i64>,
+    normalized_targets: HashSet<String>,
+    target_basenames: HashSet<String>,
+    resolved_target_uids: HashSet<i64>,
+}
+
 pub fn start_writer_thread(
     vault_root: PathBuf,
     db_path: PathBuf,
     status: Arc<Mutex<IndexerStatus>>,
     rebuild_state: Arc<Mutex<RebuildQueueState>>,
+    _config: Arc<Mutex<IndexerConfig>>,
 ) -> Sender<WriterJob> {
     let (job_tx, job_rx) = mpsc::channel::<WriterJob>();
     let loop_tx = job_tx.clone();
@@ -118,12 +130,21 @@ fn set_indexing_status(status: &Arc<Mutex<IndexerStatus>>, total_docs: usize, in
     guard.error = None;
 }
 
-fn set_idle_status(status: &Arc<Mutex<IndexerStatus>>, total_docs: usize) {
+fn set_idle_status(
+    status: &Arc<Mutex<IndexerStatus>>,
+    total_docs: usize,
+    resolved_links: usize,
+    unresolved_links: usize,
+    ambiguous_links: usize,
+) {
     let mut guard = status.lock();
     guard.state = "idle".to_string();
     guard.total_docs = total_docs;
     guard.indexed_docs = total_docs;
     guard.last_indexed_at = Some(now_ms());
+    guard.resolved_links = resolved_links;
+    guard.unresolved_links = unresolved_links;
+    guard.ambiguous_links = ambiguous_links;
     guard.error = None;
 }
 
@@ -172,7 +193,11 @@ fn mtime_ms(path: &Path) -> i64 {
         .unwrap_or_else(now_ms)
 }
 
-fn build_document(root: &Path, rel_path: &str) -> Result<Option<IndexedDocument>, String> {
+fn build_document(
+    conn: &Connection,
+    root: &Path,
+    rel_path: &str,
+) -> Result<Option<IndexedDocument>, String> {
     if !is_markdown_path(rel_path) {
         return Ok(None);
     }
@@ -184,7 +209,7 @@ fn build_document(root: &Path, rel_path: &str) -> Result<Option<IndexedDocument>
 
     let markdown =
         fs::read_to_string(&absolute).map_err(|e| format!("Failed to read markdown file: {e}"))?;
-    let extracted = extract_document(&markdown);
+    let extracted = kuku_search_core::extract_document(&markdown);
     let meta_json = serde_json::to_string(
         &extracted
             .frontmatter
@@ -210,12 +235,29 @@ fn build_document(root: &Path, rel_path: &str) -> Result<Option<IndexedDocument>
         }
     }
 
+    let wikilink_refs = extracted
+        .wikilinks
+        .into_iter()
+        .map(|link| {
+            let normalized_target = normalize_link_target(&link.target);
+            IndexedWikilinkRow {
+                raw_target: link.target,
+                alias: link.alias,
+                target_basename: basename_from_normalized(&normalized_target),
+                normalized_target,
+                ordinal: link.ordinal as i64,
+            }
+        })
+        .collect::<Vec<_>>();
+
     Ok(Some(IndexedDocument {
+        note_uid: find_note_uid_by_doc_id(conn, rel_path)?,
         doc_id: rel_path.to_string(),
         title: extracted.title,
         mtime_ms: mtime_ms(&absolute),
         meta_json,
         chunks,
+        wikilink_refs,
     }))
 }
 
@@ -241,7 +283,7 @@ fn handle_full_rebuild(
     for (batch_idx, batch) in files.chunks(50).enumerate() {
         let mut docs = Vec::new();
         for rel_path in batch {
-            if let Some(doc) = build_document(vault_root, rel_path)? {
+            if let Some(doc) = build_document(conn, vault_root, rel_path)? {
                 docs.push(doc);
             }
         }
@@ -280,7 +322,8 @@ fn handle_full_rebuild(
             .map_err(|e| format!("Failed to commit stale cleanup transaction: {e}"))?;
     }
 
-    set_idle_status(status, files.len());
+    resolve_all_wikilinks(conn)?;
+    refresh_idle_status(conn, status)?;
 
     let should_rerun = {
         let mut guard = rebuild_state.lock();
@@ -313,18 +356,36 @@ fn handle_index_file(
 
     let (total_docs, indexed_docs) = status_progress(status);
     set_indexing_status(status, total_docs, indexed_docs);
+
+    let mut plan = ReResolutionPlan::default();
+    let maybe_doc = build_document(conn, vault_root, path)?;
     let tx = conn
         .transaction()
         .map_err(|e| format!("Failed to open index transaction: {e}"))?;
-    match build_document(vault_root, path)? {
-        Some(doc) => replace_document(&tx, &doc)?,
-        None => remove_document(&tx, path)?,
+    match maybe_doc {
+        Some(doc) => {
+            let normalized = normalize_link_target(path);
+            let basename = basename_from_normalized(&normalized);
+            let note_uid = replace_document(&tx, &doc)?;
+            plan.source_note_uids.insert(note_uid);
+            plan.normalized_targets.insert(normalized);
+            plan.target_basenames.insert(basename);
+        }
+        None => {
+            if let Some(note_uid) = remove_document(&tx, path)? {
+                let normalized = normalize_link_target(path);
+                let basename = basename_from_normalized(&normalized);
+                plan.normalized_targets.insert(normalized);
+                plan.target_basenames.insert(basename);
+                plan.resolved_target_uids.insert(note_uid);
+            }
+        }
     }
     tx.commit()
         .map_err(|e| format!("Failed to commit index transaction: {e}"))?;
 
-    let total = list_indexed_doc_ids(conn)?.len();
-    set_idle_status(status, total);
+    rereresolve_wikilinks(conn, &plan)?;
+    refresh_idle_status(conn, status)?;
     Ok(())
 }
 
@@ -332,7 +393,7 @@ fn handle_remove_file(
     conn: &mut Connection,
     path: &str,
     is_dir: bool,
-    _status: &Arc<Mutex<IndexerStatus>>,
+    status: &Arc<Mutex<IndexerStatus>>,
     rebuild_state: &Arc<Mutex<RebuildQueueState>>,
     loop_tx: &Sender<WriterJob>,
 ) -> Result<(), String> {
@@ -345,12 +406,23 @@ fn handle_remove_file(
         return Ok(());
     }
 
+    let mut plan = ReResolutionPlan::default();
+    let normalized = normalize_link_target(path);
+    let basename = basename_from_normalized(&normalized);
+
     let tx = conn
         .transaction()
         .map_err(|e| format!("Failed to open remove transaction: {e}"))?;
-    remove_document(&tx, path)?;
+    if let Some(note_uid) = remove_document(&tx, path)? {
+        plan.resolved_target_uids.insert(note_uid);
+    }
     tx.commit()
         .map_err(|e| format!("Failed to commit remove transaction: {e}"))?;
+
+    plan.normalized_targets.insert(normalized);
+    plan.target_basenames.insert(basename);
+    rereresolve_wikilinks(conn, &plan)?;
+    refresh_idle_status(conn, status)?;
     Ok(())
 }
 
@@ -369,21 +441,104 @@ fn handle_rename_file(
         return Ok(());
     }
 
+    let mut plan = ReResolutionPlan::default();
+    let old_uid = find_note_uid_by_doc_id(conn, old_path)?;
+    let old_normalized = normalize_link_target(old_path);
+    let old_basename = basename_from_normalized(&old_normalized);
+    let new_normalized = normalize_link_target(new_path);
+    let new_basename = basename_from_normalized(&new_normalized);
+    let maybe_new_doc = if is_markdown_path(new_path) {
+        build_document(conn, vault_root, new_path)?
+    } else {
+        None
+    };
+
     let tx = conn
         .transaction()
         .map_err(|e| format!("Failed to open rename transaction: {e}"))?;
+    let preserved_uid = old_uid;
     if is_markdown_path(old_path) {
         remove_document(&tx, old_path)?;
     }
-    if is_markdown_path(new_path) {
-        if let Some(doc) = build_document(vault_root, new_path)? {
-            replace_document(&tx, &doc)?;
-        }
+    if let Some(mut doc) = maybe_new_doc {
+        doc.note_uid = preserved_uid;
+        let note_uid = replace_document(&tx, &doc)?;
+        plan.source_note_uids.insert(note_uid);
+        plan.resolved_target_uids.insert(note_uid);
     }
     tx.commit()
         .map_err(|e| format!("Failed to commit rename transaction: {e}"))?;
+
+    plan.normalized_targets.insert(old_normalized);
+    plan.normalized_targets.insert(new_normalized);
+    plan.target_basenames.insert(old_basename);
+    plan.target_basenames.insert(new_basename);
+    if let Some(old_uid) = old_uid {
+        plan.resolved_target_uids.insert(old_uid);
+    }
+    rereresolve_wikilinks(conn, &plan)?;
+    refresh_idle_status(conn, status)?;
+    Ok(())
+}
+
+fn resolve_all_wikilinks(conn: &mut Connection) -> Result<(), String> {
+    let docs = load_doc_identities(conn)?;
+    let refs = load_wikilink_rows(conn)?;
+    let index = DocIndex::new(&docs);
+
+    let tx = conn
+        .transaction()
+        .map_err(|e| format!("Failed to open resolve-all transaction: {e}"))?;
+    for row in refs {
+        let resolution = resolve_wikilink(&row.source_doc_id, &row.raw_target, &index);
+        update_wikilink_resolution(&tx, row.rowid, &resolution)?;
+    }
+    tx.commit()
+        .map_err(|e| format!("Failed to commit resolve-all transaction: {e}"))?;
+    Ok(())
+}
+
+fn rereresolve_wikilinks(conn: &mut Connection, plan: &ReResolutionPlan) -> Result<(), String> {
+    if plan.source_note_uids.is_empty()
+        && plan.normalized_targets.is_empty()
+        && plan.target_basenames.is_empty()
+        && plan.resolved_target_uids.is_empty()
+    {
+        return Ok(());
+    }
+
+    let docs = load_doc_identities(conn)?;
+    let refs = load_wikilink_rows(conn)?;
+    let index = DocIndex::new(&docs);
+
+    let tx = conn
+        .transaction()
+        .map_err(|e| format!("Failed to open selective resolve transaction: {e}"))?;
+    for row in refs.iter().filter(|row| should_reresolve_row(row, plan)) {
+        let resolution = resolve_wikilink(&row.source_doc_id, &row.raw_target, &index);
+        update_wikilink_resolution(&tx, row.rowid, &resolution)?;
+    }
+    tx.commit()
+        .map_err(|e| format!("Failed to commit selective resolve transaction: {e}"))?;
+    Ok(())
+}
+
+fn should_reresolve_row(row: &StoredWikilinkRefRow, plan: &ReResolutionPlan) -> bool {
+    plan.source_note_uids.contains(&row.source_note_uid)
+        || plan.normalized_targets.contains(&row.normalized_target)
+        || plan.target_basenames.contains(&row.target_basename)
+        || row
+            .resolved_target_uid
+            .is_some_and(|target_uid| plan.resolved_target_uids.contains(&target_uid))
+}
+
+fn refresh_idle_status(
+    conn: &Connection,
+    status: &Arc<Mutex<IndexerStatus>>,
+) -> Result<(), String> {
     let total = list_indexed_doc_ids(conn)?.len();
-    set_idle_status(status, total);
+    let (resolved, unresolved, ambiguous) = load_link_counts(conn)?;
+    set_idle_status(status, total, resolved, unresolved, ambiguous);
     Ok(())
 }
 
@@ -431,8 +586,13 @@ mod tests {
         let db_path = unique_path("kuku-search-db").with_extension("sqlite3");
         let status = Arc::new(Mutex::new(IndexerStatus::default()));
         let rebuild_state = Arc::new(Mutex::new(RebuildQueueState::default()));
-        let job_tx =
-            start_writer_thread(missing_root, db_path, status.clone(), rebuild_state.clone());
+        let job_tx = start_writer_thread(
+            missing_root,
+            db_path,
+            status.clone(),
+            rebuild_state.clone(),
+            Arc::new(Mutex::new(IndexerConfig::default())),
+        );
 
         queue_rebuild(&rebuild_state, &job_tx);
 
@@ -457,12 +617,18 @@ mod tests {
     fn index_file_job_completes_for_new_file() {
         let root = unique_path("kuku-index-root");
         fs::create_dir_all(&root).unwrap();
-        fs::write(root.join("note.md"), "# Title\nhello search world").unwrap();
+        fs::write(root.join("note.md"), "# Title\nhello [[world]]").unwrap();
 
         let db_path = unique_path("kuku-index-db").with_extension("sqlite3");
         let status = Arc::new(Mutex::new(IndexerStatus::default()));
         let rebuild_state = Arc::new(Mutex::new(RebuildQueueState::default()));
-        let job_tx = start_writer_thread(root.clone(), db_path, status.clone(), rebuild_state);
+        let job_tx = start_writer_thread(
+            root.clone(),
+            db_path,
+            status.clone(),
+            rebuild_state,
+            Arc::new(Mutex::new(IndexerConfig::default())),
+        );
 
         job_tx
             .send(WriterJob::IndexFile {

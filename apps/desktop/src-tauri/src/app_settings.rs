@@ -2,7 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use serde_json::Value;
-use tauri::{command, AppHandle, Runtime};
+use tauri::{AppHandle, Runtime, command};
 
 fn ensure_root_dir() -> Result<PathBuf, String> {
     let home = dirs::home_dir().ok_or("Cannot resolve home directory")?;
@@ -110,5 +110,4 @@ mod tests {
         );
         let _ = fs::remove_file(&path);
     }
-
 }

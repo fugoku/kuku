@@ -39,6 +39,10 @@ describe("createSearchTabController", () => {
       queryAdvanced: vi.fn(),
       getStatus: vi.fn(),
       requestRebuild: vi.fn(),
+      getGraphSnapshot: vi.fn(),
+      resolveWikilink: vi.fn(),
+      getConfig: vi.fn(),
+      setConfig: vi.fn(),
     };
 
     await new Promise<void>((resolve) => {
@@ -70,6 +74,10 @@ describe("createSearchTabController", () => {
       queryAdvanced: vi.fn(),
       getStatus: vi.fn(),
       requestRebuild: vi.fn(),
+      getGraphSnapshot: vi.fn(),
+      resolveWikilink: vi.fn(),
+      getConfig: vi.fn(),
+      setConfig: vi.fn(),
     };
 
     await new Promise<void>((resolve, reject) => {
@@ -110,6 +118,10 @@ describe("createSearchTabController", () => {
       queryAdvanced,
       getStatus: vi.fn(),
       requestRebuild: vi.fn(),
+      getGraphSnapshot: vi.fn(),
+      resolveWikilink: vi.fn(),
+      getConfig: vi.fn(),
+      setConfig: vi.fn(),
     };
 
     await new Promise<void>((resolve, reject) => {
@@ -148,6 +160,10 @@ describe("createSearchTabController", () => {
       queryAdvanced: vi.fn().mockRejectedValue(new Error("Invalid regex: (")),
       getStatus: vi.fn(),
       requestRebuild: vi.fn(),
+      getGraphSnapshot: vi.fn(),
+      resolveWikilink: vi.fn(),
+      getConfig: vi.fn(),
+      setConfig: vi.fn(),
     };
 
     await new Promise<void>((resolve, reject) => {
