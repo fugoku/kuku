@@ -39,6 +39,10 @@ interface MarkdownEditorProps {
   mode?: "editable" | "diff";
 }
 
+function clampUnit(value: number): number {
+  return Math.max(0, Math.min(1, value));
+}
+
 export default function MarkdownEditor(props: MarkdownEditorProps) {
   const mode = props.mode ?? "editable";
   const isDiffMode = mode === "diff";
@@ -59,8 +63,9 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
   let osReady = false;
   let pendingViewportAction: (() => void) | null = null;
   let viewportScrollCleanup: (() => void) | null = null;
-  let viewportPersistRaf: number | null = null;
+  let viewportPersistTimer: number | null = null;
   let lastKnownScrollTop = 0;
+  let pendingScrollbarSyncRaf: number | null = null;
 
   /** Returns the scroll viewport element managed by OverlayScrollbars. */
   function getScrollViewport(): HTMLElement | undefined {
@@ -77,9 +82,16 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
   }
 
   function clearViewportPersistRaf(): void {
-    if (viewportPersistRaf !== null) {
-      cancelAnimationFrame(viewportPersistRaf);
-      viewportPersistRaf = null;
+    if (viewportPersistTimer !== null) {
+      window.clearTimeout(viewportPersistTimer);
+      viewportPersistTimer = null;
+    }
+  }
+
+  function clearPendingScrollbarSyncRaf(): void {
+    if (pendingScrollbarSyncRaf !== null) {
+      cancelAnimationFrame(pendingScrollbarSyncRaf);
+      pendingScrollbarSyncRaf = null;
     }
   }
 
@@ -106,18 +118,66 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     saveViewportState(props.tabId, snapshot);
   }
 
+  function syncScrollbarAxis(
+    scrollbar: { scrollbar: HTMLElement; handle: HTMLElement },
+    scrollOffset: number,
+    scrollSize: number,
+    clientSize: number,
+  ): void {
+    const maxScroll = Math.max(0, scrollSize - clientSize);
+    const scrollPercent = maxScroll > 0 ? clampUnit(scrollOffset / maxScroll) : 0;
+    const viewportPercent = scrollSize > 0 ? clampUnit(clientSize / scrollSize) : 1;
+
+    scrollbar.scrollbar.style.setProperty("--os-scroll-percent", `${scrollPercent}`);
+    scrollbar.scrollbar.style.setProperty("--os-viewport-percent", `${viewportPercent}`);
+    scrollbar.scrollbar.style.setProperty("--os-scroll-direction", "0");
+    scrollbar.handle.style.removeProperty("top");
+    scrollbar.handle.style.removeProperty("left");
+    scrollbar.handle.style.removeProperty("height");
+    scrollbar.handle.style.removeProperty("width");
+    scrollbar.handle.style.removeProperty("transform");
+  }
+
+  function syncScrollbarVisuals(instance = osRef?.osInstance()): void {
+    if (!instance) return;
+
+    const { viewport, scrollbarHorizontal, scrollbarVertical } = instance.elements();
+    syncScrollbarAxis(
+      scrollbarVertical,
+      viewport.scrollTop,
+      viewport.scrollHeight,
+      viewport.clientHeight,
+    );
+    syncScrollbarAxis(
+      scrollbarHorizontal,
+      viewport.scrollLeft,
+      viewport.scrollWidth,
+      viewport.clientWidth,
+    );
+  }
+
+  function scheduleScrollbarVisualSync(instance = osRef?.osInstance()): void {
+    if (!instance || pendingScrollbarSyncRaf !== null) return;
+
+    pendingScrollbarSyncRaf = requestAnimationFrame(() => {
+      pendingScrollbarSyncRaf = null;
+      syncScrollbarVisuals(instance);
+    });
+  }
+
   function scheduleViewportStatePersist(): void {
-    if (!contentReady || disposed || viewportPersistRaf !== null) {
+    if (!contentReady || disposed) {
       return;
     }
 
-    viewportPersistRaf = requestAnimationFrame(() => {
-      viewportPersistRaf = null;
+    clearViewportPersistRaf();
+    viewportPersistTimer = window.setTimeout(() => {
+      viewportPersistTimer = null;
       if (!contentReady || disposed) {
         return;
       }
       saveCurrentViewportState();
-    });
+    }, 120);
   }
 
   function ensureViewportScrollListener(viewport = getScrollViewport()): void {
@@ -130,6 +190,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     const handleScroll = () => {
       lastKnownScrollTop = viewport.scrollTop;
       scheduleViewportStatePersist();
+      scheduleScrollbarVisualSync();
     };
 
     viewport.addEventListener("scroll", handleScroll, { passive: true });
@@ -188,6 +249,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     if (viewport) {
       viewport.scrollTop = snapshot.scrollTop;
       lastKnownScrollTop = viewport.scrollTop;
+      scheduleScrollbarVisualSync();
     } else {
       lastKnownScrollTop = snapshot.scrollTop;
     }
@@ -435,6 +497,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
   onCleanup(() => {
     clearPendingViewportAction();
     clearViewportPersistRaf();
+    clearPendingScrollbarSyncRaf();
     clearViewportScrollListener();
     persistEditorRuntimeState();
     if (settingsState.general.autoSave && (autoSaveTimer !== null || saveInFlight !== null)) {
@@ -525,11 +588,15 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
           initialized: (instance: OverlayScrollbars) => {
             osReady = true;
             ensureViewportScrollListener(instance.elements().viewport);
+            syncScrollbarVisuals(instance);
             if (pendingViewportAction) {
               const action = pendingViewportAction;
               clearPendingViewportAction();
               runAfterLayoutSettles(action);
             }
+          },
+          updated: (instance: OverlayScrollbars) => {
+            syncScrollbarVisuals(instance);
           },
         }}
       >

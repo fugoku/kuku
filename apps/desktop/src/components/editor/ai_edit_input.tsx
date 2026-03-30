@@ -207,7 +207,7 @@ export default function AiEditInput(props: AiEditInputProps) {
             <input
               ref={inputRef}
               type="text"
-              class="min-w-0 flex-1 bg-transparent text-[0.8125rem] leading-7 text-text-primary outline-none placeholder:text-text-muted"
+              class="min-w-0 flex-1 bg-transparent text-[0.8125rem]/7 text-text-primary outline-none placeholder:text-text-muted"
               placeholder={sending() ? "Sending..." : "Edit instruction..."}
               value={instruction()}
               onInput={(e) => setInstruction(e.currentTarget.value)}

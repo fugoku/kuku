@@ -414,7 +414,7 @@ export default function EditorContextMenu(props: EditorContextMenuProps) {
 
   return (
     <KMenu onOpenChange={handleOpenChange}>
-      <KMenu.Trigger class="contents">{props.children}</KMenu.Trigger>
+      <KMenu.Trigger class="block min-h-full">{props.children}</KMenu.Trigger>
 
       <ContextMenuContent class="w-56">
         {/* ── Inline Mark Toggles (Phase 1) ── */}

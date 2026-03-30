@@ -37,7 +37,7 @@ function defineScrollProps(): Extension {
   return definePlugin(
     new Plugin({
       props: {
-        scrollMargin: 120,
+        scrollMargin: 80,
         scrollThreshold: 80,
       },
     }),
