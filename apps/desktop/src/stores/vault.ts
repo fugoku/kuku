@@ -409,7 +409,14 @@ async function confirmEdit(): Promise<void> {
 
   try {
     if (edit.kind === "create") {
-      await (edit.isDir ? vaultMkdir(destinationPath) : writeVaultFile(destinationPath, ""));
+      if (edit.isDir) {
+        await vaultMkdir(destinationPath);
+      } else {
+        const finalPath = destinationPath.endsWith(".md")
+          ? destinationPath
+          : `${destinationPath}.md`;
+        await writeVaultFile(finalPath, "");
+      }
       await loadFiles(root);
       return;
     }

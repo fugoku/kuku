@@ -1,6 +1,4 @@
-use std::future::Future;
 use std::path::Path;
-use std::pin::Pin;
 
 use tauri::{AppHandle, State, command};
 use tauri_plugin_dialog::DialogExt;
@@ -8,63 +6,10 @@ use tauri_plugin_dialog::DialogExt;
 use crate::models::{ChecksumWriteResult, FileEntry, FileReadResult};
 use crate::search::SearchState;
 use crate::vault::checksum::compute_checksum;
+use crate::vault::{
+    DEFAULT_FILE_EXTENSIONS, get_vault_root, read_directory_recursive, resolve_vault_path,
+};
 use crate::vault::{VaultState, watcher};
-use crate::vault::{get_vault_root, resolve_vault_path, should_ignore_path, to_relative_path};
-
-fn read_directory_recursive<'a>(
-    dir: &'a Path,
-    root: &'a Path,
-) -> Pin<Box<dyn Future<Output = Result<Vec<FileEntry>, String>> + Send + 'a>> {
-    Box::pin(async move {
-        let mut reader = tokio::fs::read_dir(dir)
-            .await
-            .map_err(|e| format!("Failed to read directory {}: {e}", dir.display()))?;
-
-        let mut files: Vec<FileEntry> = Vec::new();
-        let mut folders: Vec<FileEntry> = Vec::new();
-
-        while let Some(entry) = reader.next_entry().await.map_err(|e| e.to_string())? {
-            let path = entry.path();
-            let rel = path.strip_prefix(root).unwrap_or(&path).to_path_buf();
-
-            if should_ignore_path(&rel) {
-                continue;
-            }
-
-            let name = entry.file_name().to_string_lossy().to_string();
-            let is_directory = entry
-                .file_type()
-                .await
-                .map(|ft| ft.is_dir())
-                .unwrap_or(false);
-
-            if is_directory {
-                let children = read_directory_recursive(&path, root)
-                    .await
-                    .unwrap_or_default();
-                folders.push(FileEntry {
-                    name,
-                    path: to_relative_path(root, &path),
-                    is_directory: true,
-                    children: Some(children),
-                });
-            } else {
-                files.push(FileEntry {
-                    name,
-                    path: to_relative_path(root, &path),
-                    is_directory: false,
-                    children: None,
-                });
-            }
-        }
-
-        folders.sort_by(|a, b| human_sort::compare(&a.name, &b.name));
-        files.sort_by(|a, b| human_sort::compare(&a.name, &b.name));
-
-        folders.extend(files);
-        Ok(folders)
-    })
-}
 
 #[command]
 pub async fn vault_open(
@@ -265,7 +210,7 @@ pub async fn vault_list_dir(
 ) -> Result<Vec<FileEntry>, String> {
     let root = get_vault_root(&state)?;
     let resolved = resolve_vault_path(&root, &path)?;
-    read_directory_recursive(&resolved, &root).await
+    read_directory_recursive(&resolved, &root, DEFAULT_FILE_EXTENSIONS).await
 }
 
 #[command]
@@ -371,8 +316,31 @@ mod tests {
         fs::create_dir_all(root.join(".git")).unwrap();
         fs::write(root.join(".git/config"), "x").unwrap();
 
-        let entries = async_runtime::block_on(read_directory_recursive(&root, &root)).unwrap();
+        let entries = async_runtime::block_on(read_directory_recursive(
+            &root,
+            &root,
+            DEFAULT_FILE_EXTENSIONS,
+        ))
+        .unwrap();
         assert!(entries.iter().any(|e| e.path == "a.md"));
         assert!(!entries.iter().any(|e| e.path.starts_with(".git")));
+    }
+
+    #[test]
+    fn test_read_directory_recursive_filters_non_md_files() {
+        let root = temp_vault();
+        fs::write(root.join("note.md"), "# note").unwrap();
+        fs::write(root.join("image.png"), "binary").unwrap();
+        fs::write(root.join("data.json"), "{}").unwrap();
+
+        let entries = async_runtime::block_on(read_directory_recursive(
+            &root,
+            &root,
+            DEFAULT_FILE_EXTENSIONS,
+        ))
+        .unwrap();
+        assert!(entries.iter().any(|e| e.path == "note.md"));
+        assert!(!entries.iter().any(|e| e.path == "image.png"));
+        assert!(!entries.iter().any(|e| e.path == "data.json"));
     }
 }

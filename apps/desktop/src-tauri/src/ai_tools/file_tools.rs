@@ -1,6 +1,4 @@
-use std::future::Future;
 use std::path::{Path, PathBuf};
-use std::pin::Pin;
 
 use async_trait::async_trait;
 use tauri::{AppHandle, Manager};
@@ -9,10 +7,10 @@ use tauri_plugin_ai::{
     ToolDescriptor, ToolError, ToolSource,
 };
 
-use crate::models::FileEntry;
 use crate::vault::checksum::{compute_checksum, compute_directory_checksum};
 use crate::vault::{
-    VaultState, get_vault_root, resolve_vault_path, should_ignore_path, to_relative_path,
+    DEFAULT_FILE_EXTENSIONS, VaultState, get_vault_root, read_directory_recursive,
+    resolve_vault_path,
 };
 
 pub struct ReadFileTool;
@@ -99,7 +97,7 @@ impl AiNativeTool for ListFilesTool {
         let path = directory_arg(&args, ctx.editor_context.active_file.as_deref());
         let root = vault_root(ctx.app)?;
         let resolved = resolve_vault_path(&root, &path).map_err(ToolError::InvalidArguments)?;
-        let entries = read_directory_recursive(&resolved, &root)
+        let entries = read_directory_recursive(&resolved, &root, DEFAULT_FILE_EXTENSIONS)
             .await
             .map_err(ToolError::ExecutionFailed)?;
         let checksum = compute_directory_checksum(&resolved)
@@ -620,64 +618,6 @@ async fn build_move_plan(
         text: format!("Proposing to move {from} -> {to}"),
         mutation: Some(plan),
         preview_text: Some(format!("Move: {from} -> {to}")),
-    })
-}
-
-fn read_directory_recursive<'a>(
-    dir: &'a Path,
-    root: &'a Path,
-) -> Pin<Box<dyn Future<Output = Result<Vec<FileEntry>, String>> + Send + 'a>> {
-    Box::pin(async move {
-        let mut reader = tokio::fs::read_dir(dir)
-            .await
-            .map_err(|error| format!("Failed to read directory {}: {error}", dir.display()))?;
-
-        let mut files = Vec::new();
-        let mut folders = Vec::new();
-
-        while let Some(entry) = reader
-            .next_entry()
-            .await
-            .map_err(|error| error.to_string())?
-        {
-            let path = entry.path();
-            let rel = path.strip_prefix(root).unwrap_or(&path).to_path_buf();
-
-            if should_ignore_path(&rel) {
-                continue;
-            }
-
-            let name = entry.file_name().to_string_lossy().to_string();
-            let is_directory = entry
-                .file_type()
-                .await
-                .map(|ft| ft.is_dir())
-                .unwrap_or(false);
-
-            if is_directory {
-                let children = read_directory_recursive(&path, root)
-                    .await
-                    .unwrap_or_default();
-                folders.push(FileEntry {
-                    name,
-                    path: to_relative_path(root, &path),
-                    is_directory: true,
-                    children: Some(children),
-                });
-            } else {
-                files.push(FileEntry {
-                    name,
-                    path: to_relative_path(root, &path),
-                    is_directory: false,
-                    children: None,
-                });
-            }
-        }
-
-        folders.sort_by(|a, b| human_sort::compare(&a.name, &b.name));
-        files.sort_by(|a, b| human_sort::compare(&a.name, &b.name));
-        folders.extend(files);
-        Ok(folders)
     })
 }
 

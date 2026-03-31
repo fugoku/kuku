@@ -1,11 +1,18 @@
+use std::future::Future;
 use std::path::{Component, Path, PathBuf};
+use std::pin::Pin;
 use std::sync::mpsc::Sender;
 
 use parking_lot::Mutex;
 
+use crate::models::FileEntry;
+
 pub mod checksum;
 pub mod commands;
 pub mod watcher;
+
+/// Default file extensions shown in directory listings.
+pub const DEFAULT_FILE_EXTENSIONS: &[&str] = &["md"];
 
 pub struct VaultState {
     pub inner: Mutex<VaultInner>,
@@ -101,6 +108,76 @@ pub fn to_relative_path(root: &Path, path: &Path) -> String {
     path.to_string_lossy().to_string().replace('\\', "/")
 }
 
+/// Returns `true` when `name` ends with any of `extensions` (case-insensitive).
+/// An empty slice means "accept everything".
+fn matches_extensions(name: &str, extensions: &[&str]) -> bool {
+    if extensions.is_empty() {
+        return true;
+    }
+    let lower = name.to_ascii_lowercase();
+    extensions
+        .iter()
+        .any(|ext| lower.ends_with(&format!(".{}", ext.to_ascii_lowercase())))
+}
+
+/// Recursively list a directory, filtering **files** by `extensions`.
+/// Directories are always included (but pruned when empty after filtering).
+pub fn read_directory_recursive<'a>(
+    dir: &'a Path,
+    root: &'a Path,
+    extensions: &'a [&'a str],
+) -> Pin<Box<dyn Future<Output = Result<Vec<FileEntry>, String>> + Send + 'a>> {
+    Box::pin(async move {
+        let mut reader = tokio::fs::read_dir(dir)
+            .await
+            .map_err(|e| format!("Failed to read directory {}: {e}", dir.display()))?;
+
+        let mut files: Vec<FileEntry> = Vec::new();
+        let mut folders: Vec<FileEntry> = Vec::new();
+
+        while let Some(entry) = reader.next_entry().await.map_err(|e| e.to_string())? {
+            let path = entry.path();
+            let rel = path.strip_prefix(root).unwrap_or(&path).to_path_buf();
+
+            if should_ignore_path(&rel) {
+                continue;
+            }
+
+            let name = entry.file_name().to_string_lossy().to_string();
+            let is_directory = entry
+                .file_type()
+                .await
+                .map(|ft| ft.is_dir())
+                .unwrap_or(false);
+
+            if is_directory {
+                let children = read_directory_recursive(&path, root, extensions)
+                    .await
+                    .unwrap_or_default();
+                folders.push(FileEntry {
+                    name,
+                    path: to_relative_path(root, &path),
+                    is_directory: true,
+                    children: Some(children),
+                });
+            } else if matches_extensions(&name, extensions) {
+                files.push(FileEntry {
+                    name,
+                    path: to_relative_path(root, &path),
+                    is_directory: false,
+                    children: None,
+                });
+            }
+        }
+
+        folders.sort_by(|a, b| human_sort::compare(&a.name, &b.name));
+        files.sort_by(|a, b| human_sort::compare(&a.name, &b.name));
+
+        folders.extend(files);
+        Ok(folders)
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -149,5 +226,25 @@ mod tests {
         assert!(should_ignore_path(Path::new("notes/tmp~")));
         assert!(should_ignore_path(Path::new("notes/file.tmp")));
         assert!(!should_ignore_path(Path::new("notes/file.md")));
+    }
+
+    #[test]
+    fn test_matches_extensions_default() {
+        assert!(super::matches_extensions("note.md", &["md"]));
+        assert!(super::matches_extensions("NOTE.MD", &["md"]));
+        assert!(!super::matches_extensions("image.png", &["md"]));
+    }
+
+    #[test]
+    fn test_matches_extensions_empty_accepts_all() {
+        assert!(super::matches_extensions("anything.xyz", &[]));
+    }
+
+    #[test]
+    fn test_matches_extensions_multiple() {
+        let exts = &["md", "markdown"];
+        assert!(super::matches_extensions("a.md", exts));
+        assert!(super::matches_extensions("b.markdown", exts));
+        assert!(!super::matches_extensions("c.txt", exts));
     }
 }
