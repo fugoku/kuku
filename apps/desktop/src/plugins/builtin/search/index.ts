@@ -14,20 +14,20 @@ const searchPlugin: KukuPlugin = {
   id: "search",
   name: "Search",
   version: "0.1.0",
-  description: "Vault search tab",
+  description: "Quick Search & Advanced Search",
   dependencies: ["core-indexer"],
 
   views: [
     {
       id: "search.tab",
-      label: "Search",
+      label: "Advanced Search",
       location: { slot: "centerTab" },
       tabType: "search",
       component: SearchTabView,
     },
     {
       id: "search.omnibar",
-      label: "Search Omnibar",
+      label: "Quick Search",
       location: { slot: "overlay" },
       component: SearchOmnibarView,
       isActive: () => isSearchOmnibarOpen(),
@@ -45,11 +45,11 @@ const searchPlugin: KukuPlugin = {
     },
     {
       id: "search.openAdvanced",
-      label: "Search in Files",
+      label: "Advanced Search",
       category: "Search",
       defaultKeys: ["$mod+Shift+KeyF"],
       global: true,
-      execute: () => openTab("Search", null, "search"),
+      execute: () => openTab("Advanced Search", null, "search"),
     },
   ],
 

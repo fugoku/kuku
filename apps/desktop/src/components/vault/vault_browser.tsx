@@ -346,7 +346,7 @@ export default function VaultBrowser() {
             <button
               type="button"
               class="rounded-xs p-1 text-text-muted transition-colors hover:bg-accent-dim hover:text-text-secondary"
-              title="Search"
+              title="Quick Search"
               onClick={() => openSearchOmnibar()}
             >
               <SearchIcon size={16} />

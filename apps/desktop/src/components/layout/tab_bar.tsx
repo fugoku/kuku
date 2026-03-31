@@ -199,9 +199,9 @@ export default function TabBar() {
               />
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                label="Search"
+                label="Advanced Search"
                 shortcut="⌘⇧F"
-                onSelect={() => openTab("Search", null, "search")}
+                onSelect={() => openTab("Advanced Search", null, "search")}
               />
               <DropdownMenuItem
                 label="Graph View"
