@@ -28,6 +28,7 @@ import { graphViewPlugin } from "~/plugins/builtin/graph_view";
 import { searchPlugin } from "~/plugins/builtin/search";
 import { wikilinkPlugin } from "~/plugins/builtin/wikilink";
 import { themeDefaultPlugin } from "~/plugins/builtin/theme_default";
+import { typographyPlugin } from "~/plugins/builtin/typography";
 import { destroyKeymap } from "~/plugins/commands";
 import { buildMarkdownService } from "~/plugins/markdown_service";
 import {
@@ -71,6 +72,7 @@ const builtinPlugins: KukuPlugin[] = [
   graphViewPlugin,
   searchPlugin,
   themeDefaultPlugin,
+  typographyPlugin,
   // Future: consolePlugin
 ];
 

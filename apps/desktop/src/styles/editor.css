@@ -230,3 +230,15 @@
     visibility: hidden;
   }
 }
+
+/* ── Typographic Ligatures ──
+   Widget decorations that visually replace character sequences
+   (e.g. `->` → `→`) without modifying the document content. */
+
+.kuku-ligature {
+  font-family: var(--font-editor);
+  color: var(--color-text-primary);
+  cursor: text;
+  user-select: none;
+  pointer-events: none;
+}
