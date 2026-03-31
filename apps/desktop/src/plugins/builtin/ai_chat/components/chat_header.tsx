@@ -6,7 +6,6 @@ import {
   createSession,
   getActiveSession,
   isSessionBusy,
-  setAutoApprove,
 } from "../chat_store";
 import type { ChatSessionState } from "../types";
 import { getSessionStatusMeta, type ChatUiTone } from "../ui_state";
@@ -26,26 +25,12 @@ function ChatHeader(): JSX.Element {
   };
   const statusMeta = () => getSessionStatusMeta(session());
   const canCancel = () => isSessionBusy(session());
-  const isAgent = () => session()?.mode === "agent";
 
   return (
     <div class="flex h-10 shrink-0 items-center justify-between border-b border-border px-3">
       {/* Left: status */}
       <div class="flex items-center gap-2 text-xs">
         <span class={STATUS_TONE_CLASSES[statusMeta().tone]}>{statusMeta().label}</span>
-        <Show when={isAgent() && session()}>
-          {(current) => (
-            <label class="flex cursor-pointer items-center gap-1.5 text-[0.6875rem] text-text-muted select-none">
-              <input
-                type="checkbox"
-                class="accent-info"
-                checked={current().autoApprove}
-                onChange={(e) => setAutoApprove(current().id, e.currentTarget.checked)}
-              />
-              Auto
-            </label>
-          )}
-        </Show>
       </div>
 
       {/* Right: actions */}

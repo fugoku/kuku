@@ -5,6 +5,7 @@ import {
   isSessionBusy,
   cancelSession,
   sendMessage,
+  setAutoApprove,
   setDraft,
   switchMode,
 } from "../chat_store";
@@ -72,46 +73,68 @@ function ChatInput(): JSX.Element {
       />
       {/* Footer */}
       <div class="flex items-center justify-between px-2 pb-2">
-        {/* Left: mode selector */}
-        <div class="relative">
-          <button
-            type="button"
-            class="flex items-center gap-1 rounded-xs px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-ghost-hover hover:text-text-primary"
-            onClick={() => setShowModeMenu(!showModeMenu())}
-          >
-            <span class="capitalize">{chatState.selectedMode}</span>
-            <svg
-              width="10"
-              height="10"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
+        {/* Left: mode selector + auto-approve */}
+        <div class="flex items-center gap-1">
+          <div class="relative">
+            <button
+              type="button"
+              class="flex items-center gap-1 rounded-xs px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-ghost-hover hover:text-text-primary"
+              onClick={() => setShowModeMenu(!showModeMenu())}
             >
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </button>
-          <Show when={showModeMenu()}>
-            <div
-              class="absolute bottom-full left-0 z-50 mb-1 w-52 rounded-xs border border-border bg-bg-primary p-1 shadow-lg"
-              onClick={() => setShowModeMenu(false)}
-            >
-              <For each={MODE_OPTIONS}>
-                {(opt) => (
-                  <button
-                    type="button"
-                    class="flex w-full flex-col rounded-xs px-3 py-2 text-left transition-colors hover:bg-bg-elevated"
-                    classList={{
-                      "bg-ghost-hover": chatState.selectedMode === opt.value,
-                    }}
-                    onClick={() => void switchMode(opt.value)}
-                  >
-                    <span class="text-xs font-medium text-text-primary">{opt.title}</span>
-                    <span class="text-[0.6875rem] text-text-muted">{opt.desc}</span>
-                  </button>
-                )}
-              </For>
-            </div>
+              <span class="capitalize">{chatState.selectedMode}</span>
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+            <Show when={showModeMenu()}>
+              <div
+                class="absolute bottom-full left-0 z-50 mb-1 w-52 rounded-xs border border-border bg-bg-primary p-1 shadow-lg"
+                onClick={() => setShowModeMenu(false)}
+              >
+                <For each={MODE_OPTIONS}>
+                  {(opt) => (
+                    <button
+                      type="button"
+                      class="flex w-full flex-col rounded-xs px-3 py-2 text-left transition-colors hover:bg-bg-elevated"
+                      classList={{
+                        "bg-ghost-hover": chatState.selectedMode === opt.value,
+                      }}
+                      onClick={() => void switchMode(opt.value)}
+                    >
+                      <span class="text-xs font-medium text-text-primary">{opt.title}</span>
+                      <span class="text-[0.6875rem] text-text-muted">{opt.desc}</span>
+                    </button>
+                  )}
+                </For>
+              </div>
+            </Show>
+          </div>
+
+          <Show when={chatState.selectedMode === "agent" && session()}>
+            {(current) => (
+              <label
+                class="flex cursor-pointer items-center gap-1.5 rounded-xs px-1.5 py-1 text-[0.6875rem] transition-colors select-none"
+                classList={{
+                  "text-text-primary": current().autoApprove,
+                  "text-text-muted hover:text-text-secondary": !current().autoApprove,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  class="accent-text-primary"
+                  checked={current().autoApprove}
+                  onChange={(e) => setAutoApprove(current().id, e.currentTarget.checked)}
+                />
+                Auto-approve
+              </label>
+            )}
           </Show>
         </div>
 
