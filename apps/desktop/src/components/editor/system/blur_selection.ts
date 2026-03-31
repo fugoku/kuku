@@ -113,6 +113,7 @@ function defineBlurSelection(): Extension {
 
           // Doc changed while blurred — map decorations to new positions
           if (tr.docChanged) {
+            // eslint-disable-next-line unicorn/no-array-method-this-argument -- DecorationSet.map(), not Array.map()
             return decorations.map(tr.mapping, tr.doc);
           }
 

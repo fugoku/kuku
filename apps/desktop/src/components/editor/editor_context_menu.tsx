@@ -328,6 +328,11 @@ export default function EditorContextMenu(props: EditorContextMenuProps) {
   }
 
   function turnIntoList(kind: "bullet" | "ordered"): void {
+    if (blockType() !== "paragraph") {
+      queueEditorFocusRestore();
+      return;
+    }
+
     const cmds = getEditorCommands();
     if (!cmds) return;
     cmds.toggleList?.({ kind });
@@ -543,12 +548,12 @@ export default function EditorContextMenu(props: EditorContextMenuProps) {
             <ContextMenuItem
               label="Bullet List"
               onSelect={() => turnIntoList("bullet")}
-              disabled={listKind() === "bullet"}
+              disabled={listKind() === "bullet" || blockType() !== "paragraph"}
             />
             <ContextMenuItem
               label="Ordered List"
               onSelect={() => turnIntoList("ordered")}
-              disabled={listKind() === "ordered"}
+              disabled={listKind() === "ordered" || blockType() !== "paragraph"}
             />
           </ContextMenuSubContent>
         </ContextMenuSub>

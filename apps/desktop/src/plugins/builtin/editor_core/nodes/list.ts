@@ -18,7 +18,8 @@ import {
 } from "prosekit/core";
 import { defineInputRule } from "prosekit/extensions/input-rule";
 import { chainCommands, deleteSelection } from "prosekit/pm/commands";
-import { Plugin } from "prosekit/pm/state";
+import { InputRule } from "prosekit/pm/inputrules";
+import { Plugin, type EditorState, type Transaction } from "prosekit/pm/state";
 import {
   createDedentListCommand,
   createIndentListCommand,
@@ -43,6 +44,42 @@ import {
   joinListElements,
 } from "prosemirror-flat-list";
 import type { Node as ProseMirrorNode } from "prosekit/pm/model";
+
+/**
+ * Internal InputRule fields that are present at runtime but not exposed
+ * in the public type declarations (`@internal` in prosemirror-inputrules).
+ */
+interface InputRuleInternal {
+  match: RegExp;
+  handler: (
+    state: EditorState,
+    match: RegExpMatchArray,
+    start: number,
+    end: number,
+  ) => Transaction | null;
+  undoable: boolean;
+  inCodeMark: boolean;
+}
+
+function shouldAutoWrapListInputRule(rule: InputRule): InputRule {
+  const internal = rule as unknown as InputRuleInternal;
+  return new InputRule(
+    internal.match,
+    (state, match, start, end) => {
+      if (state.selection.$from.parent.type.name !== "paragraph") {
+        return null;
+      }
+
+      return internal.handler(state, match, start, end);
+    },
+    {
+      undoable: internal.undoable,
+      inCode: rule.inCode,
+      inCodeMark: internal.inCodeMark,
+    },
+  );
+}
+
 function defineListSerializer() {
   return defineClipboardSerializer({
     serializeFragmentWrapper: (fn) => {
@@ -177,7 +214,7 @@ function defineListCommands(): Extension {
 // ── Input Rules ──
 
 function defineListInputRules(): Extension {
-  return union(listInputRules.map(defineInputRule));
+  return union(listInputRules.map((rule) => defineInputRule(shouldAutoWrapListInputRule(rule))));
 }
 
 // ── Keymap ──
@@ -227,4 +264,4 @@ function defineList(): Extension {
   );
 }
 
-export { defineList };
+export { defineList, shouldAutoWrapListInputRule };
