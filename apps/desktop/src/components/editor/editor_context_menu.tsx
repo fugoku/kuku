@@ -11,7 +11,7 @@
 //   4 — AI Skills Pattern A (Improve / Proofread / Translate → Chat with prompts)
 //   5 — Edit with AI (free-form inline prompt via `onRequestAiEdit` callback)
 
-import { createSignal, type JSX } from "solid-js";
+import { createSignal, For, type JSX } from "solid-js";
 import { ContextMenu as KMenu } from "@kobalte/core/context-menu";
 
 import {
@@ -37,6 +37,12 @@ import {
   StrikethroughIcon,
 } from "~/components/icons";
 import { getActiveEditorInstance } from "~/components/editor/system/editor_engine";
+import {
+  getEditorSlashItems,
+  readEditorSlashItemState,
+  type EditorSlashItem,
+  type EditorSlashItemState,
+} from "~/plugins/builtin/editor_core/slash_items";
 import { getAllCommands } from "~/plugins/commands";
 import { sendMessage, setSelectedMode } from "~/plugins/builtin/ai_chat/chat_store";
 import { openRightPanelView } from "~/stores/layout";
@@ -140,50 +146,6 @@ function isMarkActive(markName: string): boolean {
   return state.doc.rangeHasMark(from, to, markType);
 }
 
-/**
- * Get the heading level of the block containing the cursor.
- * Returns 0 when the cursor is not inside a heading node.
- */
-function getActiveHeadingLevel(): number {
-  const editor = getActiveEditorInstance();
-  if (!editor?.view) return 0;
-
-  const { $from } = editor.view.state.selection;
-  const parent = $from.parent;
-  return parent.type.name === "heading" ? (parent.attrs.level as number) : 0;
-}
-
-/**
- * Get the block type name of the node containing the cursor.
- * Used to highlight the active item in the "Turn Into" submenu.
- */
-function getActiveBlockType(): string {
-  const editor = getActiveEditorInstance();
-  if (!editor?.view) return "paragraph";
-
-  const { $from } = editor.view.state.selection;
-  return $from.parent.type.name;
-}
-
-/**
- * Detect the list kind at the current cursor position.
- * Returns "bullet", "ordered", "task", or null.
- */
-function getActiveListKind(): string | null {
-  const editor = getActiveEditorInstance();
-  if (!editor?.view) return null;
-
-  const { $from } = editor.view.state.selection;
-  // Walk up the tree to find a list node
-  for (let depth = $from.depth; depth >= 0; depth--) {
-    const node = $from.node(depth);
-    if (node.type.name === "list") {
-      return (node.attrs.kind as string) ?? "bullet";
-    }
-  }
-  return null;
-}
-
 /** Check whether the AI chat plugin is registered. */
 function isAiChatAvailable(): boolean {
   return getAllCommands().some((reg) => reg.contribution.id === "ai-chat.openPanel");
@@ -197,8 +159,12 @@ export default function EditorContextMenu(props: EditorContextMenuProps) {
   const [hasSelection, setHasSelection] = createSignal(false);
   const [activeMarks, setActiveMarks] = createSignal<Set<string>>(new Set());
   const [headingLevel, setHeadingLevel] = createSignal(0);
-  const [blockType, setBlockType] = createSignal("paragraph");
-  const [listKind, setListKind] = createSignal<string | null>(null);
+  const [editorBlockState, setEditorBlockState] = createSignal<EditorSlashItemState>({
+    blockType: "paragraph",
+    headingLevel: 0,
+    listKind: null,
+    insideBlockquote: false,
+  });
 
   // ── State Snapshot ──
 
@@ -218,9 +184,9 @@ export default function EditorContextMenu(props: EditorContextMenuProps) {
     setActiveMarks(marks);
 
     // Block-level state
-    setHeadingLevel(getActiveHeadingLevel());
-    setBlockType(getActiveBlockType());
-    setListKind(getActiveListKind());
+    const blockState = readEditorSlashItemState(editor.view);
+    setHeadingLevel(blockState.headingLevel);
+    setEditorBlockState(blockState);
   }
 
   function handleOpenChange(open: boolean): void {
@@ -281,73 +247,22 @@ export default function EditorContextMenu(props: EditorContextMenuProps) {
 
   // ── Block Transform Actions (Phase 2) ──
 
-  /** Convert the current block to a paragraph (removing heading / code block / etc.). */
-  function turnIntoParagraph(): void {
-    const cmds = getEditorCommands();
-    if (!cmds) return;
-
-    const bt = blockType();
-    const hl = headingLevel();
-
-    // If inside a heading, toggle it off (→ paragraph)
-    if (bt === "heading" && hl > 0) {
-      cmds.toggleHeading?.({ level: hl });
-    } else if (bt === "codeBlock") {
-      cmds.toggleCodeBlock?.();
-    }
-
-    // If inside a blockquote, unwrap it
-    if (isInsideBlockquote()) {
-      cmds.toggleBlockquote?.();
-    }
-
-    // If inside a list, unwrap it
-    if (listKind() !== null) {
-      cmds.unwrapList?.();
-    }
-
-    queueEditorFocusRestore();
-  }
-
-  function turnIntoHeading(level: number): void {
-    toggleHeading(level);
-  }
-
-  function turnIntoBlockquote(): void {
-    const cmds = getEditorCommands();
-    if (!cmds) return;
-    cmds.toggleBlockquote?.();
-    queueEditorFocusRestore();
-  }
-
-  function turnIntoCodeBlock(): void {
-    const cmds = getEditorCommands();
-    if (!cmds) return;
-    cmds.toggleCodeBlock?.();
-    queueEditorFocusRestore();
-  }
-
-  function turnIntoList(kind: "bullet" | "ordered"): void {
-    if (blockType() !== "paragraph") {
-      queueEditorFocusRestore();
-      return;
-    }
-
-    const cmds = getEditorCommands();
-    if (!cmds) return;
-    cmds.toggleList?.({ kind });
-    queueEditorFocusRestore();
-  }
-
-  /** Walk up ancestors to check for a blockquote wrapper. */
-  function isInsideBlockquote(): boolean {
+  function runTurnIntoItem(item: EditorSlashItem): void {
     const editor = getActiveEditorInstance();
-    if (!editor?.view) return false;
-    const { $from } = editor.view.state.selection;
-    for (let d = $from.depth; d >= 0; d--) {
-      if ($from.node(d).type.name === "blockquote") return true;
-    }
-    return false;
+    if (!editor) return;
+    void item.execute(editor);
+    queueEditorFocusRestore();
+  }
+
+  function getTurnIntoItems(): EditorSlashItem[] {
+    return getEditorSlashItems().filter((item) => item.showInContextMenu !== false);
+  }
+
+  function isTurnIntoItemDisabled(item: EditorSlashItem): boolean {
+    const editor = getActiveEditorInstance();
+    if (!editor) return true;
+    const isEnabled = item.isEnabled?.(editorBlockState(), editor);
+    return isEnabled === false;
   }
 
   // ── Clipboard Actions (Phase 1) ──
@@ -501,60 +416,20 @@ export default function EditorContextMenu(props: EditorContextMenuProps) {
         <ContextMenuSub>
           <ContextMenuSubTrigger label="Turn Into" />
           <ContextMenuSubContent>
-            <ContextMenuItem
-              label="Paragraph"
-              onSelect={turnIntoParagraph}
-              disabled={blockType() === "paragraph" && headingLevel() === 0 && listKind() === null}
-            />
-            <ContextMenuSeparator />
-            <ContextMenuItem
-              label="Heading 1"
-              onSelect={() => turnIntoHeading(1)}
-              disabled={headingLevel() === 1}
-            />
-            <ContextMenuItem
-              label="Heading 2"
-              onSelect={() => turnIntoHeading(2)}
-              disabled={headingLevel() === 2}
-            />
-            <ContextMenuItem
-              label="Heading 3"
-              onSelect={() => turnIntoHeading(3)}
-              disabled={headingLevel() === 3}
-            />
-            <ContextMenuItem
-              label="Heading 4"
-              onSelect={() => turnIntoHeading(4)}
-              disabled={headingLevel() === 4}
-            />
-            <ContextMenuItem
-              label="Heading 5"
-              onSelect={() => turnIntoHeading(5)}
-              disabled={headingLevel() === 5}
-            />
-            <ContextMenuItem
-              label="Heading 6"
-              onSelect={() => turnIntoHeading(6)}
-              disabled={headingLevel() === 6}
-            />
-            <ContextMenuSeparator />
-            <ContextMenuItem label="Blockquote" onSelect={turnIntoBlockquote} />
-            <ContextMenuItem
-              label="Code Block"
-              onSelect={turnIntoCodeBlock}
-              disabled={blockType() === "codeBlock"}
-            />
-            <ContextMenuSeparator />
-            <ContextMenuItem
-              label="Bullet List"
-              onSelect={() => turnIntoList("bullet")}
-              disabled={listKind() === "bullet" || blockType() !== "paragraph"}
-            />
-            <ContextMenuItem
-              label="Ordered List"
-              onSelect={() => turnIntoList("ordered")}
-              disabled={listKind() === "ordered" || blockType() !== "paragraph"}
-            />
+            <For each={getTurnIntoItems()}>
+              {(item, index) => (
+                <>
+                  {index() > 0 && getTurnIntoItems()[index() - 1]?.group !== item.group ? (
+                    <ContextMenuSeparator />
+                  ) : null}
+                  <ContextMenuItem
+                    label={item.title}
+                    onSelect={() => runTurnIntoItem(item)}
+                    disabled={isTurnIntoItemDisabled(item)}
+                  />
+                </>
+              )}
+            </For>
           </ContextMenuSubContent>
         </ContextMenuSub>
 

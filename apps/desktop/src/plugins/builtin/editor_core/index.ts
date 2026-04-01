@@ -31,6 +31,7 @@ import { defineHeading } from "./nodes/heading";
 import { defineHorizontalRule } from "./nodes/horizontal_rule";
 import { defineImage } from "./nodes/image";
 import { defineList } from "./nodes/list";
+import { registerDefaultEditorSlashItems } from "./slash_items";
 import { defineTable } from "./nodes/table";
 
 // ── Extension Factory ──
@@ -211,6 +212,7 @@ const editorCorePlugin: KukuPlugin = {
 
   activate(ctx) {
     ctx.track(registerLinkAnchorEditHandler());
+    ctx.track(registerDefaultEditorSlashItems());
   },
 
   // ── Commands ──

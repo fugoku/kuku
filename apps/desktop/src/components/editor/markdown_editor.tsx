@@ -1,6 +1,6 @@
 import { createEffect, createSignal, onCleanup, onMount, Show, untrack } from "solid-js";
 import type { OverlayScrollbars } from "overlayscrollbars";
-import { union } from "prosekit/core";
+import { union, type Editor } from "prosekit/core";
 import { TextSelection } from "prosekit/pm/state";
 import { ProseKit, useDocChange, useKeymap } from "prosekit/solid";
 import type { OverlayScrollbarsComponentRef } from "overlayscrollbars-solid";
@@ -9,6 +9,7 @@ import { createKukuEditor, destroyEditor } from "~/components/editor/system/edit
 import EditorContextMenu from "~/components/editor/editor_context_menu";
 import AiEditInput from "~/components/editor/ai_edit_input";
 import AnchorEditInput from "~/components/editor/anchor_edit_input";
+import EditorSlashMenu from "~/components/editor/editor_slash_menu";
 import ScrollArea from "~/components/scroll_area";
 import type { PMNodeJSON } from "~/lib/markdown";
 import {
@@ -16,6 +17,11 @@ import {
   type AnchorEditValues,
   type ResolvedAnchorEditor,
 } from "~/plugins/anchor_editors";
+import {
+  filterEditorSlashItems,
+  readEditorSlashItemState,
+  type EditorSlashItem,
+} from "~/plugins/builtin/editor_core/slash_items";
 import { getMarkdownService } from "~/plugins/markdown_service";
 import { setContextKey } from "~/plugins/context_keys";
 import { defineDiffSchemaExtension, defineReadonly } from "~/plugins/builtin/diff_view";
@@ -47,6 +53,22 @@ interface MarkdownEditorProps {
 }
 
 const HOVER_LINK_OPEN_DELAY_MS = 1000;
+const SLASH_MENU_WIDTH = 320;
+const SLASH_MENU_MAX_HEIGHT = 320;
+const SLASH_TRIGGER_PATTERN = /^(\s*)\/([^\s]*)$/;
+
+interface SlashMenuPosition {
+  top: number;
+  left: number;
+  flip: boolean;
+}
+
+interface ResolvedSlashMenu {
+  from: number;
+  to: number;
+  query: string;
+  position: SlashMenuPosition;
+}
 
 function clampUnit(value: number): number {
   return Math.max(0, Math.min(1, value));
@@ -54,6 +76,61 @@ function clampUnit(value: number): number {
 
 function isLinkEditorElement(value: EventTarget | null): boolean {
   return value instanceof Element && Boolean(value.closest("[data-link-editor]"));
+}
+
+function computeSlashMenuPosition(
+  editor: Editor,
+  containerEl: HTMLElement,
+): SlashMenuPosition | null {
+  const { from } = editor.view.state.selection;
+  let coords: { top: number; bottom: number; left: number };
+
+  try {
+    coords = editor.view.coordsAtPos(from);
+  } catch {
+    return null;
+  }
+
+  const containerRect = containerEl.getBoundingClientRect();
+  const relativeTop = coords.bottom - containerRect.top;
+  const relativeLeft = coords.left - containerRect.left;
+  const flip = relativeTop + SLASH_MENU_MAX_HEIGHT + 8 > containerRect.height;
+
+  return {
+    top: flip
+      ? coords.top - containerRect.top - Math.min(SLASH_MENU_MAX_HEIGHT, 240) - 8
+      : relativeTop + 8,
+    left: Math.min(
+      Math.max(8, relativeLeft),
+      Math.max(8, containerRect.width - SLASH_MENU_WIDTH - 8),
+    ),
+    flip,
+  };
+}
+
+function resolveSlashMenu(editor: Editor, containerEl: HTMLElement): ResolvedSlashMenu | null {
+  const { state } = editor.view;
+  const { selection } = state;
+  if (!selection.empty) return null;
+
+  const { $from } = selection;
+  if (!$from.parent.isTextblock) return null;
+
+  const textBefore = $from.parent.textBetween(0, $from.parentOffset, undefined, "\0");
+  const match = SLASH_TRIGGER_PATTERN.exec(textBefore);
+  if (!match) return null;
+
+  const position = computeSlashMenuPosition(editor, containerEl);
+  if (!position) return null;
+
+  const leadingWhitespace = match[1]?.length ?? 0;
+
+  return {
+    from: $from.start() + leadingWhitespace,
+    to: selection.from,
+    query: match[2] ?? "",
+    position,
+  };
 }
 
 export default function MarkdownEditor(props: MarkdownEditorProps) {
@@ -90,6 +167,8 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     "hover" | "selection" | null
   >(null);
   const [anchorEditorPinned, setAnchorEditorPinned] = createSignal(false);
+  const [activeSlashMenu, setActiveSlashMenu] = createSignal<ResolvedSlashMenu | null>(null);
+  const [slashMenuSelectedIndex, setSlashMenuSelectedIndex] = createSignal(0);
 
   /** Returns the scroll viewport element managed by OverlayScrollbars. */
   function getScrollViewport(): HTMLElement | undefined {
@@ -222,6 +301,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
       lastKnownScrollTop = viewport.scrollTop;
       scheduleViewportStatePersist();
       scheduleScrollbarVisualSync();
+      requestAnimationFrame(() => refreshSlashMenu());
     };
 
     viewport.addEventListener("scroll", handleScroll, { passive: true });
@@ -429,6 +509,70 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     requestAnimationFrame(() => refreshActiveAnchorEditor());
   }
 
+  function closeSlashMenu(): void {
+    setActiveSlashMenu(null);
+    setSlashMenuSelectedIndex(0);
+  }
+
+  function getVisibleSlashItems(): EditorSlashItem[] {
+    const menu = activeSlashMenu();
+    return menu ? filterEditorSlashItems(menu.query) : [];
+  }
+
+  function isSlashItemDisabled(item: EditorSlashItem): boolean {
+    const isEnabled = item.isEnabled?.(readEditorSlashItemState(editor.view), editor);
+    return isEnabled === false;
+  }
+
+  function refreshSlashMenu(): void {
+    if (isDiffMode || disposed || !containerRef) {
+      closeSlashMenu();
+      return;
+    }
+
+    const nextMenu = resolveSlashMenu(editor, containerRef);
+    const currentMenu = activeSlashMenu();
+
+    if (!nextMenu) {
+      closeSlashMenu();
+      return;
+    }
+
+    setActiveSlashMenu(nextMenu);
+
+    if (
+      !currentMenu ||
+      currentMenu.from !== nextMenu.from ||
+      currentMenu.to !== nextMenu.to ||
+      currentMenu.query !== nextMenu.query
+    ) {
+      setSlashMenuSelectedIndex(0);
+      return;
+    }
+
+    const items = filterEditorSlashItems(nextMenu.query);
+    if (items.length === 0) {
+      setSlashMenuSelectedIndex(0);
+      return;
+    }
+
+    setSlashMenuSelectedIndex((currentIndex) => Math.min(currentIndex, items.length - 1));
+  }
+
+  function applySlashItem(item: EditorSlashItem): void {
+    const menu = activeSlashMenu();
+    if (!menu || isSlashItemDisabled(item)) return;
+
+    editor.view.dispatch(editor.view.state.tr.delete(menu.from, menu.to));
+    closeSlashMenu();
+
+    requestAnimationFrame(() => {
+      void item.execute(editor);
+      editor.view.focus();
+      requestAnimationFrame(() => refreshSlashMenu());
+    });
+  }
+
   async function loadEditableDocument(): Promise<void> {
     // Read caches outside the reactive tracking context.
     // These reads happen synchronously before the first `await`, so
@@ -600,12 +744,22 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     const container = e.currentTarget as HTMLElement;
     if (!related || !container.contains(related)) {
       setContextKey("editorTextFocus", false);
+      closeSlashMenu();
     }
     scheduleViewportStatePersist();
   }
 
   onMount(() => {
     setContextKey("editorTextFocus", false);
+
+    const handleSelectionChange = () => {
+      requestAnimationFrame(() => refreshSlashMenu());
+    };
+
+    document.addEventListener("selectionchange", handleSelectionChange);
+    onCleanup(() => {
+      document.removeEventListener("selectionchange", handleSelectionChange);
+    });
   });
 
   onCleanup(() => {
@@ -653,6 +807,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
       recordTyping();
       scheduleViewportStatePersist();
       requestAnimationFrame(() => refreshActiveAnchorEditor());
+      requestAnimationFrame(() => refreshSlashMenu());
       if (settingsState.general.autoSave) {
         scheduleAutoSave();
       }
@@ -670,6 +825,38 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
 
   function closeAiEditInput(): void {
     setShowAiEditInput(false);
+  }
+
+  function handleEditorKeyDown(e: KeyboardEvent): void {
+    const menu = activeSlashMenu();
+    if (!menu) return;
+
+    const items = getVisibleSlashItems();
+
+    switch (e.key) {
+      case "ArrowDown":
+        if (items.length === 0) return;
+        e.preventDefault();
+        setSlashMenuSelectedIndex((current) => Math.min(current + 1, items.length - 1));
+        return;
+      case "ArrowUp":
+        if (items.length === 0) return;
+        e.preventDefault();
+        setSlashMenuSelectedIndex((current) => Math.max(current - 1, 0));
+        return;
+      case "Enter":
+      case "Tab": {
+        const item = items[slashMenuSelectedIndex()];
+        if (!item) return;
+        e.preventDefault();
+        applySlashItem(item);
+        return;
+      }
+      case "Escape":
+        e.preventDefault();
+        closeSlashMenu();
+        return;
+    }
   }
 
   function handleEditorPointerMove(e: PointerEvent): void {
@@ -794,16 +981,30 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
                 containerRef = el;
                 syncSpellcheckSetting();
                 requestAnimationFrame(() => refreshActiveAnchorEditor());
+                requestAnimationFrame(() => refreshSlashMenu());
               }}
               spellcheck={settingsState.general.spellCheck}
               onFocusIn={handleFocusIn}
               onFocusOut={handleFocusOut}
+              onKeyDown={handleEditorKeyDown}
               onPointerMove={handleEditorPointerMove}
               onPointerLeave={handleEditorPointerLeave}
             >
               <div ref={editor.mount} />
               <Show when={showAiEditInput()}>
                 <AiEditInput onClose={closeAiEditInput} />
+              </Show>
+              <Show when={activeSlashMenu()}>
+                {(slashMenu) => (
+                  <EditorSlashMenu
+                    position={slashMenu().position}
+                    items={getVisibleSlashItems()}
+                    selectedIndex={slashMenuSelectedIndex()}
+                    isItemDisabled={isSlashItemDisabled}
+                    onHoverIndexChange={setSlashMenuSelectedIndex}
+                    onSelect={applySlashItem}
+                  />
+                )}
               </Show>
               <Show when={activeAnchorEditor()}>
                 {(activeEditor) => (
