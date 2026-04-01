@@ -5,6 +5,7 @@
     "typeAware": true,
     "typeCheck": true
   },
+  "ignorePatterns": ["**/dist", "**/__tests__/**", "**/*.test.ts", "**/*.test.tsx"],
   "overrides": [
     {
       "files": ["**/*.{js,cjs,mjs,ts,tsx,cts,mts}"],
@@ -23,7 +24,17 @@
         "better-tailwindcss/no-deprecated-classes": "warn",
         "better-tailwindcss/no-unnecessary-whitespace": "warn",
         // ── better-tailwindcss recommended (correctness: error) ──
-        "better-tailwindcss/no-unknown-classes": ["error", { "ignore": ["^tab-bar(-tabs)?$"] }],
+        "better-tailwindcss/no-unknown-classes": [
+          "error",
+          {
+            "ignore": [
+              "^tab-bar(-tabs)?$",
+              "^kuku-task-checkbox(?:__input|__control)?$",
+              "^kuku-markdown-task-list$",
+              "^kuku-markdown-task-item(?:-content)?$"
+            ]
+          }
+        ],
         "better-tailwindcss/no-conflicting-classes": "error",
         "better-tailwindcss/no-restricted-classes": [
           "error",

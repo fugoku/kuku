@@ -18,6 +18,7 @@ import type { EditorView } from "prosekit/pm/view";
 import { getContextKey } from "~/plugins/context_keys";
 import type { KukuPlugin } from "~/plugins/types";
 
+import { registerLinkAnchorEditHandler } from "./anchor_edit_handler";
 import { defineBold } from "./marks/bold";
 import { defineCode } from "./marks/code";
 import { defineItalic } from "./marks/italic";
@@ -206,6 +207,10 @@ const editorCorePlugin: KukuPlugin = {
   editor: {
     extension: defineEditorCoreExtension,
     markdown: editorCoreMarkdown,
+  },
+
+  activate(ctx) {
+    ctx.track(registerLinkAnchorEditHandler());
   },
 
   // ── Commands ──

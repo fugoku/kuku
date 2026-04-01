@@ -13,8 +13,11 @@ import type { SearchService } from "~/plugins/builtin/core_indexer/service";
 import { openTab } from "~/stores/files";
 import { existsInTree, vaultState } from "~/stores/vault";
 
+import { registerWikilinkAnchorEditHandler } from "./anchor_edit_handler";
 import { wikilinkMarkdown } from "./markdown_handlers";
 import { defineWikilink } from "./nodes/wikilink";
+
+import "~/styles/wikilink.css";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -46,6 +49,8 @@ const wikilinkPlugin: KukuPlugin = {
     if (!search) {
       throw new Error("core-indexer.search service not found");
     }
+
+    ctx.track(registerWikilinkAnchorEditHandler());
 
     // Register anchor click handler via the shared registry.
     // editor_core's click plugin dispatches to this when <a data-wikilink> is clicked.

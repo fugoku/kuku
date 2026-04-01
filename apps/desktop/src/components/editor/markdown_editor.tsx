@@ -8,8 +8,14 @@ import type { OverlayScrollbarsComponentRef } from "overlayscrollbars-solid";
 import { createKukuEditor, destroyEditor } from "~/components/editor/system/editor_engine";
 import EditorContextMenu from "~/components/editor/editor_context_menu";
 import AiEditInput from "~/components/editor/ai_edit_input";
+import AnchorEditInput from "~/components/editor/anchor_edit_input";
 import ScrollArea from "~/components/scroll_area";
 import type { PMNodeJSON } from "~/lib/markdown";
+import {
+  dispatchAnchorEditResolveFromAnchor,
+  type AnchorEditValues,
+  type ResolvedAnchorEditor,
+} from "~/plugins/anchor_editors";
 import { getMarkdownService } from "~/plugins/markdown_service";
 import { setContextKey } from "~/plugins/context_keys";
 import { defineDiffSchemaExtension, defineReadonly } from "~/plugins/builtin/diff_view";
@@ -32,7 +38,6 @@ import { applyPendingSearchNavigation } from "~/plugins/builtin/search/navigatio
 import BacklinksPanel from "~/plugins/builtin/graph_view/backlinks_panel";
 
 import "~/styles/editor.css";
-import "~/styles/wikilink.css";
 import "~/plugins/builtin/diff_view/diff_view.css";
 
 interface MarkdownEditorProps {
@@ -41,8 +46,14 @@ interface MarkdownEditorProps {
   mode?: "editable" | "diff";
 }
 
+const HOVER_LINK_OPEN_DELAY_MS = 1000;
+
 function clampUnit(value: number): number {
   return Math.max(0, Math.min(1, value));
+}
+
+function isLinkEditorElement(value: EventTarget | null): boolean {
+  return value instanceof Element && Boolean(value.closest("[data-link-editor]"));
 }
 
 export default function MarkdownEditor(props: MarkdownEditorProps) {
@@ -68,6 +79,17 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
   let viewportPersistTimer: number | null = null;
   let lastKnownScrollTop = 0;
   let pendingScrollbarSyncRaf: number | null = null;
+  let hoverOpenTimer: number | null = null;
+  let pendingHoverAnchor: HTMLAnchorElement | null = null;
+  let hoveredAnchor: HTMLAnchorElement | null = null;
+
+  const [activeAnchorEditor, setActiveAnchorEditor] = createSignal<ResolvedAnchorEditor | null>(
+    null,
+  );
+  const [activeAnchorEditorOrigin, setActiveAnchorEditorOrigin] = createSignal<
+    "hover" | "selection" | null
+  >(null);
+  const [anchorEditorPinned, setAnchorEditorPinned] = createSignal(false);
 
   /** Returns the scroll viewport element managed by OverlayScrollbars. */
   function getScrollViewport(): HTMLElement | undefined {
@@ -94,6 +116,13 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     if (pendingScrollbarSyncRaf !== null) {
       cancelAnimationFrame(pendingScrollbarSyncRaf);
       pendingScrollbarSyncRaf = null;
+    }
+  }
+
+  function clearHoverOpenTimer(): void {
+    if (hoverOpenTimer !== null) {
+      window.clearTimeout(hoverOpenTimer);
+      hoverOpenTimer = null;
     }
   }
 
@@ -317,6 +346,89 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     });
   }
 
+  function isEditorAnchor(value: EventTarget | null): value is HTMLAnchorElement {
+    return value instanceof HTMLAnchorElement && editor.view.dom.contains(value);
+  }
+
+  function getClosestEditorAnchor(target: EventTarget | null): HTMLAnchorElement | null {
+    if (!(target instanceof Element)) return null;
+    const anchor = target.closest("a");
+    return isEditorAnchor(anchor) ? anchor : null;
+  }
+
+  function resolveCurrentAnchorEditor(preferredAnchor?: HTMLAnchorElement | null): {
+    editor: ResolvedAnchorEditor | null;
+    origin: "hover" | "selection" | null;
+  } {
+    const hoverEditor =
+      (preferredAnchor
+        ? dispatchAnchorEditResolveFromAnchor(preferredAnchor, editor.view)
+        : null) ??
+      (hoveredAnchor ? dispatchAnchorEditResolveFromAnchor(hoveredAnchor, editor.view) : null);
+    if (hoverEditor) {
+      return { editor: hoverEditor, origin: "hover" };
+    }
+
+    return { editor: null, origin: null };
+  }
+
+  function setResolvedActiveAnchorEditor(preferredAnchor?: HTMLAnchorElement | null): void {
+    const { editor: nextEditor, origin } = resolveCurrentAnchorEditor(preferredAnchor);
+    setActiveAnchorEditor(nextEditor);
+    setActiveAnchorEditorOrigin(origin);
+  }
+
+  function refreshActiveAnchorEditor(preferredAnchor?: HTMLAnchorElement | null): void {
+    if (isDiffMode || disposed || anchorEditorPinned()) {
+      return;
+    }
+
+    setResolvedActiveAnchorEditor(preferredAnchor);
+  }
+
+  function handleAnchorEditorPinnedChange(pinned: boolean): void {
+    setAnchorEditorPinned(pinned);
+    if (pinned || disposed) return;
+    requestAnimationFrame(() => refreshActiveAnchorEditor());
+  }
+
+  function closeActiveAnchorEditor(options?: { focusEditor?: boolean }): void {
+    const activeEditor = activeAnchorEditor();
+    const origin = activeAnchorEditorOrigin();
+    const closeResult = origin === "selection" ? activeEditor?.close?.(editor.view) : undefined;
+
+    clearHoverOpenTimer();
+    pendingHoverAnchor = null;
+    hoveredAnchor = null;
+    setAnchorEditorPinned(false);
+    setActiveAnchorEditor(null);
+    setActiveAnchorEditorOrigin(null);
+
+    const focusEditor = options?.focusEditor ?? closeResult?.focusEditor ?? true;
+    if (!focusEditor) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      if (!disposed) {
+        editor.view.focus();
+      }
+    });
+  }
+
+  function applyActiveAnchorEdit(values: AnchorEditValues): void {
+    const activeEditor = activeAnchorEditor();
+    if (!activeEditor) return;
+
+    const result = activeEditor.apply(values, editor.view);
+    if (result?.close) {
+      closeActiveAnchorEditor({ focusEditor: result.focusEditor });
+      return;
+    }
+
+    requestAnimationFrame(() => refreshActiveAnchorEditor());
+  }
+
   async function loadEditableDocument(): Promise<void> {
     // Read caches outside the reactive tracking context.
     // These reads happen synchronously before the first `await`, so
@@ -500,6 +612,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     clearPendingViewportAction();
     clearViewportPersistRaf();
     clearPendingScrollbarSyncRaf();
+    clearHoverOpenTimer();
     clearViewportScrollListener();
     persistEditorRuntimeState();
     if (settingsState.general.autoSave && (autoSaveTimer !== null || saveInFlight !== null)) {
@@ -539,6 +652,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
       markTabDirty(props.tabId, true);
       recordTyping();
       scheduleViewportStatePersist();
+      requestAnimationFrame(() => refreshActiveAnchorEditor());
       if (settingsState.general.autoSave) {
         scheduleAutoSave();
       }
@@ -556,6 +670,60 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
 
   function closeAiEditInput(): void {
     setShowAiEditInput(false);
+  }
+
+  function handleEditorPointerMove(e: PointerEvent): void {
+    if (anchorEditorPinned() || isLinkEditorElement(e.target)) {
+      return;
+    }
+
+    const anchor = getClosestEditorAnchor(e.target);
+    if (!anchor) {
+      clearHoverOpenTimer();
+      pendingHoverAnchor = null;
+      hoveredAnchor = null;
+      refreshActiveAnchorEditor();
+      return;
+    }
+
+    if (hoveredAnchor === anchor) {
+      if (activeAnchorEditorOrigin() === "hover") {
+        refreshActiveAnchorEditor(anchor);
+      }
+      return;
+    }
+
+    if (pendingHoverAnchor === anchor) {
+      return;
+    }
+
+    clearHoverOpenTimer();
+    pendingHoverAnchor = anchor;
+
+    if (hoveredAnchor) {
+      hoveredAnchor = null;
+      refreshActiveAnchorEditor();
+    }
+
+    hoverOpenTimer = window.setTimeout(() => {
+      hoverOpenTimer = null;
+      if (disposed || anchorEditorPinned() || pendingHoverAnchor !== anchor) {
+        return;
+      }
+
+      pendingHoverAnchor = null;
+      hoveredAnchor = anchor;
+      const resolvedEditor = dispatchAnchorEditResolveFromAnchor(anchor, editor.view);
+      setActiveAnchorEditor(resolvedEditor);
+      setActiveAnchorEditorOrigin(resolvedEditor ? "hover" : null);
+    }, HOVER_LINK_OPEN_DELAY_MS);
+  }
+
+  function handleEditorPointerLeave(): void {
+    clearHoverOpenTimer();
+    pendingHoverAnchor = null;
+    hoveredAnchor = null;
+    refreshActiveAnchorEditor();
   }
 
   useKeymap(
@@ -625,14 +793,28 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
               ref={(el) => {
                 containerRef = el;
                 syncSpellcheckSetting();
+                requestAnimationFrame(() => refreshActiveAnchorEditor());
               }}
               spellcheck={settingsState.general.spellCheck}
               onFocusIn={handleFocusIn}
               onFocusOut={handleFocusOut}
+              onPointerMove={handleEditorPointerMove}
+              onPointerLeave={handleEditorPointerLeave}
             >
               <div ref={editor.mount} />
               <Show when={showAiEditInput()}>
                 <AiEditInput onClose={closeAiEditInput} />
+              </Show>
+              <Show when={activeAnchorEditor()}>
+                {(activeEditor) => (
+                  <AnchorEditInput
+                    target={activeEditor().target}
+                    autoFocus={false}
+                    onApply={applyActiveAnchorEdit}
+                    onPinnedChange={handleAnchorEditorPinnedChange}
+                    onClose={closeActiveAnchorEditor}
+                  />
+                )}
               </Show>
               <BacklinksPanel filePath={props.filePath || null} />
             </div>
