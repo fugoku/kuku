@@ -193,6 +193,30 @@
   outline-offset: 2px;
 }
 
+/* ── Table ── */
+
+.ProseMirror .tableWrapper {
+  overflow-x: visible;
+  inline-size: var(--editor-table-width, fit-content);
+  min-inline-size: fit-content;
+  max-inline-size: var(--editor-table-max-width, none);
+}
+
+.ProseMirror table {
+  inline-size: var(--editor-table-width, fit-content);
+  min-inline-size: fit-content;
+  max-inline-size: var(--editor-table-max-width, none);
+  table-layout: auto;
+  width: auto;
+}
+
+.ProseMirror th,
+.ProseMirror td {
+  white-space: inherit;
+  overflow-wrap: inherit;
+  min-width: 0;
+}
+
 /* ── Task Checkbox ── */
 
 .kuku-task-checkbox {

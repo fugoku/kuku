@@ -62,6 +62,14 @@ export default function App() {
       "--editor-code-overflow-x",
       wordWrap ? "auto" : "visible",
     );
+    document.documentElement.style.setProperty(
+      "--editor-table-width",
+      wordWrap ? "fit-content" : "max-content",
+    );
+    document.documentElement.style.setProperty(
+      "--editor-table-max-width",
+      wordWrap ? "100%" : "none",
+    );
   });
 
   onMount(() => {
