@@ -10,6 +10,7 @@ import EditorContextMenu from "~/components/editor/editor_context_menu";
 import AiEditInput from "~/components/editor/ai_edit_input";
 import AnchorEditInput from "~/components/editor/anchor_edit_input";
 import EditorSlashMenu from "~/components/editor/editor_slash_menu";
+import EditorWikilinkMenu from "~/components/editor/editor_wikilink_menu";
 import {
   computeSlashMenuPosition,
   type SlashMenuPosition,
@@ -42,7 +43,12 @@ import { getDiffEntry } from "~/stores/diff_store";
 import { recordTyping, resetTyping } from "~/stores/typing";
 import { readFileWithChecksum, writeFileWithChecksum } from "~/lib/vault_fs";
 import { settingsState } from "~/stores/settings";
-import { revealPath, setSelectedPath } from "~/stores/vault";
+import { revealPath, setSelectedPath, vaultState } from "~/stores/vault";
+import {
+  filterWikilinkSuggestions,
+  flattenMarkdownFiles,
+  type WikilinkSuggestItem,
+} from "~/plugins/builtin/wikilink/wikilink_suggest";
 import { applyPendingSearchNavigation } from "~/plugins/builtin/search/navigation";
 
 import BacklinksPanel from "~/plugins/builtin/graph_view/backlinks_panel";
@@ -60,8 +66,18 @@ const HOVER_LINK_OPEN_DELAY_MS = 1000;
 const SLASH_MENU_WIDTH = 320;
 const SLASH_MENU_MAX_HEIGHT = 320;
 const SLASH_TRIGGER_PATTERN = /^(\s*)\/([^\s]*)$/;
+const WIKILINK_TRIGGER_PATTERN = /\[\[([^[\]|]*)$/;
+const WIKILINK_MENU_WIDTH = 320;
+const WIKILINK_MENU_MAX_HEIGHT = 320;
 
 interface ResolvedSlashMenu {
+  from: number;
+  to: number;
+  query: string;
+  position: SlashMenuPosition;
+}
+
+interface ResolvedWikilinkMenu {
   from: number;
   to: number;
   query: string;
@@ -119,6 +135,50 @@ function resolveSlashMenu(
   };
 }
 
+function resolveWikilinkMenu(
+  editor: Editor,
+  containerEl: HTMLElement,
+  viewportEl?: HTMLElement,
+): ResolvedWikilinkMenu | null {
+  const { state } = editor.view;
+  const { selection } = state;
+  if (!selection.empty) return null;
+
+  const { $from } = selection;
+  if (!$from.parent.isTextblock) return null;
+
+  const textBefore = $from.parent.textBetween(0, $from.parentOffset, undefined, "\0");
+  const match = WIKILINK_TRIGGER_PATTERN.exec(textBefore);
+  if (!match) return null;
+
+  const { from } = editor.view.state.selection;
+  let coords: { top: number; bottom: number; left: number };
+
+  try {
+    coords = editor.view.coordsAtPos(from);
+  } catch {
+    return null;
+  }
+
+  const position = computeSlashMenuPosition({
+    anchorRect: coords,
+    containerRect: containerEl.getBoundingClientRect(),
+    viewportRect: (viewportEl ?? containerEl).getBoundingClientRect(),
+    menuWidth: WIKILINK_MENU_WIDTH,
+    menuMaxHeight: WIKILINK_MENU_MAX_HEIGHT,
+  });
+
+  // match.index points to the first `[` of `[[`.
+  const wikilinkStart = $from.start() + match.index;
+
+  return {
+    from: wikilinkStart,
+    to: selection.from,
+    query: match[1] ?? "",
+    position,
+  };
+}
+
 export default function MarkdownEditor(props: MarkdownEditorProps) {
   const mode = props.mode ?? "editable";
   const isDiffMode = mode === "diff";
@@ -156,6 +216,10 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
   const [anchorEditorPinned, setAnchorEditorPinned] = createSignal(false);
   const [activeSlashMenu, setActiveSlashMenu] = createSignal<ResolvedSlashMenu | null>(null);
   const [slashMenuSelectedIndex, setSlashMenuSelectedIndex] = createSignal(0);
+  const [activeWikilinkMenu, setActiveWikilinkMenu] = createSignal<ResolvedWikilinkMenu | null>(
+    null,
+  );
+  const [wikilinkMenuSelectedIndex, setWikilinkMenuSelectedIndex] = createSignal(0);
 
   /** Returns the scroll viewport element managed by OverlayScrollbars. */
   function getScrollViewport(): HTMLElement | undefined {
@@ -299,7 +363,10 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
       lastKnownScrollTop = viewport.scrollTop;
       scheduleViewportStatePersist();
       scheduleScrollbarVisualSync();
-      requestAnimationFrame(() => refreshSlashMenu());
+      requestAnimationFrame(() => {
+        refreshSlashMenu();
+        refreshWikilinkMenu();
+      });
     };
 
     viewport.addEventListener("scroll", handleScroll, { passive: true });
@@ -326,6 +393,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
       requestAnimationFrame(() => {
         if (!disposed) {
           refreshSlashMenu();
+          refreshWikilinkMenu();
         }
       });
     });
@@ -613,6 +681,72 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     });
   }
 
+  // ── Wikilink Suggest Menu ───────────────────────────────────────
+
+  function closeWikilinkMenu(): void {
+    setActiveWikilinkMenu(null);
+    setWikilinkMenuSelectedIndex(0);
+  }
+
+  function getVisibleWikilinkItems(): WikilinkSuggestItem[] {
+    const menu = activeWikilinkMenu();
+    if (!menu) return [];
+    const allItems = flattenMarkdownFiles(vaultState.files);
+    return filterWikilinkSuggestions(allItems, menu.query, props.filePath);
+  }
+
+  function refreshWikilinkMenu(): void {
+    if (isDiffMode || disposed || !containerRef) {
+      closeWikilinkMenu();
+      return;
+    }
+
+    const nextMenu = resolveWikilinkMenu(editor, containerRef, getScrollViewport());
+    const currentMenu = activeWikilinkMenu();
+
+    if (!nextMenu) {
+      closeWikilinkMenu();
+      return;
+    }
+
+    setActiveWikilinkMenu(nextMenu);
+
+    if (
+      !currentMenu ||
+      currentMenu.from !== nextMenu.from ||
+      currentMenu.to !== nextMenu.to ||
+      currentMenu.query !== nextMenu.query
+    ) {
+      setWikilinkMenuSelectedIndex(0);
+      return;
+    }
+
+    const items = getVisibleWikilinkItems();
+    if (items.length === 0) {
+      setWikilinkMenuSelectedIndex(0);
+      return;
+    }
+
+    setWikilinkMenuSelectedIndex((current) => Math.min(current, items.length - 1));
+  }
+
+  function applyWikilinkItem(item: WikilinkSuggestItem): void {
+    const menu = activeWikilinkMenu();
+    if (!menu) return;
+
+    const wikilinkType = editor.view.state.schema.nodes.wikilink;
+    if (!wikilinkType) return;
+
+    const node = wikilinkType.create({ target: item.path });
+    const tr = editor.view.state.tr.replaceWith(menu.from, menu.to, node);
+    editor.view.dispatch(tr);
+    closeWikilinkMenu();
+
+    requestAnimationFrame(() => {
+      editor.view.focus();
+    });
+  }
+
   async function loadEditableDocument(): Promise<void> {
     // Read caches outside the reactive tracking context.
     // These reads happen synchronously before the first `await`, so
@@ -788,6 +922,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     if (!related || !container.contains(related)) {
       setContextKey("editorTextFocus", false);
       closeSlashMenu();
+      closeWikilinkMenu();
     }
     scheduleViewportStatePersist();
   }
@@ -800,6 +935,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
         if (disposed) return;
 
         refreshSlashMenu();
+        refreshWikilinkMenu();
         if (hasActiveEditorSelection()) {
           scheduleViewportStatePersist();
         }
@@ -858,7 +994,10 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
       recordTyping();
       scheduleViewportStatePersist();
       requestAnimationFrame(() => refreshActiveAnchorEditor());
-      requestAnimationFrame(() => refreshSlashMenu());
+      requestAnimationFrame(() => {
+        refreshSlashMenu();
+        refreshWikilinkMenu();
+      });
       if (settingsState.general.autoSave) {
         scheduleAutoSave();
       }
@@ -879,34 +1018,67 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
   }
 
   function handleEditorKeyDown(e: KeyboardEvent): void {
-    const menu = activeSlashMenu();
-    if (!menu) return;
+    // ── Slash menu keyboard handling ──
+    const slashMenu = activeSlashMenu();
+    if (slashMenu) {
+      const items = getVisibleSlashItems();
 
-    const items = getVisibleSlashItems();
-
-    switch (e.key) {
-      case "ArrowDown":
-        if (items.length === 0) return;
-        e.preventDefault();
-        setSlashMenuSelectedIndex((current) => Math.min(current + 1, items.length - 1));
-        return;
-      case "ArrowUp":
-        if (items.length === 0) return;
-        e.preventDefault();
-        setSlashMenuSelectedIndex((current) => Math.max(current - 1, 0));
-        return;
-      case "Enter":
-      case "Tab": {
-        const item = items[slashMenuSelectedIndex()];
-        if (!item) return;
-        e.preventDefault();
-        applySlashItem(item);
-        return;
+      switch (e.key) {
+        case "ArrowDown":
+          if (items.length === 0) return;
+          e.preventDefault();
+          setSlashMenuSelectedIndex((current) => Math.min(current + 1, items.length - 1));
+          return;
+        case "ArrowUp":
+          if (items.length === 0) return;
+          e.preventDefault();
+          setSlashMenuSelectedIndex((current) => Math.max(current - 1, 0));
+          return;
+        case "Enter":
+        case "Tab": {
+          const item = items[slashMenuSelectedIndex()];
+          if (!item) return;
+          e.preventDefault();
+          applySlashItem(item);
+          return;
+        }
+        case "Escape":
+          e.preventDefault();
+          closeSlashMenu();
+          return;
       }
-      case "Escape":
-        e.preventDefault();
-        closeSlashMenu();
-        return;
+      return;
+    }
+
+    // ── Wikilink menu keyboard handling ──
+    const wlMenu = activeWikilinkMenu();
+    if (wlMenu) {
+      const items = getVisibleWikilinkItems();
+
+      switch (e.key) {
+        case "ArrowDown":
+          if (items.length === 0) return;
+          e.preventDefault();
+          setWikilinkMenuSelectedIndex((current) => Math.min(current + 1, items.length - 1));
+          return;
+        case "ArrowUp":
+          if (items.length === 0) return;
+          e.preventDefault();
+          setWikilinkMenuSelectedIndex((current) => Math.max(current - 1, 0));
+          return;
+        case "Enter":
+        case "Tab": {
+          const item = items[wikilinkMenuSelectedIndex()];
+          if (!item) return;
+          e.preventDefault();
+          applyWikilinkItem(item);
+          return;
+        }
+        case "Escape":
+          e.preventDefault();
+          closeWikilinkMenu();
+          return;
+      }
     }
   }
 
@@ -1033,7 +1205,10 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
                 syncSpellcheckSetting();
                 syncSlashMenuLayoutObserver();
                 requestAnimationFrame(() => refreshActiveAnchorEditor());
-                requestAnimationFrame(() => refreshSlashMenu());
+                requestAnimationFrame(() => {
+                  refreshSlashMenu();
+                  refreshWikilinkMenu();
+                });
               }}
               spellcheck={settingsState.general.spellCheck}
               onFocusIn={handleFocusIn}
@@ -1055,6 +1230,18 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
                     isItemDisabled={isSlashItemDisabled}
                     onHoverIndexChange={setSlashMenuSelectedIndex}
                     onSelect={applySlashItem}
+                  />
+                )}
+              </Show>
+              <Show when={activeWikilinkMenu()}>
+                {(wlMenu) => (
+                  <EditorWikilinkMenu
+                    position={wlMenu().position}
+                    items={getVisibleWikilinkItems()}
+                    query={wlMenu().query}
+                    selectedIndex={wikilinkMenuSelectedIndex()}
+                    onHoverIndexChange={setWikilinkMenuSelectedIndex}
+                    onSelect={applyWikilinkItem}
                   />
                 )}
               </Show>

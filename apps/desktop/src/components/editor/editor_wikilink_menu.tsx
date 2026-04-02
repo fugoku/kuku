@@ -1,0 +1,154 @@
+import { createEffect, For, Show } from "solid-js";
+import type { OverlayScrollbarsComponentRef } from "overlayscrollbars-solid";
+
+import ScrollArea from "~/components/scroll_area";
+import type { SlashMenuPosition } from "~/components/editor/slash_menu_position";
+import type { WikilinkSuggestItem } from "~/plugins/builtin/wikilink/wikilink_suggest";
+
+interface EditorWikilinkMenuProps {
+  position: SlashMenuPosition;
+  items: readonly WikilinkSuggestItem[];
+  query: string;
+  selectedIndex: number;
+  onHoverIndexChange: (index: number) => void;
+  onSelect: (item: WikilinkSuggestItem) => void;
+}
+
+/**
+ * Highlight the first occurrence of `query` within `text` by wrapping it
+ * in a <mark> element. Returns the original text when there is no match.
+ */
+function highlightMatch(text: string, query: string) {
+  if (!query) return text;
+
+  const lower = text.toLowerCase();
+  const idx = lower.indexOf(query.toLowerCase());
+  if (idx === -1) return text;
+
+  const before = text.slice(0, idx);
+  const match = text.slice(idx, idx + query.length);
+  const after = text.slice(idx + query.length);
+
+  return (
+    <>
+      {before}
+      <mark class="bg-transparent font-semibold text-text-primary">{match}</mark>
+      {after}
+    </>
+  );
+}
+
+export default function EditorWikilinkMenu(props: EditorWikilinkMenuProps) {
+  let scrollAreaRef: OverlayScrollbarsComponentRef | undefined;
+  const itemRefs: (HTMLButtonElement | undefined)[] = [];
+
+  // Keep the refs array in sync with the items length.
+  createEffect(() => {
+    itemRefs.length = props.items.length;
+  });
+
+  // Auto-scroll the selected item into view.
+  createEffect(() => {
+    const selectedIndex = props.selectedIndex;
+    if (selectedIndex < 0 || selectedIndex >= props.items.length) return;
+
+    requestAnimationFrame(() => {
+      const viewport = scrollAreaRef?.osInstance()?.elements().viewport;
+      const item = itemRefs[selectedIndex];
+      if (!viewport || !item) return;
+
+      const itemTop = item.offsetTop;
+      const itemBottom = itemTop + item.offsetHeight;
+      const viewportTop = viewport.scrollTop;
+      const viewportBottom = viewportTop + viewport.clientHeight;
+
+      if (itemTop < viewportTop) {
+        viewport.scrollTop = Math.max(0, itemTop - 4);
+      } else if (itemBottom > viewportBottom) {
+        viewport.scrollTop = itemBottom - viewport.clientHeight + 4;
+      }
+    });
+  });
+
+  return (
+    <div class="pointer-events-none absolute inset-0 z-50" style={{ overflow: "visible" }}>
+      <div
+        class="pointer-events-auto absolute overflow-hidden rounded-sm border border-border bg-bg-secondary shadow-[0_8px_24px_rgba(0,0,0,0.22)]"
+        style={{
+          top: `${props.position.top}px`,
+          left: `${props.position.left}px`,
+          width: `${props.position.width}px`,
+        }}
+        onMouseDown={(event) => {
+          event.preventDefault();
+        }}
+      >
+        <Show
+          when={props.items.length > 0}
+          fallback={
+            <div class="p-3 text-[0.8125rem] text-text-muted">
+              {props.query ? "No matching notes." : "No notes in vault."}
+            </div>
+          }
+        >
+          <ScrollArea
+            axis="y"
+            class="py-1"
+            style={{ "max-height": `${props.position.maxHeight}px` }}
+            ref={(ref) => (scrollAreaRef = ref)}
+          >
+            <For each={props.items}>
+              {(item, index) => {
+                const selected = () => props.selectedIndex === index();
+
+                return (
+                  <button
+                    ref={(el) => {
+                      itemRefs[index()] = el;
+                    }}
+                    type="button"
+                    class="flex w-full cursor-pointer items-center gap-2.5 px-3 py-1.5 text-left transition-colors outline-none"
+                    classList={{
+                      "bg-ghost-hover": selected(),
+                    }}
+                    onMouseEnter={() => props.onHoverIndexChange(index())}
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      props.onSelect(item);
+                    }}
+                  >
+                    <span class="flex size-5 shrink-0 items-center justify-center text-text-muted">
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="M9 2H4.5A1.5 1.5 0 0 0 3 3.5v9A1.5 1.5 0 0 0 4.5 14h7a1.5 1.5 0 0 0 1.5-1.5V6L9 2Z" />
+                        <path d="M9 2v4h4" />
+                      </svg>
+                    </span>
+                    <span class="min-w-0 flex-1 truncate">
+                      <span class="text-[0.8125rem] text-text-primary">
+                        {highlightMatch(item.name, props.query)}
+                      </span>
+                      <Show when={item.folder}>
+                        {(folder) => (
+                          <span class="ml-1.5 text-[0.6875rem] text-text-muted">{folder()}</span>
+                        )}
+                      </Show>
+                    </span>
+                  </button>
+                );
+              }}
+            </For>
+          </ScrollArea>
+        </Show>
+      </div>
+    </div>
+  );
+}
