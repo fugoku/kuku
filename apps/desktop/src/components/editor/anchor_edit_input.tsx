@@ -42,7 +42,7 @@ export default function AnchorEditInput(props: AnchorEditInputProps) {
   let focusedTargetId: string | null = null;
 
   const [values, setValues] = createSignal<AnchorEditValues>({});
-  const [position, setPosition] = createSignal<AnchorPosition>({ top: 0, left: 0 });
+  const [position, setPosition] = createSignal({ top: 0, left: 0 });
 
   // ── Suggest state ──
   const [focusedFieldKey, setFocusedFieldKey] = createSignal<string | null>(null);

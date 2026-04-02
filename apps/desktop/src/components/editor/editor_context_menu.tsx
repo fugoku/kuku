@@ -157,7 +157,7 @@ export default function EditorContextMenu(props: EditorContextMenuProps) {
   // Snapshot signals — captured once when the menu opens so item states
   // remain stable while the menu is visible.
   const [hasSelection, setHasSelection] = createSignal(false);
-  const [activeMarks, setActiveMarks] = createSignal<Set<string>>(new Set());
+  const [activeMarks, setActiveMarks] = createSignal(new Set());
   const [headingLevel, setHeadingLevel] = createSignal(0);
   const [editorBlockState, setEditorBlockState] = createSignal<EditorSlashItemState>({
     blockType: "paragraph",

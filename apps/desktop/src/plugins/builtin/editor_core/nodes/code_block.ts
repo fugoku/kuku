@@ -62,7 +62,7 @@ function extractLanguageFromElement(element: Element | null): string {
   if (!element) return "";
   const attr = element.getAttribute("data-language");
   if (attr) return attr;
-  const match = element.className.match(/language-(\w+)/);
+  const match = /language-(\w+)/.exec(element.className);
   if (match) return match[1];
   return "";
 }
