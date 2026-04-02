@@ -48,7 +48,7 @@ export default function App() {
     );
     document.documentElement.style.setProperty(
       "--editor-white-space",
-      wordWrap ? "pre-wrap" : "pre",
+      wordWrap ? "break-spaces" : "pre",
     );
     document.documentElement.style.setProperty(
       "--editor-content-width",

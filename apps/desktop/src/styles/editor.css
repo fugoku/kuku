@@ -24,6 +24,7 @@
 /* ── Editor Surface ── */
 
 .ProseMirror {
+  position: relative;
   outline: none;
   padding: 2rem 2.5rem 15vh;
   min-height: 100%;
@@ -33,11 +34,28 @@
   color: var(--color-text-primary);
   caret-color: var(--color-text-primary);
   overflow-wrap: var(--editor-overflow-wrap, break-word);
-  white-space: var(--editor-white-space, pre-wrap);
+  white-space: var(--editor-white-space, break-spaces);
+  -webkit-font-variant-ligatures: none;
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0;
 }
 
 .ProseMirror:focus {
   outline: none;
+}
+
+/* ProseMirror uses uneditable inline leaf DOM for atoms like wikilinks.
+   Let the browser still place/extend text selections around those nodes. */
+.ProseMirror [draggable][contenteditable="false"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Keep ProseMirror's inline separator hack from inheriting app-level image styles. */
+.ProseMirror img.ProseMirror-separator {
+  display: inline !important;
+  border: none !important;
+  margin: 0 !important;
 }
 
 /* ── Block Elements ── */
@@ -178,9 +196,11 @@
   color: inherit;
 }
 
-/* ── Image ── */
+/* ── Image ──
+   Skip ProseMirror's inline separator hack image. It is injected after
+   inline atoms at textblock ends and must not inherit block image styles. */
 
-.ProseMirror img {
+.ProseMirror img:not(.ProseMirror-separator) {
   max-width: 100%;
   height: auto;
   display: block;
@@ -188,7 +208,7 @@
   border-radius: 0;
 }
 
-.ProseMirror img.ProseMirror-selectednode {
+.ProseMirror img:not(.ProseMirror-separator).ProseMirror-selectednode {
   outline: 2px solid var(--color-border-selected);
   outline-offset: 2px;
 }

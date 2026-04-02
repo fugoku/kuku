@@ -605,6 +605,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     const closeResult = origin === "selection" ? activeEditor?.close?.(editor.view) : undefined;
 
     clearHoverOpenTimer();
+    clearHoverCloseTimer();
     pendingHoverAnchor = null;
     hoveredAnchor = null;
     setAnchorEditorPinned(false);
@@ -1037,37 +1038,33 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     setShowAiEditInput(false);
   }
 
-  function handleEditorKeyDown(e: KeyboardEvent): void {
+  function handleEditorMenuKey(key: string): boolean {
     // ── Slash menu keyboard handling ──
     const slashMenu = activeSlashMenu();
     if (slashMenu) {
       const items = getVisibleSlashItems();
 
-      switch (e.key) {
+      switch (key) {
         case "ArrowDown":
-          if (items.length === 0) return;
-          e.preventDefault();
+          if (items.length === 0) return false;
           setSlashMenuSelectedIndex((current) => Math.min(current + 1, items.length - 1));
-          return;
+          return true;
         case "ArrowUp":
-          if (items.length === 0) return;
-          e.preventDefault();
+          if (items.length === 0) return false;
           setSlashMenuSelectedIndex((current) => Math.max(current - 1, 0));
-          return;
+          return true;
         case "Enter":
         case "Tab": {
           const item = items[slashMenuSelectedIndex()];
-          if (!item) return;
-          e.preventDefault();
+          if (!item) return false;
           applySlashItem(item);
-          return;
+          return true;
         }
         case "Escape":
-          e.preventDefault();
           closeSlashMenu();
-          return;
+          return true;
       }
-      return;
+      return false;
     }
 
     // ── Wikilink menu keyboard handling ──
@@ -1075,38 +1072,46 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     if (wlMenu) {
       const items = getVisibleWikilinkItems();
 
-      switch (e.key) {
+      switch (key) {
         case "ArrowDown":
-          if (items.length === 0) return;
-          e.preventDefault();
+          if (items.length === 0) return false;
           setWikilinkMenuSelectedIndex((current) => Math.min(current + 1, items.length - 1));
-          return;
+          return true;
         case "ArrowUp":
-          if (items.length === 0) return;
-          e.preventDefault();
+          if (items.length === 0) return false;
           setWikilinkMenuSelectedIndex((current) => Math.max(current - 1, 0));
-          return;
+          return true;
         case "Enter":
         case "Tab": {
           const item = items[wikilinkMenuSelectedIndex()];
-          if (!item) return;
-          e.preventDefault();
+          if (!item) return false;
           applyWikilinkItem(item);
-          return;
+          return true;
         }
         case "Escape":
-          e.preventDefault();
           closeWikilinkMenu();
-          return;
+          return true;
       }
     }
 
     // ── Hover anchor editor dismiss ──
-    if (e.key === "Escape" && activeAnchorEditor()) {
-      e.preventDefault();
+    if (key === "Escape" && activeAnchorEditor()) {
       clearHoverCloseTimer();
       closeActiveAnchorEditor();
+      return true;
+    }
+
+    return false;
+  }
+
+  function handleEditorOverlayKeyDown(e: KeyboardEvent): void {
+    if (isDiffMode || e.defaultPrevented || e.key !== "Escape") {
       return;
+    }
+
+    if (handleEditorMenuKey("Escape")) {
+      e.preventDefault();
+      e.stopPropagation();
     }
   }
 
@@ -1187,6 +1192,26 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
 
   useKeymap(
     () => ({
+      ArrowDown: () => {
+        if (isDiffMode) return false;
+        return handleEditorMenuKey("ArrowDown");
+      },
+      ArrowUp: () => {
+        if (isDiffMode) return false;
+        return handleEditorMenuKey("ArrowUp");
+      },
+      Enter: () => {
+        if (isDiffMode) return false;
+        return handleEditorMenuKey("Enter");
+      },
+      Tab: () => {
+        if (isDiffMode) return false;
+        return handleEditorMenuKey("Tab");
+      },
+      Escape: () => {
+        if (isDiffMode) return false;
+        return handleEditorMenuKey("Escape");
+      },
       "Mod-s": () => {
         if (isDiffMode) {
           return false;
@@ -1262,7 +1287,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
               spellcheck={settingsState.general.spellCheck}
               onFocusIn={handleFocusIn}
               onFocusOut={handleFocusOut}
-              onKeyDown={handleEditorKeyDown}
+              onKeyDown={handleEditorOverlayKeyDown}
               onPointerMove={handleEditorPointerMove}
               onPointerLeave={handleEditorPointerLeave}
             >
