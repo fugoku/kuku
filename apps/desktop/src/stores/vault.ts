@@ -25,6 +25,7 @@ import {
   remapPathSet,
   splitNameForEditing,
 } from "~/lib/vault_path";
+import { sortVaultEntriesNaturally } from "~/lib/vault_sort";
 import {
   closeVault as closeVaultCommand,
   listVaultFiles,
@@ -110,7 +111,7 @@ function resetVaultUi(
 }
 
 async function loadFiles(rootPath: string): Promise<void> {
-  const files = await listVaultFiles("");
+  const files = sortVaultEntriesNaturally(await listVaultFiles(""));
   const index = buildVaultTreeIndex(files);
   const nextUiState = reconcileVaultUiState(index, {
     expandedFolders: vaultState.expandedFolders,
