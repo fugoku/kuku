@@ -426,6 +426,19 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     });
   }
 
+  function hasActiveEditorSelection(): boolean {
+    if (disposed || isDiffMode) return false;
+
+    const selection = document.getSelection();
+    if (!selection) return false;
+
+    const { anchorNode, focusNode } = selection;
+    return Boolean(
+      (anchorNode && editor.view.dom.contains(anchorNode)) ||
+        (focusNode && editor.view.dom.contains(focusNode)),
+    );
+  }
+
   function isEditorAnchor(value: EventTarget | null): value is HTMLAnchorElement {
     return value instanceof HTMLAnchorElement && editor.view.dom.contains(value);
   }
@@ -663,6 +676,8 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     const content = getSaveContent();
     if (content === null) return;
 
+    saveCurrentViewportState();
+
     if (content === queuedSaveContent || content === inFlightSaveContent) {
       await (saveInFlight ?? Promise.resolve());
       return;
@@ -703,6 +718,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
             const docUnchanged = editor.view.state.doc === docBeforeSave;
             if (docUnchanged) {
               saveCachedContent(props.tabId, editor.getDocJSON());
+              saveCurrentViewportState();
             }
             if (queuedSaveContent === null && docUnchanged) {
               markTabDirty(props.tabId, false);
@@ -753,7 +769,14 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     setContextKey("editorTextFocus", false);
 
     const handleSelectionChange = () => {
-      requestAnimationFrame(() => refreshSlashMenu());
+      requestAnimationFrame(() => {
+        if (disposed) return;
+
+        refreshSlashMenu();
+        if (hasActiveEditorSelection()) {
+          scheduleViewportStatePersist();
+        }
+      });
     };
 
     document.addEventListener("selectionchange", handleSelectionChange);

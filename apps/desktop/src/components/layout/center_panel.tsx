@@ -24,6 +24,11 @@ export default function CenterPanel() {
     }
     return null;
   };
+  const editorTabKey = () => {
+    const tab = editorTab();
+    if (!tab) return null;
+    return `${tab.id}:${tab.type}:${tab.filePath ?? ""}`;
+  };
   const pluginFill = () => {
     const tabType = pluginTabType();
     if (!tabType || tabType === "editor" || tabType === "diff" || tabType === "settings") {
@@ -127,16 +132,21 @@ export default function CenterPanel() {
         }
       >
         <div class="min-h-0 flex-1 overflow-hidden">
-          <Show when={editorTab()} keyed>
-            {(tab) => (
-              <Show when={pluginsReady()}>
-                <MarkdownEditor
-                  tabId={tab.id}
-                  filePath={tab.filePath ?? ""}
-                  mode={tab.type === "diff" ? "diff" : "editable"}
-                />
-              </Show>
-            )}
+          <Show when={editorTabKey()} keyed>
+            {(_tabKey) => {
+              const tab = editorTab();
+              if (!tab) return null;
+
+              return (
+                <Show when={pluginsReady()}>
+                  <MarkdownEditor
+                    tabId={tab.id}
+                    filePath={tab.filePath ?? ""}
+                    mode={tab.type === "diff" ? "diff" : "editable"}
+                  />
+                </Show>
+              );
+            }}
           </Show>
           <Show when={!editorTab() && activeTab()?.type === "settings"}>
             <SettingsView />
