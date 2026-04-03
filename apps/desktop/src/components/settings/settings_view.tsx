@@ -433,12 +433,12 @@ function EditorSection() {
           onChange={(v) => setGeneralSetting("autoSave", v)}
         />
       </SettingItem>
-      <SettingItem label="Spell check" description="Check spelling while typing in the editor.">
+      {/*<SettingItem label="Spell check" description="Check spelling while typing in the editor.">
         <Switch
           checked={settingsState.general.spellCheck}
           onChange={(v) => setGeneralSetting("spellCheck", v)}
         />
-      </SettingItem>
+      </SettingItem>*/}
       <SettingItem
         label="Typing indicator"
         description="Show character count in the sidebar while typing."
@@ -456,7 +456,7 @@ function EditorSection() {
           placeholder="Select tab size"
         />
       </SettingItem>
-      <SettingItem label="Word wrap" description="Wrap long lines to fit the editor width.">
+      {/*<SettingItem label="Word wrap" description="Wrap long lines to fit the editor width.">
         <Switch
           checked={settingsState.editor.wordWrap}
           onChange={(v) => setEditorSetting("wordWrap", v)}
@@ -467,7 +467,7 @@ function EditorSection() {
           checked={settingsState.editor.lineNumbers}
           onChange={(v) => setEditorSetting("lineNumbers", v)}
         />
-      </SettingItem>
+      </SettingItem>*/}
       <SettingItem label="Font size" description="Base text size used in the editor body.">
         <Select
           options={FONT_SIZE_OPTIONS}
