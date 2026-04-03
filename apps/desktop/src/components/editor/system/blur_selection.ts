@@ -1,21 +1,20 @@
-// ── Blur Selection ──
+// ── Custom Selection Highlight ──
 //
-// ProseMirror plugin that preserves the visual selection highlight when
-// the editor loses DOM focus (e.g. when a context menu portal opens).
+// Replaces the browser's native `::selection` with ProseMirror inline
+// decorations so that selection never paints full-width backgrounds on
+// block-level wrapper divs (e.g. nested list containers).
 //
-// The browser's native `::selection` pseudo-element is only painted while
-// the owning `contenteditable` has focus. This plugin fills the gap by
-// applying `Decoration.inline` decorations with a `.pm-selection-blur`
-// CSS class over the selection range whenever the editor is blurred.
+// Native `::selection` is suppressed via CSS:
+//   .ProseMirror ::selection { background: transparent; color: inherit; }
 //
-// The decorations are removed immediately when the editor regains focus,
-// seamlessly handing back to the native `::selection` styling.
+// This plugin renders `.pm-selection` decorations for BOTH focused and
+// blurred states, giving us full control over how selections look.
 //
 // Addressed edge cases:
 //   1. rAF timing race — pending blur is cancelled if focus returns first
-//   2. Double-display flicker — focus clears decorations synchronously
-//   3. Drag-outside blur — mouse-held state suppresses blur decorations
-//   4. Stale decorations — selection changes while blurred update the range
+//   2. Drag-outside blur — mouse-held state suppresses blur style swap
+//   3. Stale decorations — selection changes always rebuild decorations
+//   4. Performance — decorations only rebuild when selection or doc changes
 
 import { definePlugin, type Extension } from "prosekit/core";
 import type { Node } from "prosekit/pm/model";
@@ -24,51 +23,49 @@ import { Decoration, DecorationSet } from "prosekit/pm/view";
 
 // ── Constants ──
 
-const pluginKey = new PluginKey<DecorationSet>("blur-selection");
+interface SelectionState {
+  decorations: DecorationSet;
+  focused: boolean;
+}
+
+const pluginKey = new PluginKey<SelectionState>("selection-highlight");
 
 /**
  * Transaction metadata key.
- * - `true`  → editor blurred, build selection decorations
- * - `false` → editor focused, clear decorations
+ * - `"focus"`  → editor gained focus
+ * - `"blur"`   → editor lost focus
  */
-const BLUR_META = "blur-selection-active";
+const FOCUS_META = "selection-highlight-focus";
 
-/** CSS class applied to the inline decorations. Style in `editor.css`. */
+/** CSS class applied when the editor is focused. */
+const SELECTION_CLASS = "pm-selection";
+
+/** CSS class applied when the editor is blurred (preserves highlight). */
 const BLUR_CLASS = "pm-selection-blur";
 
 // ── Helpers ──
 
-/** Build a decoration set for the current selection, or empty if collapsed. */
-function decorationsForSelection(doc: Node, from: number, to: number): DecorationSet {
+/** Build a decoration set for a non-collapsed selection. */
+function buildDecorations(doc: Node, from: number, to: number, className: string): DecorationSet {
   if (from === to) return DecorationSet.empty;
-  return DecorationSet.create(doc, [Decoration.inline(from, to, { class: BLUR_CLASS })]);
+  return DecorationSet.create(doc, [Decoration.inline(from, to, { class: className })]);
 }
 
 // ── Extension ──
 
 /**
- * Returns a ProseKit Extension that highlights the selection on blur.
+ * Returns a ProseKit Extension that renders custom selection decorations,
+ * completely replacing native `::selection` highlighting.
  *
- * How it works:
- *   1. `blur`  DOM event → schedule decoration creation (cancellable)
- *   2. Plugin state creates `Decoration.inline` over the selection range
- *   3. `focus` DOM event → cancel any pending blur, clear decorations
- *   4. Selection changes while blurred → decorations follow the new range
- *   5. Mouse drag in progress → blur decorations suppressed entirely
+ * Focused state:  `.pm-selection`      — active selection color
+ * Blurred state:  `.pm-selection-blur` — dimmed / preserved selection color
  */
 function defineBlurSelection(): Extension {
   // ── Mutable state shared between DOM handlers ──
 
-  /** ID of the pending `requestAnimationFrame` for blur dispatch. */
   let pendingBlurRaf: number | null = null;
-
-  /** Whether a mouse button is currently held down (drag in progress). */
   let mouseDown = false;
 
-  /** Whether the plugin considers the editor "blurred with decorations". */
-  let isBlurred = false;
-
-  /** Cancel any scheduled blur dispatch. */
   function cancelPendingBlur(): void {
     if (pendingBlurRaf !== null) {
       cancelAnimationFrame(pendingBlurRaf);
@@ -77,62 +74,62 @@ function defineBlurSelection(): Extension {
   }
 
   return definePlugin(
-    new Plugin<DecorationSet>({
+    new Plugin<SelectionState>({
       key: pluginKey,
 
       state: {
-        init() {
-          return DecorationSet.empty;
+        init(_config, state) {
+          // Editor starts focused — render active selection decorations
+          const { from, to } = state.selection;
+          return {
+            decorations: buildDecorations(state.doc, from, to, SELECTION_CLASS),
+            focused: true,
+          };
         },
 
-        apply(tr, decorations, _oldState, newState) {
-          const meta = tr.getMeta(BLUR_META);
+        apply(tr, prev, _oldState, newState) {
+          const focusMeta = tr.getMeta(FOCUS_META) as string | undefined;
 
-          // Blur: create decorations for the current selection
-          if (meta === true) {
-            const { from, to } = tr.selection;
-            return decorationsForSelection(tr.doc, from, to);
-          }
-
-          // Focus: clear all decorations immediately
-          if (meta === false) {
-            return DecorationSet.empty;
-          }
-
-          // Nothing active — skip processing
-          if (decorations === DecorationSet.empty) {
-            return DecorationSet.empty;
-          }
-
-          // [Fix #4] Selection changed while blurred — rebuild decorations
-          // for the new range so the highlight follows the selection.
-          if (tr.selectionSet) {
+          // ── Focus change ──
+          if (focusMeta === "focus") {
             const { from, to } = newState.selection;
-            return decorationsForSelection(newState.doc, from, to);
+            return {
+              decorations: buildDecorations(newState.doc, from, to, SELECTION_CLASS),
+              focused: true,
+            };
           }
 
-          // Doc changed while blurred — map decorations to new positions
-          if (tr.docChanged) {
-            // eslint-disable-next-line unicorn/no-array-method-this-argument -- DecorationSet.map(), not Array.map()
-            return decorations.map(tr.mapping, tr.doc);
+          if (focusMeta === "blur") {
+            const { from, to } = newState.selection;
+            return {
+              decorations: buildDecorations(newState.doc, from, to, BLUR_CLASS),
+              focused: false,
+            };
           }
 
-          return decorations;
+          // ── Selection or doc changed ──
+          if (tr.selectionSet || tr.docChanged) {
+            const { from, to } = newState.selection;
+            const cls = prev.focused ? SELECTION_CLASS : BLUR_CLASS;
+            return {
+              decorations: buildDecorations(newState.doc, from, to, cls),
+              focused: prev.focused,
+            };
+          }
+
+          return prev;
         },
       },
 
       props: {
         decorations(state) {
-          return pluginKey.getState(state) ?? DecorationSet.empty;
+          return pluginKey.getState(state)?.decorations ?? DecorationSet.empty;
         },
 
         handleDOMEvents: {
-          // ── [Fix #3] Track mouse-held state to suppress drag-blur ──
+          // ── Track mouse state to suppress drag-blur ──
 
           mousedown(_view, event: MouseEvent) {
-            // Only track left-button drags (button 0).
-            // Right-click (button 2) opens context menus and should NOT
-            // suppress blur decorations.
             if (event.button === 0) mouseDown = true;
             return false;
           },
@@ -145,51 +142,33 @@ function defineBlurSelection(): Extension {
           // ── Blur / Focus handlers ──
 
           blur(view) {
-            // [Fix #3] Don't create blur decorations during a drag — the
-            // user is actively selecting text and the editor will regain
-            // focus when the mouse is released.
+            // Don't switch to blur style during a drag — the user is
+            // actively selecting and the editor will regain focus on mouseup.
             if (mouseDown) return false;
 
-            const { empty } = view.state.selection;
-            if (empty) return false;
-
-            // [Fix #1] Cancel any previous pending blur (shouldn't happen,
-            // but be defensive).
             cancelPendingBlur();
 
-            // Schedule decoration creation for the next frame so the
-            // browser finishes processing the focus change first.
+            // Schedule after the browser finishes processing focus change.
             pendingBlurRaf = requestAnimationFrame(() => {
               pendingBlurRaf = null;
 
-              // Guard: editor might have been destroyed, re-focused, or
-              // a drag started in the meantime.
               if (view.isDestroyed || view.hasFocus() || mouseDown) return;
 
-              const { empty: nowEmpty } = view.state.selection;
-              if (nowEmpty) return;
+              const { from, to } = view.state.selection;
+              if (from === to) return;
 
-              isBlurred = true;
-              view.dispatch(view.state.tr.setMeta(BLUR_META, true));
+              view.dispatch(view.state.tr.setMeta(FOCUS_META, "blur"));
             });
 
             return false;
           },
 
           focus(view) {
-            // [Fix #1] If blur was scheduled but hasn't fired yet, cancel
-            // it entirely — no decorations are needed.
             cancelPendingBlur();
 
-            // [Fix #2] Clear decorations synchronously on focus to avoid
-            // a frame where both the decoration and native ::selection
-            // are visible simultaneously.
-            if (isBlurred) {
-              isBlurred = false;
-              const current = pluginKey.getState(view.state);
-              if (current && current !== DecorationSet.empty) {
-                view.dispatch(view.state.tr.setMeta(BLUR_META, false));
-              }
+            const prev = pluginKey.getState(view.state);
+            if (prev && !prev.focused) {
+              view.dispatch(view.state.tr.setMeta(FOCUS_META, "focus"));
             }
 
             return false;
@@ -202,4 +181,4 @@ function defineBlurSelection(): Extension {
 
 // ── Exports ──
 
-export { defineBlurSelection, BLUR_CLASS };
+export { defineBlurSelection, BLUR_CLASS, SELECTION_CLASS };

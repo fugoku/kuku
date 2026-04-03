@@ -19,6 +19,7 @@ import {
 import { defineInputRule } from "prosekit/extensions/input-rule";
 import { chainCommands, deleteSelection } from "prosekit/pm/commands";
 import { InputRule } from "prosekit/pm/inputrules";
+import type { DOMOutputSpec, Node as ProseMirrorNode } from "prosekit/pm/model";
 import { Plugin, type EditorState, type Transaction } from "prosekit/pm/state";
 import {
   createDedentListCommand,
@@ -43,7 +44,6 @@ import {
   createSafariInputMethodWorkaroundPlugin,
   joinListElements,
 } from "prosemirror-flat-list";
-import type { Node as ProseMirrorNode } from "prosekit/pm/model";
 
 /**
  * Internal InputRule fields that are present at runtime but not exposed
@@ -164,6 +164,39 @@ function isElementLike(node: Node): node is Element {
   return node instanceof Element;
 }
 
+// ── Attributes (vendored from prosemirror-flat-list@0.5.8 defaultAttributesGetter) ──
+//
+// Vendored so we can add `user-select: none` and `draggable: false` directly
+// to the list wrapper div. Without this, ::selection paints full-width
+// backgrounds on block-level list wrappers in nested/indented lists.
+
+interface ListAttrs {
+  kind?: string;
+  order?: number | null;
+  checked?: boolean;
+  collapsed?: boolean;
+}
+
+function getListAttributes(node: {
+  attrs: Record<string, unknown>;
+  childCount: number;
+  firstChild?: { type: { name: string } } | null;
+}): Record<string, string | undefined> {
+  const attrs = node.attrs as ListAttrs;
+  const hasNestedFirstChild = node.firstChild?.type.name === "list";
+  const markerType = hasNestedFirstChild ? undefined : attrs.kind || "bullet";
+
+  return {
+    class: "prosemirror-flat-list",
+    "data-list-kind": markerType,
+    "data-list-order": attrs.order != null ? String(attrs.order) : undefined,
+    "data-list-checked": attrs.checked ? "" : undefined,
+    "data-list-collapsed": attrs.collapsed ? "" : undefined,
+    "data-list-collapsable": node.childCount >= 2 ? "" : undefined,
+    style: attrs.order != null ? `--prosemirror-flat-list-order: ${attrs.order}` : undefined,
+  };
+}
+
 // ── Spec ──
 
 function defineListSpec(): Extension {
@@ -173,6 +206,7 @@ function defineListSpec(): Extension {
     toDOM: (node) =>
       listToDOM({
         node,
+        getAttributes: getListAttributes,
         getMarkers: (n: { attrs: Record<string, unknown> }) => {
           const attrs = n.attrs as { kind?: string; checked?: boolean };
           if (attrs.kind === "task") {

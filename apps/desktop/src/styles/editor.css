@@ -680,11 +680,21 @@ prosekit-table-handle-drop-indicator {
   border-radius: var(--radius-xs);
 }
 
+/* Native ::selection is suppressed — all selection visuals are rendered
+   by the custom selection highlight plugin (blur_selection.ts) using
+   inline decorations. This prevents full-width backgrounds on block-level
+   wrapper divs (e.g. nested list containers). */
 .ProseMirror ::selection {
+  background: transparent;
+  color: inherit;
+}
+
+/* Active selection (editor focused) */
+.ProseMirror .pm-selection {
   background: var(--color-accent-dim);
 }
 
-/* Selection preserved when editor loses focus (e.g. context menu open) */
+/* Preserved selection (editor blurred — e.g. context menu open) */
 .ProseMirror .pm-selection-blur {
   background: var(--color-accent-dim);
 }
