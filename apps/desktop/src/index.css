@@ -216,6 +216,18 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+[data-accessibility-disabled="true"] button:focus,
+[data-accessibility-disabled="true"] button:focus-visible,
+[data-accessibility-disabled="true"] a:focus,
+[data-accessibility-disabled="true"] a:focus-visible,
+[data-accessibility-disabled="true"] [tabindex]:focus,
+[data-accessibility-disabled="true"] [tabindex]:focus-visible,
+[data-accessibility-disabled="true"] [role]:focus,
+[data-accessibility-disabled="true"] [role]:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    Typing Indicator Animations
    ═══════════════════════════════════════════════════════════════════════════ */

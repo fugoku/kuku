@@ -6,6 +6,7 @@ import TitleBar from "~/components/layout/title_bar";
 import VaultBrowser from "~/components/vault/vault_browser";
 
 import { initFonts } from "~/lib/fonts";
+import { installAccessibilitySuppression } from "~/lib/disable_accessibility";
 import { bootstrapPlugins, destroyPlugins } from "~/plugins/bootstrap";
 import { Slot } from "~/plugins/slots";
 import { initSettings, settingsState } from "~/stores/settings";
@@ -29,6 +30,7 @@ const ACTION_BTN =
 
 export default function App() {
   initTheme();
+  let cleanupAccessibilitySuppression: (() => void) | null = null;
 
   // Apply appearance settings reactively
   createEffect(() => {
@@ -76,8 +78,10 @@ export default function App() {
 
   onMount(() => {
     void initializeApp();
+    cleanupAccessibilitySuppression = installAccessibilitySuppression();
   });
   onCleanup(() => {
+    cleanupAccessibilitySuppression?.();
     void closeVault();
     destroyPlugins();
     destroyCloseHandler();

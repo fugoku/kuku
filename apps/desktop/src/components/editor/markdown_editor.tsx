@@ -1190,6 +1190,15 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     }
   }
 
+  function insertEditorIndent(): boolean {
+    const spaces = " ".repeat(Math.max(1, settingsState.editor.tabSize));
+    const { state } = editor.view;
+    const { from, to } = state.selection;
+
+    editor.view.dispatch(state.tr.insertText(spaces, from, to).scrollIntoView());
+    return true;
+  }
+
   useKeymap(
     () => ({
       ArrowDown: () => {
@@ -1206,7 +1215,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
       },
       Tab: () => {
         if (isDiffMode) return false;
-        return handleEditorMenuKey("Tab");
+        return handleEditorMenuKey("Tab") || insertEditorIndent();
       },
       Escape: () => {
         if (isDiffMode) return false;
