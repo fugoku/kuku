@@ -1,10 +1,12 @@
 import { For, Show, createEffect, createSignal, type JSX } from "solid-js";
 
 import { chatState, loadConfig, loadTools, saveConfig } from "../chat_store";
+import { EyeIcon, EyeOffIcon } from "~/components/icons";
 
 function AiSettings(): JSX.Element {
   const [apiKey, setApiKey] = createSignal("");
   const [model, setModel] = createSignal("");
+  const [showApiKey, setShowApiKey] = createSignal(false);
 
   createEffect(() => {
     if (!chatState.config.loading && !chatState.config.saving) {
@@ -34,13 +36,28 @@ function AiSettings(): JSX.Element {
       <div class="space-y-3 p-4">
         <label class="block space-y-1.5">
           <span class="text-[0.6875rem] text-text-muted">API Key</span>
-          <input
-            type="password"
-            value={apiKey()}
-            placeholder="Gemini AI Studio API key"
-            class="w-full rounded-xs border border-border bg-bg-secondary px-3 py-2 text-sm text-text-primary transition-colors outline-none focus:border-accent"
-            onInput={(event) => setApiKey(event.currentTarget.value)}
-          />
+          <div class="relative">
+            <input
+              type={showApiKey() ? "text" : "password"}
+              value={apiKey()}
+              placeholder="Gemini AI Studio API key"
+              class="w-full rounded-xs border border-border bg-bg-secondary px-3 py-2 pr-9 text-sm text-text-primary transition-colors outline-none focus:border-accent"
+              autocomplete="off"
+              spellcheck={false}
+              onInput={(event) => setApiKey(event.currentTarget.value)}
+            />
+            <button
+              type="button"
+              class="absolute inset-y-0 right-0 flex items-center px-2.5 text-text-muted transition-colors hover:text-text-primary"
+              onClick={() => setShowApiKey((prev) => !prev)}
+              tabIndex={-1}
+              title={showApiKey() ? "Hide API key" : "Show API key"}
+            >
+              <Show when={showApiKey()} fallback={<EyeIcon size={14} />}>
+                <EyeOffIcon size={14} />
+              </Show>
+            </button>
+          </div>
         </label>
 
         <label class="block space-y-1.5">
