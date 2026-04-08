@@ -125,6 +125,7 @@ const graphViewPlugin: KukuPlugin = {
       const registrations = [
         proxyTools.register({
           name: "find_related_notes",
+          toolId: `${ctx.pluginId}.find_related_notes`,
           description: "Find notes directly linked to a given note path using the graph index",
           category: "graph",
           parameters: {
@@ -157,6 +158,7 @@ const graphViewPlugin: KukuPlugin = {
         }),
         proxyTools.register({
           name: "find_orphan_notes",
+          toolId: `${ctx.pluginId}.find_orphan_notes`,
           description: "Find notes with no or very few connections. Useful for graph cleanup.",
           category: "graph",
           parameters: {
@@ -173,6 +175,7 @@ const graphViewPlugin: KukuPlugin = {
         }),
         proxyTools.register({
           name: "get_vault_stats",
+          toolId: `${ctx.pluginId}.get_vault_stats`,
           description: "Get vault health statistics: note count, link count, orphan count.",
           category: "graph",
           parameters: {
@@ -184,6 +187,7 @@ const graphViewPlugin: KukuPlugin = {
         }),
         proxyTools.register({
           name: "suggest_links",
+          toolId: `${ctx.pluginId}.suggest_links`,
           description:
             "Suggest wiki-link targets for a document based on content similarity and graph proximity.",
           category: "graph",

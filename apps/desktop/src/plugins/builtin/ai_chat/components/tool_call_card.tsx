@@ -3,7 +3,7 @@ import { Show, type JSX } from "solid-js";
 import ScrollArea from "~/components/scroll_area";
 import { toggleToolExpanded } from "../chat_store";
 import type { ChatToolMessage } from "../types";
-import { formatToolIdentity } from "../tool_identity";
+import { formatToolIdentity, getToolInfo } from "../tool_identity";
 import {
   getToolPreview,
   getToolStatusLabel,
@@ -31,8 +31,8 @@ function ToolCallCard(props: { sessionId: string; item: ChatToolMessage }): JSX.
   const statusLabel = () => getToolStatusLabel(props.item);
   const statusTone = () => getToolStatusTone(props.item);
   const toolIdentity = () => formatToolIdentity(props.item.toolId, props.item.toolName);
-  const showLegacyName = () =>
-    props.item.toolId !== undefined && props.item.toolId !== props.item.toolName;
+  const toolInfo = () => getToolInfo(props.item.toolId ?? props.item.toolName);
+  const showIdentity = () => toolIdentity() !== toolInfo().label;
 
   return (
     <div class="rounded-xs border border-border bg-bg-secondary text-xs">
@@ -46,9 +46,9 @@ function ToolCallCard(props: { sessionId: string; item: ChatToolMessage }): JSX.
           <span class={`inline-block size-2 shrink-0 rounded-full ${TONE_DOT[statusTone()]}`} />
 
           <div class="min-w-0">
-            <span class="font-medium text-text-primary">{toolIdentity()}</span>
-            <Show when={showLegacyName()}>
-              <p class="mt-0.5 truncate text-[0.625rem] text-text-muted">{props.item.toolName}</p>
+            <span class="font-medium text-text-primary">{toolInfo().label}</span>
+            <Show when={showIdentity()}>
+              <p class="mt-0.5 truncate text-[0.625rem] text-text-muted">{toolIdentity()}</p>
             </Show>
             <p class="mt-0.5 truncate text-[0.6875rem] text-text-muted">
               {getToolPreview(props.item)}

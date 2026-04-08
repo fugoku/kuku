@@ -148,7 +148,9 @@ impl SessionRuntime {
     }
 
     pub fn remember_path_snapshot(&self, path: String, checksum: String, is_dir: bool) {
-        self.path_snapshots.lock().insert(path, PathSnapshot { checksum, is_dir });
+        self.path_snapshots
+            .lock()
+            .insert(path, PathSnapshot { checksum, is_dir });
     }
 
     pub fn path_snapshot(&self, path: &str) -> Option<(String, bool)> {
@@ -445,21 +447,27 @@ async fn handle_tool_call(
     cancel: &CancellationToken,
     tool_call: &ModelToolCall,
 ) -> Result<(String, bool), AiError> {
-    emit_tool_start(app, &session.id, tool_call);
-    debug_ai_log(format!(
-        "tool start session={} tool={} internal_call_id={}",
-        session.id, tool_call.tool_name, tool_call.call_id
-    ));
-
     let descriptor = state
         .tool_descriptors()
         .into_iter()
-        .find(|tool| tool.name == tool_call.tool_name)
-        .ok_or_else(|| AiError::ToolNotFound(tool_call.tool_name.clone()));
+        .find(|tool| tool.name == tool_call.tool_name);
+    let tool_id = descriptor
+        .as_ref()
+        .map(|tool| tool.tool_id.clone())
+        .unwrap_or_else(|| fallback_tool_id(&tool_call.tool_name));
+
+    emit_tool_start(app, &session.id, tool_call, &tool_id);
+    debug_ai_log(format!(
+        "tool start session={} tool={} tool_id={} internal_call_id={}",
+        session.id, tool_call.tool_name, tool_id, tool_call.call_id
+    ));
 
     let outcome = match descriptor {
-        Err(error) => (error.to_string(), true),
-        Ok(descriptor) => match descriptor.source {
+        None => (
+            AiError::ToolNotFound(tool_call.tool_name.clone()).to_string(),
+            true,
+        ),
+        Some(descriptor) => match descriptor.source {
             ToolSource::Native => {
                 match execute_native_tool(app, state, session, cancel, tool_call, descriptor).await
                 {
@@ -469,7 +477,7 @@ async fn handle_tool_call(
                 }
             }
             ToolSource::Proxy => {
-                match execute_proxy_tool(app, state, session, cancel, tool_call).await {
+                match execute_proxy_tool(app, state, session, cancel, tool_call, &tool_id).await {
                     Ok(outcome) => outcome,
                     Err(AiError::Cancelled) => return Err(AiError::Cancelled),
                     Err(error) => (error.to_string(), true),
@@ -482,6 +490,7 @@ async fn handle_tool_call(
         app,
         &session.id,
         &tool_call.call_id,
+        &tool_id,
         &tool_call.tool_name,
         &outcome.0,
         outcome.1,
@@ -538,6 +547,7 @@ async fn execute_native_tool(
         app,
         &session.id,
         &tool_call.call_id,
+        &descriptor.tool_id,
         &tool_call.tool_name,
         mutation.clone(),
         native_result.preview_text.clone(),
@@ -595,6 +605,7 @@ async fn execute_proxy_tool(
     session: &Arc<SessionRuntime>,
     cancel: &CancellationToken,
     tool_call: &ModelToolCall,
+    tool_id: &str,
 ) -> Result<(String, bool), AiError> {
     if state.tools().get_proxy(&tool_call.tool_name).is_none() {
         return Ok((
@@ -610,6 +621,7 @@ async fn execute_proxy_tool(
         app,
         &session.id,
         &tool_call.call_id,
+        tool_id,
         &tool_call.tool_name,
         tool_call.arguments.clone(),
     );
@@ -719,12 +731,18 @@ pub fn emit_error(app: &AppHandle<Wry>, session_id: &str, error: &AiError) {
     );
 }
 
-fn emit_tool_start(app: &AppHandle<Wry>, session_id: &str, tool_call: &ModelToolCall) {
+fn emit_tool_start(
+    app: &AppHandle<Wry>,
+    session_id: &str,
+    tool_call: &ModelToolCall,
+    tool_id: &str,
+) {
     let _ = app.emit(
         "ai:tool-call-start",
         ToolCallStartPayload {
             session_id: session_id.to_string(),
             call_id: tool_call.call_id.clone(),
+            tool_id: tool_id.to_string(),
             tool_name: tool_call.tool_name.clone(),
             arguments: tool_call.arguments.clone(),
         },
@@ -735,6 +753,7 @@ fn emit_tool_end(
     app: &AppHandle<Wry>,
     session_id: &str,
     call_id: &str,
+    tool_id: &str,
     tool_name: &str,
     output: &str,
     is_error: bool,
@@ -745,6 +764,7 @@ fn emit_tool_end(
         ToolCallEndPayload {
             session_id: session_id.to_string(),
             call_id: call_id.to_string(),
+            tool_id: tool_id.to_string(),
             tool_name: tool_name.to_string(),
             output,
             is_error,
@@ -756,6 +776,7 @@ fn emit_pending_approval(
     app: &AppHandle<Wry>,
     session_id: &str,
     call_id: &str,
+    tool_id: &str,
     tool_name: &str,
     mutation: crate::mutation::MutationPlan,
     preview_text: Option<String>,
@@ -765,6 +786,7 @@ fn emit_pending_approval(
         PendingApprovalPayload {
             session_id: session_id.to_string(),
             call_id: call_id.to_string(),
+            tool_id: tool_id.to_string(),
             tool_name: tool_name.to_string(),
             mutation,
             preview_text,
@@ -776,6 +798,7 @@ fn emit_proxy_call(
     app: &AppHandle<Wry>,
     session_id: &str,
     call_id: &str,
+    tool_id: &str,
     tool_name: &str,
     arguments: Value,
 ) {
@@ -784,10 +807,19 @@ fn emit_proxy_call(
         ProxyToolCallPayload {
             session_id: session_id.to_string(),
             call_id: call_id.to_string(),
+            tool_id: tool_id.to_string(),
             tool_name: tool_name.to_string(),
             arguments,
         },
     );
+}
+
+fn fallback_tool_id(tool_name: &str) -> String {
+    if tool_name.contains('.') {
+        tool_name.to_string()
+    } else {
+        format!("builtin.{tool_name}")
+    }
 }
 
 fn summarize_output(output: &str) -> String {

@@ -23,6 +23,9 @@ const TOOL_DISPLAY_BY_KIND: Record<string, { label: string; activeLabel: string 
   get_tags: { label: "Get Tags", activeLabel: "Reading tags" },
   find_links: { label: "Find Links", activeLabel: "Finding links" },
   suggest_links: { label: "Suggest Links", activeLabel: "Analyzing" },
+  find_related_notes: { label: "Find Related Notes", activeLabel: "Finding related notes" },
+  find_orphan_notes: { label: "Find Orphan Notes", activeLabel: "Finding orphan notes" },
+  get_vault_stats: { label: "Get Vault Stats", activeLabel: "Reading stats" },
   open_file: { label: "Open File", activeLabel: "Opening" },
 };
 

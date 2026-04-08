@@ -49,6 +49,7 @@ async function createProxyToolBridge(): Promise<{
 
       void invoke("plugin:ai|ai_register_proxy_tool", {
         descriptor: {
+          toolId: tool.toolId,
           name: tool.name,
           description: tool.description,
           parameters: tool.parameters,

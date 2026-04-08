@@ -168,6 +168,7 @@ pub struct ErrorPayload {
 pub struct ToolCallStartPayload {
     pub session_id: String,
     pub call_id: String,
+    pub tool_id: String,
     pub tool_name: String,
     pub arguments: Value,
 }
@@ -177,6 +178,7 @@ pub struct ToolCallStartPayload {
 pub struct ToolCallEndPayload {
     pub session_id: String,
     pub call_id: String,
+    pub tool_id: String,
     pub tool_name: String,
     pub output: String,
     pub is_error: bool,
@@ -187,6 +189,7 @@ pub struct ToolCallEndPayload {
 pub struct PendingApprovalPayload {
     pub session_id: String,
     pub call_id: String,
+    pub tool_id: String,
     pub tool_name: String,
     pub mutation: MutationPlan,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -198,6 +201,7 @@ pub struct PendingApprovalPayload {
 pub struct ProxyToolCallPayload {
     pub session_id: String,
     pub call_id: String,
+    pub tool_id: String,
     pub tool_name: String,
     pub arguments: Value,
 }

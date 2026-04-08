@@ -11,6 +11,8 @@ use tauri_plugin_ai::{
 
 use crate::vault::{VaultState, get_vault_root, resolve_vault_path};
 
+use super::tool_ids;
+
 pub struct GetOutlineTool;
 pub struct GetTagsTool;
 
@@ -42,6 +44,7 @@ impl AiNativeTool for GetOutlineTool {
     fn descriptor(&self) -> ToolDescriptor {
         descriptor(
             "get_outline",
+            tool_ids::GET_OUTLINE,
             "Extract the heading structure of a markdown document. Returns a hierarchical outline.",
             serde_json::json!({
                 "title": "get_outline",
@@ -83,6 +86,7 @@ impl AiNativeTool for GetTagsTool {
     fn descriptor(&self) -> ToolDescriptor {
         descriptor(
             "get_tags",
+            tool_ids::GET_TAGS,
             "Extract tags from a markdown document. Currently reads YAML frontmatter tags.",
             serde_json::json!({
                 "title": "get_tags",
@@ -119,8 +123,16 @@ impl AiNativeTool for GetTagsTool {
     }
 }
 
-fn descriptor(name: &str, description: &str, parameters: serde_json::Value) -> ToolDescriptor {
+fn descriptor(
+    name: &str,
+    tool_id: &str,
+    description: &str,
+    parameters: serde_json::Value,
+) -> ToolDescriptor {
+    debug_assert_eq!(tool_ids::canonical_builtin_tool_id(name), tool_id);
+
     ToolDescriptor {
+        tool_id: tool_id.to_string(),
         name: name.to_string(),
         description: description.to_string(),
         parameters,

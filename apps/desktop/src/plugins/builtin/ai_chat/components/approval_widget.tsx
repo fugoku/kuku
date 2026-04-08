@@ -5,7 +5,7 @@ import ScrollArea from "~/components/scroll_area";
 import { canOpenApprovalDiff, closeApprovalDiff, openApprovalDiff } from "../approval_diff";
 import { resolveApproval } from "../chat_store";
 import type { ChatApprovalMessage } from "../types";
-import { formatToolIdentity } from "../tool_identity";
+import { formatToolIdentity, getToolInfo } from "../tool_identity";
 import {
   getApprovalStatusLabel,
   getApprovalStatusTone,
@@ -31,8 +31,8 @@ function ApprovalWidget(props: {
   const isPending = () => props.item.status === "pending";
   const [showDetail, setShowDetail] = createSignal(false);
   const toolIdentity = () => formatToolIdentity(props.item.toolId, props.item.toolName);
-  const showLegacyName = () =>
-    props.item.toolId !== undefined && props.item.toolId !== props.item.toolName;
+  const toolInfo = () => getToolInfo(props.item.toolId ?? props.item.toolName);
+  const showIdentity = () => toolIdentity() !== toolInfo().label;
 
   return (
     <div
@@ -45,11 +45,9 @@ function ApprovalWidget(props: {
       {/* tool name + status label */}
       <div class="flex items-center justify-between gap-3">
         <div class="min-w-0">
-          <span class="block truncate font-medium text-text-primary">{toolIdentity()}</span>
-          <Show when={showLegacyName()}>
-            <span class="block truncate text-[0.625rem] text-text-muted">
-              {props.item.toolName}
-            </span>
+          <span class="block truncate font-medium text-text-primary">{toolInfo().label}</span>
+          <Show when={showIdentity()}>
+            <span class="block truncate text-[0.625rem] text-text-muted">{toolIdentity()}</span>
           </Show>
         </div>
         <div

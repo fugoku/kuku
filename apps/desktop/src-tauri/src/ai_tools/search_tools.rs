@@ -7,12 +7,15 @@ use tauri_plugin_ai::{
 
 use crate::search::SearchState;
 
+use super::tool_ids;
+
 pub struct SearchVaultTool;
 
 #[async_trait]
 impl AiNativeTool for SearchVaultTool {
     fn descriptor(&self) -> ToolDescriptor {
         ToolDescriptor {
+            tool_id: tool_ids::SEARCH_VAULT.into(),
             name: "search_vault".into(),
             description: "Search indexed markdown content in the vault".into(),
             parameters: serde_json::json!({

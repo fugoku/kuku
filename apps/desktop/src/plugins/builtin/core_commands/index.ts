@@ -168,6 +168,7 @@ const coreCommandsPlugin: KukuPlugin = {
 
     const dispose = proxyTools.register({
       name: "open_file",
+      toolId: `${ctx.pluginId}.open_file`,
       description:
         "Open a vault file in an editor tab. This is a navigation action, not a mutation.",
       category: "navigation",

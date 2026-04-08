@@ -1,6 +1,7 @@
 import { For, Show, createEffect, createSignal, type JSX } from "solid-js";
 
 import { chatState, loadConfig, loadTools, saveConfig } from "../chat_store";
+import { formatToolIdentity, getToolInfo } from "../tool_identity";
 import { EyeIcon, EyeOffIcon } from "~/components/icons";
 
 function AiSettings(): JSX.Element {
@@ -141,12 +142,21 @@ function AiSettings(): JSX.Element {
           >
             <div class="flex flex-wrap gap-2">
               <For each={chatState.config.availableTools}>
-                {(tool) => (
-                  <div class="rounded-xs border border-border bg-bg-primary px-2.5 py-1 text-[0.6875rem] text-text-secondary">
-                    <span class="font-medium text-text-primary">{tool.name}</span>
-                    <span class="ml-1 text-text-muted">· {tool.category}</span>
-                  </div>
-                )}
+                {(tool) => {
+                  const identity = () => formatToolIdentity(tool.toolId, tool.name);
+                  const info = () => getToolInfo(tool.toolId ?? tool.name);
+                  const showIdentity = () => identity() !== info().label;
+
+                  return (
+                    <div class="rounded-xs border border-border bg-bg-primary px-2.5 py-1 text-[0.6875rem] text-text-secondary">
+                      <span class="font-medium text-text-primary">{info().label}</span>
+                      <span class="ml-1 text-text-muted">· {tool.category}</span>
+                      <Show when={showIdentity()}>
+                        <span class="ml-1 text-text-muted">· {identity()}</span>
+                      </Show>
+                    </div>
+                  );
+                }}
               </For>
             </div>
           </Show>

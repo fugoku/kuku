@@ -13,6 +13,8 @@ use crate::vault::{
     resolve_vault_path,
 };
 
+use super::tool_ids;
+
 pub struct ReadFileTool;
 pub struct ListFilesTool;
 pub struct CreateFileTool;
@@ -31,6 +33,7 @@ impl AiNativeTool for ReadFileTool {
     fn descriptor(&self) -> ToolDescriptor {
         descriptor(
             "read_file",
+            tool_ids::READ_FILE,
             "Read the content of a file in the vault",
             "file",
             ToolAccess::ReadOnly,
@@ -73,6 +76,7 @@ impl AiNativeTool for ListFilesTool {
     fn descriptor(&self) -> ToolDescriptor {
         descriptor(
             "list_files",
+            tool_ids::LIST_FILES,
             "List files in a directory within the vault. Use an empty path for the vault root, not '/'.",
             "file",
             ToolAccess::ReadOnly,
@@ -120,6 +124,7 @@ impl AiNativeTool for CreateFileTool {
     fn descriptor(&self) -> ToolDescriptor {
         descriptor(
             "create_file",
+            tool_ids::CREATE_FILE,
             "Create a new file or directory in the vault",
             "file",
             ToolAccess::ProposesMutation,
@@ -192,6 +197,7 @@ impl AiNativeTool for EditFileTool {
     fn descriptor(&self) -> ToolDescriptor {
         descriptor(
             "edit_file",
+            tool_ids::EDIT_FILE,
             "Edit an existing file in the vault",
             "file",
             ToolAccess::ProposesMutation,
@@ -246,6 +252,7 @@ impl AiNativeTool for DeleteFileTool {
     fn descriptor(&self) -> ToolDescriptor {
         descriptor(
             "delete_file",
+            tool_ids::DELETE_FILE,
             "Delete a file or directory from the vault. Directory deletions are recursive.",
             "file",
             ToolAccess::ProposesMutation,
@@ -326,6 +333,7 @@ impl AiNativeTool for MoveFileTool {
     fn descriptor(&self) -> ToolDescriptor {
         descriptor(
             "move_file",
+            tool_ids::MOVE_FILE,
             "Move or rename a file or directory within the vault. Requires approval.",
             "file",
             ToolAccess::ProposesMutation,
@@ -359,12 +367,16 @@ impl AiNativeTool for MoveFileTool {
 
 fn descriptor(
     name: &str,
+    tool_id: &str,
     description: &str,
     category: &str,
     access: ToolAccess,
     parameters: serde_json::Value,
 ) -> ToolDescriptor {
+    debug_assert_eq!(tool_ids::canonical_builtin_tool_id(name), tool_id);
+
     ToolDescriptor {
+        tool_id: tool_id.to_string(),
         name: name.to_string(),
         description: description.to_string(),
         parameters,

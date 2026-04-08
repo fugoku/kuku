@@ -87,6 +87,7 @@ interface ToolDescriptor {
 
 interface ProxyToolSpec {
   name: string;
+  toolId: string;
   description: string;
   parameters: Record<string, unknown>;
   category: string;

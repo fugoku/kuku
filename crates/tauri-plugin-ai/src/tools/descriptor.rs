@@ -20,6 +20,7 @@ pub enum ToolSource {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ToolDescriptor {
+    pub tool_id: String,
     pub name: String,
     pub description: String,
     pub parameters: Value,

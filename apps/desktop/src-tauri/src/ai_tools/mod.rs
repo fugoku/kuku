@@ -1,6 +1,7 @@
 mod document_tools;
 mod file_tools;
 mod search_tools;
+mod tool_ids;
 
 use std::sync::Arc;
 

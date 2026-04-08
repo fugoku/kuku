@@ -13,6 +13,7 @@ use crate::{
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProxyToolDescriptor {
+    pub tool_id: String,
     pub name: String,
     pub description: String,
     pub parameters: Value,
@@ -22,6 +23,7 @@ pub struct ProxyToolDescriptor {
 impl ProxyToolDescriptor {
     pub fn as_tool_descriptor(&self) -> ToolDescriptor {
         ToolDescriptor {
+            tool_id: self.tool_id.clone(),
             name: self.name.clone(),
             description: self.description.clone(),
             parameters: self.parameters.clone(),
