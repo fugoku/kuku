@@ -2,6 +2,12 @@ import { Plan, SubscriptionStatus } from "@kuku/contract/es/kuku/dashboard/v1/da
 
 import type { UsageDays } from "@/lib/api/dashboard";
 
+const mockSignedInKey = "kuku_mock_signed_in";
+const mockEmailKey = "kuku_mock_email";
+
+let fallbackSignedIn = false;
+let fallbackEmail = "dev@kuku.mom";
+
 function timestamp(value: string) {
   return {
     nanos: 0,
@@ -10,10 +16,59 @@ function timestamp(value: string) {
 }
 
 export const mockUser = {
-  email: "dev@kuku.mom",
+  email: fallbackEmail,
   id: "mock-user-01",
   name: "Mock User",
 };
+
+function canUseSessionStorage(): boolean {
+  return typeof window !== "undefined" && "sessionStorage" in window;
+}
+
+function readStoredEmail(): string {
+  if (!canUseSessionStorage()) {
+    return fallbackEmail;
+  }
+
+  return window.sessionStorage.getItem(mockEmailKey) ?? fallbackEmail;
+}
+
+export function isMockSignedIn(): boolean {
+  if (!canUseSessionStorage()) {
+    return fallbackSignedIn;
+  }
+
+  return window.sessionStorage.getItem(mockSignedInKey) === "1";
+}
+
+export function setMockSignedIn(value: boolean) {
+  fallbackSignedIn = value;
+
+  if (!canUseSessionStorage()) {
+    return;
+  }
+
+  if (value) {
+    window.sessionStorage.setItem(mockSignedInKey, "1");
+  } else {
+    window.sessionStorage.removeItem(mockSignedInKey);
+  }
+}
+
+export function setMockEmail(email: string) {
+  fallbackEmail = email;
+  mockUser.email = email;
+  mockUser.name = email.split("@")[0] || "Mock User";
+
+  if (canUseSessionStorage()) {
+    window.sessionStorage.setItem(mockEmailKey, email);
+  }
+}
+
+export function getMockUser() {
+  mockUser.email = readStoredEmail();
+  return mockUser;
+}
 
 export const mockSubscription = {
   cancelAtPeriodEnd: false,

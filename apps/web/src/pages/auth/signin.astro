@@ -1,0 +1,23 @@
+---
+import SignInForm from '@/components/auth/sign_in_form';
+import BaseLayout from '@/layouts/base_layout.astro';
+---
+
+<BaseLayout title="Sign in | kuku" description="Sign in to kuku.">
+  <main class="auth-shell">
+    <a class="auth-brand" href="/" aria-label="kuku home">
+      <img src="/logo.svg" alt="" />
+      <span>kuku</span>
+    </a>
+
+    <section class="auth-card" aria-labelledby="auth-title">
+      <div class="auth-heading">
+        <p class="eyebrow">SIGN IN</p>
+        <h1 id="auth-title">Welcome to kuku</h1>
+        <p>Continue to your workspace.</p>
+      </div>
+
+      <SignInForm client:load />
+    </section>
+  </main>
+</BaseLayout>
