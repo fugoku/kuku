@@ -233,6 +233,7 @@ function startToolCall(payload: ToolCallStartPayload): void {
     kind: "tool",
     callId: payload.callId,
     toolName: payload.toolName,
+    toolId: payload.toolId ?? existingMessage?.toolId,
     arguments: payload.arguments,
     expanded: existingMessage?.expanded ?? false,
   };
@@ -259,6 +260,7 @@ function endToolCall(payload: ToolCallEndPayload): void {
   if (current.kind !== "tool") return;
   setChatState("sessions", payload.sessionId, "messages", index, {
     ...current,
+    toolId: payload.toolId ?? current.toolId,
     success: !payload.isError,
     output: payload.isError ? undefined : payload.output,
     error: payload.isError ? payload.output : undefined,
@@ -315,6 +317,7 @@ function addPendingApproval(payload: PendingApprovalPayload): boolean {
     kind: "approval",
     callId: payload.callId,
     toolName: payload.toolName,
+    toolId: payload.toolId ?? existingMessage?.toolId,
     mutation: payload.mutation,
     previewText: payload.previewText,
     expanded: !autoApprove,
@@ -333,7 +336,7 @@ function addPendingApproval(payload: PendingApprovalPayload): boolean {
     return true;
   }
 
-  void openApprovalDiff(payload.mutation, payload.toolName);
+  void openApprovalDiff(payload.mutation, payload.toolName, payload.toolId);
   setSessionStatus(payload.sessionId, "awaiting-approval");
   return false;
 }

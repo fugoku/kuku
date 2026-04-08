@@ -2,6 +2,7 @@ import { readVaultFile } from "~/lib/vault_fs";
 import { openDiffView } from "~/plugins/builtin/diff_view";
 import { createDiffTabPath } from "~/stores/diff_store";
 import { closeTab, filesState, openTab } from "~/stores/files";
+import { getToolKind } from "./tool_identity";
 
 interface EditFileDiffTarget {
   path: string;
@@ -37,15 +38,22 @@ function getEditFileDiffTarget(mutation: Record<string, unknown>): EditFileDiffT
   };
 }
 
-function canOpenApprovalDiff(mutation: Record<string, unknown>, toolName: string): boolean {
-  return toolName === "edit_file" && getEditFileDiffTarget(mutation) !== null;
+function canOpenApprovalDiff(
+  mutation: Record<string, unknown>,
+  toolName: string,
+  toolId?: string,
+): boolean {
+  return (
+    getToolKind(toolId ?? toolName) === "edit_file" && getEditFileDiffTarget(mutation) !== null
+  );
 }
 
 async function openApprovalDiff(
   mutation: Record<string, unknown>,
   toolName: string,
+  toolId?: string,
 ): Promise<void> {
-  if (toolName !== "edit_file") {
+  if (getToolKind(toolId ?? toolName) !== "edit_file") {
     return;
   }
 
@@ -67,8 +75,12 @@ async function openApprovalDiff(
  * Close the diff tab (if open) for the given mutation and open the real file.
  * Called when an approval is resolved (Approve or Reject).
  */
-function closeApprovalDiff(mutation: Record<string, unknown>, toolName: string): void {
-  if (toolName !== "edit_file") return;
+function closeApprovalDiff(
+  mutation: Record<string, unknown>,
+  toolName: string,
+  toolId?: string,
+): void {
+  if (getToolKind(toolId ?? toolName) !== "edit_file") return;
 
   const target = getEditFileDiffTarget(mutation);
   if (!target) return;

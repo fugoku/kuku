@@ -1,28 +1,12 @@
 import { For, Show, Switch, Match, type JSX } from "solid-js";
 
 import type { ChatApprovalMessage, ChatToolMessage } from "../types";
-
-const TOOL_DISPLAY: Record<string, { label: string; activeLabel: string }> = {
-  search_notes: { label: "Search Notes", activeLabel: "Searching" },
-  read_file: { label: "Read File", activeLabel: "Reading" },
-  create_file: { label: "Create File", activeLabel: "Creating" },
-  edit_file: { label: "Edit File", activeLabel: "Editing" },
-  move_file: { label: "Move File", activeLabel: "Moving" },
-  delete_file: { label: "Delete File", activeLabel: "Deleting" },
-  list_files: { label: "List Files", activeLabel: "Listing" },
-  get_outline: { label: "Get Outline", activeLabel: "Analyzing" },
-  find_links: { label: "Find Links", activeLabel: "Finding links" },
-  suggest_links: { label: "Suggest Links", activeLabel: "Analyzing" },
-  open_file: { label: "Open File", activeLabel: "Opening" },
-};
-
-function getToolInfo(name: string): { label: string; activeLabel: string } {
-  return TOOL_DISPLAY[name] ?? { label: name, activeLabel: "Running" };
-}
+import { getToolInfo, getToolKind } from "../tool_identity";
 
 function getToolDetail(item: ChatToolMessage): string | null {
   const args = item.arguments;
-  switch (item.toolName) {
+  switch (getToolKind(item.toolId ?? item.toolName)) {
+    case "search_vault":
     case "search_notes": {
       const query = typeof args.query === "string" ? args.query : null;
       return query ? `"${query}"` : null;
@@ -59,7 +43,7 @@ function ToolProgress(props: ToolProgressProps): JSX.Element {
     <div class="my-1 max-w-fit space-y-0 px-1">
       <For each={props.tools}>
         {(item) => {
-          const info = getToolInfo(item.toolName);
+          const info = getToolInfo(item.toolId ?? item.toolName);
           const isActive = !item.success && !item.error;
           const detail = getToolDetail(item);
           const isLinked = () =>

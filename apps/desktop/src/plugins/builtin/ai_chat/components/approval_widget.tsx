@@ -5,6 +5,7 @@ import ScrollArea from "~/components/scroll_area";
 import { canOpenApprovalDiff, closeApprovalDiff, openApprovalDiff } from "../approval_diff";
 import { resolveApproval } from "../chat_store";
 import type { ChatApprovalMessage } from "../types";
+import { formatToolIdentity } from "../tool_identity";
 import {
   getApprovalStatusLabel,
   getApprovalStatusTone,
@@ -29,6 +30,9 @@ function ApprovalWidget(props: {
   const statusTone = () => getApprovalStatusTone(props.item);
   const isPending = () => props.item.status === "pending";
   const [showDetail, setShowDetail] = createSignal(false);
+  const toolIdentity = () => formatToolIdentity(props.item.toolId, props.item.toolName);
+  const showLegacyName = () =>
+    props.item.toolId !== undefined && props.item.toolId !== props.item.toolName;
 
   return (
     <div
@@ -40,7 +44,14 @@ function ApprovalWidget(props: {
     >
       {/* tool name + status label */}
       <div class="flex items-center justify-between gap-3">
-        <span class="font-medium text-text-primary">{props.item.toolName}</span>
+        <div class="min-w-0">
+          <span class="block truncate font-medium text-text-primary">{toolIdentity()}</span>
+          <Show when={showLegacyName()}>
+            <span class="block truncate text-[0.625rem] text-text-muted">
+              {props.item.toolName}
+            </span>
+          </Show>
+        </div>
         <div
           class={`rounded-xs border px-2 py-0.5 text-[0.6875rem] ${STATUS_TONE_CLASSES[statusTone()]}`}
         >
@@ -78,11 +89,15 @@ function ApprovalWidget(props: {
       {/* buttons — only pending */}
       <Show when={isPending()}>
         <div class="mt-3 flex items-center gap-2">
-          <Show when={canOpenApprovalDiff(props.item.mutation, props.item.toolName)}>
+          <Show
+            when={canOpenApprovalDiff(props.item.mutation, props.item.toolName, props.item.toolId)}
+          >
             <button
               type="button"
               class="rounded-xs border border-accent-dim bg-bg-secondary px-3 py-1.5 text-[0.6875rem] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
-              onClick={() => void openApprovalDiff(props.item.mutation, props.item.toolName)}
+              onClick={() =>
+                void openApprovalDiff(props.item.mutation, props.item.toolName, props.item.toolId)
+              }
             >
               Open Diff
             </button>
@@ -91,11 +106,11 @@ function ApprovalWidget(props: {
             type="button"
             class="rounded-xs border border-success-border bg-success-bg px-3 py-1.5 text-[0.6875rem] text-success transition-colors hover:opacity-80"
             onClick={() => {
-              const { mutation, toolName, callId } = props.item;
+              const { mutation, toolName, toolId, callId } = props.item;
               const { sessionId, onClose } = props;
               void (async () => {
                 await resolveApproval(sessionId, callId, "Approve");
-                closeApprovalDiff(mutation, toolName);
+                closeApprovalDiff(mutation, toolName, toolId);
                 onClose?.();
               })();
             }}
@@ -106,11 +121,11 @@ function ApprovalWidget(props: {
             type="button"
             class="rounded-xs border border-error-border bg-error-bg px-3 py-1.5 text-[0.6875rem] text-error transition-colors hover:opacity-80"
             onClick={() => {
-              const { mutation, toolName, callId } = props.item;
+              const { mutation, toolName, toolId, callId } = props.item;
               const { sessionId, onClose } = props;
               void (async () => {
                 await resolveApproval(sessionId, callId, "Reject");
-                closeApprovalDiff(mutation, toolName);
+                closeApprovalDiff(mutation, toolName, toolId);
                 onClose?.();
               })();
             }}

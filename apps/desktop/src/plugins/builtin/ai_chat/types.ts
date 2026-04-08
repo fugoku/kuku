@@ -27,6 +27,7 @@ interface ToolCallStartPayload {
   sessionId: string;
   callId: string;
   toolName: string;
+  toolId?: string;
   arguments: Record<string, unknown>;
 }
 
@@ -34,6 +35,7 @@ interface ToolCallEndPayload {
   sessionId: string;
   callId: string;
   toolName: string;
+  toolId?: string;
   output: string;
   isError: boolean;
 }
@@ -42,6 +44,7 @@ interface PendingApprovalPayload {
   sessionId: string;
   callId: string;
   toolName: string;
+  toolId?: string;
   mutation: Record<string, unknown>;
   previewText?: string;
 }
@@ -50,6 +53,7 @@ interface ProxyToolCallPayload {
   sessionId: string;
   callId: string;
   toolName: string;
+  toolId?: string;
   arguments: Record<string, unknown>;
 }
 
@@ -73,6 +77,7 @@ interface TokenUsage {
 
 interface ToolDescriptor {
   name: string;
+  toolId?: string;
   description: string;
   parameters: Record<string, unknown>;
   category: string;
@@ -105,6 +110,7 @@ interface ChatToolMessage {
   kind: "tool";
   callId: string;
   toolName: string;
+  toolId?: string;
   arguments: Record<string, unknown>;
   expanded: boolean;
   success?: boolean;
@@ -117,6 +123,7 @@ interface ChatApprovalMessage {
   kind: "approval";
   callId: string;
   toolName: string;
+  toolId?: string;
   mutation: Record<string, unknown>;
   previewText?: string;
   expanded: boolean;
