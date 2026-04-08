@@ -10,6 +10,7 @@ use crate::{
 };
 
 pub mod gemini;
+pub mod remote;
 
 #[derive(Debug, Clone)]
 pub struct CompletionTurnRequest {

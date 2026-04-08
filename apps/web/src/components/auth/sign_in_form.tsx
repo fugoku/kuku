@@ -21,6 +21,13 @@ function getRedirectPath(): string {
   return new URLSearchParams(window.location.search).get("redirect") ?? "/dashboard";
 }
 
+function rememberOAuthRedirect(path: string): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.sessionStorage.setItem("oauth_redirect", path);
+}
+
 export default function SignInForm() {
   const [step, setStep] = createSignal<AuthStep>("email");
   const [email, setEmail] = createSignal("");
@@ -108,6 +115,7 @@ export default function SignInForm() {
     setMessage("");
 
     try {
+      rememberOAuthRedirect(getRedirectPath());
       window.location.href = await getOAuthURL(provider);
     } catch {
       setOAuthState("error");

@@ -24,7 +24,8 @@ import type {
 import { setContextKey } from "~/plugins/context_keys";
 
 const DEFAULT_MODEL = "gemini-3.1-flash-lite-preview";
-const DEFAULT_PROVIDER = "gemini";
+const DEFAULT_PROVIDER = "gemini" as const;
+const DEFAULT_SERVER_URL = "http://localhost:8080";
 const DEFAULT_ROUND_LIMIT = 8;
 const DEFAULT_PROXY_TIMEOUT_MS = 15_000;
 const BUSY_SESSION_STATUSES: ChatSessionState["status"][] = [
@@ -41,6 +42,8 @@ const [chatState, setChatState] = createStore<ChatStoreState>({
   isSendingMessage: false,
   config: {
     apiKey: "",
+    provider: DEFAULT_PROVIDER,
+    serverUrl: DEFAULT_SERVER_URL,
     model: DEFAULT_MODEL,
     rawConfig: {},
     loading: false,
@@ -536,10 +539,14 @@ async function loadConfig(): Promise<void> {
     const config = await invoke<AiConfig>("plugin:ai|ai_get_config");
     setChatState("config", "rawConfig", config as unknown as Record<string, unknown>);
     setChatState("config", "apiKey", config.apiKey ?? "");
+    setChatState("config", "provider", config.provider ?? DEFAULT_PROVIDER);
+    setChatState("config", "serverUrl", config.serverUrl ?? DEFAULT_SERVER_URL);
     setChatState("config", "model", config.model || DEFAULT_MODEL);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     setChatState("config", "apiKey", "");
+    setChatState("config", "provider", DEFAULT_PROVIDER);
+    setChatState("config", "serverUrl", DEFAULT_SERVER_URL);
     setChatState("config", "model", DEFAULT_MODEL);
     setChatState("config", "rawConfig", {});
     setChatState("config", "error", message);
@@ -548,21 +555,29 @@ async function loadConfig(): Promise<void> {
   }
 }
 
-async function saveConfig(nextApiKey: string, nextModel: string): Promise<void> {
+async function saveConfig(
+  nextProvider: "gemini" | "remote",
+  nextApiKey: string,
+  nextModel: string,
+  nextServerUrl: string,
+): Promise<void> {
   setChatState("config", "saving", true);
   setChatState("config", "error", null);
   try {
     const currentConfig = chatState.config.rawConfig as Partial<AiConfig>;
     const nextConfig: AiConfig = {
-      provider: currentConfig.provider ?? DEFAULT_PROVIDER,
+      provider: nextProvider,
       apiKey: nextApiKey || null,
       model: nextModel || DEFAULT_MODEL,
+      serverUrl: nextServerUrl || DEFAULT_SERVER_URL,
       roundLimit: currentConfig.roundLimit ?? DEFAULT_ROUND_LIMIT,
       proxyToolTimeoutMs: currentConfig.proxyToolTimeoutMs ?? DEFAULT_PROXY_TIMEOUT_MS,
     };
     await invoke<void>("plugin:ai|ai_set_config", { config: nextConfig });
     setChatState("config", "rawConfig", nextConfig as unknown as Record<string, unknown>);
     setChatState("config", "apiKey", nextApiKey);
+    setChatState("config", "provider", nextProvider);
+    setChatState("config", "serverUrl", nextServerUrl || DEFAULT_SERVER_URL);
     setChatState("config", "model", nextModel || DEFAULT_MODEL);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

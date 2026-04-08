@@ -7,6 +7,7 @@ use crate::mutation::MutationPlan;
 #[serde(rename_all = "camelCase")]
 pub enum ProviderKind {
     Gemini,
+    Remote,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -44,6 +45,7 @@ pub struct AiConfig {
     pub provider: ProviderKind,
     pub api_key: Option<String>,
     pub model: String,
+    pub server_url: Option<String>,
     pub round_limit: u32,
     pub proxy_tool_timeout_ms: u64,
 }
@@ -54,10 +56,21 @@ impl Default for AiConfig {
             provider: ProviderKind::Gemini,
             api_key: None,
             model: "gemini-2.5-flash".to_string(),
+            server_url: Some(default_server_url()),
             round_limit: 8,
             proxy_tool_timeout_ms: 15_000,
         }
     }
+}
+
+fn default_server_url() -> String {
+    option_env!("KUKU_API_URL")
+        .unwrap_or(if cfg!(debug_assertions) {
+            "http://localhost:8080"
+        } else {
+            "https://api.kuku.mom"
+        })
+        .to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

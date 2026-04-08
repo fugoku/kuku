@@ -21,3 +21,8 @@ export async function getOAuthURL(provider: OAuthProvider): Promise<string> {
 
   return response.authUrl;
 }
+
+export async function createDesktopToken(state: string): Promise<string> {
+  const response = await authClient.createDesktopToken({ state });
+  return response.token;
+}

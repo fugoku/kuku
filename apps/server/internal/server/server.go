@@ -12,9 +12,11 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/kuku-mom/kuku/packages/contract/gen/go/kuku/ai/v1/aiv1connect"
 	"github.com/kuku-mom/kuku/packages/contract/gen/go/kuku/auth/v1/authv1connect"
 	"github.com/kuku-mom/kuku/packages/contract/gen/go/kuku/dashboard/v1/dashboardv1connect"
 
+	"github.com/kuku-mom/kuku/apps/server/internal/ai"
 	"github.com/kuku-mom/kuku/apps/server/internal/auth"
 	"github.com/kuku-mom/kuku/apps/server/internal/config"
 	"github.com/kuku-mom/kuku/apps/server/internal/dashboard"
@@ -38,11 +40,13 @@ func (s *Server) Run() error {
 	emailSender := auth.NewEmailSender(s.cfg, s.log)
 	authService := auth.NewAuthService(s.cfg, queries, emailSender, s.log)
 	dashboardService := dashboard.NewDashboardService(queries)
+	aiService := ai.NewService(s.cfg)
 
 	secureCookie := s.cfg.IsProduction()
 	authHandler := auth.NewAuthHandler(authService, s.log, secureCookie)
 	oauthHandler := auth.NewOAuthCallbackHandler(s.cfg, authService, s.log, secureCookie)
 	dashboardHandler := dashboard.NewDashboardHandler(dashboardService, s.log)
+	aiHandler := ai.NewHandler(aiService, s.log)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
@@ -64,6 +68,8 @@ func (s *Server) Run() error {
 	mux.Handle(authPath, authHTTPHandler)
 	dashboardPath, dashboardHTTPHandler := dashboardv1connect.NewDashboardServiceHandler(dashboardHandler)
 	mux.Handle(dashboardPath, dashboardHTTPHandler)
+	aiPath, aiHTTPHandler := aiv1connect.NewAIServiceHandler(aiHandler)
+	mux.Handle(aiPath, aiHTTPHandler)
 
 	var root http.Handler = mux
 	root = middleware.Auth(authService, s.log, secureCookie)(root)

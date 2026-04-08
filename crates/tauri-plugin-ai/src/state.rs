@@ -4,10 +4,10 @@ use parking_lot::RwLock;
 
 use crate::{
     AiConfig, AiError, AiHostBindings, AiNativeTool,
-    provider::{CompletionBackend, gemini::GeminiBackend},
+    provider::{CompletionBackend, gemini::GeminiBackend, remote::RemoteBackend},
     session::SessionRuntime,
     tools::{ProxyBroker, ProxyToolDescriptor, ToolDescriptor, ToolRegistry},
-    types::ChatMode,
+    types::{ChatMode, ProviderKind},
 };
 
 struct AiStateInner {
@@ -48,11 +48,7 @@ impl AiState {
     pub fn set_config(&self, config: AiConfig) -> Result<(), AiError> {
         save_config(&config)?;
         *self.inner.config.write() = config.clone();
-        *self.inner.provider.write() = if let Some(api_key) = config.api_key.as_deref() {
-            Some(Arc::new(GeminiBackend::new(api_key, &config.model)?) as Arc<dyn CompletionBackend>)
-        } else {
-            None
-        };
+        *self.inner.provider.write() = build_backend(&config)?;
         Ok(())
     }
 
@@ -62,9 +58,7 @@ impl AiState {
         }
 
         let config = self.config();
-        let api_key = config.api_key.ok_or(AiError::NotConfigured)?;
-        let provider: Arc<dyn CompletionBackend> =
-            Arc::new(GeminiBackend::new(&api_key, &config.model)?);
+        let provider = build_backend(&config)?.ok_or(AiError::NotConfigured)?;
         *self.inner.provider.write() = Some(provider.clone());
         Ok(provider)
     }
@@ -170,4 +164,30 @@ fn save_config(config: &AiConfig) -> Result<(), AiError> {
         .map_err(|error| AiError::State(format!("Failed to serialize AI config: {error}")))?;
     fs::write(path, content)?;
     Ok(())
+}
+
+fn build_backend(config: &AiConfig) -> Result<Option<Arc<dyn CompletionBackend>>, AiError> {
+    match config.provider {
+        ProviderKind::Gemini => {
+            let Some(api_key) = config.api_key.as_deref() else {
+                return Ok(None);
+            };
+            Ok(Some(
+                Arc::new(GeminiBackend::new(api_key, &config.model)?) as Arc<dyn CompletionBackend>
+            ))
+        }
+        ProviderKind::Remote => {
+            let base_url = config
+                .server_url
+                .as_deref()
+                .unwrap_or(if cfg!(debug_assertions) {
+                    "http://localhost:8080"
+                } else {
+                    "https://api.kuku.mom"
+                });
+            Ok(Some(
+                Arc::new(RemoteBackend::new(base_url, &config.model)) as Arc<dyn CompletionBackend>
+            ))
+        }
+    }
 }

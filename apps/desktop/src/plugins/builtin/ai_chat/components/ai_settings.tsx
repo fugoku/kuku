@@ -5,13 +5,17 @@ import { EyeIcon, EyeOffIcon } from "~/components/icons";
 
 function AiSettings(): JSX.Element {
   const [apiKey, setApiKey] = createSignal("");
+  const [provider, setProvider] = createSignal<"gemini" | "remote">("gemini");
   const [model, setModel] = createSignal("");
+  const [serverUrl, setServerUrl] = createSignal("");
   const [showApiKey, setShowApiKey] = createSignal(false);
 
   createEffect(() => {
     if (!chatState.config.loading && !chatState.config.saving) {
       setApiKey(chatState.config.apiKey);
+      setProvider(chatState.config.provider);
       setModel(chatState.config.model);
+      setServerUrl(chatState.config.serverUrl);
     }
   });
 
@@ -35,30 +39,57 @@ function AiSettings(): JSX.Element {
 
       <div class="space-y-3 p-4">
         <label class="block space-y-1.5">
-          <span class="text-[0.6875rem] text-text-muted">API Key</span>
-          <div class="relative">
-            <input
-              type={showApiKey() ? "text" : "password"}
-              value={apiKey()}
-              placeholder="Gemini AI Studio API key"
-              class="w-full rounded-xs border border-border bg-bg-secondary px-3 py-2 pr-9 text-sm text-text-primary transition-colors outline-none focus:border-accent"
-              autocomplete="off"
-              spellcheck={false}
-              onInput={(event) => setApiKey(event.currentTarget.value)}
-            />
-            <button
-              type="button"
-              class="absolute inset-y-0 right-0 flex items-center px-2.5 text-text-muted transition-colors hover:text-text-primary"
-              onClick={() => setShowApiKey((prev) => !prev)}
-              tabIndex={-1}
-              title={showApiKey() ? "Hide API key" : "Show API key"}
-            >
-              <Show when={showApiKey()} fallback={<EyeIcon size={14} />}>
-                <EyeOffIcon size={14} />
-              </Show>
-            </button>
-          </div>
+          <span class="text-[0.6875rem] text-text-muted">Provider</span>
+          <select
+            value={provider()}
+            class="w-full rounded-xs border border-border bg-bg-secondary px-3 py-2 text-sm text-text-primary transition-colors outline-none focus:border-accent"
+            onChange={(event) => setProvider(event.currentTarget.value as "gemini" | "remote")}
+          >
+            <option value="gemini">Gemini BYOK</option>
+            <option value="remote">Kuku Remote</option>
+          </select>
         </label>
+
+        <Show when={provider() === "remote"}>
+          <label class="block space-y-1.5">
+            <span class="text-[0.6875rem] text-text-muted">Server URL</span>
+            <input
+              type="url"
+              value={serverUrl()}
+              placeholder="http://localhost:8080"
+              class="w-full rounded-xs border border-border bg-bg-secondary px-3 py-2 text-sm text-text-primary transition-colors outline-none focus:border-accent"
+              onInput={(event) => setServerUrl(event.currentTarget.value)}
+            />
+          </label>
+        </Show>
+
+        <Show when={provider() === "gemini"}>
+          <label class="block space-y-1.5">
+            <span class="text-[0.6875rem] text-text-muted">API Key</span>
+            <div class="relative">
+              <input
+                type={showApiKey() ? "text" : "password"}
+                value={apiKey()}
+                placeholder="Gemini AI Studio API key"
+                class="w-full rounded-xs border border-border bg-bg-secondary px-3 py-2 pr-9 text-sm text-text-primary transition-colors outline-none focus:border-accent"
+                autocomplete="off"
+                spellcheck={false}
+                onInput={(event) => setApiKey(event.currentTarget.value)}
+              />
+              <button
+                type="button"
+                class="absolute inset-y-0 right-0 flex items-center px-2.5 text-text-muted transition-colors hover:text-text-primary"
+                onClick={() => setShowApiKey((prev) => !prev)}
+                tabIndex={-1}
+                title={showApiKey() ? "Hide API key" : "Show API key"}
+              >
+                <Show when={showApiKey()} fallback={<EyeIcon size={14} />}>
+                  <EyeOffIcon size={14} />
+                </Show>
+              </button>
+            </div>
+          </label>
+        </Show>
 
         <label class="block space-y-1.5">
           <span class="text-[0.6875rem] text-text-muted">Model</span>
@@ -84,7 +115,7 @@ function AiSettings(): JSX.Element {
             type="button"
             disabled={chatState.config.saving}
             class="ml-auto rounded-xs border border-accent/30 bg-accent/15 px-3 py-1.5 text-xs text-accent transition-colors hover:bg-accent/20 disabled:cursor-not-allowed disabled:opacity-50"
-            onClick={() => void saveConfig(apiKey(), model())}
+            onClick={() => void saveConfig(provider(), apiKey(), model(), serverUrl())}
           >
             Save
           </button>

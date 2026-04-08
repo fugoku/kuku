@@ -1,0 +1,62 @@
+// =============================================================================
+// kuku.ai.v1 - AI service
+// =============================================================================
+// Provides server-backed AI completion for desktop clients.
+//
+// The desktop app can keep using BYOK providers locally, or switch to the
+// authenticated remote provider to call this service with the user's server
+// session token.
+// =============================================================================
+
+edition = "2023";
+
+package kuku.ai.v1;
+
+import "buf/validate/validate.proto";
+
+option go_package = "github.com/kuku-mom/kuku/packages/contract/gen/go/kuku/ai/v1;aiv1";
+
+// ---------------------------------------------------------------------------
+// AIService - server-backed AI service
+// ---------------------------------------------------------------------------
+service AIService {
+  // Completes a single AI turn.
+  // - Requires authentication.
+  // - This is intentionally unary for the first remote provider cut; the
+  //   desktop runtime wraps the response into its existing local stream events.
+  rpc Complete(CompleteRequest) returns (CompleteResponse);
+}
+
+// ConversationMode controls the completion behavior.
+enum ConversationMode {
+  CONVERSATION_MODE_UNSPECIFIED = 0;
+  CONVERSATION_MODE_AGENT = 1;
+  CONVERSATION_MODE_ASK = 2;
+  CONVERSATION_MODE_INLINE = 3;
+}
+
+// CompleteRequest is a single-turn completion request.
+message CompleteRequest {
+  ConversationMode mode = 1;
+
+  string message = 2 [(buf.validate.field).string.min_len = 1];
+
+  repeated string context_files = 3;
+
+  string model = 4;
+}
+
+// CompleteResponse is the generated text and optional usage metadata.
+message CompleteResponse {
+  string text = 1;
+
+  TokenUsage usage = 2;
+}
+
+// TokenUsage reports provider token usage when the upstream model exposes it.
+message TokenUsage {
+  uint64 input_tokens = 1;
+  uint64 output_tokens = 2;
+  uint64 total_tokens = 3;
+  uint64 cached_input_tokens = 4;
+}

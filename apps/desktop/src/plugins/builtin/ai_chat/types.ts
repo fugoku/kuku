@@ -7,7 +7,8 @@ type ChatSessionStatus = "idle" | "streaming" | "awaiting-approval" | "applying"
 interface AiConfig {
   apiKey: string | null;
   model: string;
-  provider?: string;
+  provider?: "gemini" | "remote";
+  serverUrl?: string | null;
   roundLimit?: number;
   proxyToolTimeoutMs?: number;
 }
@@ -139,6 +140,8 @@ interface ChatSessionState {
 
 interface ChatConfigState {
   apiKey: string;
+  provider: "gemini" | "remote";
+  serverUrl: string;
   model: string;
   rawConfig: Record<string, unknown>;
   loading: boolean;

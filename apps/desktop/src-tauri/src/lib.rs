@@ -1,6 +1,9 @@
 mod ai_host;
 mod ai_tools;
 mod app_settings;
+mod auth;
+mod auth_commands;
+mod config;
 mod models;
 mod plugin_fs;
 mod plugin_settings;
@@ -9,12 +12,15 @@ mod vault;
 
 use std::sync::Arc;
 
+use tauri_plugin_deep_link::DeepLinkExt;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .manage(vault::VaultState::new())
         .manage(search::SearchState::new())
         .plugin(tauri_plugin_ai::init())
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
@@ -23,9 +29,40 @@ pub fn run() {
                 Arc::new(ai_host::DesktopAiHost::new(app.handle().clone())),
             );
             ai_tools::register_all(app.handle());
+            let app_handle = app.handle().clone();
+            app.deep_link().on_open_url(move |event| {
+                for url in event.urls() {
+                    let is_auth_url = (url.scheme() == "kuku" && url.host_str() == Some("auth"))
+                        || (url.scheme() == "com.kuku.app" && url.host_str() == Some("auth"));
+                    if !is_auth_url {
+                        continue;
+                    }
+                    let query: std::collections::HashMap<_, _> = url.query_pairs().collect();
+                    if let (Some(token), Some(state)) = (query.get("token"), query.get("state")) {
+                        let token = token.to_string();
+                        let state = state.to_string();
+                        let app_handle = app_handle.clone();
+                        tauri::async_runtime::spawn(async move {
+                            auth_commands::handle_auth_deep_link(&app_handle, &token, &state).await;
+                        });
+                    }
+                }
+            });
+
+            #[cfg(all(debug_assertions, any(target_os = "linux", target_os = "windows")))]
+            if let Err(error) = app.deep_link().register_all() {
+                eprintln!("failed to register deep link schemes: {error}");
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            // Auth
+            auth_commands::auth_check_status,
+            auth_commands::auth_get_access_token,
+            auth_commands::auth_get_user,
+            auth_commands::auth_logout,
+            auth_commands::auth_open_login,
             // Plugin FS (sandboxed)
             plugin_fs::plugin_fs_read_text,
             plugin_fs::plugin_fs_write_text,

@@ -1,0 +1,55 @@
+package ai
+
+import (
+	"context"
+	"errors"
+	"log/slog"
+	"strings"
+
+	"connectrpc.com/connect"
+
+	aiv1 "github.com/kuku-mom/kuku/packages/contract/gen/go/kuku/ai/v1"
+	"github.com/kuku-mom/kuku/packages/contract/gen/go/kuku/ai/v1/aiv1connect"
+
+	"github.com/kuku-mom/kuku/apps/server/internal/auth"
+)
+
+type Handler struct {
+	aiv1connect.UnimplementedAIServiceHandler
+	service *Service
+	log     *slog.Logger
+}
+
+func NewHandler(service *Service, log *slog.Logger) *Handler {
+	return &Handler{service: service, log: log}
+}
+
+func (h *Handler) Complete(ctx context.Context, req *connect.Request[aiv1.CompleteRequest]) (*connect.Response[aiv1.CompleteResponse], error) {
+	if _, _, err := auth.FromContext(ctx); err != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("not authenticated"))
+	}
+
+	message := strings.TrimSpace(req.Msg.GetMessage())
+	if message == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("message is required"))
+	}
+
+	output, err := h.service.Complete(ctx, CompleteInput{
+		Mode:         req.Msg.GetMode(),
+		Message:      message,
+		ContextFiles: req.Msg.GetContextFiles(),
+		Model:        req.Msg.GetModel(),
+	})
+	if err != nil {
+		if errors.Is(err, ErrNotConfigured) {
+			return nil, connect.NewError(connect.CodeFailedPrecondition, err)
+		}
+		h.log.Error("remote ai complete failed", "error", err)
+		return nil, connect.NewError(connect.CodeInternal, errors.New("remote ai complete failed"))
+	}
+
+	return connect.NewResponse(&aiv1.CompleteResponse{
+		Text:  &output.Text,
+		Usage: output.Usage,
+	}), nil
+}

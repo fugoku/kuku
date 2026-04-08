@@ -1,0 +1,18 @@
+---
+import DesktopAuth from '@/components/auth/desktop_auth';
+import BaseLayout from '@/layouts/base_layout.astro';
+---
+
+<BaseLayout title="Desktop sign in | kuku" description="Complete desktop sign in.">
+  <main class="auth-shell">
+    <section class="auth-card" aria-labelledby="auth-title">
+      <div class="auth-heading">
+        <p class="eyebrow">DESKTOP</p>
+        <h1 id="auth-title">Connect kuku</h1>
+        <p>Return to the desktop app.</p>
+      </div>
+
+      <DesktopAuth client:load />
+    </section>
+  </main>
+</BaseLayout>

@@ -44,6 +44,9 @@ type Config struct {
 	SMTPPort         string
 	SMTPUsername     string
 	SMTPPassword     string
+
+	GeminiAPIKey string
+	GeminiModel  string
 }
 
 func Load() *Config {
@@ -86,6 +89,9 @@ func Load() *Config {
 		SMTPPort:         getEnv("SMTP_PORT", "1025"),
 		SMTPUsername:     getEnv("SMTP_USERNAME", ""),
 		SMTPPassword:     getEnv("SMTP_PASSWORD", ""),
+
+		GeminiAPIKey: getEnv("GEMINI_API_KEY", ""),
+		GeminiModel:  getEnv("GEMINI_MODEL", "gemini-3.1-flash-lite-preview"),
 	}
 }
 

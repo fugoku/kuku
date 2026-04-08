@@ -29,6 +29,31 @@ pub mod kuku {
         clippy::uninlined_format_args,
         clippy::doc_lazy_continuation
     )]
+    pub mod ai {
+        use super::*;
+        #[allow(
+            non_camel_case_types,
+            dead_code,
+            unused_imports,
+            clippy::derivable_impls,
+            clippy::match_single_binding,
+            clippy::uninlined_format_args,
+            clippy::doc_lazy_continuation
+        )]
+        pub mod v1 {
+            use super::*;
+            include!("kuku.ai.v1.ai.rs");
+        }
+    }
+    #[allow(
+        non_camel_case_types,
+        dead_code,
+        unused_imports,
+        clippy::derivable_impls,
+        clippy::match_single_binding,
+        clippy::uninlined_format_args,
+        clippy::doc_lazy_continuation
+    )]
     pub mod auth {
         use super::*;
         #[allow(
