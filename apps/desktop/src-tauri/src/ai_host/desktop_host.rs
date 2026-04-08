@@ -1,8 +1,8 @@
 use async_trait::async_trait;
-use tauri::{AppHandle, Manager, Wry};
-use tauri_plugin_ai::{
+use kuku_ai::{
     AiError, AiHostBindings, ConflictItem, MutationApplyResult, MutationOp, MutationPlan,
 };
+use tauri::{AppHandle, Manager, Wry};
 
 use crate::auth_commands;
 use crate::search::SearchState;

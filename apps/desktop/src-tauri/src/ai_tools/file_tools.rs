@@ -1,11 +1,11 @@
 use std::path::{Path, PathBuf};
 
 use async_trait::async_trait;
-use tauri::{AppHandle, Manager};
-use tauri_plugin_ai::{
+use kuku_ai::{
     AiNativeTool, AiState, MutationOp, MutationPlan, NativeToolResult, ToolAccess, ToolCallContext,
     ToolDescriptor, ToolError, ToolSource,
 };
+use tauri::{AppHandle, Manager};
 
 use crate::vault::checksum::{compute_checksum, compute_directory_checksum};
 use crate::vault::{

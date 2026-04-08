@@ -2,7 +2,7 @@ use std::future::Future;
 use std::path::Path;
 use std::pin::Pin;
 
-use tauri_plugin_ai::ConflictItem;
+use kuku_ai::ConflictItem;
 
 pub fn compute_checksum(content: &str) -> String {
     blake3::hash(content.as_bytes()).to_hex().to_string()

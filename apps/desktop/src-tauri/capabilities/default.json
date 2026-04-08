@@ -10,6 +10,6 @@
     "deep-link:default",
     "dialog:default",
     "opener:default",
-    "ai:default"
+    "kuku-ai:default"
   ]
 }

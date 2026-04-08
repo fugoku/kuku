@@ -19,12 +19,12 @@ pub fn run() {
     tauri::Builder::default()
         .manage(vault::VaultState::new())
         .manage(search::SearchState::new())
-        .plugin(tauri_plugin_ai::init())
+        .plugin(kuku_ai::init())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            tauri_plugin_ai::register_host(
+            kuku_ai::register_host(
                 app.handle(),
                 Arc::new(ai_host::DesktopAiHost::new(app.handle().clone())),
             );

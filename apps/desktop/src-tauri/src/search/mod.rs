@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::sync::mpsc::Sender;
 
 use blake3::Hash;
-use kuku_search_core::{
+use kuku_indexer::{
     QueryRoute, build_fts_query, build_snippet, build_snippet_for_range, plan_simple_query,
 };
 use parking_lot::Mutex;

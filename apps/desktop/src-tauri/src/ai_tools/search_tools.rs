@@ -1,9 +1,9 @@
 use async_trait::async_trait;
-use tauri::Manager;
-use tauri_plugin_ai::{
+use kuku_ai::{
     AiNativeTool, NativeToolResult, ToolAccess, ToolCallContext, ToolDescriptor, ToolError,
     ToolSource,
 };
+use tauri::Manager;
 
 use crate::search::SearchState;
 

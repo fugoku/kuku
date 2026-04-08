@@ -1,8 +1,12 @@
 [package]
-name = "kuku-search-core"
+name = "kuku-indexer"
 version = "0.1.0"
 edition = "2024"
 publish = false
+
+[lib]
+name = "kuku_indexer"
+path = "src/lib.rs"
 
 [dependencies]
 pulldown-cmark = "0.13"

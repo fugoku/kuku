@@ -15,16 +15,16 @@ pub use error::{AiError, ToolError};
 pub use host::AiHostBindings;
 pub use mutation::{ConflictItem, MutationApplyResult, MutationOp, MutationPlan};
 pub use state::AiState;
+use tauri::{
+    AppHandle, Manager, Wry,
+    plugin::{Builder, TauriPlugin},
+};
 pub use tools::{
     AiNativeTool, NativeToolResult, ProxyToolDescriptor, ProxyToolResult, ToolAccess,
     ToolCallContext, ToolDescriptor, ToolSource,
 };
 pub use types::{
     AiConfig, ChatMode, EditorContext, FinishReason, ModelToolCall, NewSessionPayload, ProviderKind,
-};
-use tauri::{
-    AppHandle, Manager, Wry,
-    plugin::{Builder, TauriPlugin},
 };
 
 pub fn init() -> TauriPlugin<Wry> {

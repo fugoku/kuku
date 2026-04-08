@@ -1,13 +1,13 @@
 use std::path::PathBuf;
 
 use async_trait::async_trait;
-use kuku_search_core::extract_document;
-use serde::Serialize;
-use tauri::{AppHandle, Manager};
-use tauri_plugin_ai::{
+use kuku_ai::{
     AiNativeTool, NativeToolResult, ToolAccess, ToolCallContext, ToolDescriptor, ToolError,
     ToolSource,
 };
+use kuku_indexer::extract_document;
+use serde::Serialize;
+use tauri::{AppHandle, Manager};
 
 use crate::vault::{VaultState, get_vault_root, resolve_vault_path};
 

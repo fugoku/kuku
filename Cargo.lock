@@ -2316,6 +2316,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "kuku-ai"
+version = "0.1.0"
+dependencies = [
+ "async-stream",
+ "async-trait",
+ "blake3",
+ "dirs",
+ "futures",
+ "log",
+ "parking_lot",
+ "reqwest",
+ "rig-core",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-stream",
+ "tokio-util",
+ "uuid",
+]
+
+[[package]]
 name = "kuku-app"
 version = "0.0.0"
 dependencies = [
@@ -2325,7 +2349,8 @@ dependencies = [
  "dirs",
  "human-sort",
  "keyring",
- "kuku-search-core",
+ "kuku-ai",
+ "kuku-indexer",
  "notify",
  "parking_lot",
  "regex",
@@ -2335,7 +2360,6 @@ dependencies = [
  "serde_json",
  "tauri",
  "tauri-build",
- "tauri-plugin-ai",
  "tauri-plugin-deep-link",
  "tauri-plugin-dialog",
  "tauri-plugin-opener",
@@ -2355,7 +2379,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "kuku-search-core"
+name = "kuku-indexer"
 version = "0.1.0"
 dependencies = [
  "pulldown-cmark",
@@ -4697,30 +4721,6 @@ dependencies = [
  "tauri-utils",
  "toml 0.9.12+spec-1.1.0",
  "walkdir",
-]
-
-[[package]]
-name = "tauri-plugin-ai"
-version = "0.1.0"
-dependencies = [
- "async-stream",
- "async-trait",
- "blake3",
- "dirs",
- "futures",
- "log",
- "parking_lot",
- "reqwest",
- "rig-core",
- "serde",
- "serde_json",
- "tauri",
- "tauri-plugin",
- "thiserror 2.0.18",
- "tokio",
- "tokio-stream",
- "tokio-util",
- "uuid",
 ]
 
 [[package]]

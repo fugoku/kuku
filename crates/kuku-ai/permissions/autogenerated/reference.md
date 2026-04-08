@@ -27,7 +27,7 @@ Allows the AI plugin commands.
 <tr>
 <td>
 
-`ai:allow-ai-cancel`
+`kuku-ai:allow-ai-cancel`
 
 </td>
 <td>
@@ -40,7 +40,7 @@ Enables the ai_cancel command without any pre-configured scope.
 <tr>
 <td>
 
-`ai:deny-ai-cancel`
+`kuku-ai:deny-ai-cancel`
 
 </td>
 <td>
@@ -53,7 +53,7 @@ Denies the ai_cancel command without any pre-configured scope.
 <tr>
 <td>
 
-`ai:allow-ai-get-config`
+`kuku-ai:allow-ai-get-config`
 
 </td>
 <td>
@@ -66,7 +66,7 @@ Enables the ai_get_config command without any pre-configured scope.
 <tr>
 <td>
 
-`ai:deny-ai-get-config`
+`kuku-ai:deny-ai-get-config`
 
 </td>
 <td>
@@ -79,7 +79,7 @@ Denies the ai_get_config command without any pre-configured scope.
 <tr>
 <td>
 
-`ai:allow-ai-list-tools`
+`kuku-ai:allow-ai-list-tools`
 
 </td>
 <td>
@@ -92,7 +92,7 @@ Enables the ai_list_tools command without any pre-configured scope.
 <tr>
 <td>
 
-`ai:deny-ai-list-tools`
+`kuku-ai:deny-ai-list-tools`
 
 </td>
 <td>
@@ -105,7 +105,7 @@ Denies the ai_list_tools command without any pre-configured scope.
 <tr>
 <td>
 
-`ai:allow-ai-new-session`
+`kuku-ai:allow-ai-new-session`
 
 </td>
 <td>
@@ -118,7 +118,7 @@ Enables the ai_new_session command without any pre-configured scope.
 <tr>
 <td>
 
-`ai:deny-ai-new-session`
+`kuku-ai:deny-ai-new-session`
 
 </td>
 <td>
@@ -131,7 +131,7 @@ Denies the ai_new_session command without any pre-configured scope.
 <tr>
 <td>
 
-`ai:allow-ai-register-proxy-tool`
+`kuku-ai:allow-ai-register-proxy-tool`
 
 </td>
 <td>
@@ -144,7 +144,7 @@ Enables the ai_register_proxy_tool command without any pre-configured scope.
 <tr>
 <td>
 
-`ai:deny-ai-register-proxy-tool`
+`kuku-ai:deny-ai-register-proxy-tool`
 
 </td>
 <td>
@@ -157,7 +157,7 @@ Denies the ai_register_proxy_tool command without any pre-configured scope.
 <tr>
 <td>
 
-`ai:allow-ai-resolve-approval`
+`kuku-ai:allow-ai-resolve-approval`
 
 </td>
 <td>
@@ -170,7 +170,7 @@ Enables the ai_resolve_approval command without any pre-configured scope.
 <tr>
 <td>
 
-`ai:deny-ai-resolve-approval`
+`kuku-ai:deny-ai-resolve-approval`
 
 </td>
 <td>
@@ -183,7 +183,7 @@ Denies the ai_resolve_approval command without any pre-configured scope.
 <tr>
 <td>
 
-`ai:allow-ai-send-message`
+`kuku-ai:allow-ai-send-message`
 
 </td>
 <td>
@@ -196,7 +196,7 @@ Enables the ai_send_message command without any pre-configured scope.
 <tr>
 <td>
 
-`ai:deny-ai-send-message`
+`kuku-ai:deny-ai-send-message`
 
 </td>
 <td>
@@ -209,7 +209,7 @@ Denies the ai_send_message command without any pre-configured scope.
 <tr>
 <td>
 
-`ai:allow-ai-set-config`
+`kuku-ai:allow-ai-set-config`
 
 </td>
 <td>
@@ -222,7 +222,7 @@ Enables the ai_set_config command without any pre-configured scope.
 <tr>
 <td>
 
-`ai:deny-ai-set-config`
+`kuku-ai:deny-ai-set-config`
 
 </td>
 <td>
@@ -235,7 +235,7 @@ Denies the ai_set_config command without any pre-configured scope.
 <tr>
 <td>
 
-`ai:allow-ai-submit-proxy-tool-result`
+`kuku-ai:allow-ai-submit-proxy-tool-result`
 
 </td>
 <td>
@@ -248,7 +248,7 @@ Enables the ai_submit_proxy_tool_result command without any pre-configured scope
 <tr>
 <td>
 
-`ai:deny-ai-submit-proxy-tool-result`
+`kuku-ai:deny-ai-submit-proxy-tool-result`
 
 </td>
 <td>
@@ -261,7 +261,7 @@ Denies the ai_submit_proxy_tool_result command without any pre-configured scope.
 <tr>
 <td>
 
-`ai:allow-ai-unregister-proxy-tool`
+`kuku-ai:allow-ai-unregister-proxy-tool`
 
 </td>
 <td>
@@ -274,7 +274,7 @@ Enables the ai_unregister_proxy_tool command without any pre-configured scope.
 <tr>
 <td>
 
-`ai:deny-ai-unregister-proxy-tool`
+`kuku-ai:deny-ai-unregister-proxy-tool`
 
 </td>
 <td>

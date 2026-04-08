@@ -5,8 +5,8 @@ mod tool_ids;
 
 use std::sync::Arc;
 
+use kuku_ai::{AiNativeTool, register_tool};
 use tauri::AppHandle;
-use tauri_plugin_ai::{AiNativeTool, register_tool};
 
 use document_tools::{GetOutlineTool, GetTagsTool};
 use file_tools::MoveFileTool;

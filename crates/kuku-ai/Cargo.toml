@@ -1,13 +1,13 @@
 [package]
-name = "tauri-plugin-ai"
+name = "kuku-ai"
 version = "0.1.0"
 edition = "2024"
 publish = false
 build = "build.rs"
-links = "tauri-plugin-ai"
+links = "kuku-ai"
 
 [lib]
-name = "tauri_plugin_ai"
+name = "kuku_ai"
 path = "src/lib.rs"
 
 [dependencies]

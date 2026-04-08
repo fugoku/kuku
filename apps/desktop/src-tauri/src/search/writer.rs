@@ -209,7 +209,7 @@ fn build_document(
 
     let markdown =
         fs::read_to_string(&absolute).map_err(|e| format!("Failed to read markdown file: {e}"))?;
-    let extracted = kuku_search_core::extract_document(&markdown);
+    let extracted = kuku_indexer::extract_document(&markdown);
     let meta_json = serde_json::to_string(
         &extracted
             .frontmatter

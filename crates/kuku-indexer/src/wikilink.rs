@@ -77,10 +77,7 @@ fn mask_fenced_block(
     let mut idx = start;
     while idx < chars.len() {
         let line_start = idx == 0 || chars.get(idx.wrapping_sub(1)) == Some(&'\n');
-        if idx != start
-            && line_start
-            && count_run(chars, idx, fence_char) >= fence_len
-        {
+        if idx != start && line_start && count_run(chars, idx, fence_char) >= fence_len {
             while idx < chars.len() {
                 let ch = chars[idx];
                 output.push(mask_char(ch));
@@ -122,11 +119,7 @@ fn find_backtick_run(chars: &[char], start: usize, run_len: usize) -> Option<usi
 }
 
 fn mask_char(ch: char) -> char {
-    if ch == '\n' || ch == '\r' {
-        ch
-    } else {
-        ' '
-    }
+    if ch == '\n' || ch == '\r' { ch } else { ' ' }
 }
 
 fn scan_text_for_wikilinks(input: &str) -> Vec<(String, Option<String>)> {
