@@ -30,7 +30,7 @@ func (h *Handler) Complete(ctx context.Context, req *connect.Request[aiv1.Comple
 	}
 
 	message := strings.TrimSpace(req.Msg.GetMessage())
-	if message == "" {
+	if message == "" && len(req.Msg.GetMessages()) == 0 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("message is required"))
 	}
 
@@ -39,6 +39,9 @@ func (h *Handler) Complete(ctx context.Context, req *connect.Request[aiv1.Comple
 		Message:      message,
 		ContextFiles: req.Msg.GetContextFiles(),
 		Model:        req.Msg.GetModel(),
+		Messages:     req.Msg.GetMessages(),
+		Tools:        req.Msg.GetTools(),
+		SystemPrompt: req.Msg.GetSystemPrompt(),
 	})
 	if err != nil {
 		if errors.Is(err, ErrNotConfigured) {
@@ -49,7 +52,9 @@ func (h *Handler) Complete(ctx context.Context, req *connect.Request[aiv1.Comple
 	}
 
 	return connect.NewResponse(&aiv1.CompleteResponse{
-		Text:  &output.Text,
-		Usage: output.Usage,
+		Text:         &output.Text,
+		Usage:        output.Usage,
+		ToolCalls:    output.ToolCalls,
+		FinishReason: &output.FinishReason,
 	}), nil
 }

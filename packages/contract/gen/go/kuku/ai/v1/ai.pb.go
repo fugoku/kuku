@@ -20,6 +20,7 @@ import (
 	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -85,6 +86,112 @@ func (ConversationMode) EnumDescriptor() ([]byte, []int) {
 	return file_kuku_ai_v1_ai_proto_rawDescGZIP(), []int{0}
 }
 
+// ChatMessageRole maps the desktop conversation history to the upstream model.
+type ChatMessageRole int32
+
+const (
+	ChatMessageRole_CHAT_MESSAGE_ROLE_UNSPECIFIED ChatMessageRole = 0
+	ChatMessageRole_CHAT_MESSAGE_ROLE_SYSTEM      ChatMessageRole = 1
+	ChatMessageRole_CHAT_MESSAGE_ROLE_USER        ChatMessageRole = 2
+	ChatMessageRole_CHAT_MESSAGE_ROLE_ASSISTANT   ChatMessageRole = 3
+	ChatMessageRole_CHAT_MESSAGE_ROLE_TOOL_RESULT ChatMessageRole = 4
+)
+
+// Enum value maps for ChatMessageRole.
+var (
+	ChatMessageRole_name = map[int32]string{
+		0: "CHAT_MESSAGE_ROLE_UNSPECIFIED",
+		1: "CHAT_MESSAGE_ROLE_SYSTEM",
+		2: "CHAT_MESSAGE_ROLE_USER",
+		3: "CHAT_MESSAGE_ROLE_ASSISTANT",
+		4: "CHAT_MESSAGE_ROLE_TOOL_RESULT",
+	}
+	ChatMessageRole_value = map[string]int32{
+		"CHAT_MESSAGE_ROLE_UNSPECIFIED": 0,
+		"CHAT_MESSAGE_ROLE_SYSTEM":      1,
+		"CHAT_MESSAGE_ROLE_USER":        2,
+		"CHAT_MESSAGE_ROLE_ASSISTANT":   3,
+		"CHAT_MESSAGE_ROLE_TOOL_RESULT": 4,
+	}
+)
+
+func (x ChatMessageRole) Enum() *ChatMessageRole {
+	p := new(ChatMessageRole)
+	*p = x
+	return p
+}
+
+func (x ChatMessageRole) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ChatMessageRole) Descriptor() protoreflect.EnumDescriptor {
+	return file_kuku_ai_v1_ai_proto_enumTypes[1].Descriptor()
+}
+
+func (ChatMessageRole) Type() protoreflect.EnumType {
+	return &file_kuku_ai_v1_ai_proto_enumTypes[1]
+}
+
+func (x ChatMessageRole) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ChatMessageRole.Descriptor instead.
+func (ChatMessageRole) EnumDescriptor() ([]byte, []int) {
+	return file_kuku_ai_v1_ai_proto_rawDescGZIP(), []int{1}
+}
+
+// FinishReason describes why the remote model turn ended.
+type FinishReason int32
+
+const (
+	FinishReason_FINISH_REASON_UNSPECIFIED FinishReason = 0
+	FinishReason_FINISH_REASON_STOP        FinishReason = 1
+	FinishReason_FINISH_REASON_TOOL_CALLS  FinishReason = 2
+)
+
+// Enum value maps for FinishReason.
+var (
+	FinishReason_name = map[int32]string{
+		0: "FINISH_REASON_UNSPECIFIED",
+		1: "FINISH_REASON_STOP",
+		2: "FINISH_REASON_TOOL_CALLS",
+	}
+	FinishReason_value = map[string]int32{
+		"FINISH_REASON_UNSPECIFIED": 0,
+		"FINISH_REASON_STOP":        1,
+		"FINISH_REASON_TOOL_CALLS":  2,
+	}
+)
+
+func (x FinishReason) Enum() *FinishReason {
+	p := new(FinishReason)
+	*p = x
+	return p
+}
+
+func (x FinishReason) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (FinishReason) Descriptor() protoreflect.EnumDescriptor {
+	return file_kuku_ai_v1_ai_proto_enumTypes[2].Descriptor()
+}
+
+func (FinishReason) Type() protoreflect.EnumType {
+	return &file_kuku_ai_v1_ai_proto_enumTypes[2]
+}
+
+func (x FinishReason) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use FinishReason.Descriptor instead.
+func (FinishReason) EnumDescriptor() ([]byte, []int) {
+	return file_kuku_ai_v1_ai_proto_rawDescGZIP(), []int{2}
+}
+
 // CompleteRequest is a single-turn completion request.
 type CompleteRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -92,6 +199,9 @@ type CompleteRequest struct {
 	Message       *string                `protobuf:"bytes,2,opt,name=message" json:"message,omitempty"`
 	ContextFiles  []string               `protobuf:"bytes,3,rep,name=context_files,json=contextFiles" json:"context_files,omitempty"`
 	Model         *string                `protobuf:"bytes,4,opt,name=model" json:"model,omitempty"`
+	Messages      []*ChatMessage         `protobuf:"bytes,5,rep,name=messages" json:"messages,omitempty"`
+	Tools         []*ToolDescriptor      `protobuf:"bytes,6,rep,name=tools" json:"tools,omitempty"`
+	SystemPrompt  *string                `protobuf:"bytes,7,opt,name=system_prompt,json=systemPrompt" json:"system_prompt,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -154,11 +264,34 @@ func (x *CompleteRequest) GetModel() string {
 	return ""
 }
 
+func (x *CompleteRequest) GetMessages() []*ChatMessage {
+	if x != nil {
+		return x.Messages
+	}
+	return nil
+}
+
+func (x *CompleteRequest) GetTools() []*ToolDescriptor {
+	if x != nil {
+		return x.Tools
+	}
+	return nil
+}
+
+func (x *CompleteRequest) GetSystemPrompt() string {
+	if x != nil && x.SystemPrompt != nil {
+		return *x.SystemPrompt
+	}
+	return ""
+}
+
 // CompleteResponse is the generated text and optional usage metadata.
 type CompleteResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Text          *string                `protobuf:"bytes,1,opt,name=text" json:"text,omitempty"`
 	Usage         *TokenUsage            `protobuf:"bytes,2,opt,name=usage" json:"usage,omitempty"`
+	ToolCalls     []*ModelToolCall       `protobuf:"bytes,3,rep,name=tool_calls,json=toolCalls" json:"tool_calls,omitempty"`
+	FinishReason  *FinishReason          `protobuf:"varint,4,opt,name=finish_reason,json=finishReason,enum=kuku.ai.v1.FinishReason" json:"finish_reason,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -205,6 +338,20 @@ func (x *CompleteResponse) GetUsage() *TokenUsage {
 		return x.Usage
 	}
 	return nil
+}
+
+func (x *CompleteResponse) GetToolCalls() []*ModelToolCall {
+	if x != nil {
+		return x.ToolCalls
+	}
+	return nil
+}
+
+func (x *CompleteResponse) GetFinishReason() FinishReason {
+	if x != nil && x.FinishReason != nil {
+		return *x.FinishReason
+	}
+	return FinishReason_FINISH_REASON_UNSPECIFIED
 }
 
 // TokenUsage reports provider token usage when the upstream model exposes it.
@@ -276,31 +423,320 @@ func (x *TokenUsage) GetCachedInputTokens() uint64 {
 	return 0
 }
 
+// ChatMessage carries the desktop-side conversation history.
+type ChatMessage struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Role           *ChatMessageRole       `protobuf:"varint,1,opt,name=role,enum=kuku.ai.v1.ChatMessageRole" json:"role,omitempty"`
+	Content        *string                `protobuf:"bytes,2,opt,name=content" json:"content,omitempty"`
+	ToolCalls      []*ModelToolCall       `protobuf:"bytes,3,rep,name=tool_calls,json=toolCalls" json:"tool_calls,omitempty"`
+	CallId         *string                `protobuf:"bytes,4,opt,name=call_id,json=callId" json:"call_id,omitempty"`
+	ToolName       *string                `protobuf:"bytes,5,opt,name=tool_name,json=toolName" json:"tool_name,omitempty"`
+	IsError        *bool                  `protobuf:"varint,6,opt,name=is_error,json=isError" json:"is_error,omitempty"`
+	ToolCallId     *string                `protobuf:"bytes,7,opt,name=tool_call_id,json=toolCallId" json:"tool_call_id,omitempty"`
+	ProviderCallId *string                `protobuf:"bytes,8,opt,name=provider_call_id,json=providerCallId" json:"provider_call_id,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ChatMessage) Reset() {
+	*x = ChatMessage{}
+	mi := &file_kuku_ai_v1_ai_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ChatMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ChatMessage) ProtoMessage() {}
+
+func (x *ChatMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_kuku_ai_v1_ai_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ChatMessage.ProtoReflect.Descriptor instead.
+func (*ChatMessage) Descriptor() ([]byte, []int) {
+	return file_kuku_ai_v1_ai_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *ChatMessage) GetRole() ChatMessageRole {
+	if x != nil && x.Role != nil {
+		return *x.Role
+	}
+	return ChatMessageRole_CHAT_MESSAGE_ROLE_UNSPECIFIED
+}
+
+func (x *ChatMessage) GetContent() string {
+	if x != nil && x.Content != nil {
+		return *x.Content
+	}
+	return ""
+}
+
+func (x *ChatMessage) GetToolCalls() []*ModelToolCall {
+	if x != nil {
+		return x.ToolCalls
+	}
+	return nil
+}
+
+func (x *ChatMessage) GetCallId() string {
+	if x != nil && x.CallId != nil {
+		return *x.CallId
+	}
+	return ""
+}
+
+func (x *ChatMessage) GetToolName() string {
+	if x != nil && x.ToolName != nil {
+		return *x.ToolName
+	}
+	return ""
+}
+
+func (x *ChatMessage) GetIsError() bool {
+	if x != nil && x.IsError != nil {
+		return *x.IsError
+	}
+	return false
+}
+
+func (x *ChatMessage) GetToolCallId() string {
+	if x != nil && x.ToolCallId != nil {
+		return *x.ToolCallId
+	}
+	return ""
+}
+
+func (x *ChatMessage) GetProviderCallId() string {
+	if x != nil && x.ProviderCallId != nil {
+		return *x.ProviderCallId
+	}
+	return ""
+}
+
+// ToolDescriptor exposes a desktop tool to the server-side model.
+type ToolDescriptor struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          *string                `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Description   *string                `protobuf:"bytes,2,opt,name=description" json:"description,omitempty"`
+	Parameters    *structpb.Struct       `protobuf:"bytes,3,opt,name=parameters" json:"parameters,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToolDescriptor) Reset() {
+	*x = ToolDescriptor{}
+	mi := &file_kuku_ai_v1_ai_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolDescriptor) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolDescriptor) ProtoMessage() {}
+
+func (x *ToolDescriptor) ProtoReflect() protoreflect.Message {
+	mi := &file_kuku_ai_v1_ai_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToolDescriptor.ProtoReflect.Descriptor instead.
+func (*ToolDescriptor) Descriptor() ([]byte, []int) {
+	return file_kuku_ai_v1_ai_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *ToolDescriptor) GetName() string {
+	if x != nil && x.Name != nil {
+		return *x.Name
+	}
+	return ""
+}
+
+func (x *ToolDescriptor) GetDescription() string {
+	if x != nil && x.Description != nil {
+		return *x.Description
+	}
+	return ""
+}
+
+func (x *ToolDescriptor) GetParameters() *structpb.Struct {
+	if x != nil {
+		return x.Parameters
+	}
+	return nil
+}
+
+// ModelToolCall is a model-requested function call that must be executed by
+// the desktop runtime.
+type ModelToolCall struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	CallId         *string                `protobuf:"bytes,1,opt,name=call_id,json=callId" json:"call_id,omitempty"`
+	ToolName       *string                `protobuf:"bytes,2,opt,name=tool_name,json=toolName" json:"tool_name,omitempty"`
+	Arguments      *structpb.Struct       `protobuf:"bytes,3,opt,name=arguments" json:"arguments,omitempty"`
+	Signature      *string                `protobuf:"bytes,4,opt,name=signature" json:"signature,omitempty"`
+	ToolCallId     *string                `protobuf:"bytes,5,opt,name=tool_call_id,json=toolCallId" json:"tool_call_id,omitempty"`
+	ProviderCallId *string                `protobuf:"bytes,6,opt,name=provider_call_id,json=providerCallId" json:"provider_call_id,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ModelToolCall) Reset() {
+	*x = ModelToolCall{}
+	mi := &file_kuku_ai_v1_ai_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ModelToolCall) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ModelToolCall) ProtoMessage() {}
+
+func (x *ModelToolCall) ProtoReflect() protoreflect.Message {
+	mi := &file_kuku_ai_v1_ai_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ModelToolCall.ProtoReflect.Descriptor instead.
+func (*ModelToolCall) Descriptor() ([]byte, []int) {
+	return file_kuku_ai_v1_ai_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *ModelToolCall) GetCallId() string {
+	if x != nil && x.CallId != nil {
+		return *x.CallId
+	}
+	return ""
+}
+
+func (x *ModelToolCall) GetToolName() string {
+	if x != nil && x.ToolName != nil {
+		return *x.ToolName
+	}
+	return ""
+}
+
+func (x *ModelToolCall) GetArguments() *structpb.Struct {
+	if x != nil {
+		return x.Arguments
+	}
+	return nil
+}
+
+func (x *ModelToolCall) GetSignature() string {
+	if x != nil && x.Signature != nil {
+		return *x.Signature
+	}
+	return ""
+}
+
+func (x *ModelToolCall) GetToolCallId() string {
+	if x != nil && x.ToolCallId != nil {
+		return *x.ToolCallId
+	}
+	return ""
+}
+
+func (x *ModelToolCall) GetProviderCallId() string {
+	if x != nil && x.ProviderCallId != nil {
+		return *x.ProviderCallId
+	}
+	return ""
+}
+
 var File_kuku_ai_v1_ai_proto protoreflect.FileDescriptor
 
 const file_kuku_ai_v1_ai_proto_rawDesc = "" +
 	"\n" +
 	"\x13kuku/ai/v1/ai.proto\x12\n" +
-	"kuku.ai.v1\x1a\x1bbuf/validate/validate.proto\"\xa1\x01\n" +
+	"kuku.ai.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1cgoogle/protobuf/struct.proto\"\xad\x02\n" +
 	"\x0fCompleteRequest\x120\n" +
 	"\x04mode\x18\x01 \x01(\x0e2\x1c.kuku.ai.v1.ConversationModeR\x04mode\x12!\n" +
 	"\amessage\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\amessage\x12#\n" +
 	"\rcontext_files\x18\x03 \x03(\tR\fcontextFiles\x12\x14\n" +
-	"\x05model\x18\x04 \x01(\tR\x05model\"T\n" +
+	"\x05model\x18\x04 \x01(\tR\x05model\x123\n" +
+	"\bmessages\x18\x05 \x03(\v2\x17.kuku.ai.v1.ChatMessageR\bmessages\x120\n" +
+	"\x05tools\x18\x06 \x03(\v2\x1a.kuku.ai.v1.ToolDescriptorR\x05tools\x12#\n" +
+	"\rsystem_prompt\x18\a \x01(\tR\fsystemPrompt\"\xcd\x01\n" +
 	"\x10CompleteResponse\x12\x12\n" +
 	"\x04text\x18\x01 \x01(\tR\x04text\x12,\n" +
-	"\x05usage\x18\x02 \x01(\v2\x16.kuku.ai.v1.TokenUsageR\x05usage\"\xa7\x01\n" +
+	"\x05usage\x18\x02 \x01(\v2\x16.kuku.ai.v1.TokenUsageR\x05usage\x128\n" +
+	"\n" +
+	"tool_calls\x18\x03 \x03(\v2\x19.kuku.ai.v1.ModelToolCallR\ttoolCalls\x12=\n" +
+	"\rfinish_reason\x18\x04 \x01(\x0e2\x18.kuku.ai.v1.FinishReasonR\ffinishReason\"\xa7\x01\n" +
 	"\n" +
 	"TokenUsage\x12!\n" +
 	"\finput_tokens\x18\x01 \x01(\x04R\vinputTokens\x12#\n" +
 	"\routput_tokens\x18\x02 \x01(\x04R\foutputTokens\x12!\n" +
 	"\ftotal_tokens\x18\x03 \x01(\x04R\vtotalTokens\x12.\n" +
-	"\x13cached_input_tokens\x18\x04 \x01(\x04R\x11cachedInputTokens*\x8b\x01\n" +
+	"\x13cached_input_tokens\x18\x04 \x01(\x04R\x11cachedInputTokens\"\xaf\x02\n" +
+	"\vChatMessage\x12/\n" +
+	"\x04role\x18\x01 \x01(\x0e2\x1b.kuku.ai.v1.ChatMessageRoleR\x04role\x12\x18\n" +
+	"\acontent\x18\x02 \x01(\tR\acontent\x128\n" +
+	"\n" +
+	"tool_calls\x18\x03 \x03(\v2\x19.kuku.ai.v1.ModelToolCallR\ttoolCalls\x12\x17\n" +
+	"\acall_id\x18\x04 \x01(\tR\x06callId\x12\x1b\n" +
+	"\ttool_name\x18\x05 \x01(\tR\btoolName\x12\x19\n" +
+	"\bis_error\x18\x06 \x01(\bR\aisError\x12 \n" +
+	"\ftool_call_id\x18\a \x01(\tR\n" +
+	"toolCallId\x12(\n" +
+	"\x10provider_call_id\x18\b \x01(\tR\x0eproviderCallId\"\x88\x01\n" +
+	"\x0eToolDescriptor\x12\x1b\n" +
+	"\x04name\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x04name\x12 \n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\x127\n" +
+	"\n" +
+	"parameters\x18\x03 \x01(\v2\x17.google.protobuf.StructR\n" +
+	"parameters\"\xf8\x01\n" +
+	"\rModelToolCall\x12 \n" +
+	"\acall_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x06callId\x12$\n" +
+	"\ttool_name\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\btoolName\x125\n" +
+	"\targuments\x18\x03 \x01(\v2\x17.google.protobuf.StructR\targuments\x12\x1c\n" +
+	"\tsignature\x18\x04 \x01(\tR\tsignature\x12 \n" +
+	"\ftool_call_id\x18\x05 \x01(\tR\n" +
+	"toolCallId\x12(\n" +
+	"\x10provider_call_id\x18\x06 \x01(\tR\x0eproviderCallId*\x8b\x01\n" +
 	"\x10ConversationMode\x12!\n" +
 	"\x1dCONVERSATION_MODE_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17CONVERSATION_MODE_AGENT\x10\x01\x12\x19\n" +
 	"\x15CONVERSATION_MODE_ASK\x10\x02\x12\x1c\n" +
-	"\x18CONVERSATION_MODE_INLINE\x10\x032R\n" +
+	"\x18CONVERSATION_MODE_INLINE\x10\x03*\xb2\x01\n" +
+	"\x0fChatMessageRole\x12!\n" +
+	"\x1dCHAT_MESSAGE_ROLE_UNSPECIFIED\x10\x00\x12\x1c\n" +
+	"\x18CHAT_MESSAGE_ROLE_SYSTEM\x10\x01\x12\x1a\n" +
+	"\x16CHAT_MESSAGE_ROLE_USER\x10\x02\x12\x1f\n" +
+	"\x1bCHAT_MESSAGE_ROLE_ASSISTANT\x10\x03\x12!\n" +
+	"\x1dCHAT_MESSAGE_ROLE_TOOL_RESULT\x10\x04*c\n" +
+	"\fFinishReason\x12\x1d\n" +
+	"\x19FINISH_REASON_UNSPECIFIED\x10\x00\x12\x16\n" +
+	"\x12FINISH_REASON_STOP\x10\x01\x12\x1c\n" +
+	"\x18FINISH_REASON_TOOL_CALLS\x10\x022R\n" +
 	"\tAIService\x12E\n" +
 	"\bComplete\x12\x1b.kuku.ai.v1.CompleteRequest\x1a\x1c.kuku.ai.v1.CompleteResponseBCZAgithub.com/kuku-mom/kuku/packages/contract/gen/go/kuku/ai/v1;aiv1b\beditionsp\xe8\a"
 
@@ -316,24 +752,38 @@ func file_kuku_ai_v1_ai_proto_rawDescGZIP() []byte {
 	return file_kuku_ai_v1_ai_proto_rawDescData
 }
 
-var file_kuku_ai_v1_ai_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_kuku_ai_v1_ai_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_kuku_ai_v1_ai_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_kuku_ai_v1_ai_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_kuku_ai_v1_ai_proto_goTypes = []any{
 	(ConversationMode)(0),    // 0: kuku.ai.v1.ConversationMode
-	(*CompleteRequest)(nil),  // 1: kuku.ai.v1.CompleteRequest
-	(*CompleteResponse)(nil), // 2: kuku.ai.v1.CompleteResponse
-	(*TokenUsage)(nil),       // 3: kuku.ai.v1.TokenUsage
+	(ChatMessageRole)(0),     // 1: kuku.ai.v1.ChatMessageRole
+	(FinishReason)(0),        // 2: kuku.ai.v1.FinishReason
+	(*CompleteRequest)(nil),  // 3: kuku.ai.v1.CompleteRequest
+	(*CompleteResponse)(nil), // 4: kuku.ai.v1.CompleteResponse
+	(*TokenUsage)(nil),       // 5: kuku.ai.v1.TokenUsage
+	(*ChatMessage)(nil),      // 6: kuku.ai.v1.ChatMessage
+	(*ToolDescriptor)(nil),   // 7: kuku.ai.v1.ToolDescriptor
+	(*ModelToolCall)(nil),    // 8: kuku.ai.v1.ModelToolCall
+	(*structpb.Struct)(nil),  // 9: google.protobuf.Struct
 }
 var file_kuku_ai_v1_ai_proto_depIdxs = []int32{
-	0, // 0: kuku.ai.v1.CompleteRequest.mode:type_name -> kuku.ai.v1.ConversationMode
-	3, // 1: kuku.ai.v1.CompleteResponse.usage:type_name -> kuku.ai.v1.TokenUsage
-	1, // 2: kuku.ai.v1.AIService.Complete:input_type -> kuku.ai.v1.CompleteRequest
-	2, // 3: kuku.ai.v1.AIService.Complete:output_type -> kuku.ai.v1.CompleteResponse
-	3, // [3:4] is the sub-list for method output_type
-	2, // [2:3] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	0,  // 0: kuku.ai.v1.CompleteRequest.mode:type_name -> kuku.ai.v1.ConversationMode
+	6,  // 1: kuku.ai.v1.CompleteRequest.messages:type_name -> kuku.ai.v1.ChatMessage
+	7,  // 2: kuku.ai.v1.CompleteRequest.tools:type_name -> kuku.ai.v1.ToolDescriptor
+	5,  // 3: kuku.ai.v1.CompleteResponse.usage:type_name -> kuku.ai.v1.TokenUsage
+	8,  // 4: kuku.ai.v1.CompleteResponse.tool_calls:type_name -> kuku.ai.v1.ModelToolCall
+	2,  // 5: kuku.ai.v1.CompleteResponse.finish_reason:type_name -> kuku.ai.v1.FinishReason
+	1,  // 6: kuku.ai.v1.ChatMessage.role:type_name -> kuku.ai.v1.ChatMessageRole
+	8,  // 7: kuku.ai.v1.ChatMessage.tool_calls:type_name -> kuku.ai.v1.ModelToolCall
+	9,  // 8: kuku.ai.v1.ToolDescriptor.parameters:type_name -> google.protobuf.Struct
+	9,  // 9: kuku.ai.v1.ModelToolCall.arguments:type_name -> google.protobuf.Struct
+	3,  // 10: kuku.ai.v1.AIService.Complete:input_type -> kuku.ai.v1.CompleteRequest
+	4,  // 11: kuku.ai.v1.AIService.Complete:output_type -> kuku.ai.v1.CompleteResponse
+	11, // [11:12] is the sub-list for method output_type
+	10, // [10:11] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_kuku_ai_v1_ai_proto_init() }
@@ -346,8 +796,8 @@ func file_kuku_ai_v1_ai_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_kuku_ai_v1_ai_proto_rawDesc), len(file_kuku_ai_v1_ai_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   3,
+			NumEnums:      3,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

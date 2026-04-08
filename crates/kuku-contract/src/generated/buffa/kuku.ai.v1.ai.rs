@@ -142,6 +142,286 @@ impl ::buffa::Enumeration for ConversationMode {
         }
     }
 }
+/// ChatMessageRole maps the desktop conversation history to the upstream model.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[repr(i32)]
+pub enum ChatMessageRole {
+    CHAT_MESSAGE_ROLE_UNSPECIFIED = 0i32,
+    CHAT_MESSAGE_ROLE_SYSTEM = 1i32,
+    CHAT_MESSAGE_ROLE_USER = 2i32,
+    CHAT_MESSAGE_ROLE_ASSISTANT = 3i32,
+    CHAT_MESSAGE_ROLE_TOOL_RESULT = 4i32,
+}
+impl ::core::default::Default for ChatMessageRole {
+    fn default() -> Self {
+        Self::CHAT_MESSAGE_ROLE_UNSPECIFIED
+    }
+}
+impl ::serde::Serialize for ChatMessageRole {
+    fn serialize<S: ::serde::Serializer>(
+        &self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        s.serialize_str(::buffa::Enumeration::proto_name(self))
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for ChatMessageRole {
+    fn deserialize<D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        struct _V;
+        impl ::serde::de::Visitor<'_> for _V {
+            type Value = ChatMessageRole;
+            fn expecting(
+                &self,
+                f: &mut ::core::fmt::Formatter<'_>,
+            ) -> ::core::fmt::Result {
+                f.write_str(
+                    concat!(
+                        "a string, integer, or null for ", stringify!(ChatMessageRole)
+                    ),
+                )
+            }
+            fn visit_str<E: ::serde::de::Error>(
+                self,
+                v: &str,
+            ) -> ::core::result::Result<ChatMessageRole, E> {
+                <ChatMessageRole as ::buffa::Enumeration>::from_proto_name(v)
+                    .ok_or_else(|| { ::serde::de::Error::unknown_variant(v, &[]) })
+            }
+            fn visit_i64<E: ::serde::de::Error>(
+                self,
+                v: i64,
+            ) -> ::core::result::Result<ChatMessageRole, E> {
+                let v32 = i32::try_from(v)
+                    .map_err(|_| {
+                        ::serde::de::Error::custom(
+                            ::buffa::alloc::format!("enum value {} out of i32 range", v),
+                        )
+                    })?;
+                <ChatMessageRole as ::buffa::Enumeration>::from_i32(v32)
+                    .ok_or_else(|| {
+                        ::serde::de::Error::custom(
+                            ::buffa::alloc::format!("unknown enum value {}", v32),
+                        )
+                    })
+            }
+            fn visit_u64<E: ::serde::de::Error>(
+                self,
+                v: u64,
+            ) -> ::core::result::Result<ChatMessageRole, E> {
+                let v32 = i32::try_from(v)
+                    .map_err(|_| {
+                        ::serde::de::Error::custom(
+                            ::buffa::alloc::format!("enum value {} out of i32 range", v),
+                        )
+                    })?;
+                <ChatMessageRole as ::buffa::Enumeration>::from_i32(v32)
+                    .ok_or_else(|| {
+                        ::serde::de::Error::custom(
+                            ::buffa::alloc::format!("unknown enum value {}", v32),
+                        )
+                    })
+            }
+            fn visit_unit<E: ::serde::de::Error>(
+                self,
+            ) -> ::core::result::Result<ChatMessageRole, E> {
+                ::core::result::Result::Ok(::core::default::Default::default())
+            }
+        }
+        d.deserialize_any(_V)
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for ChatMessageRole {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+impl ::buffa::Enumeration for ChatMessageRole {
+    fn from_i32(value: i32) -> ::core::option::Option<Self> {
+        match value {
+            0i32 => ::core::option::Option::Some(Self::CHAT_MESSAGE_ROLE_UNSPECIFIED),
+            1i32 => ::core::option::Option::Some(Self::CHAT_MESSAGE_ROLE_SYSTEM),
+            2i32 => ::core::option::Option::Some(Self::CHAT_MESSAGE_ROLE_USER),
+            3i32 => ::core::option::Option::Some(Self::CHAT_MESSAGE_ROLE_ASSISTANT),
+            4i32 => ::core::option::Option::Some(Self::CHAT_MESSAGE_ROLE_TOOL_RESULT),
+            _ => ::core::option::Option::None,
+        }
+    }
+    fn to_i32(&self) -> i32 {
+        *self as i32
+    }
+    fn proto_name(&self) -> &'static str {
+        match self {
+            Self::CHAT_MESSAGE_ROLE_UNSPECIFIED => "CHAT_MESSAGE_ROLE_UNSPECIFIED",
+            Self::CHAT_MESSAGE_ROLE_SYSTEM => "CHAT_MESSAGE_ROLE_SYSTEM",
+            Self::CHAT_MESSAGE_ROLE_USER => "CHAT_MESSAGE_ROLE_USER",
+            Self::CHAT_MESSAGE_ROLE_ASSISTANT => "CHAT_MESSAGE_ROLE_ASSISTANT",
+            Self::CHAT_MESSAGE_ROLE_TOOL_RESULT => "CHAT_MESSAGE_ROLE_TOOL_RESULT",
+        }
+    }
+    fn from_proto_name(name: &str) -> ::core::option::Option<Self> {
+        match name {
+            "CHAT_MESSAGE_ROLE_UNSPECIFIED" => {
+                ::core::option::Option::Some(Self::CHAT_MESSAGE_ROLE_UNSPECIFIED)
+            }
+            "CHAT_MESSAGE_ROLE_SYSTEM" => {
+                ::core::option::Option::Some(Self::CHAT_MESSAGE_ROLE_SYSTEM)
+            }
+            "CHAT_MESSAGE_ROLE_USER" => {
+                ::core::option::Option::Some(Self::CHAT_MESSAGE_ROLE_USER)
+            }
+            "CHAT_MESSAGE_ROLE_ASSISTANT" => {
+                ::core::option::Option::Some(Self::CHAT_MESSAGE_ROLE_ASSISTANT)
+            }
+            "CHAT_MESSAGE_ROLE_TOOL_RESULT" => {
+                ::core::option::Option::Some(Self::CHAT_MESSAGE_ROLE_TOOL_RESULT)
+            }
+            _ => ::core::option::Option::None,
+        }
+    }
+}
+/// FinishReason describes why the remote model turn ended.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[repr(i32)]
+pub enum FinishReason {
+    FINISH_REASON_UNSPECIFIED = 0i32,
+    FINISH_REASON_STOP = 1i32,
+    FINISH_REASON_TOOL_CALLS = 2i32,
+}
+impl ::core::default::Default for FinishReason {
+    fn default() -> Self {
+        Self::FINISH_REASON_UNSPECIFIED
+    }
+}
+impl ::serde::Serialize for FinishReason {
+    fn serialize<S: ::serde::Serializer>(
+        &self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        s.serialize_str(::buffa::Enumeration::proto_name(self))
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for FinishReason {
+    fn deserialize<D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        struct _V;
+        impl ::serde::de::Visitor<'_> for _V {
+            type Value = FinishReason;
+            fn expecting(
+                &self,
+                f: &mut ::core::fmt::Formatter<'_>,
+            ) -> ::core::fmt::Result {
+                f.write_str(
+                    concat!("a string, integer, or null for ", stringify!(FinishReason)),
+                )
+            }
+            fn visit_str<E: ::serde::de::Error>(
+                self,
+                v: &str,
+            ) -> ::core::result::Result<FinishReason, E> {
+                <FinishReason as ::buffa::Enumeration>::from_proto_name(v)
+                    .ok_or_else(|| { ::serde::de::Error::unknown_variant(v, &[]) })
+            }
+            fn visit_i64<E: ::serde::de::Error>(
+                self,
+                v: i64,
+            ) -> ::core::result::Result<FinishReason, E> {
+                let v32 = i32::try_from(v)
+                    .map_err(|_| {
+                        ::serde::de::Error::custom(
+                            ::buffa::alloc::format!("enum value {} out of i32 range", v),
+                        )
+                    })?;
+                <FinishReason as ::buffa::Enumeration>::from_i32(v32)
+                    .ok_or_else(|| {
+                        ::serde::de::Error::custom(
+                            ::buffa::alloc::format!("unknown enum value {}", v32),
+                        )
+                    })
+            }
+            fn visit_u64<E: ::serde::de::Error>(
+                self,
+                v: u64,
+            ) -> ::core::result::Result<FinishReason, E> {
+                let v32 = i32::try_from(v)
+                    .map_err(|_| {
+                        ::serde::de::Error::custom(
+                            ::buffa::alloc::format!("enum value {} out of i32 range", v),
+                        )
+                    })?;
+                <FinishReason as ::buffa::Enumeration>::from_i32(v32)
+                    .ok_or_else(|| {
+                        ::serde::de::Error::custom(
+                            ::buffa::alloc::format!("unknown enum value {}", v32),
+                        )
+                    })
+            }
+            fn visit_unit<E: ::serde::de::Error>(
+                self,
+            ) -> ::core::result::Result<FinishReason, E> {
+                ::core::result::Result::Ok(::core::default::Default::default())
+            }
+        }
+        d.deserialize_any(_V)
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for FinishReason {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+impl ::buffa::Enumeration for FinishReason {
+    fn from_i32(value: i32) -> ::core::option::Option<Self> {
+        match value {
+            0i32 => ::core::option::Option::Some(Self::FINISH_REASON_UNSPECIFIED),
+            1i32 => ::core::option::Option::Some(Self::FINISH_REASON_STOP),
+            2i32 => ::core::option::Option::Some(Self::FINISH_REASON_TOOL_CALLS),
+            _ => ::core::option::Option::None,
+        }
+    }
+    fn to_i32(&self) -> i32 {
+        *self as i32
+    }
+    fn proto_name(&self) -> &'static str {
+        match self {
+            Self::FINISH_REASON_UNSPECIFIED => "FINISH_REASON_UNSPECIFIED",
+            Self::FINISH_REASON_STOP => "FINISH_REASON_STOP",
+            Self::FINISH_REASON_TOOL_CALLS => "FINISH_REASON_TOOL_CALLS",
+        }
+    }
+    fn from_proto_name(name: &str) -> ::core::option::Option<Self> {
+        match name {
+            "FINISH_REASON_UNSPECIFIED" => {
+                ::core::option::Option::Some(Self::FINISH_REASON_UNSPECIFIED)
+            }
+            "FINISH_REASON_STOP" => {
+                ::core::option::Option::Some(Self::FINISH_REASON_STOP)
+            }
+            "FINISH_REASON_TOOL_CALLS" => {
+                ::core::option::Option::Some(Self::FINISH_REASON_TOOL_CALLS)
+            }
+            _ => ::core::option::Option::None,
+        }
+    }
+}
 /// CompleteRequest is a single-turn completion request.
 #[derive(Clone, PartialEq, Default)]
 #[derive(::serde::Serialize, ::serde::Deserialize)]
@@ -168,6 +448,27 @@ pub struct CompleteRequest {
     /// Field 4: `model`
     #[serde(rename = "model", skip_serializing_if = "Option::is_none")]
     pub model: Option<::buffa::alloc::string::String>,
+    /// Field 5: `messages`
+    #[serde(
+        rename = "messages",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
+        deserialize_with = "::buffa::json_helpers::null_as_default"
+    )]
+    pub messages: ::buffa::alloc::vec::Vec<ChatMessage>,
+    /// Field 6: `tools`
+    #[serde(
+        rename = "tools",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
+        deserialize_with = "::buffa::json_helpers::null_as_default"
+    )]
+    pub tools: ::buffa::alloc::vec::Vec<ToolDescriptor>,
+    /// Field 7: `system_prompt`
+    #[serde(
+        rename = "systemPrompt",
+        alias = "system_prompt",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub system_prompt: Option<::buffa::alloc::string::String>,
     #[serde(skip)]
     #[doc(hidden)]
     pub __buffa_unknown_fields: ::buffa::UnknownFields,
@@ -182,6 +483,9 @@ impl ::core::fmt::Debug for CompleteRequest {
             .field("message", &self.message)
             .field("context_files", &self.context_files)
             .field("model", &self.model)
+            .field("messages", &self.messages)
+            .field("tools", &self.tools)
+            .field("system_prompt", &self.system_prompt)
             .finish()
     }
 }
@@ -217,8 +521,23 @@ impl ::buffa::Message for CompleteRequest {
         if let Some(ref v) = self.model {
             size += 1u32 + ::buffa::types::string_encoded_len(v) as u32;
         }
+        if let Some(ref v) = self.system_prompt {
+            size += 1u32 + ::buffa::types::string_encoded_len(v) as u32;
+        }
         for v in &self.context_files {
             size += 1u32 + ::buffa::types::string_encoded_len(v) as u32;
+        }
+        for v in &self.messages {
+            let inner_size = v.compute_size();
+            size
+                += 1u32 + ::buffa::encoding::varint_len(inner_size as u64) as u32
+                    + inner_size;
+        }
+        for v in &self.tools {
+            let inner_size = v.compute_size();
+            size
+                += 1u32 + ::buffa::encoding::varint_len(inner_size as u64) as u32
+                    + inner_size;
         }
         size += self.__buffa_unknown_fields.encoded_len() as u32;
         self.__buffa_cached_size.set(size);
@@ -248,6 +567,14 @@ impl ::buffa::Message for CompleteRequest {
                 .encode(buf);
             ::buffa::types::encode_string(v, buf);
         }
+        if let Some(ref v) = self.system_prompt {
+            ::buffa::encoding::Tag::new(
+                    7u32,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )
+                .encode(buf);
+            ::buffa::types::encode_string(v, buf);
+        }
         for v in &self.context_files {
             ::buffa::encoding::Tag::new(
                     3u32,
@@ -255,6 +582,24 @@ impl ::buffa::Message for CompleteRequest {
                 )
                 .encode(buf);
             ::buffa::types::encode_string(v, buf);
+        }
+        for v in &self.messages {
+            ::buffa::encoding::Tag::new(
+                    5u32,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )
+                .encode(buf);
+            ::buffa::encoding::encode_varint(v.cached_size() as u64, buf);
+            v.write_to(buf);
+        }
+        for v in &self.tools {
+            ::buffa::encoding::Tag::new(
+                    6u32,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )
+                .encode(buf);
+            ::buffa::encoding::encode_varint(v.cached_size() as u64, buf);
+            v.write_to(buf);
         }
         self.__buffa_unknown_fields.write_to(buf);
     }
@@ -307,6 +652,21 @@ impl ::buffa::Message for CompleteRequest {
                     buf,
                 )?;
             }
+            7u32 => {
+                if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                    return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                        field_number: 7u32,
+                        expected: 2u8,
+                        actual: tag.wire_type() as u8,
+                    });
+                }
+                ::buffa::types::merge_string(
+                    self
+                        .system_prompt
+                        .get_or_insert_with(::buffa::alloc::string::String::new),
+                    buf,
+                )?;
+            }
             3u32 => {
                 if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
                     return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
@@ -316,6 +676,30 @@ impl ::buffa::Message for CompleteRequest {
                     });
                 }
                 self.context_files.push(::buffa::types::decode_string(buf)?);
+            }
+            5u32 => {
+                if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                    return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                        field_number: 5u32,
+                        expected: 2u8,
+                        actual: tag.wire_type() as u8,
+                    });
+                }
+                let mut elem = ::core::default::Default::default();
+                ::buffa::Message::merge_length_delimited(&mut elem, buf, depth)?;
+                self.messages.push(elem);
+            }
+            6u32 => {
+                if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                    return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                        field_number: 6u32,
+                        expected: 2u8,
+                        actual: tag.wire_type() as u8,
+                    });
+                }
+                let mut elem = ::core::default::Default::default();
+                ::buffa::Message::merge_length_delimited(&mut elem, buf, depth)?;
+                self.tools.push(elem);
             }
             _ => {
                 self.__buffa_unknown_fields
@@ -331,7 +715,10 @@ impl ::buffa::Message for CompleteRequest {
         self.mode = ::core::option::Option::None;
         self.message = ::core::option::Option::None;
         self.model = ::core::option::Option::None;
+        self.system_prompt = ::core::option::Option::None;
         self.context_files.clear();
+        self.messages.clear();
+        self.tools.clear();
         self.__buffa_unknown_fields.clear();
         self.__buffa_cached_size.set(0);
     }
@@ -376,6 +763,12 @@ pub struct CompleteRequestView<'a> {
     pub context_files: ::buffa::RepeatedView<'a, &'a str>,
     /// Field 4: `model`
     pub model: ::core::option::Option<&'a str>,
+    /// Field 5: `messages`
+    pub messages: ::buffa::RepeatedView<'a, ChatMessageView<'a>>,
+    /// Field 6: `tools`
+    pub tools: ::buffa::RepeatedView<'a, ToolDescriptorView<'a>>,
+    /// Field 7: `system_prompt`
+    pub system_prompt: ::core::option::Option<&'a str>,
     pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
 }
 impl<'a> CompleteRequestView<'a> {
@@ -448,6 +841,16 @@ impl<'a> CompleteRequestView<'a> {
                     }
                     view.model = Some(::buffa::types::borrow_str(&mut cur)?);
                 }
+                7u32 => {
+                    if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                        return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                            field_number: 7u32,
+                            expected: 2u8,
+                            actual: tag.wire_type() as u8,
+                        });
+                    }
+                    view.system_prompt = Some(::buffa::types::borrow_str(&mut cur)?);
+                }
                 3u32 => {
                     if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
                         return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
@@ -457,6 +860,34 @@ impl<'a> CompleteRequestView<'a> {
                         });
                     }
                     view.context_files.push(::buffa::types::borrow_str(&mut cur)?);
+                }
+                5u32 => {
+                    if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                        return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                            field_number: 5u32,
+                            expected: 2u8,
+                            actual: tag.wire_type() as u8,
+                        });
+                    }
+                    if depth == 0 {
+                        return Err(::buffa::DecodeError::RecursionLimitExceeded);
+                    }
+                    let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                    view.messages.push(ChatMessageView::_decode_depth(sub, depth - 1)?);
+                }
+                6u32 => {
+                    if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                        return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                            field_number: 6u32,
+                            expected: 2u8,
+                            actual: tag.wire_type() as u8,
+                        });
+                    }
+                    if depth == 0 {
+                        return Err(::buffa::DecodeError::RecursionLimitExceeded);
+                    }
+                    let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                    view.tools.push(ToolDescriptorView::_decode_depth(sub, depth - 1)?);
                 }
                 _ => {
                     ::buffa::encoding::skip_field_depth(tag, &mut cur, depth)?;
@@ -489,6 +920,9 @@ impl<'a> ::buffa::MessageView<'a> for CompleteRequestView<'a> {
             message: self.message.map(|s| s.to_string()),
             context_files: self.context_files.iter().map(|s| s.to_string()).collect(),
             model: self.model.map(|s| s.to_string()),
+            messages: self.messages.iter().map(|v| v.to_owned_message()).collect(),
+            tools: self.tools.iter().map(|v| v.to_owned_message()).collect(),
+            system_prompt: self.system_prompt.map(|s| s.to_string()),
             __buffa_unknown_fields: self
                 .__buffa_unknown_fields
                 .to_owned()
@@ -521,6 +955,22 @@ pub struct CompleteResponse {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
     )]
     pub usage: ::buffa::MessageField<TokenUsage>,
+    /// Field 3: `tool_calls`
+    #[serde(
+        rename = "toolCalls",
+        alias = "tool_calls",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
+        deserialize_with = "::buffa::json_helpers::null_as_default"
+    )]
+    pub tool_calls: ::buffa::alloc::vec::Vec<ModelToolCall>,
+    /// Field 4: `finish_reason`
+    #[serde(
+        rename = "finishReason",
+        alias = "finish_reason",
+        with = "::buffa::json_helpers::opt_enum",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub finish_reason: Option<::buffa::EnumValue<FinishReason>>,
     #[serde(skip)]
     #[doc(hidden)]
     pub __buffa_unknown_fields: ::buffa::UnknownFields,
@@ -533,6 +983,8 @@ impl ::core::fmt::Debug for CompleteResponse {
         f.debug_struct("CompleteResponse")
             .field("text", &self.text)
             .field("usage", &self.usage)
+            .field("tool_calls", &self.tool_calls)
+            .field("finish_reason", &self.finish_reason)
             .finish()
     }
 }
@@ -568,6 +1020,15 @@ impl ::buffa::Message for CompleteResponse {
                 += 1u32 + ::buffa::encoding::varint_len(inner_size as u64) as u32
                     + inner_size;
         }
+        if let Some(ref v) = self.finish_reason {
+            size += 1u32 + ::buffa::types::int32_encoded_len(v.to_i32()) as u32;
+        }
+        for v in &self.tool_calls {
+            let inner_size = v.compute_size();
+            size
+                += 1u32 + ::buffa::encoding::varint_len(inner_size as u64) as u32
+                    + inner_size;
+        }
         size += self.__buffa_unknown_fields.encoded_len() as u32;
         self.__buffa_cached_size.set(size);
         size
@@ -591,6 +1052,20 @@ impl ::buffa::Message for CompleteResponse {
                 .encode(buf);
             ::buffa::encoding::encode_varint(self.usage.cached_size() as u64, buf);
             self.usage.write_to(buf);
+        }
+        if let Some(ref v) = self.finish_reason {
+            ::buffa::encoding::Tag::new(4u32, ::buffa::encoding::WireType::Varint)
+                .encode(buf);
+            ::buffa::types::encode_int32(v.to_i32(), buf);
+        }
+        for v in &self.tool_calls {
+            ::buffa::encoding::Tag::new(
+                    3u32,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )
+                .encode(buf);
+            ::buffa::encoding::encode_varint(v.cached_size() as u64, buf);
+            v.write_to(buf);
         }
         self.__buffa_unknown_fields.write_to(buf);
     }
@@ -632,6 +1107,30 @@ impl ::buffa::Message for CompleteResponse {
                     depth,
                 )?;
             }
+            4u32 => {
+                if tag.wire_type() != ::buffa::encoding::WireType::Varint {
+                    return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                        field_number: 4u32,
+                        expected: 0u8,
+                        actual: tag.wire_type() as u8,
+                    });
+                }
+                self.finish_reason = ::core::option::Option::Some(
+                    ::buffa::EnumValue::from(::buffa::types::decode_int32(buf)?),
+                );
+            }
+            3u32 => {
+                if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                    return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                        field_number: 3u32,
+                        expected: 2u8,
+                        actual: tag.wire_type() as u8,
+                    });
+                }
+                let mut elem = ::core::default::Default::default();
+                ::buffa::Message::merge_length_delimited(&mut elem, buf, depth)?;
+                self.tool_calls.push(elem);
+            }
             _ => {
                 self.__buffa_unknown_fields
                     .push(::buffa::encoding::decode_unknown_field(tag, buf, depth)?);
@@ -645,6 +1144,8 @@ impl ::buffa::Message for CompleteResponse {
     fn clear(&mut self) {
         self.text = ::core::option::Option::None;
         self.usage = ::buffa::MessageField::none();
+        self.finish_reason = ::core::option::Option::None;
+        self.tool_calls.clear();
         self.__buffa_unknown_fields.clear();
         self.__buffa_cached_size.set(0);
     }
@@ -685,6 +1186,10 @@ pub struct CompleteResponseView<'a> {
     pub text: ::core::option::Option<&'a str>,
     /// Field 2: `usage`
     pub usage: ::buffa::MessageFieldView<TokenUsageView<'a>>,
+    /// Field 3: `tool_calls`
+    pub tool_calls: ::buffa::RepeatedView<'a, ModelToolCallView<'a>>,
+    /// Field 4: `finish_reason`
+    pub finish_reason: ::core::option::Option<::buffa::EnumValue<FinishReason>>,
     pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
 }
 impl<'a> CompleteResponseView<'a> {
@@ -756,6 +1261,33 @@ impl<'a> CompleteResponseView<'a> {
                         }
                     }
                 }
+                4u32 => {
+                    if tag.wire_type() != ::buffa::encoding::WireType::Varint {
+                        return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                            field_number: 4u32,
+                            expected: 0u8,
+                            actual: tag.wire_type() as u8,
+                        });
+                    }
+                    view.finish_reason = Some(
+                        ::buffa::EnumValue::from(::buffa::types::decode_int32(&mut cur)?),
+                    );
+                }
+                3u32 => {
+                    if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                        return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                            field_number: 3u32,
+                            expected: 2u8,
+                            actual: tag.wire_type() as u8,
+                        });
+                    }
+                    if depth == 0 {
+                        return Err(::buffa::DecodeError::RecursionLimitExceeded);
+                    }
+                    let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                    view.tool_calls
+                        .push(ModelToolCallView::_decode_depth(sub, depth - 1)?);
+                }
                 _ => {
                     ::buffa::encoding::skip_field_depth(tag, &mut cur, depth)?;
                     let span_len = before_tag.len() - cur.len();
@@ -790,6 +1322,8 @@ impl<'a> ::buffa::MessageView<'a> for CompleteResponseView<'a> {
                 }
                 None => ::buffa::MessageField::none(),
             },
+            tool_calls: self.tool_calls.iter().map(|v| v.to_owned_message()).collect(),
+            finish_reason: self.finish_reason,
             __buffa_unknown_fields: self
                 .__buffa_unknown_fields
                 .to_owned()
@@ -1175,10 +1709,1433 @@ unsafe impl ::buffa::DefaultViewInstance for TokenUsageView<'static> {
 unsafe impl<'a> ::buffa::HasDefaultViewInstance for TokenUsageView<'a> {
     type Static = TokenUsageView<'static>;
 }
+/// ChatMessage carries the desktop-side conversation history.
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct ChatMessage {
+    /// Field 1: `role`
+    #[serde(
+        rename = "role",
+        with = "::buffa::json_helpers::opt_enum",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub role: Option<::buffa::EnumValue<ChatMessageRole>>,
+    /// Field 2: `content`
+    #[serde(rename = "content", skip_serializing_if = "Option::is_none")]
+    pub content: Option<::buffa::alloc::string::String>,
+    /// Field 3: `tool_calls`
+    #[serde(
+        rename = "toolCalls",
+        alias = "tool_calls",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
+        deserialize_with = "::buffa::json_helpers::null_as_default"
+    )]
+    pub tool_calls: ::buffa::alloc::vec::Vec<ModelToolCall>,
+    /// Field 4: `call_id`
+    #[serde(
+        rename = "callId",
+        alias = "call_id",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub call_id: Option<::buffa::alloc::string::String>,
+    /// Field 5: `tool_name`
+    #[serde(
+        rename = "toolName",
+        alias = "tool_name",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub tool_name: Option<::buffa::alloc::string::String>,
+    /// Field 6: `is_error`
+    #[serde(
+        rename = "isError",
+        alias = "is_error",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub is_error: Option<bool>,
+    /// Field 7: `tool_call_id`
+    #[serde(
+        rename = "toolCallId",
+        alias = "tool_call_id",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub tool_call_id: Option<::buffa::alloc::string::String>,
+    /// Field 8: `provider_call_id`
+    #[serde(
+        rename = "providerCallId",
+        alias = "provider_call_id",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub provider_call_id: Option<::buffa::alloc::string::String>,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+    #[doc(hidden)]
+    #[serde(skip)]
+    pub __buffa_cached_size: ::buffa::__private::CachedSize,
+}
+impl ::core::fmt::Debug for ChatMessage {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("ChatMessage")
+            .field("role", &self.role)
+            .field("content", &self.content)
+            .field("tool_calls", &self.tool_calls)
+            .field("call_id", &self.call_id)
+            .field("tool_name", &self.tool_name)
+            .field("is_error", &self.is_error)
+            .field("tool_call_id", &self.tool_call_id)
+            .field("provider_call_id", &self.provider_call_id)
+            .finish()
+    }
+}
+impl ChatMessage {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/kuku.ai.v1.ChatMessage";
+}
+unsafe impl ::buffa::DefaultInstance for ChatMessage {
+    fn default_instance() -> &'static Self {
+        static VALUE: ::buffa::__private::OnceBox<ChatMessage> = ::buffa::__private::OnceBox::new();
+        VALUE.get_or_init(|| ::buffa::alloc::boxed::Box::new(Self::default()))
+    }
+}
+impl ::buffa::Message for ChatMessage {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// The result is a `u32`; the protobuf specification requires all
+    /// messages to fit within 2 GiB (2,147,483,647 bytes), so a
+    /// compliant message will never overflow this type.
+    fn compute_size(&self) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u32;
+        if let Some(ref v) = self.role {
+            size += 1u32 + ::buffa::types::int32_encoded_len(v.to_i32()) as u32;
+        }
+        if let Some(ref v) = self.content {
+            size += 1u32 + ::buffa::types::string_encoded_len(v) as u32;
+        }
+        if let Some(ref v) = self.call_id {
+            size += 1u32 + ::buffa::types::string_encoded_len(v) as u32;
+        }
+        if let Some(ref v) = self.tool_name {
+            size += 1u32 + ::buffa::types::string_encoded_len(v) as u32;
+        }
+        if self.is_error.is_some() {
+            size += 1u32 + ::buffa::types::BOOL_ENCODED_LEN as u32;
+        }
+        if let Some(ref v) = self.tool_call_id {
+            size += 1u32 + ::buffa::types::string_encoded_len(v) as u32;
+        }
+        if let Some(ref v) = self.provider_call_id {
+            size += 1u32 + ::buffa::types::string_encoded_len(v) as u32;
+        }
+        for v in &self.tool_calls {
+            let inner_size = v.compute_size();
+            size
+                += 1u32 + ::buffa::encoding::varint_len(inner_size as u64) as u32
+                    + inner_size;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u32;
+        self.__buffa_cached_size.set(size);
+        size
+    }
+    fn write_to(&self, buf: &mut impl ::buffa::bytes::BufMut) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        if let Some(ref v) = self.role {
+            ::buffa::encoding::Tag::new(1u32, ::buffa::encoding::WireType::Varint)
+                .encode(buf);
+            ::buffa::types::encode_int32(v.to_i32(), buf);
+        }
+        if let Some(ref v) = self.content {
+            ::buffa::encoding::Tag::new(
+                    2u32,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )
+                .encode(buf);
+            ::buffa::types::encode_string(v, buf);
+        }
+        if let Some(ref v) = self.call_id {
+            ::buffa::encoding::Tag::new(
+                    4u32,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )
+                .encode(buf);
+            ::buffa::types::encode_string(v, buf);
+        }
+        if let Some(ref v) = self.tool_name {
+            ::buffa::encoding::Tag::new(
+                    5u32,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )
+                .encode(buf);
+            ::buffa::types::encode_string(v, buf);
+        }
+        if let Some(v) = self.is_error {
+            ::buffa::encoding::Tag::new(6u32, ::buffa::encoding::WireType::Varint)
+                .encode(buf);
+            ::buffa::types::encode_bool(v, buf);
+        }
+        if let Some(ref v) = self.tool_call_id {
+            ::buffa::encoding::Tag::new(
+                    7u32,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )
+                .encode(buf);
+            ::buffa::types::encode_string(v, buf);
+        }
+        if let Some(ref v) = self.provider_call_id {
+            ::buffa::encoding::Tag::new(
+                    8u32,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )
+                .encode(buf);
+            ::buffa::types::encode_string(v, buf);
+        }
+        for v in &self.tool_calls {
+            ::buffa::encoding::Tag::new(
+                    3u32,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )
+                .encode(buf);
+            ::buffa::encoding::encode_varint(v.cached_size() as u64, buf);
+            v.write_to(buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        depth: u32,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports)]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                if tag.wire_type() != ::buffa::encoding::WireType::Varint {
+                    return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                        field_number: 1u32,
+                        expected: 0u8,
+                        actual: tag.wire_type() as u8,
+                    });
+                }
+                self.role = ::core::option::Option::Some(
+                    ::buffa::EnumValue::from(::buffa::types::decode_int32(buf)?),
+                );
+            }
+            2u32 => {
+                if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                    return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                        field_number: 2u32,
+                        expected: 2u8,
+                        actual: tag.wire_type() as u8,
+                    });
+                }
+                ::buffa::types::merge_string(
+                    self.content.get_or_insert_with(::buffa::alloc::string::String::new),
+                    buf,
+                )?;
+            }
+            4u32 => {
+                if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                    return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                        field_number: 4u32,
+                        expected: 2u8,
+                        actual: tag.wire_type() as u8,
+                    });
+                }
+                ::buffa::types::merge_string(
+                    self.call_id.get_or_insert_with(::buffa::alloc::string::String::new),
+                    buf,
+                )?;
+            }
+            5u32 => {
+                if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                    return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                        field_number: 5u32,
+                        expected: 2u8,
+                        actual: tag.wire_type() as u8,
+                    });
+                }
+                ::buffa::types::merge_string(
+                    self
+                        .tool_name
+                        .get_or_insert_with(::buffa::alloc::string::String::new),
+                    buf,
+                )?;
+            }
+            6u32 => {
+                if tag.wire_type() != ::buffa::encoding::WireType::Varint {
+                    return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                        field_number: 6u32,
+                        expected: 0u8,
+                        actual: tag.wire_type() as u8,
+                    });
+                }
+                self.is_error = ::core::option::Option::Some(
+                    ::buffa::types::decode_bool(buf)?,
+                );
+            }
+            7u32 => {
+                if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                    return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                        field_number: 7u32,
+                        expected: 2u8,
+                        actual: tag.wire_type() as u8,
+                    });
+                }
+                ::buffa::types::merge_string(
+                    self
+                        .tool_call_id
+                        .get_or_insert_with(::buffa::alloc::string::String::new),
+                    buf,
+                )?;
+            }
+            8u32 => {
+                if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                    return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                        field_number: 8u32,
+                        expected: 2u8,
+                        actual: tag.wire_type() as u8,
+                    });
+                }
+                ::buffa::types::merge_string(
+                    self
+                        .provider_call_id
+                        .get_or_insert_with(::buffa::alloc::string::String::new),
+                    buf,
+                )?;
+            }
+            3u32 => {
+                if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                    return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                        field_number: 3u32,
+                        expected: 2u8,
+                        actual: tag.wire_type() as u8,
+                    });
+                }
+                let mut elem = ::core::default::Default::default();
+                ::buffa::Message::merge_length_delimited(&mut elem, buf, depth)?;
+                self.tool_calls.push(elem);
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, depth)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn cached_size(&self) -> u32 {
+        self.__buffa_cached_size.get()
+    }
+    fn clear(&mut self) {
+        self.role = ::core::option::Option::None;
+        self.content = ::core::option::Option::None;
+        self.call_id = ::core::option::Option::None;
+        self.tool_name = ::core::option::Option::None;
+        self.is_error = ::core::option::Option::None;
+        self.tool_call_id = ::core::option::Option::None;
+        self.provider_call_id = ::core::option::Option::None;
+        self.tool_calls.clear();
+        self.__buffa_unknown_fields.clear();
+        self.__buffa_cached_size.set(0);
+    }
+}
+impl ::buffa::ExtensionSet for ChatMessage {
+    const PROTO_FQN: &'static str = "kuku.ai.v1.ChatMessage";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for ChatMessage {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __CHAT_MESSAGE_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/kuku.ai.v1.ChatMessage",
+    to_json: ::buffa::type_registry::any_to_json::<ChatMessage>,
+    from_json: ::buffa::type_registry::any_from_json::<ChatMessage>,
+    is_wkt: false,
+};
+/// ChatMessage carries the desktop-side conversation history.
+#[derive(Clone, Debug, Default)]
+pub struct ChatMessageView<'a> {
+    /// Field 1: `role`
+    pub role: ::core::option::Option<::buffa::EnumValue<ChatMessageRole>>,
+    /// Field 2: `content`
+    pub content: ::core::option::Option<&'a str>,
+    /// Field 3: `tool_calls`
+    pub tool_calls: ::buffa::RepeatedView<'a, ModelToolCallView<'a>>,
+    /// Field 4: `call_id`
+    pub call_id: ::core::option::Option<&'a str>,
+    /// Field 5: `tool_name`
+    pub tool_name: ::core::option::Option<&'a str>,
+    /// Field 6: `is_error`
+    pub is_error: ::core::option::Option<bool>,
+    /// Field 7: `tool_call_id`
+    pub tool_call_id: ::core::option::Option<&'a str>,
+    /// Field 8: `provider_call_id`
+    pub provider_call_id: ::core::option::Option<&'a str>,
+    pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+}
+impl<'a> ChatMessageView<'a> {
+    /// Decode from `buf`, enforcing a recursion depth limit for nested messages.
+    ///
+    /// Called by [`::buffa::MessageView::decode_view`] with [`::buffa::RECURSION_LIMIT`]
+    /// and by generated sub-message decode arms with `depth - 1`.
+    ///
+    /// **Not part of the public API.** Named with a leading underscore to
+    /// signal that it is for generated-code use only.
+    #[doc(hidden)]
+    pub fn _decode_depth(
+        buf: &'a [u8],
+        depth: u32,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        let mut view = Self::default();
+        view._merge_into_view(buf, depth)?;
+        ::core::result::Result::Ok(view)
+    }
+    /// Merge fields from `buf` into this view (proto merge semantics).
+    ///
+    /// Repeated fields append; singular fields last-wins; singular
+    /// MESSAGE fields merge recursively. Used by sub-message decode
+    /// arms when the same field appears multiple times on the wire.
+    ///
+    /// **Not part of the public API.**
+    #[doc(hidden)]
+    pub fn _merge_into_view(
+        &mut self,
+        buf: &'a [u8],
+        depth: u32,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        let _ = depth;
+        #[allow(unused_variables)]
+        let view = self;
+        let mut cur: &'a [u8] = buf;
+        while !cur.is_empty() {
+            let before_tag = cur;
+            let tag = ::buffa::encoding::Tag::decode(&mut cur)?;
+            match tag.field_number() {
+                1u32 => {
+                    if tag.wire_type() != ::buffa::encoding::WireType::Varint {
+                        return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                            field_number: 1u32,
+                            expected: 0u8,
+                            actual: tag.wire_type() as u8,
+                        });
+                    }
+                    view.role = Some(
+                        ::buffa::EnumValue::from(::buffa::types::decode_int32(&mut cur)?),
+                    );
+                }
+                2u32 => {
+                    if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                        return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                            field_number: 2u32,
+                            expected: 2u8,
+                            actual: tag.wire_type() as u8,
+                        });
+                    }
+                    view.content = Some(::buffa::types::borrow_str(&mut cur)?);
+                }
+                4u32 => {
+                    if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                        return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                            field_number: 4u32,
+                            expected: 2u8,
+                            actual: tag.wire_type() as u8,
+                        });
+                    }
+                    view.call_id = Some(::buffa::types::borrow_str(&mut cur)?);
+                }
+                5u32 => {
+                    if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                        return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                            field_number: 5u32,
+                            expected: 2u8,
+                            actual: tag.wire_type() as u8,
+                        });
+                    }
+                    view.tool_name = Some(::buffa::types::borrow_str(&mut cur)?);
+                }
+                6u32 => {
+                    if tag.wire_type() != ::buffa::encoding::WireType::Varint {
+                        return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                            field_number: 6u32,
+                            expected: 0u8,
+                            actual: tag.wire_type() as u8,
+                        });
+                    }
+                    view.is_error = Some(::buffa::types::decode_bool(&mut cur)?);
+                }
+                7u32 => {
+                    if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                        return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                            field_number: 7u32,
+                            expected: 2u8,
+                            actual: tag.wire_type() as u8,
+                        });
+                    }
+                    view.tool_call_id = Some(::buffa::types::borrow_str(&mut cur)?);
+                }
+                8u32 => {
+                    if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                        return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                            field_number: 8u32,
+                            expected: 2u8,
+                            actual: tag.wire_type() as u8,
+                        });
+                    }
+                    view.provider_call_id = Some(::buffa::types::borrow_str(&mut cur)?);
+                }
+                3u32 => {
+                    if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                        return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                            field_number: 3u32,
+                            expected: 2u8,
+                            actual: tag.wire_type() as u8,
+                        });
+                    }
+                    if depth == 0 {
+                        return Err(::buffa::DecodeError::RecursionLimitExceeded);
+                    }
+                    let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                    view.tool_calls
+                        .push(ModelToolCallView::_decode_depth(sub, depth - 1)?);
+                }
+                _ => {
+                    ::buffa::encoding::skip_field_depth(tag, &mut cur, depth)?;
+                    let span_len = before_tag.len() - cur.len();
+                    view.__buffa_unknown_fields.push_raw(&before_tag[..span_len]);
+                }
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+}
+impl<'a> ::buffa::MessageView<'a> for ChatMessageView<'a> {
+    type Owned = ChatMessage;
+    fn decode_view(buf: &'a [u8]) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        Self::_decode_depth(buf, ::buffa::RECURSION_LIMIT)
+    }
+    fn decode_view_with_limit(
+        buf: &'a [u8],
+        depth: u32,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        Self::_decode_depth(buf, depth)
+    }
+    /// Convert this view to the owned message type.
+    #[allow(clippy::redundant_closure, clippy::useless_conversion)]
+    fn to_owned_message(&self) -> ChatMessage {
+        #[allow(unused_imports)]
+        use ::buffa::alloc::string::ToString as _;
+        ChatMessage {
+            role: self.role,
+            content: self.content.map(|s| s.to_string()),
+            tool_calls: self.tool_calls.iter().map(|v| v.to_owned_message()).collect(),
+            call_id: self.call_id.map(|s| s.to_string()),
+            tool_name: self.tool_name.map(|s| s.to_string()),
+            is_error: self.is_error,
+            tool_call_id: self.tool_call_id.map(|s| s.to_string()),
+            provider_call_id: self.provider_call_id.map(|s| s.to_string()),
+            __buffa_unknown_fields: self
+                .__buffa_unknown_fields
+                .to_owned()
+                .unwrap_or_default()
+                .into(),
+            ..::core::default::Default::default()
+        }
+    }
+}
+unsafe impl ::buffa::DefaultViewInstance for ChatMessageView<'static> {
+    fn default_view_instance() -> &'static Self {
+        static VALUE: ::buffa::__private::OnceBox<ChatMessageView<'static>> = ::buffa::__private::OnceBox::new();
+        VALUE.get_or_init(|| ::buffa::alloc::boxed::Box::new(Self::default()))
+    }
+}
+unsafe impl<'a> ::buffa::HasDefaultViewInstance for ChatMessageView<'a> {
+    type Static = ChatMessageView<'static>;
+}
+/// ToolDescriptor exposes a desktop tool to the server-side model.
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct ToolDescriptor {
+    /// Field 1: `name`
+    #[serde(rename = "name", skip_serializing_if = "Option::is_none")]
+    pub name: Option<::buffa::alloc::string::String>,
+    /// Field 2: `description`
+    #[serde(rename = "description", skip_serializing_if = "Option::is_none")]
+    pub description: Option<::buffa::alloc::string::String>,
+    /// Field 3: `parameters`
+    #[serde(
+        rename = "parameters",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub parameters: ::buffa::MessageField<::buffa_types::google::protobuf::Struct>,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+    #[doc(hidden)]
+    #[serde(skip)]
+    pub __buffa_cached_size: ::buffa::__private::CachedSize,
+}
+impl ::core::fmt::Debug for ToolDescriptor {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("ToolDescriptor")
+            .field("name", &self.name)
+            .field("description", &self.description)
+            .field("parameters", &self.parameters)
+            .finish()
+    }
+}
+impl ToolDescriptor {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/kuku.ai.v1.ToolDescriptor";
+}
+unsafe impl ::buffa::DefaultInstance for ToolDescriptor {
+    fn default_instance() -> &'static Self {
+        static VALUE: ::buffa::__private::OnceBox<ToolDescriptor> = ::buffa::__private::OnceBox::new();
+        VALUE.get_or_init(|| ::buffa::alloc::boxed::Box::new(Self::default()))
+    }
+}
+impl ::buffa::Message for ToolDescriptor {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// The result is a `u32`; the protobuf specification requires all
+    /// messages to fit within 2 GiB (2,147,483,647 bytes), so a
+    /// compliant message will never overflow this type.
+    fn compute_size(&self) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u32;
+        if let Some(ref v) = self.name {
+            size += 1u32 + ::buffa::types::string_encoded_len(v) as u32;
+        }
+        if let Some(ref v) = self.description {
+            size += 1u32 + ::buffa::types::string_encoded_len(v) as u32;
+        }
+        if self.parameters.is_set() {
+            let inner_size = self.parameters.compute_size();
+            size
+                += 1u32 + ::buffa::encoding::varint_len(inner_size as u64) as u32
+                    + inner_size;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u32;
+        self.__buffa_cached_size.set(size);
+        size
+    }
+    fn write_to(&self, buf: &mut impl ::buffa::bytes::BufMut) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        if let Some(ref v) = self.name {
+            ::buffa::encoding::Tag::new(
+                    1u32,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )
+                .encode(buf);
+            ::buffa::types::encode_string(v, buf);
+        }
+        if let Some(ref v) = self.description {
+            ::buffa::encoding::Tag::new(
+                    2u32,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )
+                .encode(buf);
+            ::buffa::types::encode_string(v, buf);
+        }
+        if self.parameters.is_set() {
+            ::buffa::encoding::Tag::new(
+                    3u32,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )
+                .encode(buf);
+            ::buffa::encoding::encode_varint(self.parameters.cached_size() as u64, buf);
+            self.parameters.write_to(buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        depth: u32,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports)]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                    return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                        field_number: 1u32,
+                        expected: 2u8,
+                        actual: tag.wire_type() as u8,
+                    });
+                }
+                ::buffa::types::merge_string(
+                    self.name.get_or_insert_with(::buffa::alloc::string::String::new),
+                    buf,
+                )?;
+            }
+            2u32 => {
+                if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                    return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                        field_number: 2u32,
+                        expected: 2u8,
+                        actual: tag.wire_type() as u8,
+                    });
+                }
+                ::buffa::types::merge_string(
+                    self
+                        .description
+                        .get_or_insert_with(::buffa::alloc::string::String::new),
+                    buf,
+                )?;
+            }
+            3u32 => {
+                if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                    return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                        field_number: 3u32,
+                        expected: 2u8,
+                        actual: tag.wire_type() as u8,
+                    });
+                }
+                ::buffa::Message::merge_length_delimited(
+                    self.parameters.get_or_insert_default(),
+                    buf,
+                    depth,
+                )?;
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, depth)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn cached_size(&self) -> u32 {
+        self.__buffa_cached_size.get()
+    }
+    fn clear(&mut self) {
+        self.name = ::core::option::Option::None;
+        self.description = ::core::option::Option::None;
+        self.parameters = ::buffa::MessageField::none();
+        self.__buffa_unknown_fields.clear();
+        self.__buffa_cached_size.set(0);
+    }
+}
+impl ::buffa::ExtensionSet for ToolDescriptor {
+    const PROTO_FQN: &'static str = "kuku.ai.v1.ToolDescriptor";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for ToolDescriptor {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __TOOL_DESCRIPTOR_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/kuku.ai.v1.ToolDescriptor",
+    to_json: ::buffa::type_registry::any_to_json::<ToolDescriptor>,
+    from_json: ::buffa::type_registry::any_from_json::<ToolDescriptor>,
+    is_wkt: false,
+};
+/// ToolDescriptor exposes a desktop tool to the server-side model.
+#[derive(Clone, Debug, Default)]
+pub struct ToolDescriptorView<'a> {
+    /// Field 1: `name`
+    pub name: ::core::option::Option<&'a str>,
+    /// Field 2: `description`
+    pub description: ::core::option::Option<&'a str>,
+    /// Field 3: `parameters`
+    pub parameters: ::buffa::MessageFieldView<
+        ::buffa_types::google::protobuf::StructView<'a>,
+    >,
+    pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+}
+impl<'a> ToolDescriptorView<'a> {
+    /// Decode from `buf`, enforcing a recursion depth limit for nested messages.
+    ///
+    /// Called by [`::buffa::MessageView::decode_view`] with [`::buffa::RECURSION_LIMIT`]
+    /// and by generated sub-message decode arms with `depth - 1`.
+    ///
+    /// **Not part of the public API.** Named with a leading underscore to
+    /// signal that it is for generated-code use only.
+    #[doc(hidden)]
+    pub fn _decode_depth(
+        buf: &'a [u8],
+        depth: u32,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        let mut view = Self::default();
+        view._merge_into_view(buf, depth)?;
+        ::core::result::Result::Ok(view)
+    }
+    /// Merge fields from `buf` into this view (proto merge semantics).
+    ///
+    /// Repeated fields append; singular fields last-wins; singular
+    /// MESSAGE fields merge recursively. Used by sub-message decode
+    /// arms when the same field appears multiple times on the wire.
+    ///
+    /// **Not part of the public API.**
+    #[doc(hidden)]
+    pub fn _merge_into_view(
+        &mut self,
+        buf: &'a [u8],
+        depth: u32,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        let _ = depth;
+        #[allow(unused_variables)]
+        let view = self;
+        let mut cur: &'a [u8] = buf;
+        while !cur.is_empty() {
+            let before_tag = cur;
+            let tag = ::buffa::encoding::Tag::decode(&mut cur)?;
+            match tag.field_number() {
+                1u32 => {
+                    if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                        return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                            field_number: 1u32,
+                            expected: 2u8,
+                            actual: tag.wire_type() as u8,
+                        });
+                    }
+                    view.name = Some(::buffa::types::borrow_str(&mut cur)?);
+                }
+                2u32 => {
+                    if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                        return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                            field_number: 2u32,
+                            expected: 2u8,
+                            actual: tag.wire_type() as u8,
+                        });
+                    }
+                    view.description = Some(::buffa::types::borrow_str(&mut cur)?);
+                }
+                3u32 => {
+                    if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                        return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                            field_number: 3u32,
+                            expected: 2u8,
+                            actual: tag.wire_type() as u8,
+                        });
+                    }
+                    if depth == 0 {
+                        return Err(::buffa::DecodeError::RecursionLimitExceeded);
+                    }
+                    let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                    match view.parameters.as_mut() {
+                        Some(existing) => existing._merge_into_view(sub, depth - 1)?,
+                        None => {
+                            view.parameters = ::buffa::MessageFieldView::set(
+                                ::buffa_types::google::protobuf::StructView::_decode_depth(
+                                    sub,
+                                    depth - 1,
+                                )?,
+                            );
+                        }
+                    }
+                }
+                _ => {
+                    ::buffa::encoding::skip_field_depth(tag, &mut cur, depth)?;
+                    let span_len = before_tag.len() - cur.len();
+                    view.__buffa_unknown_fields.push_raw(&before_tag[..span_len]);
+                }
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+}
+impl<'a> ::buffa::MessageView<'a> for ToolDescriptorView<'a> {
+    type Owned = ToolDescriptor;
+    fn decode_view(buf: &'a [u8]) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        Self::_decode_depth(buf, ::buffa::RECURSION_LIMIT)
+    }
+    fn decode_view_with_limit(
+        buf: &'a [u8],
+        depth: u32,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        Self::_decode_depth(buf, depth)
+    }
+    /// Convert this view to the owned message type.
+    #[allow(clippy::redundant_closure, clippy::useless_conversion)]
+    fn to_owned_message(&self) -> ToolDescriptor {
+        #[allow(unused_imports)]
+        use ::buffa::alloc::string::ToString as _;
+        ToolDescriptor {
+            name: self.name.map(|s| s.to_string()),
+            description: self.description.map(|s| s.to_string()),
+            parameters: match self.parameters.as_option() {
+                Some(v) => {
+                    ::buffa::MessageField::<
+                        ::buffa_types::google::protobuf::Struct,
+                    >::some(v.to_owned_message())
+                }
+                None => ::buffa::MessageField::none(),
+            },
+            __buffa_unknown_fields: self
+                .__buffa_unknown_fields
+                .to_owned()
+                .unwrap_or_default()
+                .into(),
+            ..::core::default::Default::default()
+        }
+    }
+}
+unsafe impl ::buffa::DefaultViewInstance for ToolDescriptorView<'static> {
+    fn default_view_instance() -> &'static Self {
+        static VALUE: ::buffa::__private::OnceBox<ToolDescriptorView<'static>> = ::buffa::__private::OnceBox::new();
+        VALUE.get_or_init(|| ::buffa::alloc::boxed::Box::new(Self::default()))
+    }
+}
+unsafe impl<'a> ::buffa::HasDefaultViewInstance for ToolDescriptorView<'a> {
+    type Static = ToolDescriptorView<'static>;
+}
+/// ModelToolCall is a model-requested function call that must be executed by
+/// the desktop runtime.
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct ModelToolCall {
+    /// Field 1: `call_id`
+    #[serde(
+        rename = "callId",
+        alias = "call_id",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub call_id: Option<::buffa::alloc::string::String>,
+    /// Field 2: `tool_name`
+    #[serde(
+        rename = "toolName",
+        alias = "tool_name",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub tool_name: Option<::buffa::alloc::string::String>,
+    /// Field 3: `arguments`
+    #[serde(
+        rename = "arguments",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub arguments: ::buffa::MessageField<::buffa_types::google::protobuf::Struct>,
+    /// Field 4: `signature`
+    #[serde(rename = "signature", skip_serializing_if = "Option::is_none")]
+    pub signature: Option<::buffa::alloc::string::String>,
+    /// Field 5: `tool_call_id`
+    #[serde(
+        rename = "toolCallId",
+        alias = "tool_call_id",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub tool_call_id: Option<::buffa::alloc::string::String>,
+    /// Field 6: `provider_call_id`
+    #[serde(
+        rename = "providerCallId",
+        alias = "provider_call_id",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub provider_call_id: Option<::buffa::alloc::string::String>,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+    #[doc(hidden)]
+    #[serde(skip)]
+    pub __buffa_cached_size: ::buffa::__private::CachedSize,
+}
+impl ::core::fmt::Debug for ModelToolCall {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("ModelToolCall")
+            .field("call_id", &self.call_id)
+            .field("tool_name", &self.tool_name)
+            .field("arguments", &self.arguments)
+            .field("signature", &self.signature)
+            .field("tool_call_id", &self.tool_call_id)
+            .field("provider_call_id", &self.provider_call_id)
+            .finish()
+    }
+}
+impl ModelToolCall {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/kuku.ai.v1.ModelToolCall";
+}
+unsafe impl ::buffa::DefaultInstance for ModelToolCall {
+    fn default_instance() -> &'static Self {
+        static VALUE: ::buffa::__private::OnceBox<ModelToolCall> = ::buffa::__private::OnceBox::new();
+        VALUE.get_or_init(|| ::buffa::alloc::boxed::Box::new(Self::default()))
+    }
+}
+impl ::buffa::Message for ModelToolCall {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// The result is a `u32`; the protobuf specification requires all
+    /// messages to fit within 2 GiB (2,147,483,647 bytes), so a
+    /// compliant message will never overflow this type.
+    fn compute_size(&self) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u32;
+        if let Some(ref v) = self.call_id {
+            size += 1u32 + ::buffa::types::string_encoded_len(v) as u32;
+        }
+        if let Some(ref v) = self.tool_name {
+            size += 1u32 + ::buffa::types::string_encoded_len(v) as u32;
+        }
+        if self.arguments.is_set() {
+            let inner_size = self.arguments.compute_size();
+            size
+                += 1u32 + ::buffa::encoding::varint_len(inner_size as u64) as u32
+                    + inner_size;
+        }
+        if let Some(ref v) = self.signature {
+            size += 1u32 + ::buffa::types::string_encoded_len(v) as u32;
+        }
+        if let Some(ref v) = self.tool_call_id {
+            size += 1u32 + ::buffa::types::string_encoded_len(v) as u32;
+        }
+        if let Some(ref v) = self.provider_call_id {
+            size += 1u32 + ::buffa::types::string_encoded_len(v) as u32;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u32;
+        self.__buffa_cached_size.set(size);
+        size
+    }
+    fn write_to(&self, buf: &mut impl ::buffa::bytes::BufMut) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        if let Some(ref v) = self.call_id {
+            ::buffa::encoding::Tag::new(
+                    1u32,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )
+                .encode(buf);
+            ::buffa::types::encode_string(v, buf);
+        }
+        if let Some(ref v) = self.tool_name {
+            ::buffa::encoding::Tag::new(
+                    2u32,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )
+                .encode(buf);
+            ::buffa::types::encode_string(v, buf);
+        }
+        if self.arguments.is_set() {
+            ::buffa::encoding::Tag::new(
+                    3u32,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )
+                .encode(buf);
+            ::buffa::encoding::encode_varint(self.arguments.cached_size() as u64, buf);
+            self.arguments.write_to(buf);
+        }
+        if let Some(ref v) = self.signature {
+            ::buffa::encoding::Tag::new(
+                    4u32,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )
+                .encode(buf);
+            ::buffa::types::encode_string(v, buf);
+        }
+        if let Some(ref v) = self.tool_call_id {
+            ::buffa::encoding::Tag::new(
+                    5u32,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )
+                .encode(buf);
+            ::buffa::types::encode_string(v, buf);
+        }
+        if let Some(ref v) = self.provider_call_id {
+            ::buffa::encoding::Tag::new(
+                    6u32,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )
+                .encode(buf);
+            ::buffa::types::encode_string(v, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        depth: u32,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports)]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                    return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                        field_number: 1u32,
+                        expected: 2u8,
+                        actual: tag.wire_type() as u8,
+                    });
+                }
+                ::buffa::types::merge_string(
+                    self.call_id.get_or_insert_with(::buffa::alloc::string::String::new),
+                    buf,
+                )?;
+            }
+            2u32 => {
+                if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                    return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                        field_number: 2u32,
+                        expected: 2u8,
+                        actual: tag.wire_type() as u8,
+                    });
+                }
+                ::buffa::types::merge_string(
+                    self
+                        .tool_name
+                        .get_or_insert_with(::buffa::alloc::string::String::new),
+                    buf,
+                )?;
+            }
+            3u32 => {
+                if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                    return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                        field_number: 3u32,
+                        expected: 2u8,
+                        actual: tag.wire_type() as u8,
+                    });
+                }
+                ::buffa::Message::merge_length_delimited(
+                    self.arguments.get_or_insert_default(),
+                    buf,
+                    depth,
+                )?;
+            }
+            4u32 => {
+                if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                    return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                        field_number: 4u32,
+                        expected: 2u8,
+                        actual: tag.wire_type() as u8,
+                    });
+                }
+                ::buffa::types::merge_string(
+                    self
+                        .signature
+                        .get_or_insert_with(::buffa::alloc::string::String::new),
+                    buf,
+                )?;
+            }
+            5u32 => {
+                if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                    return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                        field_number: 5u32,
+                        expected: 2u8,
+                        actual: tag.wire_type() as u8,
+                    });
+                }
+                ::buffa::types::merge_string(
+                    self
+                        .tool_call_id
+                        .get_or_insert_with(::buffa::alloc::string::String::new),
+                    buf,
+                )?;
+            }
+            6u32 => {
+                if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                    return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                        field_number: 6u32,
+                        expected: 2u8,
+                        actual: tag.wire_type() as u8,
+                    });
+                }
+                ::buffa::types::merge_string(
+                    self
+                        .provider_call_id
+                        .get_or_insert_with(::buffa::alloc::string::String::new),
+                    buf,
+                )?;
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, depth)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn cached_size(&self) -> u32 {
+        self.__buffa_cached_size.get()
+    }
+    fn clear(&mut self) {
+        self.call_id = ::core::option::Option::None;
+        self.tool_name = ::core::option::Option::None;
+        self.arguments = ::buffa::MessageField::none();
+        self.signature = ::core::option::Option::None;
+        self.tool_call_id = ::core::option::Option::None;
+        self.provider_call_id = ::core::option::Option::None;
+        self.__buffa_unknown_fields.clear();
+        self.__buffa_cached_size.set(0);
+    }
+}
+impl ::buffa::ExtensionSet for ModelToolCall {
+    const PROTO_FQN: &'static str = "kuku.ai.v1.ModelToolCall";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for ModelToolCall {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __MODEL_TOOL_CALL_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/kuku.ai.v1.ModelToolCall",
+    to_json: ::buffa::type_registry::any_to_json::<ModelToolCall>,
+    from_json: ::buffa::type_registry::any_from_json::<ModelToolCall>,
+    is_wkt: false,
+};
+/// ModelToolCall is a model-requested function call that must be executed by
+/// the desktop runtime.
+#[derive(Clone, Debug, Default)]
+pub struct ModelToolCallView<'a> {
+    /// Field 1: `call_id`
+    pub call_id: ::core::option::Option<&'a str>,
+    /// Field 2: `tool_name`
+    pub tool_name: ::core::option::Option<&'a str>,
+    /// Field 3: `arguments`
+    pub arguments: ::buffa::MessageFieldView<
+        ::buffa_types::google::protobuf::StructView<'a>,
+    >,
+    /// Field 4: `signature`
+    pub signature: ::core::option::Option<&'a str>,
+    /// Field 5: `tool_call_id`
+    pub tool_call_id: ::core::option::Option<&'a str>,
+    /// Field 6: `provider_call_id`
+    pub provider_call_id: ::core::option::Option<&'a str>,
+    pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+}
+impl<'a> ModelToolCallView<'a> {
+    /// Decode from `buf`, enforcing a recursion depth limit for nested messages.
+    ///
+    /// Called by [`::buffa::MessageView::decode_view`] with [`::buffa::RECURSION_LIMIT`]
+    /// and by generated sub-message decode arms with `depth - 1`.
+    ///
+    /// **Not part of the public API.** Named with a leading underscore to
+    /// signal that it is for generated-code use only.
+    #[doc(hidden)]
+    pub fn _decode_depth(
+        buf: &'a [u8],
+        depth: u32,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        let mut view = Self::default();
+        view._merge_into_view(buf, depth)?;
+        ::core::result::Result::Ok(view)
+    }
+    /// Merge fields from `buf` into this view (proto merge semantics).
+    ///
+    /// Repeated fields append; singular fields last-wins; singular
+    /// MESSAGE fields merge recursively. Used by sub-message decode
+    /// arms when the same field appears multiple times on the wire.
+    ///
+    /// **Not part of the public API.**
+    #[doc(hidden)]
+    pub fn _merge_into_view(
+        &mut self,
+        buf: &'a [u8],
+        depth: u32,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        let _ = depth;
+        #[allow(unused_variables)]
+        let view = self;
+        let mut cur: &'a [u8] = buf;
+        while !cur.is_empty() {
+            let before_tag = cur;
+            let tag = ::buffa::encoding::Tag::decode(&mut cur)?;
+            match tag.field_number() {
+                1u32 => {
+                    if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                        return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                            field_number: 1u32,
+                            expected: 2u8,
+                            actual: tag.wire_type() as u8,
+                        });
+                    }
+                    view.call_id = Some(::buffa::types::borrow_str(&mut cur)?);
+                }
+                2u32 => {
+                    if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                        return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                            field_number: 2u32,
+                            expected: 2u8,
+                            actual: tag.wire_type() as u8,
+                        });
+                    }
+                    view.tool_name = Some(::buffa::types::borrow_str(&mut cur)?);
+                }
+                3u32 => {
+                    if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                        return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                            field_number: 3u32,
+                            expected: 2u8,
+                            actual: tag.wire_type() as u8,
+                        });
+                    }
+                    if depth == 0 {
+                        return Err(::buffa::DecodeError::RecursionLimitExceeded);
+                    }
+                    let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                    match view.arguments.as_mut() {
+                        Some(existing) => existing._merge_into_view(sub, depth - 1)?,
+                        None => {
+                            view.arguments = ::buffa::MessageFieldView::set(
+                                ::buffa_types::google::protobuf::StructView::_decode_depth(
+                                    sub,
+                                    depth - 1,
+                                )?,
+                            );
+                        }
+                    }
+                }
+                4u32 => {
+                    if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                        return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                            field_number: 4u32,
+                            expected: 2u8,
+                            actual: tag.wire_type() as u8,
+                        });
+                    }
+                    view.signature = Some(::buffa::types::borrow_str(&mut cur)?);
+                }
+                5u32 => {
+                    if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                        return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                            field_number: 5u32,
+                            expected: 2u8,
+                            actual: tag.wire_type() as u8,
+                        });
+                    }
+                    view.tool_call_id = Some(::buffa::types::borrow_str(&mut cur)?);
+                }
+                6u32 => {
+                    if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                        return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                            field_number: 6u32,
+                            expected: 2u8,
+                            actual: tag.wire_type() as u8,
+                        });
+                    }
+                    view.provider_call_id = Some(::buffa::types::borrow_str(&mut cur)?);
+                }
+                _ => {
+                    ::buffa::encoding::skip_field_depth(tag, &mut cur, depth)?;
+                    let span_len = before_tag.len() - cur.len();
+                    view.__buffa_unknown_fields.push_raw(&before_tag[..span_len]);
+                }
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+}
+impl<'a> ::buffa::MessageView<'a> for ModelToolCallView<'a> {
+    type Owned = ModelToolCall;
+    fn decode_view(buf: &'a [u8]) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        Self::_decode_depth(buf, ::buffa::RECURSION_LIMIT)
+    }
+    fn decode_view_with_limit(
+        buf: &'a [u8],
+        depth: u32,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        Self::_decode_depth(buf, depth)
+    }
+    /// Convert this view to the owned message type.
+    #[allow(clippy::redundant_closure, clippy::useless_conversion)]
+    fn to_owned_message(&self) -> ModelToolCall {
+        #[allow(unused_imports)]
+        use ::buffa::alloc::string::ToString as _;
+        ModelToolCall {
+            call_id: self.call_id.map(|s| s.to_string()),
+            tool_name: self.tool_name.map(|s| s.to_string()),
+            arguments: match self.arguments.as_option() {
+                Some(v) => {
+                    ::buffa::MessageField::<
+                        ::buffa_types::google::protobuf::Struct,
+                    >::some(v.to_owned_message())
+                }
+                None => ::buffa::MessageField::none(),
+            },
+            signature: self.signature.map(|s| s.to_string()),
+            tool_call_id: self.tool_call_id.map(|s| s.to_string()),
+            provider_call_id: self.provider_call_id.map(|s| s.to_string()),
+            __buffa_unknown_fields: self
+                .__buffa_unknown_fields
+                .to_owned()
+                .unwrap_or_default()
+                .into(),
+            ..::core::default::Default::default()
+        }
+    }
+}
+unsafe impl ::buffa::DefaultViewInstance for ModelToolCallView<'static> {
+    fn default_view_instance() -> &'static Self {
+        static VALUE: ::buffa::__private::OnceBox<ModelToolCallView<'static>> = ::buffa::__private::OnceBox::new();
+        VALUE.get_or_init(|| ::buffa::alloc::boxed::Box::new(Self::default()))
+    }
+}
+unsafe impl<'a> ::buffa::HasDefaultViewInstance for ModelToolCallView<'a> {
+    type Static = ModelToolCallView<'static>;
+}
 /// Register this file's `Any` type entries and extension entries
 /// (JSON and/or text, per codegen config) with the given registry.
 pub fn register_types(reg: &mut ::buffa::type_registry::TypeRegistry) {
     reg.register_json_any(__COMPLETE_REQUEST_JSON_ANY);
     reg.register_json_any(__COMPLETE_RESPONSE_JSON_ANY);
     reg.register_json_any(__TOKEN_USAGE_JSON_ANY);
+    reg.register_json_any(__CHAT_MESSAGE_JSON_ANY);
+    reg.register_json_any(__TOOL_DESCRIPTOR_JSON_ANY);
+    reg.register_json_any(__MODEL_TOOL_CALL_JSON_ANY);
 }

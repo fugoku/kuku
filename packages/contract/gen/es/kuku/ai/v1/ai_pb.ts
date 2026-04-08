@@ -15,13 +15,14 @@
 import type { GenEnum, GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
 import { enumDesc, fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
 import { file_buf_validate_validate } from "../../../buf/validate/validate_pb";
-import type { Message } from "@bufbuild/protobuf";
+import { file_google_protobuf_struct } from "@bufbuild/protobuf/wkt";
+import type { JsonObject, Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file kuku/ai/v1/ai.proto.
  */
 export const file_kuku_ai_v1_ai: GenFile = /*@__PURE__*/
-  fileDesc("ChNrdWt1L2FpL3YxL2FpLnByb3RvEgprdWt1LmFpLnYxIn0KD0NvbXBsZXRlUmVxdWVzdBIqCgRtb2RlGAEgASgOMhwua3VrdS5haS52MS5Db252ZXJzYXRpb25Nb2RlEhgKB21lc3NhZ2UYAiABKAlCB7pIBHICEAESFQoNY29udGV4dF9maWxlcxgDIAMoCRINCgVtb2RlbBgEIAEoCSJHChBDb21wbGV0ZVJlc3BvbnNlEgwKBHRleHQYASABKAkSJQoFdXNhZ2UYAiABKAsyFi5rdWt1LmFpLnYxLlRva2VuVXNhZ2UibAoKVG9rZW5Vc2FnZRIUCgxpbnB1dF90b2tlbnMYASABKAQSFQoNb3V0cHV0X3Rva2VucxgCIAEoBBIUCgx0b3RhbF90b2tlbnMYAyABKAQSGwoTY2FjaGVkX2lucHV0X3Rva2VucxgEIAEoBCqLAQoQQ29udmVyc2F0aW9uTW9kZRIhCh1DT05WRVJTQVRJT05fTU9ERV9VTlNQRUNJRklFRBAAEhsKF0NPTlZFUlNBVElPTl9NT0RFX0FHRU5UEAESGQoVQ09OVkVSU0FUSU9OX01PREVfQVNLEAISHAoYQ09OVkVSU0FUSU9OX01PREVfSU5MSU5FEAMyUgoJQUlTZXJ2aWNlEkUKCENvbXBsZXRlEhsua3VrdS5haS52MS5Db21wbGV0ZVJlcXVlc3QaHC5rdWt1LmFpLnYxLkNvbXBsZXRlUmVzcG9uc2VCQ1pBZ2l0aHViLmNvbS9rdWt1LW1vbS9rdWt1L3BhY2thZ2VzL2NvbnRyYWN0L2dlbi9nby9rdWt1L2FpL3YxO2FpdjFiCGVkaXRpb25zcOgH", [file_buf_validate_validate]);
+  fileDesc("ChNrdWt1L2FpL3YxL2FpLnByb3RvEgprdWt1LmFpLnYxIuoBCg9Db21wbGV0ZVJlcXVlc3QSKgoEbW9kZRgBIAEoDjIcLmt1a3UuYWkudjEuQ29udmVyc2F0aW9uTW9kZRIYCgdtZXNzYWdlGAIgASgJQge6SARyAhABEhUKDWNvbnRleHRfZmlsZXMYAyADKAkSDQoFbW9kZWwYBCABKAkSKQoIbWVzc2FnZXMYBSADKAsyFy5rdWt1LmFpLnYxLkNoYXRNZXNzYWdlEikKBXRvb2xzGAYgAygLMhoua3VrdS5haS52MS5Ub29sRGVzY3JpcHRvchIVCg1zeXN0ZW1fcHJvbXB0GAcgASgJIqcBChBDb21wbGV0ZVJlc3BvbnNlEgwKBHRleHQYASABKAkSJQoFdXNhZ2UYAiABKAsyFi5rdWt1LmFpLnYxLlRva2VuVXNhZ2USLQoKdG9vbF9jYWxscxgDIAMoCzIZLmt1a3UuYWkudjEuTW9kZWxUb29sQ2FsbBIvCg1maW5pc2hfcmVhc29uGAQgASgOMhgua3VrdS5haS52MS5GaW5pc2hSZWFzb24ibAoKVG9rZW5Vc2FnZRIUCgxpbnB1dF90b2tlbnMYASABKAQSFQoNb3V0cHV0X3Rva2VucxgCIAEoBBIUCgx0b3RhbF90b2tlbnMYAyABKAQSGwoTY2FjaGVkX2lucHV0X3Rva2VucxgEIAEoBCLeAQoLQ2hhdE1lc3NhZ2USKQoEcm9sZRgBIAEoDjIbLmt1a3UuYWkudjEuQ2hhdE1lc3NhZ2VSb2xlEg8KB2NvbnRlbnQYAiABKAkSLQoKdG9vbF9jYWxscxgDIAMoCzIZLmt1a3UuYWkudjEuTW9kZWxUb29sQ2FsbBIPCgdjYWxsX2lkGAQgASgJEhEKCXRvb2xfbmFtZRgFIAEoCRIQCghpc19lcnJvchgGIAEoCBIUCgx0b29sX2NhbGxfaWQYByABKAkSGAoQcHJvdmlkZXJfY2FsbF9pZBgIIAEoCSJpCg5Ub29sRGVzY3JpcHRvchIVCgRuYW1lGAEgASgJQge6SARyAhABEhMKC2Rlc2NyaXB0aW9uGAIgASgJEisKCnBhcmFtZXRlcnMYAyABKAsyFy5nb29nbGUucHJvdG9idWYuU3RydWN0IrQBCg1Nb2RlbFRvb2xDYWxsEhgKB2NhbGxfaWQYASABKAlCB7pIBHICEAESGgoJdG9vbF9uYW1lGAIgASgJQge6SARyAhABEioKCWFyZ3VtZW50cxgDIAEoCzIXLmdvb2dsZS5wcm90b2J1Zi5TdHJ1Y3QSEQoJc2lnbmF0dXJlGAQgASgJEhQKDHRvb2xfY2FsbF9pZBgFIAEoCRIYChBwcm92aWRlcl9jYWxsX2lkGAYgASgJKosBChBDb252ZXJzYXRpb25Nb2RlEiEKHUNPTlZFUlNBVElPTl9NT0RFX1VOU1BFQ0lGSUVEEAASGwoXQ09OVkVSU0FUSU9OX01PREVfQUdFTlQQARIZChVDT05WRVJTQVRJT05fTU9ERV9BU0sQAhIcChhDT05WRVJTQVRJT05fTU9ERV9JTkxJTkUQAyqyAQoPQ2hhdE1lc3NhZ2VSb2xlEiEKHUNIQVRfTUVTU0FHRV9ST0xFX1VOU1BFQ0lGSUVEEAASHAoYQ0hBVF9NRVNTQUdFX1JPTEVfU1lTVEVNEAESGgoWQ0hBVF9NRVNTQUdFX1JPTEVfVVNFUhACEh8KG0NIQVRfTUVTU0FHRV9ST0xFX0FTU0lTVEFOVBADEiEKHUNIQVRfTUVTU0FHRV9ST0xFX1RPT0xfUkVTVUxUEAQqYwoMRmluaXNoUmVhc29uEh0KGUZJTklTSF9SRUFTT05fVU5TUEVDSUZJRUQQABIWChJGSU5JU0hfUkVBU09OX1NUT1AQARIcChhGSU5JU0hfUkVBU09OX1RPT0xfQ0FMTFMQAjJSCglBSVNlcnZpY2USRQoIQ29tcGxldGUSGy5rdWt1LmFpLnYxLkNvbXBsZXRlUmVxdWVzdBocLmt1a3UuYWkudjEuQ29tcGxldGVSZXNwb25zZUJDWkFnaXRodWIuY29tL2t1a3UtbW9tL2t1a3UvcGFja2FnZXMvY29udHJhY3QvZ2VuL2dvL2t1a3UvYWkvdjE7YWl2MWIIZWRpdGlvbnNw6Ac", [file_buf_validate_validate, file_google_protobuf_struct]);
 
 /**
  * CompleteRequest is a single-turn completion request.
@@ -48,6 +49,21 @@ export type CompleteRequest = Message<"kuku.ai.v1.CompleteRequest"> & {
    * @generated from field: string model = 4;
    */
   model: string;
+
+  /**
+   * @generated from field: repeated kuku.ai.v1.ChatMessage messages = 5;
+   */
+  messages: ChatMessage[];
+
+  /**
+   * @generated from field: repeated kuku.ai.v1.ToolDescriptor tools = 6;
+   */
+  tools: ToolDescriptor[];
+
+  /**
+   * @generated from field: string system_prompt = 7;
+   */
+  systemPrompt: string;
 };
 
 /**
@@ -72,6 +88,16 @@ export type CompleteResponse = Message<"kuku.ai.v1.CompleteResponse"> & {
    * @generated from field: kuku.ai.v1.TokenUsage usage = 2;
    */
   usage?: TokenUsage;
+
+  /**
+   * @generated from field: repeated kuku.ai.v1.ModelToolCall tool_calls = 3;
+   */
+  toolCalls: ModelToolCall[];
+
+  /**
+   * @generated from field: kuku.ai.v1.FinishReason finish_reason = 4;
+   */
+  finishReason: FinishReason;
 };
 
 /**
@@ -116,6 +142,134 @@ export const TokenUsageSchema: GenMessage<TokenUsage> = /*@__PURE__*/
   messageDesc(file_kuku_ai_v1_ai, 2);
 
 /**
+ * ChatMessage carries the desktop-side conversation history.
+ *
+ * @generated from message kuku.ai.v1.ChatMessage
+ */
+export type ChatMessage = Message<"kuku.ai.v1.ChatMessage"> & {
+  /**
+   * @generated from field: kuku.ai.v1.ChatMessageRole role = 1;
+   */
+  role: ChatMessageRole;
+
+  /**
+   * @generated from field: string content = 2;
+   */
+  content: string;
+
+  /**
+   * @generated from field: repeated kuku.ai.v1.ModelToolCall tool_calls = 3;
+   */
+  toolCalls: ModelToolCall[];
+
+  /**
+   * @generated from field: string call_id = 4;
+   */
+  callId: string;
+
+  /**
+   * @generated from field: string tool_name = 5;
+   */
+  toolName: string;
+
+  /**
+   * @generated from field: bool is_error = 6;
+   */
+  isError: boolean;
+
+  /**
+   * @generated from field: string tool_call_id = 7;
+   */
+  toolCallId: string;
+
+  /**
+   * @generated from field: string provider_call_id = 8;
+   */
+  providerCallId: string;
+};
+
+/**
+ * Describes the message kuku.ai.v1.ChatMessage.
+ * Use `create(ChatMessageSchema)` to create a new message.
+ */
+export const ChatMessageSchema: GenMessage<ChatMessage> = /*@__PURE__*/
+  messageDesc(file_kuku_ai_v1_ai, 3);
+
+/**
+ * ToolDescriptor exposes a desktop tool to the server-side model.
+ *
+ * @generated from message kuku.ai.v1.ToolDescriptor
+ */
+export type ToolDescriptor = Message<"kuku.ai.v1.ToolDescriptor"> & {
+  /**
+   * @generated from field: string name = 1;
+   */
+  name: string;
+
+  /**
+   * @generated from field: string description = 2;
+   */
+  description: string;
+
+  /**
+   * @generated from field: google.protobuf.Struct parameters = 3;
+   */
+  parameters?: JsonObject;
+};
+
+/**
+ * Describes the message kuku.ai.v1.ToolDescriptor.
+ * Use `create(ToolDescriptorSchema)` to create a new message.
+ */
+export const ToolDescriptorSchema: GenMessage<ToolDescriptor> = /*@__PURE__*/
+  messageDesc(file_kuku_ai_v1_ai, 4);
+
+/**
+ * ModelToolCall is a model-requested function call that must be executed by
+ * the desktop runtime.
+ *
+ * @generated from message kuku.ai.v1.ModelToolCall
+ */
+export type ModelToolCall = Message<"kuku.ai.v1.ModelToolCall"> & {
+  /**
+   * @generated from field: string call_id = 1;
+   */
+  callId: string;
+
+  /**
+   * @generated from field: string tool_name = 2;
+   */
+  toolName: string;
+
+  /**
+   * @generated from field: google.protobuf.Struct arguments = 3;
+   */
+  arguments?: JsonObject;
+
+  /**
+   * @generated from field: string signature = 4;
+   */
+  signature: string;
+
+  /**
+   * @generated from field: string tool_call_id = 5;
+   */
+  toolCallId: string;
+
+  /**
+   * @generated from field: string provider_call_id = 6;
+   */
+  providerCallId: string;
+};
+
+/**
+ * Describes the message kuku.ai.v1.ModelToolCall.
+ * Use `create(ModelToolCallSchema)` to create a new message.
+ */
+export const ModelToolCallSchema: GenMessage<ModelToolCall> = /*@__PURE__*/
+  messageDesc(file_kuku_ai_v1_ai, 5);
+
+/**
  * ConversationMode controls the completion behavior.
  *
  * @generated from enum kuku.ai.v1.ConversationMode
@@ -147,6 +301,72 @@ export enum ConversationMode {
  */
 export const ConversationModeSchema: GenEnum<ConversationMode> = /*@__PURE__*/
   enumDesc(file_kuku_ai_v1_ai, 0);
+
+/**
+ * ChatMessageRole maps the desktop conversation history to the upstream model.
+ *
+ * @generated from enum kuku.ai.v1.ChatMessageRole
+ */
+export enum ChatMessageRole {
+  /**
+   * @generated from enum value: CHAT_MESSAGE_ROLE_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: CHAT_MESSAGE_ROLE_SYSTEM = 1;
+   */
+  SYSTEM = 1,
+
+  /**
+   * @generated from enum value: CHAT_MESSAGE_ROLE_USER = 2;
+   */
+  USER = 2,
+
+  /**
+   * @generated from enum value: CHAT_MESSAGE_ROLE_ASSISTANT = 3;
+   */
+  ASSISTANT = 3,
+
+  /**
+   * @generated from enum value: CHAT_MESSAGE_ROLE_TOOL_RESULT = 4;
+   */
+  TOOL_RESULT = 4,
+}
+
+/**
+ * Describes the enum kuku.ai.v1.ChatMessageRole.
+ */
+export const ChatMessageRoleSchema: GenEnum<ChatMessageRole> = /*@__PURE__*/
+  enumDesc(file_kuku_ai_v1_ai, 1);
+
+/**
+ * FinishReason describes why the remote model turn ended.
+ *
+ * @generated from enum kuku.ai.v1.FinishReason
+ */
+export enum FinishReason {
+  /**
+   * @generated from enum value: FINISH_REASON_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: FINISH_REASON_STOP = 1;
+   */
+  STOP = 1,
+
+  /**
+   * @generated from enum value: FINISH_REASON_TOOL_CALLS = 2;
+   */
+  TOOL_CALLS = 2,
+}
+
+/**
+ * Describes the enum kuku.ai.v1.FinishReason.
+ */
+export const FinishReasonSchema: GenEnum<FinishReason> = /*@__PURE__*/
+  enumDesc(file_kuku_ai_v1_ai, 2);
 
 /**
  * ---------------------------------------------------------------------------
