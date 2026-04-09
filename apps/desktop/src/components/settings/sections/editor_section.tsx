@@ -1,6 +1,10 @@
 import { FontInput } from "~/components/settings/font_input";
-import { SettingsFieldRow, SettingsPanel } from "~/components/settings/settings_blocks";
-import { Select, Switch } from "~/components/ui";
+import {
+  SettingsFieldRow,
+  SettingsPanel,
+  SettingsSelect,
+} from "~/components/settings/settings_blocks";
+import { Switch } from "~/components/ui";
 import { setEditorSetting, setGeneralSetting, settingsState } from "~/stores/settings";
 
 const TAB_SIZE_OPTIONS = [
@@ -74,7 +78,7 @@ function EditorSection() {
         description="Number of spaces per tab character."
         control={
           <div class="w-40">
-            <Select
+            <SettingsSelect
               options={TAB_SIZE_OPTIONS}
               value={String(settingsState.editor.tabSize)}
               onChange={(value) => setEditorSetting("tabSize", Number.parseInt(value, 10))}
@@ -88,7 +92,7 @@ function EditorSection() {
         description="Base text size used in the editor body."
         control={
           <div class="w-40">
-            <Select
+            <SettingsSelect
               options={FONT_SIZE_OPTIONS}
               value={String(settingsState.editor.fontSize)}
               onChange={(value) => setEditorSetting("fontSize", Number.parseInt(value, 10))}
@@ -102,7 +106,7 @@ function EditorSection() {
         description="Line spacing for editor paragraphs and text."
         control={
           <div class="w-40">
-            <Select
+            <SettingsSelect
               options={LINE_HEIGHT_OPTIONS}
               value={String(settingsState.editor.lineHeight)}
               onChange={(value) => setEditorSetting("lineHeight", Number.parseFloat(value))}

@@ -1,5 +1,8 @@
-import { SettingsFieldRow, SettingsPanel } from "~/components/settings/settings_blocks";
-import { Select } from "~/components/ui";
+import {
+  SettingsFieldRow,
+  SettingsPanel,
+  SettingsSelect,
+} from "~/components/settings/settings_blocks";
 import { setFilesSetting, settingsState } from "~/stores/settings";
 
 const NEW_FILE_LOCATION_OPTIONS = [
@@ -25,7 +28,7 @@ function FilesSection() {
         description="Where new files are created by default."
         control={
           <div class="w-64">
-            <Select
+            <SettingsSelect
               options={NEW_FILE_LOCATION_OPTIONS}
               value={settingsState.files.newFileLocation}
               onChange={(value) => setFilesSetting("newFileLocation", value)}
@@ -39,7 +42,7 @@ function FilesSection() {
         description="What happens when you delete a file."
         control={
           <div class="w-64">
-            <Select
+            <SettingsSelect
               options={DELETED_FILES_OPTIONS}
               value={settingsState.files.deletedFiles}
               onChange={(value) => setFilesSetting("deletedFiles", value)}

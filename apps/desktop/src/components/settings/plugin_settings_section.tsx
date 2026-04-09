@@ -3,6 +3,7 @@ import { Dynamic } from "solid-js/web";
 
 import { PluginErrorUI, PluginSkeleton, slotRegistry } from "~/plugins/slots";
 
+import { SettingsBanner } from "./settings_blocks";
 import { SettingsRefreshProvider } from "./settings_refresh";
 
 function PluginSettingsSection(props: { fillId: string; settingsRefreshToken: number }) {
@@ -14,11 +15,7 @@ function PluginSettingsSection(props: { fillId: string; settingsRefreshToken: nu
   return (
     <Show
       when={fill()}
-      fallback={
-        <div class="rounded-xs border border-border px-4 py-8 text-center text-[0.8125rem] text-text-muted">
-          Plugin settings are unavailable.
-        </div>
-      }
+      fallback={<SettingsBanner tone="info" description="Plugin settings are unavailable." />}
     >
       {(activeFill) => (
         <div data-settings-anchor={`plugin:${props.fillId}`}>

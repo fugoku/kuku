@@ -10,10 +10,10 @@ import {
   SettingsInput,
   SettingsListRow,
   SettingsPanel,
+  SettingsSelect,
   SettingsToolbarAction,
 } from "~/components/settings/settings_blocks";
 import { useSettingsRefreshToken } from "~/components/settings/settings_refresh";
-import { Select } from "~/components/ui";
 
 function AiSettings(): JSX.Element {
   const [apiKey, setApiKey] = createSignal("");
@@ -66,7 +66,7 @@ function AiSettings(): JSX.Element {
         description="Choose whether requests use a local Gemini key or the Kuku remote server."
         control={
           <div class="w-56">
-            <Select
+            <SettingsSelect
               options={[
                 { value: "gemini", label: "Gemini BYOK" },
                 { value: "remote", label: "Kuku Remote" },

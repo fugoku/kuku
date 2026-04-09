@@ -9,6 +9,8 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  Select,
+  type SelectProps,
 } from "~/components/ui";
 
 interface SettingsPanelProps {
@@ -123,6 +125,8 @@ interface SettingsDropdownMenuProps {
 type SettingsInputProps = JSX.InputHTMLAttributes<HTMLInputElement>;
 
 type SettingsTextareaProps = JSX.TextareaHTMLAttributes<HTMLTextAreaElement>;
+
+type SettingsSelectProps = SelectProps;
 
 interface SettingsToolbarActionProps {
   children: JSX.Element;
@@ -476,6 +480,17 @@ function SettingsTextarea(props: SettingsTextareaProps): JSX.Element {
   return <textarea {...rest} class={mergeClass(settingsTextareaClass(), local.class)} />;
 }
 
+function SettingsSelect(props: SettingsSelectProps): JSX.Element {
+  return (
+    <Select
+      {...props}
+      triggerClass={mergeClass(settingsInputClass(), props.triggerClass)}
+      contentClass={props.contentClass}
+      itemClass={props.itemClass}
+    />
+  );
+}
+
 function SettingsStatusBadge(props: SettingsStatusBadgeProps): JSX.Element {
   const className = () => {
     switch (props.tone) {
@@ -558,6 +573,7 @@ export {
   SettingsMetricRow,
   SettingsPanel,
   SettingsProgress,
+  SettingsSelect,
   SettingsStatusBadge,
   SettingsTextarea,
   SettingsToolbarAction,

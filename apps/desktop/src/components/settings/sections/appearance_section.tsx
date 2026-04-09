@@ -1,6 +1,9 @@
 import { FontInput } from "~/components/settings/font_input";
-import { SettingsFieldRow, SettingsPanel } from "~/components/settings/settings_blocks";
-import { Select } from "~/components/ui";
+import {
+  SettingsFieldRow,
+  SettingsPanel,
+  SettingsSelect,
+} from "~/components/settings/settings_blocks";
 import { setAppearanceSetting, settingsState } from "~/stores/settings";
 
 const THEME_OPTIONS = [
@@ -21,7 +24,7 @@ function AppearanceSection() {
         description="Choose between system, dark, and light appearance."
         control={
           <div class="w-56">
-            <Select
+            <SettingsSelect
               options={THEME_OPTIONS}
               value={settingsState.appearance.theme}
               onChange={(value) =>

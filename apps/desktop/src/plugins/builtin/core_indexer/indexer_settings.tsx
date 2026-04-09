@@ -7,10 +7,10 @@ import {
   SettingsMetricRow,
   SettingsPanel,
   SettingsProgress,
+  SettingsSelect,
   SettingsStatusBadge,
   SettingsToolbarAction,
 } from "~/components/settings/settings_blocks";
-import { Select } from "~/components/ui";
 import Switch from "~/components/ui/switch";
 import { useSettingsRefreshToken } from "~/components/settings/settings_refresh";
 
@@ -218,7 +218,7 @@ function IndexerSettings(): JSX.Element {
             description="Choose whether the SQLite index lives in app data or inside the current vault. Changing this switches to a different DB and queues a rebuild."
             control={
               <div class="w-64">
-                <Select
+                <SettingsSelect
                   options={STORAGE_LOCATION_OPTIONS}
                   value={indexerConfig.storageLocation}
                   onChange={(value) =>
