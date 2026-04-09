@@ -1,10 +1,10 @@
-import { createEffect, on, Show, type JSX } from "solid-js";
+import { createEffect, createSignal, on, onCleanup, Show, type JSX } from "solid-js";
 
 import { Select } from "~/components/ui";
 import Switch from "~/components/ui/switch";
 import { useSettingsRefreshToken } from "~/components/settings/settings_refresh";
 
-import { indexerConfig, loadIndexerConfig, updateIndexerConfig } from "./settings";
+import { hydrateIndexerConfigFromSettings, indexerConfig, updateIndexerConfig } from "./settings";
 import type { IndexerConfig } from "./types";
 import { indexerStatus, refreshIndexerStatus } from "../core_indexer/status_store";
 import { getSearchService } from "../search/runtime";
@@ -27,34 +27,104 @@ function statusLabel(state: string): string {
 }
 
 function IndexerSettings(): JSX.Element {
+  const [isRefreshingStatus, setIsRefreshingStatus] = createSignal(false);
+  const [isRebuildStarting, setIsRebuildStarting] = createSignal(false);
   const isIndexing = () => indexerStatus.state === "indexing";
   const settingsRefreshToken = useSettingsRefreshToken();
+  let pollTimer: number | undefined;
+  let rebuildBaselineLastIndexedAt: number | null = null;
+  let rebuildIssuedAt: number | null = null;
+
+  function clearPolling(): void {
+    if (pollTimer !== undefined) {
+      window.clearInterval(pollTimer);
+      pollTimer = undefined;
+    }
+  }
+
+  function maybeResolveRebuildStart(): void {
+    if (!isRebuildStarting()) return;
+
+    if (indexerStatus.state === "indexing" || indexerStatus.state === "error") {
+      setIsRebuildStarting(false);
+      rebuildBaselineLastIndexedAt = null;
+      rebuildIssuedAt = null;
+      return;
+    }
+
+    if (
+      rebuildBaselineLastIndexedAt !== null &&
+      indexerStatus.lastIndexedAt !== null &&
+      indexerStatus.lastIndexedAt !== rebuildBaselineLastIndexedAt
+    ) {
+      setIsRebuildStarting(false);
+      rebuildBaselineLastIndexedAt = null;
+      rebuildIssuedAt = null;
+      return;
+    }
+
+    if (rebuildIssuedAt !== null && Date.now() - rebuildIssuedAt > 5000) {
+      setIsRebuildStarting(false);
+      rebuildBaselineLastIndexedAt = null;
+      rebuildIssuedAt = null;
+    }
+  }
+
+  async function syncIndexerStatus(options?: {
+    reloadConfig?: boolean;
+    allowWhileRefreshing?: boolean;
+  }): Promise<void> {
+    if (isRefreshingStatus() && !options?.allowWhileRefreshing) {
+      return;
+    }
+
+    const service = getSearchService();
+    if (!service) return;
+
+    setIsRefreshingStatus(true);
+    try {
+      if (options?.reloadConfig) {
+        await hydrateIndexerConfigFromSettings();
+      }
+      await refreshIndexerStatus(service);
+      maybeResolveRebuildStart();
+    } finally {
+      setIsRefreshingStatus(false);
+    }
+  }
 
   createEffect(
     on(
       settingsRefreshToken,
-      async () => {
-        const service = getSearchService();
-        if (!service) return;
-
-        await loadIndexerConfig(service);
-        await refreshIndexerStatus(service);
+      () => {
+        clearPolling();
+        void syncIndexerStatus({ reloadConfig: true, allowWhileRefreshing: true });
+        pollTimer = window.setInterval(() => {
+          void syncIndexerStatus();
+        }, 500);
       },
       { defer: false },
     ),
   );
 
+  onCleanup(() => {
+    clearPolling();
+  });
+
   async function handleRebuild(): Promise<void> {
     const service = getSearchService();
-    if (!service) return;
+    if (!service || isRebuildStarting() || isIndexing()) return;
+
+    rebuildBaselineLastIndexedAt = indexerStatus.lastIndexedAt;
+    rebuildIssuedAt = Date.now();
+    setIsRebuildStarting(true);
+
     await service.requestRebuild();
-    await refreshIndexerStatus(service);
+    await syncIndexerStatus({ allowWhileRefreshing: true });
   }
 
   async function handleRefreshStatus(): Promise<void> {
-    const service = getSearchService();
-    if (!service) return;
-    await refreshIndexerStatus(service);
+    await syncIndexerStatus({ allowWhileRefreshing: true });
   }
 
   async function handleConfigChange<K extends keyof IndexerConfig>(
@@ -78,10 +148,11 @@ function IndexerSettings(): JSX.Element {
         </div>
         <button
           type="button"
+          disabled={isRefreshingStatus() || isRebuildStarting()}
           class="rounded-xs border border-border bg-bg-secondary px-2.5 py-1 text-[0.6875rem] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
           onClick={() => void handleRefreshStatus()}
         >
-          Refresh
+          {isRefreshingStatus() ? "Refreshing..." : "Refresh"}
         </button>
       </div>
 
@@ -197,11 +268,11 @@ function IndexerSettings(): JSX.Element {
           </p>
           <button
             type="button"
-            disabled={isIndexing()}
+            disabled={isIndexing() || isRebuildStarting()}
             class="shrink-0 rounded-xs border border-warning-border bg-warning-bg px-3 py-1.5 text-[0.6875rem] text-warning transition-colors hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
             onClick={() => void handleRebuild()}
           >
-            {isIndexing() ? "Indexing…" : "Rebuild Index"}
+            {isIndexing() || isRebuildStarting() ? "Indexing…" : "Rebuild Index"}
           </button>
         </div>
       </div>

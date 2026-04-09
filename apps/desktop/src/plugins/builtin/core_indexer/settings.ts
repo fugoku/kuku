@@ -17,27 +17,33 @@ function isStorageLocation(value: unknown): value is IndexerStorageLocation {
   return value === "app-global" || value === "vault-local";
 }
 
-async function loadIndexerConfig(service: SearchService): Promise<void> {
+function mergeIndexerConfig(raw: Record<string, unknown>): IndexerConfig {
+  return {
+    ...DEFAULT_INDEXER_CONFIG,
+    ...(isStorageLocation(raw.storageLocation) ? { storageLocation: raw.storageLocation } : {}),
+    ...(typeof raw.incrementalUpdates === "boolean"
+      ? { incrementalUpdates: raw.incrementalUpdates }
+      : {}),
+    ...(typeof raw.reindexOnVaultOpen === "boolean"
+      ? { reindexOnVaultOpen: raw.reindexOnVaultOpen }
+      : {}),
+  } satisfies IndexerConfig;
+}
+
+async function hydrateIndexerConfigFromSettings(): Promise<void> {
   try {
     const raw = await invoke<Record<string, unknown>>("plugin_get_settings", {
       pluginId: "core-indexer",
     });
-    const merged = {
-      ...DEFAULT_INDEXER_CONFIG,
-      ...(isStorageLocation(raw.storageLocation) ? { storageLocation: raw.storageLocation } : {}),
-      ...(typeof raw.incrementalUpdates === "boolean"
-        ? { incrementalUpdates: raw.incrementalUpdates }
-        : {}),
-      ...(typeof raw.reindexOnVaultOpen === "boolean"
-        ? { reindexOnVaultOpen: raw.reindexOnVaultOpen }
-        : {}),
-    } satisfies IndexerConfig;
-    setIndexerConfig(merged);
-    await service.setConfig(merged);
+    setIndexerConfig(mergeIndexerConfig(raw));
   } catch {
     setIndexerConfig({ ...DEFAULT_INDEXER_CONFIG });
-    await service.setConfig({ ...DEFAULT_INDEXER_CONFIG });
   }
+}
+
+async function loadIndexerConfig(service: SearchService): Promise<void> {
+  await hydrateIndexerConfigFromSettings();
+  await service.setConfig(unwrap(indexerConfig));
 }
 
 async function updateIndexerConfig<K extends keyof IndexerConfig>(
@@ -54,4 +60,10 @@ async function updateIndexerConfig<K extends keyof IndexerConfig>(
   await service.setConfig(next);
 }
 
-export { DEFAULT_INDEXER_CONFIG, indexerConfig, loadIndexerConfig, updateIndexerConfig };
+export {
+  DEFAULT_INDEXER_CONFIG,
+  hydrateIndexerConfigFromSettings,
+  indexerConfig,
+  loadIndexerConfig,
+  updateIndexerConfig,
+};
