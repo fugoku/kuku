@@ -17,6 +17,7 @@ import { editorCoreMarkdown } from "~/plugins/builtin/core_editor/markdown_handl
 import {
   RegistryBuilder,
   createProcessor,
+  makeText,
   mdastToProseMirror,
   proseMirrorToMdast,
   type RemarkPlugin,
@@ -403,6 +404,16 @@ describe("PM JSON structure", () => {
     const textNode = (pm.content ?? [])[0].content?.[0];
     expect(textNode?.text).toBe("code");
     expect(textNode?.marks).toEqual([{ type: "code" }]);
+  });
+
+  it("deduplicates repeated marks on text nodes", () => {
+    const textNode = makeText("value", [
+      { type: "code" },
+      { type: "bold" },
+      { type: "bold" },
+    ]);
+
+    expect(textNode.marks).toEqual([{ type: "code" }, { type: "bold" }]);
   });
 
   it("bold+italic produces nested marks", () => {
