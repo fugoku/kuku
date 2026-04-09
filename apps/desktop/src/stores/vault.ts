@@ -35,13 +35,16 @@ import {
   openVault as openVaultCommand,
   readVaultFile,
   readVaultFileWithChecksum,
+  vaultDelete,
+  vaultEmptyTrash,
   vaultExists,
+  vaultGetTrashPath,
   vaultMkdir,
-  vaultRemove,
   vaultRename,
   writeVaultFile,
   writeVaultFileWithChecksum,
   type ChecksumWriteResult,
+  type DeleteMode,
   type FileChangeEvent,
   type FileEntry,
   type FileReadResult,
@@ -475,7 +478,7 @@ async function deleteEntry(path: string): Promise<void> {
   if (!entry) return;
 
   try {
-    await vaultRemove(path);
+    await vaultDelete(path, settingsState.files.deletedFiles as DeleteMode);
     closeTabsForDeletedPath(path, entry.is_directory);
     if (
       vaultState.editState &&
@@ -486,6 +489,29 @@ async function deleteEntry(path: string): Promise<void> {
     await loadFiles(root);
   } catch {
     // Intentionally silent: current delete UX has no dedicated error surface.
+  }
+}
+
+async function openTrashFolder(): Promise<void> {
+  if (!vaultState.rootPath) return;
+
+  try {
+    await vaultMkdir(".trash");
+    const trashPath = await vaultGetTrashPath(true);
+    const { revealItemInDir } = await import("@tauri-apps/plugin-opener");
+    await revealItemInDir(trashPath);
+  } catch {
+    // Intentionally silent: settings action has no dedicated error surface yet.
+  }
+}
+
+async function emptyTrashFolder(): Promise<void> {
+  if (!vaultState.rootPath) return;
+
+  try {
+    await vaultEmptyTrash();
+  } catch {
+    // Intentionally silent: settings action has no dedicated error surface yet.
   }
 }
 
@@ -514,7 +540,7 @@ async function exists(path: string): Promise<boolean> {
 }
 
 async function remove(path: string): Promise<void> {
-  await vaultRemove(path);
+  await vaultDelete(path, "permanent");
 }
 
 async function rename(from: string, to: string): Promise<void> {
@@ -535,6 +561,8 @@ export {
   isFolderExpanded,
   loadFiles,
   existsInTree,
+  emptyTrashFolder,
+  openTrashFolder,
   openVault,
   readFile,
   readFileWithChecksum,

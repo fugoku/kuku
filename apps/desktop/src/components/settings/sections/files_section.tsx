@@ -1,9 +1,13 @@
+import { createSignal } from "solid-js";
+
 import {
   SettingsFieldRow,
   SettingsPanel,
   SettingsSelect,
+  SettingsToolbarAction,
 } from "~/components/settings/settings_blocks";
 import { setFilesSetting, settingsState } from "~/stores/settings";
+import { emptyTrashFolder, openTrashFolder, vaultState } from "~/stores/vault";
 
 const NEW_FILE_LOCATION_OPTIONS = [
   { value: "root", label: "Vault root" },
@@ -17,6 +21,8 @@ const DELETED_FILES_OPTIONS = [
 ];
 
 function FilesSection() {
+  const [confirmEmptyTrash, setConfirmEmptyTrash] = createSignal(false);
+
   return (
     <SettingsPanel
       title="Files & Links"
@@ -38,8 +44,8 @@ function FilesSection() {
         }
       />
       <SettingsFieldRow
-        label="Deleted files (WIP)"
-        description="What happens when you delete a file."
+        label="Deleted files"
+        description="Choose whether deletes go to the system trash, Kuku's hidden .trash folder, or are removed permanently."
         control={
           <div class="w-64">
             <SettingsSelect
@@ -51,6 +57,51 @@ function FilesSection() {
           </div>
         }
       />
+      {settingsState.files.deletedFiles === "kuku-trash" ? (
+        <SettingsFieldRow
+          label="Kuku trash"
+          description={
+            confirmEmptyTrash()
+              ? "Are you sure? Empty Trash permanently deletes everything currently inside Kuku Trash."
+              : "The .trash folder stays hidden from the file tree. Use these actions to open it in Finder or remove its contents."
+          }
+          control={
+            <div class="flex items-center gap-2">
+              <SettingsToolbarAction
+                disabled={!vaultState.rootPath}
+                onClick={() => void openTrashFolder()}
+              >
+                Open Trash
+              </SettingsToolbarAction>
+              {confirmEmptyTrash() ? (
+                <>
+                  <SettingsToolbarAction
+                    disabled={!vaultState.rootPath}
+                    variant="destructive"
+                    onClick={() => {
+                      setConfirmEmptyTrash(false);
+                      void emptyTrashFolder();
+                    }}
+                  >
+                    Confirm Empty
+                  </SettingsToolbarAction>
+                  <SettingsToolbarAction onClick={() => setConfirmEmptyTrash(false)}>
+                    Cancel
+                  </SettingsToolbarAction>
+                </>
+              ) : (
+                <SettingsToolbarAction
+                  disabled={!vaultState.rootPath}
+                  variant="destructive"
+                  onClick={() => setConfirmEmptyTrash(true)}
+                >
+                  Empty Trash
+                </SettingsToolbarAction>
+              )}
+            </div>
+          }
+        />
+      ) : null}
     </SettingsPanel>
   );
 }

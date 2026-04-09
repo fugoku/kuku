@@ -99,6 +99,9 @@ pub fn run() {
             vault::commands::vault_exists,
             vault::commands::vault_list_dir,
             vault::commands::vault_mkdir,
+            vault::commands::vault_delete,
+            vault::commands::vault_empty_trash,
+            vault::commands::vault_get_trash_path,
             vault::commands::vault_remove,
             vault::commands::vault_rename,
             // Search
