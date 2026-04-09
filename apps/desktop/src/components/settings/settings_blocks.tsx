@@ -60,7 +60,7 @@ interface SettingsFieldRowProps {
 
 interface SettingsListRowProps {
   title: string;
-  description?: string;
+  description?: JSX.Element;
   meta?: JSX.Element;
   action?: JSX.Element;
 }

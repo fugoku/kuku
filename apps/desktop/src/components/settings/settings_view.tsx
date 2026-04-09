@@ -11,10 +11,10 @@ import {
   Suspense,
 } from "solid-js";
 import { Dynamic } from "solid-js/web";
-import { invoke } from "@tauri-apps/api/core";
 
 import { chooseVaultDirectory } from "~/lib/vault_fs";
 import ScrollArea from "~/components/scroll_area";
+import { PluginsSection } from "~/components/settings/sections/plugins_section";
 import { SettingsDebugView } from "~/components/settings/settings_debug_view";
 import { SettingsRefreshProvider } from "~/components/settings/settings_refresh";
 import SettingItem from "~/components/settings/setting_item";
@@ -27,7 +27,7 @@ import {
   updateCommandKeys,
   type RegisteredCommand,
 } from "~/plugins/commands";
-import { registryState } from "~/plugins/registry";
+import { getPluginDisplayOrder } from "~/plugins/registry";
 import { PluginErrorUI, PluginSkeleton, slotRegistry } from "~/plugins/slots";
 import { resetAllDesktopState } from "~/stores/app_reset";
 import {
@@ -43,7 +43,6 @@ import {
   setFilesSetting,
   setGeneralSetting,
   setKeybindingOverride,
-  setTopLevelSetting,
   settingsState,
 } from "~/stores/settings";
 import { clearConfiguredVault, openVault } from "~/stores/vault";
@@ -695,146 +694,13 @@ function DebugSection() {
   return <SettingsDebugView />;
 }
 
-function PluginsOverviewSection() {
-  const [isRestarting, setIsRestarting] = createSignal(false);
-  const plugins = () => Object.values(registryState.plugins);
-  const isDisabled = (pluginId: string, canDisable: boolean) =>
-    canDisable && settingsState.disabledPlugins.includes(pluginId);
-
-  function setPluginDisabled(pluginId: string, canDisable: boolean, disabled: boolean): void {
-    if (!canDisable) return;
-
-    const next = disabled
-      ? [...new Set([...settingsState.disabledPlugins, pluginId])]
-      : settingsState.disabledPlugins.filter((id) => id !== pluginId);
-
-    setTopLevelSetting("disabledPlugins", next);
-  }
-
-  async function restartApp(): Promise<void> {
-    if (isRestarting()) return;
-
-    setIsRestarting(true);
-
-    try {
-      await invoke("app_restart");
-    } catch {
-      setIsRestarting(false);
-    }
-  }
-
-  return (
-    <SettingSection title="Plugins" anchor="plugins">
-      <div class="mb-3 flex items-center justify-between gap-3">
-        <p class="text-[0.75rem] text-text-muted">
-          Enable or disable plugins and inspect their current load status. Changes apply on next app
-          launch.
-        </p>
-        <button
-          type="button"
-          class="shrink-0 rounded-xs border border-border px-2.5 py-1.5 text-[0.75rem] font-medium text-text-secondary transition-colors hover:bg-ghost-hover hover:text-text-primary disabled:cursor-default disabled:opacity-60"
-          disabled={isRestarting()}
-          onClick={() => void restartApp()}
-        >
-          {isRestarting() ? "Restarting..." : "Restart"}
-        </button>
-      </div>
-
-      <div class="overflow-hidden rounded-xs border border-border">
-        <Show
-          when={plugins().length > 0}
-          fallback={
-            <div class="px-4 py-8 text-center text-[0.8125rem] text-text-muted">
-              No plugins registered.
-            </div>
-          }
-        >
-          <For each={plugins()}>
-            {(plugin, i) => {
-              const isActive = () => registryState.activated.includes(plugin.id);
-              const isFailed = () => plugin.id in registryState.failed;
-              const failedInfo = () => registryState.failed[plugin.id];
-              const disabled = () => isDisabled(plugin.id, plugin.canDisable);
-
-              return (
-                <div class={i() > 0 ? "border-t border-border" : undefined}>
-                  <div class="flex items-center justify-between gap-4 px-3 py-2.5">
-                    <div class="min-w-0 flex-1">
-                      <div class="flex items-center gap-2">
-                        <span class="text-[0.8125rem] font-medium text-text-primary">
-                          {plugin.name}
-                        </span>
-                        <span class="text-[0.6875rem] text-text-muted">v{plugin.version}</span>
-                      </div>
-                      <Show when={plugin.description}>
-                        <p class="mt-0.5 text-[0.75rem] text-text-muted">{plugin.description}</p>
-                      </Show>
-                      <Show when={isFailed()}>
-                        <p class="mt-1 text-[0.6875rem] text-error">Error: {failedInfo()?.error}</p>
-                      </Show>
-                    </div>
-
-                    <div class="flex shrink-0 items-center gap-3">
-                      <div class="min-w-22 text-right">
-                        <Show
-                          when={!isFailed()}
-                          fallback={
-                            <span class="text-[0.6875rem] font-medium text-error">Failed</span>
-                          }
-                        >
-                          <Show
-                            when={plugin.canDisable ? !disabled() : true}
-                            fallback={
-                              <span class="text-[0.6875rem] text-text-muted">
-                                Disabled next launch
-                              </span>
-                            }
-                          >
-                            <Show
-                              when={!plugin.canDisable}
-                              fallback={
-                                <Show
-                                  when={isActive()}
-                                  fallback={
-                                    <span class="text-[0.6875rem] text-text-muted">Inactive</span>
-                                  }
-                                >
-                                  <span class="text-[0.6875rem] text-success">Active</span>
-                                </Show>
-                              }
-                            >
-                              <span class="text-[0.6875rem] text-text-muted">Required</span>
-                            </Show>
-                          </Show>
-                        </Show>
-                      </div>
-
-                      <Switch
-                        checked={!disabled()}
-                        disabled={!plugin.canDisable}
-                        onChange={(enabled) =>
-                          setPluginDisabled(plugin.id, plugin.canDisable, !enabled)
-                        }
-                      />
-                    </div>
-                  </div>
-                </div>
-              );
-            }}
-          </For>
-        </Show>
-      </div>
-    </SettingSection>
-  );
-}
-
 const SECTION_MAP: Record<string, Component> = {
   general: GeneralSection,
   appearance: AppearanceSection,
   editor: EditorSection,
   files: FilesSection,
   keybindings: KeybindingsSection,
-  plugins: PluginsOverviewSection,
+  plugins: PluginsSection,
   about: AboutSection,
   debug: DebugSection,
 };
@@ -908,10 +774,21 @@ export default function SettingsView() {
 
   const primaryCategories = () =>
     CATEGORIES.filter((c) => c.id !== "plugins" && c.id !== "about" && c.id !== "debug");
-  const pluginCategories = () =>
-    slotRegistry.fills.settingsSection
+  const pluginCategories = () => {
+    const order = new Map(getPluginDisplayOrder().map((id, index) => [id, index]));
+
+    return [...slotRegistry.fills.settingsSection]
       .filter((fill) => fill.isActive())
+      .sort((left, right) => {
+        const pluginOrder =
+          (order.get(left.pluginId) ?? Number.MAX_SAFE_INTEGER) -
+          (order.get(right.pluginId) ?? Number.MAX_SAFE_INTEGER);
+        if (pluginOrder !== 0) return pluginOrder;
+        if (left.order !== right.order) return left.order - right.order;
+        return left.label.localeCompare(right.label);
+      })
       .map((fill) => ({ id: `plugin:${fill.id}`, label: fill.label }));
+  };
   const pluginsOverviewCategory = () => CATEGORIES.find((c) => c.id === "plugins") ?? null;
   const trailingCategories = () =>
     CATEGORIES.filter((c) =>

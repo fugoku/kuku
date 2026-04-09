@@ -285,6 +285,43 @@ function getPlugin(id: string): KukuPlugin | undefined {
   return pluginInstances.get(id);
 }
 
+function pluginDependsOn(id: string, targetId: string, seen = new Set<string>()): boolean {
+  if (seen.has(id)) return false;
+  seen.add(id);
+
+  const plugin = pluginInstances.get(id);
+  for (const dependencyId of plugin?.dependencies ?? []) {
+    if (dependencyId === targetId) return true;
+    if (pluginDependsOn(dependencyId, targetId, seen)) return true;
+  }
+
+  return false;
+}
+
+function getPluginDisplayOrder(): string[] {
+  const { order } = validateAndTopologicalSort();
+  const required = order.filter((id) => !(pluginInstances.get(id)?.canDisable ?? false));
+  const optional = order.filter((id) => pluginInstances.get(id)?.canDisable ?? false);
+
+  const sortWithinGroup = (ids: string[]) => {
+    const topoIndex = new Map(ids.map((id, index) => [id, index]));
+
+    return [...ids].sort((leftId, rightId) => {
+      if (leftId === rightId) return 0;
+
+      if (pluginDependsOn(leftId, rightId)) return 1;
+      if (pluginDependsOn(rightId, leftId)) return -1;
+
+      return (
+        (topoIndex.get(leftId) ?? Number.MAX_SAFE_INTEGER) -
+        (topoIndex.get(rightId) ?? Number.MAX_SAFE_INTEGER)
+      );
+    });
+  };
+
+  return [...sortWithinGroup(required), ...sortWithinGroup(optional)];
+}
+
 /**
  * Mark a plugin as failed. Stores the error message and timestamp.
  * Failed plugins are shown in the Settings UI with an error indicator.
@@ -441,6 +478,7 @@ export {
   activatePlugin,
   deactivatePlugin,
   getPlugin,
+  getPluginDisplayOrder,
   isActivated,
   markPluginFailed,
   registerPlugin,
