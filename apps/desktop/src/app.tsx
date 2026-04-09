@@ -6,7 +6,6 @@ import TitleBar from "~/components/layout/title_bar";
 import VaultBrowser from "~/components/vault/vault_browser";
 
 import { FONT_SANS_FALLBACK, FONT_MONO_FALLBACK, buildFontFamily } from "~/lib/font_fallback";
-import { initFonts } from "~/lib/fonts";
 import { installAccessibilitySuppression } from "~/lib/disable_accessibility";
 import { bootstrapPlugins, destroyPlugins } from "~/plugins/bootstrap";
 import { Slot } from "~/plugins/slots";
@@ -107,7 +106,6 @@ export default function App() {
     }
 
     await bootstrapPlugins();
-    void initFonts();
     void initCloseHandler();
     void initWindowListeners();
     void restoreLastVault();
