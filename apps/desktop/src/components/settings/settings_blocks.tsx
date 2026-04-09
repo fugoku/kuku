@@ -1,4 +1,5 @@
 import { Show, splitProps, type JSX } from "solid-js";
+import { twMerge } from "tailwind-merge";
 
 import {
   DropdownMenu,
@@ -136,6 +137,10 @@ function settingsActionButtonClass(): string {
   return "rounded-xs border border-border bg-bg-secondary px-2.5 py-1 text-[0.6875rem] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary";
 }
 
+function mergeClass(...classes: (string | undefined | false)[]): string {
+  return twMerge(classes.filter(Boolean).join(" "));
+}
+
 function settingsInputClass(): string {
   return "w-full rounded-xs border border-border bg-bg-secondary px-3 py-2 text-sm text-text-primary transition-colors outline-none focus:border-accent disabled:cursor-not-allowed disabled:opacity-50";
 }
@@ -165,36 +170,31 @@ function settingsToolbarActionClass(
 function SettingsPanel(props: SettingsPanelProps): JSX.Element {
   return (
     <section
-      class={["overflow-hidden rounded-xs border border-border bg-bg-primary", props.class]
-        .filter(Boolean)
-        .join(" ")}
+      class={mergeClass(
+        "overflow-hidden rounded-xs border border-border bg-bg-primary",
+        props.class,
+      )}
       data-settings-anchor={props.anchor}
     >
       <div
-        class={[
+        class={mergeClass(
           "flex items-center justify-between gap-2 border-b border-border px-4 py-3",
           props.headerClass,
-        ]
-          .filter(Boolean)
-          .join(" ")}
+        )}
       >
         <div>
           <h3
-            class={["text-[0.8125rem] font-medium text-text-primary", props.titleClass]
-              .filter(Boolean)
-              .join(" ")}
+            class={mergeClass("text-[0.8125rem] font-medium text-text-primary", props.titleClass)}
           >
             {props.title}
           </h3>
           <Show when={props.description}>
             {(description) => (
               <p
-                class={[
+                class={mergeClass(
                   "mt-0.5 text-[0.75rem] text-text-muted whitespace-pre-line",
                   props.descriptionClass,
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
+                )}
               >
                 {description()}
               </p>
@@ -206,9 +206,7 @@ function SettingsPanel(props: SettingsPanelProps): JSX.Element {
         </Show>
       </div>
 
-      <div class={["space-y-3 p-4", props.bodyClass].filter(Boolean).join(" ")}>
-        {props.children}
-      </div>
+      <div class={mergeClass("space-y-3 p-4", props.bodyClass)}>{props.children}</div>
     </section>
   );
 }
@@ -229,25 +227,19 @@ function SettingsCard(props: SettingsCardProps): JSX.Element {
 
   return (
     <div
-      class={["rounded-xs border p-3", toneClass(), props.class].filter(Boolean).join(" ")}
+      class={mergeClass("rounded-xs border p-3", toneClass(), props.class)}
       data-settings-anchor={props.anchor}
     >
       <Show when={props.title || props.description || props.action}>
-        <div
-          class={["flex items-start justify-between gap-3", props.headerClass]
-            .filter(Boolean)
-            .join(" ")}
-        >
+        <div class={mergeClass("flex items-start justify-between gap-3", props.headerClass)}>
           <div>
             <Show when={props.title}>
               {(title) => (
                 <div
-                  class={[
+                  class={mergeClass(
                     "text-[0.6875rem] tracking-[0.12em] text-text-muted uppercase",
                     props.titleClass,
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
+                  )}
                 >
                   {title()}
                 </div>
@@ -256,12 +248,10 @@ function SettingsCard(props: SettingsCardProps): JSX.Element {
             <Show when={props.description}>
               {(description) => (
                 <p
-                  class={[
+                  class={mergeClass(
                     "mt-1 text-[0.75rem] text-text-muted whitespace-pre-line",
                     props.descriptionClass,
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
+                  )}
                 >
                   {description()}
                 </p>
@@ -275,12 +265,10 @@ function SettingsCard(props: SettingsCardProps): JSX.Element {
       </Show>
 
       <div
-        class={[
+        class={mergeClass(
           props.title || props.description || props.action ? "mt-3" : undefined,
           props.bodyClass,
-        ]
-          .filter(Boolean)
-          .join(" ")}
+        )}
       >
         {props.children}
       </div>
@@ -291,15 +279,13 @@ function SettingsCard(props: SettingsCardProps): JSX.Element {
 function SettingsMetricRow(props: SettingsMetricRowProps): JSX.Element {
   return (
     <div
-      class={[
+      class={mergeClass(
         "flex items-center justify-between gap-4 text-[0.75rem] text-text-secondary",
         props.class,
-      ]
-        .filter(Boolean)
-        .join(" ")}
+      )}
     >
       <span class={props.labelClass}>{props.label}</span>
-      <span class={["font-medium text-text-primary", props.valueClass].filter(Boolean).join(" ")}>
+      <span class={mergeClass("font-medium text-text-primary", props.valueClass)}>
         {props.value}
       </span>
     </div>
@@ -309,42 +295,30 @@ function SettingsMetricRow(props: SettingsMetricRowProps): JSX.Element {
 function SettingsFieldRow(props: SettingsFieldRowProps): JSX.Element {
   return (
     <div
-      class={[
+      class={mergeClass(
         "rounded-xs border border-border/60 bg-bg-primary/60 px-3 py-2",
         props.stacked ? "space-y-2" : "flex items-start justify-between gap-4",
         props.class,
-      ]
-        .filter(Boolean)
-        .join(" ")}
+      )}
     >
       <div class={props.stacked ? undefined : "min-w-0 flex-1"}>
-        <div
-          class={["text-[0.75rem] font-medium text-text-primary", props.labelClass]
-            .filter(Boolean)
-            .join(" ")}
-        >
+        <div class={mergeClass("text-[0.75rem] font-medium text-text-primary", props.labelClass)}>
           {props.label}
         </div>
         <Show when={props.description}>
           {(description) => (
             <p
-              class={[
+              class={mergeClass(
                 "mt-0.5 text-[0.6875rem] text-text-muted whitespace-pre-line",
                 props.descriptionClass,
-              ]
-                .filter(Boolean)
-                .join(" ")}
+              )}
             >
               {description()}
             </p>
           )}
         </Show>
       </div>
-      <div
-        class={[props.stacked ? undefined : "shrink-0", props.controlClass]
-          .filter(Boolean)
-          .join(" ")}
-      >
+      <div class={mergeClass(props.stacked ? undefined : "shrink-0", props.controlClass)}>
         {props.control}
       </div>
     </div>
@@ -354,37 +328,27 @@ function SettingsFieldRow(props: SettingsFieldRowProps): JSX.Element {
 function SettingsListRow(props: SettingsListRowProps): JSX.Element {
   return (
     <div
-      class={[
+      class={mergeClass(
         "flex items-start justify-between gap-4 rounded-xs border border-border/60 bg-bg-primary/60 px-3 py-2",
         props.class,
-      ]
-        .filter(Boolean)
-        .join(" ")}
+      )}
     >
       <div class="min-w-0 flex-1">
         <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <div
-            class={["text-[0.75rem] font-medium text-text-primary", props.titleClass]
-              .filter(Boolean)
-              .join(" ")}
-          >
+          <div class={mergeClass("text-[0.75rem] font-medium text-text-primary", props.titleClass)}>
             {props.title}
           </div>
           <Show when={props.meta}>
-            {(meta) => (
-              <div class={["shrink-0", props.metaClass].filter(Boolean).join(" ")}>{meta()}</div>
-            )}
+            {(meta) => <div class={mergeClass("shrink-0", props.metaClass)}>{meta()}</div>}
           </Show>
         </div>
         <Show when={props.description}>
           {(description) => (
             <p
-              class={[
+              class={mergeClass(
                 "mt-0.5 text-[0.6875rem] text-text-muted whitespace-pre-line",
                 props.descriptionClass,
-              ]
-                .filter(Boolean)
-                .join(" ")}
+              )}
             >
               {description()}
             </p>
@@ -392,9 +356,7 @@ function SettingsListRow(props: SettingsListRowProps): JSX.Element {
         </Show>
       </div>
       <Show when={props.action}>
-        {(action) => (
-          <div class={["shrink-0", props.actionClass].filter(Boolean).join(" ")}>{action()}</div>
-        )}
+        {(action) => <div class={mergeClass("shrink-0", props.actionClass)}>{action()}</div>}
       </Show>
     </div>
   );
@@ -428,40 +390,30 @@ function SettingsBanner(props: SettingsBannerProps): JSX.Element {
   };
 
   return (
-    <div
-      class={["rounded-xs border px-3 py-2", className(), props.class].filter(Boolean).join(" ")}
-    >
+    <div class={mergeClass("rounded-xs border px-3 py-2", className(), props.class)}>
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0 flex-1">
           <Show when={props.title}>
             {(title) => (
-              <div
-                class={["text-[0.75rem] font-medium", titleClass(), props.titleClass]
-                  .filter(Boolean)
-                  .join(" ")}
-              >
+              <div class={mergeClass("text-[0.75rem] font-medium", titleClass(), props.titleClass)}>
                 {title()}
               </div>
             )}
           </Show>
           <div
-            class={[
+            class={mergeClass(
               "text-[0.75rem]",
               props.title
                 ? "mt-1 text-text-secondary whitespace-pre-line"
                 : "text-text-secondary whitespace-pre-line",
               props.descriptionClass,
-            ]
-              .filter(Boolean)
-              .join(" ")}
+            )}
           >
             {props.description}
           </div>
         </div>
         <Show when={props.action}>
-          {(action) => (
-            <div class={["shrink-0", props.actionClass].filter(Boolean).join(" ")}>{action()}</div>
-          )}
+          {(action) => <div class={mergeClass("shrink-0", props.actionClass)}>{action()}</div>}
         </Show>
       </div>
     </div>
@@ -488,29 +440,25 @@ function SettingsProgress(props: SettingsProgressProps): JSX.Element {
   };
 
   return (
-    <div class={["space-y-1.5", props.class].filter(Boolean).join(" ")}>
+    <div class={mergeClass("space-y-1.5", props.class)}>
       <div
-        class={[
+        class={mergeClass(
           "flex items-center justify-between gap-3 text-[0.6875rem] text-text-muted",
           props.labelRowClass,
-        ]
-          .filter(Boolean)
-          .join(" ")}
+        )}
       >
         <span class={props.labelClass}>{props.label ?? "Progress"}</span>
-        <span class={["font-medium text-text-primary", props.valueClass].filter(Boolean).join(" ")}>
+        <span class={mergeClass("font-medium text-text-primary", props.valueClass)}>
           {props.value} / {props.max} ({percentage()}%)
         </span>
       </div>
-      <div
-        class={["h-1 overflow-hidden rounded-xs bg-bg-tertiary", props.trackClass]
-          .filter(Boolean)
-          .join(" ")}
-      >
+      <div class={mergeClass("h-1 overflow-hidden rounded-xs bg-bg-tertiary", props.trackClass)}>
         <div
-          class={["h-full rounded-xs transition-all duration-300", barClass(), props.barClass]
-            .filter(Boolean)
-            .join(" ")}
+          class={mergeClass(
+            "h-full rounded-xs transition-all duration-300",
+            barClass(),
+            props.barClass,
+          )}
           style={{ width: `${percentage()}%` }}
         />
       </div>
@@ -520,14 +468,12 @@ function SettingsProgress(props: SettingsProgressProps): JSX.Element {
 
 function SettingsInput(props: SettingsInputProps): JSX.Element {
   const [local, rest] = splitProps(props, ["class"]);
-  return <input {...rest} class={[settingsInputClass(), local.class].filter(Boolean).join(" ")} />;
+  return <input {...rest} class={mergeClass(settingsInputClass(), local.class)} />;
 }
 
 function SettingsTextarea(props: SettingsTextareaProps): JSX.Element {
   const [local, rest] = splitProps(props, ["class"]);
-  return (
-    <textarea {...rest} class={[settingsTextareaClass(), local.class].filter(Boolean).join(" ")} />
-  );
+  return <textarea {...rest} class={mergeClass(settingsTextareaClass(), local.class)} />;
 }
 
 function SettingsStatusBadge(props: SettingsStatusBadgeProps): JSX.Element {
@@ -546,9 +492,7 @@ function SettingsStatusBadge(props: SettingsStatusBadgeProps): JSX.Element {
 
   return (
     <span
-      class={["rounded-xs border px-2 py-0.5 text-[0.6875rem]", className(), props.class]
-        .filter(Boolean)
-        .join(" ")}
+      class={mergeClass("rounded-xs border px-2 py-0.5 text-[0.6875rem]", className(), props.class)}
     >
       {props.children}
     </span>
@@ -558,9 +502,7 @@ function SettingsStatusBadge(props: SettingsStatusBadgeProps): JSX.Element {
 function SettingsDropdownMenu(props: SettingsDropdownMenuProps): JSX.Element {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        class={[settingsActionButtonClass(), props.triggerClass].filter(Boolean).join(" ")}
-      >
+      <DropdownMenuTrigger class={mergeClass(settingsActionButtonClass(), props.triggerClass)}>
         {props.label ?? "Actions"}
       </DropdownMenuTrigger>
       <DropdownMenuContent class={props.contentClass}>
@@ -575,7 +517,7 @@ function SettingsToolbarAction(props: SettingsToolbarActionProps): JSX.Element {
     <button
       type={props.type ?? "button"}
       disabled={props.disabled}
-      class={[settingsToolbarActionClass(props.variant), props.class].filter(Boolean).join(" ")}
+      class={mergeClass(settingsToolbarActionClass(props.variant), props.class)}
       onClick={props.onClick}
     >
       {props.children}
