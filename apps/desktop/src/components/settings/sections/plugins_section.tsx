@@ -82,7 +82,8 @@ function PluginsSection(): JSX.Element {
   return (
     <SettingsPanel
       title="Plugins"
-      description="Enable or disable plugins and inspect their current load status. Changes apply on next app launch."
+      description={`Enable or disable plugins and inspect their current load status.
+Changes apply on next app launch.`}
       anchor="plugins"
       action={
         <SettingsToolbarAction disabled={isRestarting()} onClick={() => void restartApp()}>
@@ -90,11 +91,6 @@ function PluginsSection(): JSX.Element {
         </SettingsToolbarAction>
       }
     >
-      <SettingsBanner
-        tone="info"
-        description="Plugins are grouped by whether they can be disabled. Each group keeps dependency order internally."
-      />
-
       <div class="space-y-2">
         <Show
           when={plugins().length > 0}
@@ -110,15 +106,23 @@ function PluginsSection(): JSX.Element {
 
               return (
                 <SettingsListRow
-                  title={plugin.name}
+                  title={
+                    <>
+                      <span>{plugin.name}</span>
+                      <span class="text-[0.625rem] font-normal text-text-muted">
+                        v{plugin.version}
+                      </span>
+                    </>
+                  }
+                  titleClass="flex items-center gap-2 mb-1"
                   description={
                     <>
                       <span class="text-text-muted">
                         {plugin.description ?? "No description provided."}
                       </span>
-                      <span class="ml-2 text-text-muted">v{plugin.version}</span>
+
                       <Show when={dependencies().length}>
-                        <span class="ml-2 text-text-muted">
+                        <span class="mt-1 block text-[0.5rem] text-text-muted">
                           Depends on {dependencies().join(", ")}
                         </span>
                       </Show>
@@ -128,8 +132,11 @@ function PluginsSection(): JSX.Element {
                     </>
                   }
                   meta={
-                    <SettingsStatusBadge tone={status().tone}>{status().label}</SettingsStatusBadge>
+                    <SettingsStatusBadge class="m-0 text-[0.5rem]" tone={status().tone}>
+                      {status().label}
+                    </SettingsStatusBadge>
                   }
+                  metaClass="ml-auto flex flex-center"
                   action={
                     <Switch
                       checked={!disabled()}
