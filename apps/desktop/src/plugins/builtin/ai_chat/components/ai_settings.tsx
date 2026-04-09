@@ -65,7 +65,7 @@ function AiSettings(): JSX.Element {
         </Show>
 
         <Show when={provider() === "gemini"}>
-          <label class="block space-y-1.5">
+          <label data-settings-anchor="api-key" class="block space-y-1.5">
             <span class="text-[0.6875rem] text-text-muted">API Key</span>
             <div class="relative">
               <input

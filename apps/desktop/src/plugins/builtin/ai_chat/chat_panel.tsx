@@ -6,7 +6,7 @@ import { ChatHeader } from "./components/chat_header";
 import { ChatInput } from "./components/chat_input";
 import { ChatMessages } from "./components/chat_messages";
 import { SettingsIcon } from "~/components/icons";
-import { openTab } from "~/stores/files";
+import { openSettings } from "~/stores/files";
 import { authState, getAuthService } from "~/plugins/builtin/core_auth/auth_service";
 
 // ── API Key Missing Prompt ──
@@ -32,7 +32,13 @@ function ApiKeyPrompt(): JSX.Element {
         <button
           type="button"
           class="inline-flex items-center gap-2 rounded-xs border border-accent/30 bg-accent/15 px-4 py-2 text-sm font-medium text-accent transition-colors hover:bg-accent/25 active:scale-[0.98]"
-          onClick={() => openTab("Settings", null, "settings")}
+          onClick={() =>
+            openSettings({
+              kind: "plugin",
+              fillId: "ai-chat.settings",
+              anchor: "api-key",
+            })
+          }
         >
           <SettingsIcon size={14} />
           Open Settings
@@ -98,7 +104,13 @@ function RemotePermissionPrompt(): JSX.Element {
         <button
           type="button"
           class="inline-flex items-center gap-2 rounded-xs border border-accent/30 bg-accent/15 px-4 py-2 text-sm font-medium text-accent transition-colors hover:bg-accent/25 active:scale-[0.98]"
-          onClick={() => openTab("Settings", null, "settings")}
+          onClick={() =>
+            openSettings({
+              kind: "plugin",
+              fillId: "core-auth.settings",
+              anchor: "authorizations",
+            })
+          }
         >
           <SettingsIcon size={14} />
           Open Settings

@@ -40,7 +40,10 @@ function AuthSettings(): JSX.Element {
       </div>
 
       <div class="space-y-3 p-4">
-        <div class="rounded-xs border border-border bg-bg-secondary/70 p-3">
+        <div
+          data-settings-anchor="session"
+          class="rounded-xs border border-border bg-bg-secondary/70 p-3"
+        >
           <div class="flex items-center justify-between gap-3">
             <div>
               <div class="text-[0.6875rem] tracking-[0.12em] text-text-muted uppercase">
@@ -68,7 +71,10 @@ function AuthSettings(): JSX.Element {
           </Show>
         </div>
 
-        <div class="rounded-xs border border-border bg-bg-secondary/40 p-3">
+        <div
+          data-settings-anchor="authorizations"
+          class="rounded-xs border border-border bg-bg-secondary/40 p-3"
+        >
           <div class="text-[0.6875rem] tracking-[0.12em] text-text-muted uppercase">
             Plugin Access
           </div>

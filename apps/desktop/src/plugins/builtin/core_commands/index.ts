@@ -11,7 +11,7 @@
 //   app.openSearch                 — open search tab
 //   app.openSettings               — open settings tab
 
-import { closeTab, filesState, getActiveTab, nextTab, openTab, prevTab } from "~/stores/files";
+import { closeTab, filesState, getActiveTab, nextTab, openSettings, prevTab } from "~/stores/files";
 import { toggleBottomPanel, toggleLeftPanel, toggleRightPanel } from "~/stores/layout";
 import { setEditorSetting, settingsState, SETTING_DEFAULTS } from "~/stores/settings";
 import { toggleTheme } from "~/stores/theme";
@@ -121,7 +121,7 @@ const coreCommandsPlugin: KukuPlugin = {
       category: "App",
       defaultKeys: ["$mod+Comma"],
       global: true,
-      execute: () => openTab("Settings", null, "settings"),
+      execute: () => openSettings(),
     },
 
     // ── Font Size ──

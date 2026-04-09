@@ -21,7 +21,7 @@ import {
 import TypingIndicator from "~/components/vault/typing_indicator";
 import { type FileEntry } from "~/lib/vault_fs";
 import { getContextKey } from "~/plugins/context_keys";
-import { getActiveTab, openTab } from "~/stores/files";
+import { getActiveTab, openSettings, openTab } from "~/stores/files";
 import {
   cancelEdit,
   confirmEdit,
@@ -316,7 +316,13 @@ function EmptyVaultState() {
         <button
           type="button"
           class="rounded-xs border border-border px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-ghost-hover hover:text-text-primary"
-          onClick={() => openTab("Settings", null, "settings")}
+          onClick={() =>
+            openSettings({
+              kind: "category",
+              categoryId: "general",
+              anchor: "general",
+            })
+          }
         >
           Open Settings
         </button>

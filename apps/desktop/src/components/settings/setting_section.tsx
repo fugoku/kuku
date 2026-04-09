@@ -5,6 +5,8 @@ import type { JSX } from "solid-js";
 interface SettingSectionProps {
   /** Section title displayed as a category header */
   title: string;
+  /** Optional stable anchor for deep-link style in-app settings navigation */
+  anchor?: string;
   /** SettingItem components */
   children: JSX.Element;
 }
@@ -24,7 +26,7 @@ interface SettingSectionProps {
  */
 export default function SettingSection(props: SettingSectionProps) {
   return (
-    <section class="py-2">
+    <section class="py-2" data-settings-anchor={props.anchor}>
       <h2 class="mb-1 border-b border-border pb-2 text-[0.6875rem] font-medium tracking-wider text-text-muted uppercase">
         {props.title}
       </h2>

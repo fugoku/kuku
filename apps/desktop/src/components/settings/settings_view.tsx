@@ -5,6 +5,7 @@ import {
   createMemo,
   createSignal,
   For,
+  onCleanup,
   onMount,
   Show,
   Suspense,
@@ -27,6 +28,12 @@ import {
 import { registryState } from "~/plugins/registry";
 import { PluginErrorUI, PluginSkeleton, slotRegistry } from "~/plugins/slots";
 import { getAuthService } from "~/plugins/builtin/core_auth/auth_service";
+import {
+  getActiveTab,
+  setSettingsTarget,
+  type SettingsCategoryId,
+  type SettingsTarget,
+} from "~/stores/files";
 import {
   resetKeybindingOverride,
   resetSettings,
@@ -266,7 +273,7 @@ function RecordingInput(props: { onCapture: (keys: string) => void; onCancel: ()
 
 function GeneralSection() {
   return (
-    <SettingSection title="General">
+    <SettingSection title="General" anchor="general">
       <SettingItem
         label="Vault folder"
         description="Choose the folder used as the current vault. Changes apply immediately."
@@ -363,7 +370,7 @@ function VaultFolderControl() {
 
 function AppearanceSection() {
   return (
-    <SettingSection title="Appearance">
+    <SettingSection title="Appearance" anchor="appearance">
       <SettingItem label="Theme" description="Choose between light and dark appearance.">
         <Select
           options={THEME_OPTIONS}
@@ -427,7 +434,7 @@ function FontInput(props: {
 
 function EditorSection() {
   return (
-    <SettingSection title="Editor">
+    <SettingSection title="Editor" anchor="editor">
       <SettingItem label="Auto-save" description="Automatically save changes after editing.">
         <Switch
           checked={settingsState.general.autoSave}
@@ -511,7 +518,7 @@ function EditorSection() {
 
 function FilesSection() {
   return (
-    <SettingSection title="Files & Links">
+    <SettingSection title="Files & Links" anchor="files">
       <SettingItem
         label="Default new file location"
         description="Where new files are created by default."
@@ -599,7 +606,7 @@ function KeybindingsSection() {
   }
 
   return (
-    <SettingSection title="Keybindings">
+    <SettingSection title="Keybindings" anchor="keybindings">
       <input
         type="search"
         class={INPUT_BASE}
@@ -671,7 +678,7 @@ function KeybindingsSection() {
 
 function AboutSection() {
   return (
-    <SettingSection title="About">
+    <SettingSection title="About" anchor="about">
       <SettingItem label="Version" description="Current application version.">
         <span class="text-[0.8125rem] text-text-secondary">0.0.0-dev</span>
       </SettingItem>
@@ -711,7 +718,7 @@ function PluginsOverviewSection() {
   }
 
   return (
-    <SettingSection title="Plugins">
+    <SettingSection title="Plugins" anchor="plugins">
       <div class="mb-3 flex items-center justify-between gap-3">
         <p class="text-[0.75rem] text-text-muted">
           Enable or disable plugins and inspect their current load status. Changes apply on next app
@@ -864,15 +871,17 @@ function PluginSettingsSection(props: { fillId: string }) {
       }
     >
       {(activeFill) => (
-        <ErrorBoundary
-          fallback={(err: Error, reset: () => void) => (
-            <PluginErrorUI pluginId={activeFill().pluginId} error={err} onReset={reset} />
-          )}
-        >
-          <Suspense fallback={<PluginSkeleton />}>
-            <Dynamic component={activeFill().component} />
-          </Suspense>
-        </ErrorBoundary>
+        <div data-settings-anchor={`plugin:${props.fillId}`}>
+          <ErrorBoundary
+            fallback={(err: Error, reset: () => void) => (
+              <PluginErrorUI pluginId={activeFill().pluginId} error={err} onReset={reset} />
+            )}
+          >
+            <Suspense fallback={<PluginSkeleton />}>
+              <Dynamic component={activeFill().component} />
+            </Suspense>
+          </ErrorBoundary>
+        </div>
       )}
     </Show>
   );
@@ -883,6 +892,8 @@ function PluginSettingsSection(props: { fillId: string }) {
 export default function SettingsView() {
   const [activeCategory, setActiveCategory] = createSignal("general");
   const [confirmReset, setConfirmReset] = createSignal(false);
+  let contentRootRef: HTMLDivElement | undefined;
+  let anchorScrollTimer: number | undefined;
 
   const primaryCategories = () => CATEGORIES.filter((c) => c.id !== "plugins" && c.id !== "about");
   const pluginCategories = () =>
@@ -900,12 +911,119 @@ export default function SettingsView() {
   const activePluginFillId = () =>
     activeCategory().startsWith("plugin:") ? activeCategory().slice("plugin:".length) : null;
   const sectionComponent = () => SECTION_MAP[activeCategory()];
+  const currentSettingsTarget = createMemo<SettingsTarget | null>(() => {
+    const tab = getActiveTab();
+    return tab?.type === "settings" ? (tab.state?.settingsTarget ?? null) : null;
+  });
+
+  function isSettingsCategoryId(value: string): value is SettingsCategoryId {
+    return CATEGORIES.some((category) => category.id === value);
+  }
+
+  function resolveCategoryIdForTarget(target: SettingsTarget | null): string | null {
+    if (!target) return null;
+
+    if (target.kind === "category") {
+      return allCategoryIds().includes(target.categoryId) ? target.categoryId : null;
+    }
+
+    const pluginCategoryId = `plugin:${target.fillId}`;
+    if (allCategoryIds().includes(pluginCategoryId)) {
+      return pluginCategoryId;
+    }
+
+    return allCategoryIds().includes("plugins") ? "plugins" : null;
+  }
+
+  function targetForCategoryId(categoryId: string): SettingsTarget | undefined {
+    if (categoryId.startsWith("plugin:")) {
+      return {
+        kind: "plugin",
+        fillId: categoryId.slice("plugin:".length),
+      };
+    }
+
+    if (isSettingsCategoryId(categoryId)) {
+      return {
+        kind: "category",
+        categoryId,
+      };
+    }
+
+    return undefined;
+  }
+
+  function selectCategory(categoryId: string): void {
+    setActiveCategory(categoryId);
+    setSettingsTarget(targetForCategoryId(categoryId));
+  }
+
+  function findAnchorNode(anchor: string): HTMLElement | undefined {
+    if (!contentRootRef) return undefined;
+
+    const nodes = contentRootRef.querySelectorAll<HTMLElement>("[data-settings-anchor]");
+    return [...nodes].find((node) => node.dataset.settingsAnchor === anchor);
+  }
+
+  function clearAnchorScrollTimer(): void {
+    if (anchorScrollTimer !== undefined) {
+      window.clearTimeout(anchorScrollTimer);
+      anchorScrollTimer = undefined;
+    }
+  }
+
+  function scheduleAnchorScroll(anchor: string, attempt = 0): void {
+    clearAnchorScrollTimer();
+    anchorScrollTimer = window.setTimeout(
+      () => {
+        const node = findAnchorNode(anchor);
+        if (node) {
+          node.scrollIntoView({ block: "start", behavior: "auto" });
+          anchorScrollTimer = undefined;
+          return;
+        }
+
+        if (attempt < 10) {
+          scheduleAnchorScroll(anchor, attempt + 1);
+        }
+      },
+      attempt === 0 ? 0 : 50,
+    );
+  }
+
+  onCleanup(() => clearAnchorScrollTimer());
 
   createEffect(() => {
     const category = activeCategory();
     if (!allCategoryIds().includes(category)) {
       setActiveCategory(primaryCategories()[0]?.id ?? "about");
     }
+  });
+
+  createEffect(() => {
+    const resolvedCategoryId = resolveCategoryIdForTarget(currentSettingsTarget());
+    if (resolvedCategoryId && resolvedCategoryId !== activeCategory()) {
+      setActiveCategory(resolvedCategoryId);
+    }
+  });
+
+  createEffect(() => {
+    const target = currentSettingsTarget();
+    if (!target) return;
+
+    const resolvedCategoryId = resolveCategoryIdForTarget(target);
+    if (!resolvedCategoryId) return;
+
+    let fallbackAnchor: string;
+    if (resolvedCategoryId === "plugins" && target.kind === "plugin") {
+      fallbackAnchor = "plugins";
+    } else if (target.kind === "category") {
+      fallbackAnchor = target.categoryId;
+    } else {
+      fallbackAnchor = `plugin:${target.fillId}`;
+    }
+
+    scheduleAnchorScroll(target.anchor ?? fallbackAnchor);
   });
 
   return (
@@ -919,7 +1037,7 @@ export default function SettingsView() {
               <NavButton
                 cat={cat}
                 active={activeCategory() === cat.id}
-                onClick={() => setActiveCategory(cat.id)}
+                onClick={() => selectCategory(cat.id)}
               />
             )}
           </For>
@@ -931,7 +1049,7 @@ export default function SettingsView() {
               <NavButton
                 cat={cat()}
                 active={activeCategory() === cat().id}
-                onClick={() => setActiveCategory(cat().id)}
+                onClick={() => selectCategory(cat().id)}
               />
             )}
           </Show>
@@ -943,7 +1061,7 @@ export default function SettingsView() {
                 <NavButton
                   cat={cat}
                   active={activeCategory() === cat.id}
-                  onClick={() => setActiveCategory(cat.id)}
+                  onClick={() => selectCategory(cat.id)}
                   class="pl-6 text-[0.75rem]"
                 />
               )}
@@ -959,7 +1077,7 @@ export default function SettingsView() {
               <NavButton
                 cat={cat}
                 active={activeCategory() === cat.id}
-                onClick={() => setActiveCategory(cat.id)}
+                onClick={() => selectCategory(cat.id)}
               />
             )}
           </For>
@@ -993,7 +1111,7 @@ export default function SettingsView() {
       <div class="flex min-w-0 flex-1 flex-col">
         {/* Settings content */}
         <ScrollArea class="min-h-0 flex-1" axis="y" alwaysVisible>
-          <div class="mx-auto max-w-140 px-5 py-2">
+          <div ref={contentRootRef} class="mx-auto max-w-140 px-5 py-2">
             <Show when={activePluginFillId()} fallback={<Dynamic component={sectionComponent()} />}>
               {(fillId) => <PluginSettingsSection fillId={fillId()} />}
             </Show>
