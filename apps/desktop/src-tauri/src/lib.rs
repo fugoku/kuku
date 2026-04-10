@@ -6,6 +6,8 @@ mod auth_commands;
 mod config;
 mod models;
 mod plugin_fs;
+#[allow(dead_code)]
+mod plugin_secrets;
 mod plugin_settings;
 mod search;
 mod secure_storage;
@@ -81,6 +83,9 @@ pub fn run() {
             plugin_settings::plugin_ensure_root_dirs,
             plugin_settings::plugin_get_settings,
             plugin_settings::plugin_save_settings,
+            plugin_settings::plugin_get_settings_with_secrets,
+            plugin_settings::plugin_save_settings_with_secrets,
+            plugin_settings::plugin_clear_settings_with_secrets,
             plugin_settings::plugin_clear_all_settings,
             // App Settings
             app_settings::app_settings_get,
