@@ -8,6 +8,7 @@ mod models;
 mod plugin_fs;
 mod plugin_settings;
 mod search;
+mod secure_storage;
 mod vault;
 
 use std::sync::Arc;
