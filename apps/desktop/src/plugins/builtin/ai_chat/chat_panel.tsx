@@ -1,34 +1,68 @@
 import { createEffect, on, onCleanup, onMount, Show, type JSX } from "solid-js";
 import { OverlayScrollbars } from "overlayscrollbars";
 
-import { chatState, loadConfig } from "./chat_store";
+import { chatState, loadConfig, saveConfig } from "./chat_store";
 import { ChatHeader } from "./components/chat_header";
 import { ChatInput } from "./components/chat_input";
 import { ChatMessages } from "./components/chat_messages";
-import { SettingsIcon } from "~/components/icons";
+import { KukuIcon, SettingsIcon } from "~/components/icons";
 import { openSettings } from "~/stores/files";
 import { authState, getAuthService } from "~/plugins/builtin/core_auth/auth_service";
 
-// ── API Key Missing Prompt ──
+function AccessPrompt(): JSX.Element {
+  const signInWithKuku = async () => {
+    if (chatState.config.saving || authState.loading) return;
 
-function ApiKeyPrompt(): JSX.Element {
+    if (chatState.config.provider !== "remote") {
+      await saveConfig(
+        "remote",
+        chatState.config.apiKey,
+        chatState.config.model,
+        chatState.config.serverUrl,
+      );
+    }
+
+    openSettings({
+      kind: "plugin",
+      fillId: "core-auth.settings",
+      anchor: "session",
+    });
+
+    if (!authState.authenticated) {
+      await getAuthService()?.login();
+    }
+  };
+
   return (
     <div class="flex flex-1 flex-col items-center justify-center px-6 py-8">
-      <div class="flex flex-col items-center gap-5 text-center">
-        {/* Icon */}
-        <div class="flex size-12 items-center justify-center rounded-full border border-border bg-bg-secondary/60">
-          <SettingsIcon size={22} />
-        </div>
-
-        {/* Title & description */}
+      <div class="flex w-full max-w-80 flex-col items-center gap-5 text-center">
         <div class="space-y-2">
-          <h2 class="text-base font-semibold text-text-primary">API Key Required</h2>
+          <h2 class="text-base font-semibold text-text-primary">Set up AI Chat</h2>
           <p class="max-w-60 text-xs/relaxed text-text-muted">
-            To use AI Chat, you need to configure your Gemini API key in Settings first.
+            Use a Gemini API key or sign in with your Kuku account.
           </p>
         </div>
 
-        {/* Open Settings button */}
+        <button
+          type="button"
+          class="inline-flex items-center gap-2 rounded-xs border border-accent/30 bg-accent/15 px-4 py-2 text-sm font-medium text-accent transition-colors hover:bg-accent/25 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={chatState.config.saving || authState.loading}
+          onClick={() => void signInWithKuku()}
+        >
+          <KukuIcon size={14} />
+          {authState.loading ? "Opening..." : "Sign in with Kuku"}
+        </button>
+
+        <p class="max-w-55 text-[0.6875rem] leading-relaxed text-text-muted/60">
+          Sign in once and use Kuku Remote without managing a local API key here.
+        </p>
+
+        <div class="flex w-full max-w-60 items-center gap-3">
+          <div class="h-px flex-1 bg-border" />
+          <span class="text-[0.6875rem] tracking-[0.16em] text-text-muted uppercase">or</span>
+          <div class="h-px flex-1 bg-border" />
+        </div>
+
         <button
           type="button"
           class="inline-flex items-center gap-2 rounded-xs border border-accent/30 bg-accent/15 px-4 py-2 text-sm font-medium text-accent transition-colors hover:bg-accent/25 active:scale-[0.98]"
@@ -44,41 +78,14 @@ function ApiKeyPrompt(): JSX.Element {
           Open Settings
         </button>
 
-        {/* Hint */}
         <p class="max-w-55 text-[0.6875rem] leading-relaxed text-text-muted/60">
-          Navigate to the <span class="font-medium text-text-muted">AI Chat</span> section and enter
-          your API key, then come back here.
+          Add your Gemini API key in AI Chat settings to use local BYOK mode.
         </p>
-      </div>
-    </div>
-  );
-}
-
-function RemoteLoginPrompt(): JSX.Element {
-  return (
-    <div class="flex flex-1 flex-col items-center justify-center px-6 py-8">
-      <div class="flex flex-col items-center gap-5 text-center">
-        <div class="flex size-12 items-center justify-center rounded-xs border border-border bg-bg-secondary/60">
-          <SettingsIcon size={22} />
-        </div>
-
-        <div class="space-y-2">
-          <h2 class="text-base font-semibold text-text-primary">Sign in required</h2>
-          <p class="max-w-60 text-xs/relaxed text-text-muted">
-            Kuku Remote uses your server session instead of a local API key.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          class="inline-flex items-center gap-2 rounded-xs border border-accent/30 bg-accent/15 px-4 py-2 text-sm font-medium text-accent transition-colors hover:bg-accent/25 active:scale-[0.98]"
-          disabled={authState.loading}
-          onClick={() => void getAuthService()?.login()}
-        >
-          {authState.loading ? "Opening..." : "Sign in"}
-        </button>
 
         <Show when={authState.error}>
+          {(error) => <p class="max-w-60 text-[0.6875rem] text-error">{error()}</p>}
+        </Show>
+        <Show when={chatState.config.error}>
           {(error) => <p class="max-w-60 text-[0.6875rem] text-error">{error()}</p>}
         </Show>
       </div>
@@ -233,15 +240,13 @@ function ChatPanel(): JSX.Element {
     <div class="flex h-full min-h-0 flex-col bg-bg-primary">
       <ChatHeader />
 
-      <Show when={!isApiKeyMissing()} fallback={<ApiKeyPrompt />}>
-        <Show when={!needsRemoteLogin()} fallback={<RemoteLoginPrompt />}>
-          <Show when={!needsRemotePermission()} fallback={<RemotePermissionPrompt />}>
-            <div ref={scrollHost} class="min-h-0 flex-1">
-              <ChatMessages />
-            </div>
+      <Show when={!(isApiKeyMissing() || needsRemoteLogin())} fallback={<AccessPrompt />}>
+        <Show when={!needsRemotePermission()} fallback={<RemotePermissionPrompt />}>
+          <div ref={scrollHost} class="min-h-0 flex-1">
+            <ChatMessages />
+          </div>
 
-            <ChatInput />
-          </Show>
+          <ChatInput />
         </Show>
       </Show>
     </div>
