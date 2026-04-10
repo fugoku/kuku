@@ -42,7 +42,7 @@ describe("ai_chat chat_store config", () => {
   it("loads persisted plugin settings and syncs runtime config", async () => {
     mockInvoke.mockImplementation(async (command: string) => {
       switch (command) {
-        case "plugin_get_settings":
+        case "plugin_get_settings_with_secrets":
           return {
             provider: "remote",
             apiKey: null,
@@ -62,6 +62,10 @@ describe("ai_chat chat_store config", () => {
 
     await chat.loadConfig();
 
+    expect(mockInvoke).toHaveBeenCalledWith("plugin_get_settings_with_secrets", {
+      pluginId: "ai-chat",
+      secureKeys: ["apiKey"],
+    });
     expect(mockInvoke).toHaveBeenCalledWith("plugin:kuku-ai|ai_set_config", {
       config: {
         provider: "remote",
@@ -79,7 +83,7 @@ describe("ai_chat chat_store config", () => {
   it("saves plugin settings before syncing runtime config", async () => {
     mockInvoke.mockImplementation(async (command: string) => {
       switch (command) {
-        case "plugin_save_settings":
+        case "plugin_save_settings_with_secrets":
         case "plugin:kuku-ai|ai_set_config":
           return undefined;
         default:
@@ -91,7 +95,7 @@ describe("ai_chat chat_store config", () => {
 
     await chat.saveConfig("remote", "", "saved-model", "https://saved");
 
-    expect(mockInvoke).toHaveBeenNthCalledWith(1, "plugin_save_settings", {
+    expect(mockInvoke).toHaveBeenNthCalledWith(1, "plugin_save_settings_with_secrets", {
       pluginId: "ai-chat",
       settings: {
         provider: "remote",
@@ -101,6 +105,7 @@ describe("ai_chat chat_store config", () => {
         roundLimit: 12,
         proxyToolTimeoutMs: 15_000,
       },
+      secureKeys: ["apiKey"],
     });
     expect(mockInvoke).toHaveBeenNthCalledWith(2, "plugin:kuku-ai|ai_set_config", {
       config: {
@@ -111,6 +116,19 @@ describe("ai_chat chat_store config", () => {
         roundLimit: 12,
         proxyToolTimeoutMs: 15_000,
       },
+    });
+  });
+
+  it("clears persisted secure settings through secure-aware command", async () => {
+    mockInvoke.mockResolvedValue(undefined);
+
+    const chat = await loadChatStoreModule();
+
+    await chat.clearPersistedConfig();
+
+    expect(mockInvoke).toHaveBeenCalledWith("plugin_clear_settings_with_secrets", {
+      pluginId: "ai-chat",
+      secureKeys: ["apiKey"],
     });
   });
 });

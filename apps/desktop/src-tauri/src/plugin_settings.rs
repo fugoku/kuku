@@ -142,6 +142,7 @@ pub async fn plugin_clear_settings_with_secrets(
 pub async fn plugin_clear_all_settings() -> Result<(), String> {
     let plugins_dir = plugins_root_path()?;
     if plugins_dir.exists() {
+        clear_all_plugin_secure_secrets(&plugins_dir)?;
         fs::remove_dir_all(&plugins_dir)
             .map_err(|e| format!("Failed to clear plugin settings: {e}"))?;
     }
@@ -210,11 +211,64 @@ fn secure_meta_entry(present: bool) -> Value {
     Value::Object(meta)
 }
 
+fn secure_keys_from_meta(settings: &Map<String, Value>) -> Vec<String> {
+    extract_secure_meta(settings)
+        .into_iter()
+        .filter_map(|(key, meta)| match meta {
+            Value::Object(meta)
+                if meta.get("storage") == Some(&Value::String(SECURE_META_STORAGE.into())) =>
+            {
+                plugin_secrets::validate_field_name(&key).ok()?;
+                Some(key)
+            }
+            _ => None,
+        })
+        .collect()
+}
+
 fn extract_secure_meta(settings: &Map<String, Value>) -> Map<String, Value> {
     match settings.get(SECURE_META_KEY) {
         Some(Value::Object(meta)) => meta.clone(),
         _ => Map::new(),
     }
+}
+
+fn clear_all_plugin_secure_secrets(plugins_dir: &Path) -> Result<(), String> {
+    for entry in fs::read_dir(plugins_dir).map_err(|error| {
+        format!("Failed to enumerate plugin settings directories for secret cleanup: {error}")
+    })? {
+        let entry = entry.map_err(|error| {
+            format!("Failed to read plugin settings directory entry for secret cleanup: {error}")
+        })?;
+
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+        if !file_type.is_dir() {
+            continue;
+        }
+
+        let Some(plugin_id) = entry.file_name().to_str().map(ToOwned::to_owned) else {
+            continue;
+        };
+        if plugin_secrets::validate_plugin_id(&plugin_id).is_err() {
+            continue;
+        }
+
+        let settings_path = entry.path().join("settings.json");
+        let Ok(settings) = read_settings_object_at_path(&settings_path) else {
+            continue;
+        };
+
+        for key in secure_keys_from_meta(&settings) {
+            match plugin_secrets::delete_plugin_secret(&plugin_id, &key) {
+                Ok(()) | Err(PluginSecretError::NotFound) => {}
+                Err(error) => return Err(error.to_string()),
+            }
+        }
+    }
+
+    Ok(())
 }
 
 fn apply_secure_values(
@@ -406,6 +460,33 @@ mod tests {
                 .and_then(Value::as_object)
                 .and_then(|entry| entry.get("present")),
             Some(&Value::Bool(false))
+        );
+    }
+
+    #[test]
+    fn secure_keys_from_meta_only_returns_valid_keyring_entries() {
+        let mut settings = Map::new();
+        settings.insert(
+            SECURE_META_KEY.into(),
+            Value::Object({
+                let mut meta = Map::new();
+                meta.insert("apiKey".into(), secure_meta_entry(true));
+                meta.insert(
+                    "ignored".into(),
+                    Value::Object({
+                        let mut entry = Map::new();
+                        entry.insert("storage".into(), Value::String("plaintext".into()));
+                        entry
+                    }),
+                );
+                meta.insert("bad/key".into(), secure_meta_entry(true));
+                meta
+            }),
+        );
+
+        assert_eq!(
+            secure_keys_from_meta(&settings),
+            vec![String::from("apiKey")]
         );
     }
 }

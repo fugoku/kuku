@@ -1,6 +1,7 @@
 import type { AiConfig } from "./types";
 
 const AI_CHAT_SETTINGS_PLUGIN_ID = "ai-chat";
+const AI_CHAT_SECURE_KEYS = ["apiKey"] as const;
 const DEFAULT_MODEL = "gemini-3.1-flash-lite-preview";
 const DEFAULT_PROVIDER = "remote" as const;
 const DEFAULT_SERVER_URL =
@@ -53,6 +54,7 @@ function normalizeAiConfig(raw: unknown): AiConfig {
 
 export {
   AI_CHAT_SETTINGS_PLUGIN_ID,
+  AI_CHAT_SECURE_KEYS,
   DEFAULT_MODEL,
   DEFAULT_PROVIDER,
   DEFAULT_PROXY_TIMEOUT_MS,
