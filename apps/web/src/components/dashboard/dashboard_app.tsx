@@ -269,12 +269,19 @@ export default function DashboardApp(props: DashboardAppProps) {
     <div class="dashboard-shell">
       <aside class="dashboard-sidebar" aria-label="Dashboard navigation">
         <a
-          class="dashboard-brand"
+          class="lp-brand dashboard-brand-slot"
           href="/dashboard"
           onClick={(event) => navigate(event, "/dashboard")}
         >
-          <img src="/logo.svg" alt="" />
-          <span>kuku</span>
+          <img
+            class="lp-brand-logo"
+            src="/logo.svg"
+            alt=""
+            width="52"
+            height="52"
+            decoding="async"
+          />
+          <span class="lp-brand-tagline-text">kuku.mom</span>
         </a>
 
         <div class="dashboard-user">

@@ -1,23 +1,277 @@
 ---
 import SignInForm from '@/components/auth/sign_in_form';
 import BaseLayout from '@/layouts/base_layout.astro';
+import LandingNav from '@/components/landing_nav.astro';
+import AppMockup from '@/components/app_mockup.astro';
+
+const pathname = Astro.url.pathname;
 ---
 
 <BaseLayout title="Sign in | kuku" description="Sign in to kuku.">
-  <main class="auth-shell">
-    <a class="auth-brand" href="/" aria-label="kuku home">
-      <img src="/logo.svg" alt="" />
-      <span>kuku</span>
-    </a>
+  <div class="signin-page">
+    <LandingNav pathname={pathname} />
+    <main class="signin-main">
+      <div class="signin-split">
+        <div class="signin-col signin-col--form">
+          <section class="signin-panel" aria-labelledby="auth-title">
+            <div class="auth-heading">
+              <p class="eyebrow">SIGN IN</p>
+              <h1 id="auth-title">Welcome to kuku</h1>
+              <p>Continue to your workspace.</p>
+            </div>
 
-    <section class="auth-card" aria-labelledby="auth-title">
-      <div class="auth-heading">
-        <p class="eyebrow">SIGN IN</p>
-        <h1 id="auth-title">Welcome to kuku</h1>
-        <p>Continue to your workspace.</p>
+            <SignInForm client:load />
+          </section>
+        </div>
+
+        <div class="signin-col signin-col--demo">
+          <div class="signin-demo-stage">
+            <div class="signin-demo-copy">
+              <p class="signin-demo-eyebrow">APP PREVIEW</p>
+            </div>
+            <div class="signin-chrome">
+              <div class="signin-chrome-body">
+                <AppMockup />
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-
-      <SignInForm client:load />
-    </section>
-  </main>
+    </main>
+  </div>
 </BaseLayout>
+
+<style is:global>
+  /* One page, no document scroll */
+  html:has(.signin-page),
+  body:has(.signin-page) {
+    height: 100%;
+    max-height: 100%;
+    overflow: hidden;
+  }
+</style>
+
+<style>
+  .signin-page {
+    --ol-bg: var(--theme-ol-bg);
+    --ol-bg2: var(--theme-ol-bg2);
+    --ol-bg3: var(--theme-ol-bg3);
+    --ol-border: var(--theme-ol-border);
+    --ol-border2: var(--theme-ol-border2);
+    --ol-text: var(--theme-ol-text);
+    --ol-text2: var(--theme-ol-text2);
+    --ol-text3: var(--theme-ol-text3);
+    --ol-accent: var(--theme-ol-accent);
+    --ol-accent-dim: var(--theme-ol-accent-dim);
+    --lp-surface: var(--theme-lp-surface);
+    --lp-ink: var(--ol-text);
+    --lp-ink2: var(--ol-text2);
+    --lp-muted: var(--ol-text2);
+    --lp-faint: var(--ol-text3);
+    --lp-shadow: 0 1px 2px rgba(56, 58, 66, 0.06);
+    --lp-shadow-lg: 0 24px 64px rgba(56, 58, 66, 0.1), 0 8px 24px rgba(56, 58, 66, 0.06);
+    --lp-nav-pad-x: 2rem;
+    --signin-nav-h: 3.75rem;
+    --signin-flat-bg: var(--ol-bg);
+
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--ol-bg);
+    color: var(--lp-ink);
+    font-family: var(--font-lp-sans);
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior: none;
+  }
+
+  .signin-main {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .signin-split {
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+    display: grid;
+    position: relative;
+    /* Form column slightly wider so sign-in doesn’t feel cramped; preview still gets the rest */
+    grid-template-columns: minmax(18.5rem, 0.46fr) minmax(0, 1fr);
+    gap: 0;
+    max-width: 96rem;
+    margin: 0 auto;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .signin-split::before {
+    content: '';
+    position: absolute;
+    left: 46%;
+    top: 50%;
+    width: 1px;
+    height: clamp(7rem, 18vh, 10rem);
+    transform: translate(-0.5px, -50%);
+    background: linear-gradient(
+      to bottom,
+      transparent 0%,
+      var(--ol-border2) 24%,
+      var(--ol-border2) 76%,
+      transparent 100%
+    );
+    pointer-events: none;
+  }
+
+  .signin-col--form {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 0;
+    overflow: hidden;
+    padding: clamp(1rem, 2.5vh, 2rem) var(--lp-nav-pad-x);
+    padding-right: clamp(0.75rem, 2vw, 1.5rem);
+    background: var(--signin-flat-bg);
+    border-right: none;
+    box-shadow: none;
+  }
+
+  .signin-panel {
+    max-width: 28.5rem;
+    width: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .signin-col--demo {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    padding: clamp(0.75rem, 2vh, 1.75rem) var(--lp-nav-pad-x);
+    padding-left: clamp(1rem, 2.5vw, 2rem);
+    padding-right: 0;
+    background: var(--signin-flat-bg);
+    border-left: none;
+    box-shadow: none;
+  }
+
+  .signin-demo-stage {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: none;
+    background: var(--signin-flat-bg);
+  }
+
+  .signin-demo-copy {
+    flex-shrink: 0;
+    padding-right: 0;
+    margin-right: 0;
+    width: 100%;
+  }
+
+  .signin-demo-eyebrow {
+    margin: 0 0 0.3rem;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ol-text3);
+    font-family: 'SF Mono', 'Fira Code', ui-monospace, monospace;
+  }
+
+  .signin-demo-lead {
+    margin: 0 0 0.65rem;
+    font-size: clamp(0.8125rem, 0.75rem + 0.35vw, 0.9375rem);
+    color: var(--ol-text2);
+    line-height: 1.45;
+    letter-spacing: -0.012em;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .signin-chrome {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--ol-border);
+    border-radius: clamp(0.5rem, 0.35rem + 0.65vw, 0.875rem);
+    overflow: hidden;
+    background: var(--signin-flat-bg);
+    box-shadow: var(--lp-shadow);
+  }
+
+  .signin-chrome-body {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    text-align: left;
+    border-radius: inherit;
+    background: var(--signin-flat-bg);
+  }
+
+  /* .am-root uses height: 100% — fills chrome body so layout scales with viewport */
+  .signin-chrome-body :global(#am-demo.am-root) {
+    min-height: 0;
+    background: var(--signin-flat-bg) !important;
+  }
+
+  @media (max-width: 60rem) {
+    .signin-split {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+
+    .signin-split::before {
+      display: none;
+    }
+
+    .signin-col--form {
+      justify-content: flex-start;
+      padding-top: 1rem;
+      padding-bottom: 0.5rem;
+      flex-shrink: 0;
+    }
+
+    .signin-panel {
+      max-width: 100%;
+    }
+
+    .signin-col--demo {
+      padding-top: 0.65rem;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .signin-demo-lead {
+      margin-bottom: 0.5rem;
+    }
+  }
+
+  @media (max-width: 48rem) {
+    .signin-page {
+      --lp-nav-pad-x: 1rem;
+    }
+
+    .auth-heading .eyebrow {
+      margin-bottom: 0.5rem;
+    }
+
+    .auth-heading h1 {
+      font-size: 1.375rem;
+    }
+  }
+</style>

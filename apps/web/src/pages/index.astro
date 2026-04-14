@@ -1,27 +1,2581 @@
 ---
-import AuthNavLink from '@/components/auth_nav_link';
 import BaseLayout from '@/layouts/base_layout.astro';
+import AppMockup from '@/components/app_mockup.astro';
+import LandingNav from '@/components/landing_nav.astro';
+import MarketingFooter from '@/components/marketing_footer.astro';
+
+const pathname = Astro.url.pathname;
 ---
 
-<BaseLayout title="kuku" description="An AI-native Markdown workspace for connected thinking.">
-  <main class="page-shell">
-    <header class="site-header" aria-label="Primary">
-      <a class="brand" href="/" aria-label="kuku home">
-        <img src="/logo.svg" alt="" />
-        <span>kuku</span>
-      </a>
-      <nav class="nav-links" aria-label="Main navigation">
-        <AuthNavLink client:load />
-      </nav>
-    </header>
+<BaseLayout
+  title="kuku — AI-native Markdown workspace"
+  description="Native, local-first Markdown for macOS (Tauri). Wikilinks, graph view, and an AI that edits with reviewable diffs. Offline-first, no lock-in."
+>
+  <div class="lp-root">
 
-    <section class="hero" aria-labelledby="hero-title">
-      <p class="eyebrow">WORK IN PROGRESS</p>
-      <h1 id="hero-title">HERO TITLE</h1>
-      <p class="hero-copy">HERO COPY</p>
-      <div class="hero-actions" id="download">
-        <a class="primary-link" href="https://www.kuku.mom">Download for macOS</a>
+    <!-- NAV -->
+    <LandingNav pathname={pathname} />
+
+    <!-- HERO -->
+    <section class="lp-hero" aria-labelledby="hero-heading">
+      <div class="lp-hero-inner">
+        <h1 class="lp-hero-heading" id="hero-heading">Connect your thoughts.</h1>
+        <p class="lp-hero-sub">
+          <span class="lp-hero-sub-line" data-i18n="hero.sub1">
+            Native, local-first Markdown on macOS — Tauri, not Electron. Wikilinks, backlinks, and graph view on plain files.
+          </span>
+          <span class="lp-hero-sub-line" data-i18n="hero.sub2">
+            AI searches, edits, and links your vault with reviewable, Cursor-style diffs. Light, offline-first — no cloud, no
+            lock-in.
+          </span>
+        </p>
+        <div class="lp-hero-actions" id="download">
+          <a class="lp-cta-outline" href="#features" data-i18n="hero.see_how">See how it works</a>
+          <details class="lp-hero-download">
+            <summary class="lp-cta-filled lp-cta-filled--download" aria-label="Download — choose platform">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+              <span data-i18n="nav.download">Download</span>
+              <svg class="lp-chevron lp-chevron--hero-dl" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+            </summary>
+            <div class="lp-download-panel lp-download-panel--hero" role="group" aria-label="Download by platform">
+              <a class="lp-download-row lp-download-row--link" href="#download">macOS</a>
+              <p class="lp-download-row lp-download-row--soon">
+                Windows <span class="lp-download-soon">Coming soon</span>
+              </p>
+              <p class="lp-download-row lp-download-row--soon">
+                Linux <span class="lp-download-soon">Coming soon</span>
+              </p>
+            </div>
+          </details>
+        </div>
+        <a
+          class="lp-yc-badge"
+          href="https://github.com/kuku-mom/kuku-oss-2"
+          target="_blank"
+          rel="noreferrer noopener"
+          aria-label="kuku GitHub repository"
+        >
+          <span class="lp-gh-badge" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="currentColor" role="img" aria-label="GitHub logo">
+              <path d="M12 2C6.48 2 2 6.58 2 12.23c0 4.52 2.87 8.35 6.84 9.7.5.1.68-.22.68-.49 0-.24-.01-.88-.01-1.73-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.49-1.11-1.49-.91-.64.07-.63.07-.63 1 .07 1.53 1.06 1.53 1.06.9 1.58 2.36 1.12 2.94.86.09-.67.35-1.12.64-1.38-2.22-.26-4.56-1.14-4.56-5.05 0-1.12.39-2.03 1.03-2.75-.11-.26-.45-1.31.1-2.73 0 0 .84-.27 2.75 1.05A9.34 9.34 0 0 1 12 6.86a9.3 9.3 0 0 1 2.5.35c1.9-1.32 2.74-1.05 2.74-1.05.56 1.42.21 2.47.11 2.73.64.72 1.03 1.63 1.03 2.75 0 3.92-2.34 4.79-4.57 5.04.36.32.68.95.68 1.92 0 1.38-.01 2.49-.01 2.83 0 .27.18.6.69.49A10.25 10.25 0 0 0 22 12.23C22 6.58 17.52 2 12 2z"/>
+            </svg>
+          </span>
+          <span class="lp-yc-copy" data-i18n-html="hero.github">we are open source on <span class="lp-yc-link">github</span></span>
+          <svg class="lp-yc-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M7 17L17 7" stroke-linecap="round"/>
+            <path d="M9 7h8v8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+      </div>
+
+      <!-- App window mockup -->
+      <div class="lp-screenshot-wrap">
+        <div class="lp-screenshot-chrome">
+          <div class="lp-screenshot-body">
+            <AppMockup />
+          </div>
+        </div>
       </div>
     </section>
-  </main>
+
+    <!-- FEATURES SECTION 01 -->
+    <section class="lp-features" id="features" aria-labelledby="features-heading">
+      <div class="lp-features-label">
+        <span data-i18n="s01.label1">[01] INSTANT CONTEXT</span>
+        <span data-i18n="s01.label2">/ WHILE YOU WORK</span>
+      </div>
+
+      <h2 class="lp-features-heading" id="features-heading" data-i18n-html="s01.heading">
+        kuku gives you <em>instant context</em> while you work.<br />Never lose your train of thought again.
+      </h2>
+
+      <div class="lp-feat-grid">
+        <article class="lp-feat-card">
+          <div class="lp-feat-copy">
+            <div class="lp-feat-ic" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <h3 data-i18n="s01.c1.h3">Instant answers from your notes</h3>
+            <p data-i18n="s01.c1.p">kuku finds the right answer in under a second, so you never fumble mid-thought.</p>
+          </div>
+          <div class="lp-feat-viz">
+            <div class="lp-fv lp-fv-search" id="lp-demo-search" data-lp-query="wikilink graph validation">
+              <div class="lp-fv-search-bar">
+                <span class="lp-fv-mono">⌘K</span>
+                <span class="lp-fv-search-placeholder">Search vault…</span>
+                <span class="lp-fv-search-typed" aria-live="polite"></span><span class="lp-fv-caret" aria-hidden="true"></span>
+              </div>
+              <div class="lp-fv-search-hit">
+                <span class="lp-fv-mono lp-fv-faint">Architecture Overview.md</span>
+                <p class="lp-fv-snippet">…cold load targets and <mark>wikilink graph validation</mark> before beta…</p>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="lp-feat-card">
+          <div class="lp-feat-copy">
+            <div class="lp-feat-ic" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 8v4l3 3" stroke-linecap="round"/><circle cx="12" cy="12" r="9"/></svg>
+            </div>
+            <h3 data-i18n="s01.c2.h3">Learn from what worked before</h3>
+            <p data-i18n="s01.c2.p">Answers from past sessions become suggestions for future ones.</p>
+          </div>
+          <div class="lp-feat-viz">
+            <div class="lp-fv lp-fv-sessions" id="lp-demo-sessions">
+              <div class="lp-fv-pill lp-fv-pill-past"><span class="lp-fv-dot"></span> Session · Nov 12</div>
+              <div class="lp-fv-sess-connector" aria-hidden="true"></div>
+              <div class="lp-fv-pill lp-fv-pill-now"><span class="lp-fv-dot lp-fv-dot-on"></span> Today — reusing 2 answers</div>
+              <p class="lp-fv-caption lp-fv-caption--sessions">Suggested from a prior thread</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="lp-feat-card">
+          <div class="lp-feat-copy">
+            <div class="lp-feat-ic" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 10h.01M12 10h.01M16 10h.01" stroke-linecap="round"/></svg>
+            </div>
+            <h3 data-i18n="s01.c3.h3">Know the right question to ask</h3>
+            <p data-i18n="s01.c3.p">kuku picks up on context and suggests follow-up prompts to keep your thinking moving.</p>
+          </div>
+          <div class="lp-feat-viz">
+            <div class="lp-fv lp-fv-prompts" id="lp-demo-prompts" role="group" aria-label="Suggested prompts">
+              <button type="button" class="lp-fv-chip lp-fv-chip-btn">Summarize risks from [[Team Sync]]</button>
+              <button type="button" class="lp-fv-chip lp-fv-chip-2 lp-fv-chip-btn">What blocked graph QA last sprint?</button>
+              <button type="button" class="lp-fv-chip lp-fv-chip-dim lp-fv-chip-btn">Draft next steps as bullets</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="lp-feat-card">
+          <div class="lp-feat-copy">
+            <div class="lp-feat-ic" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke-linecap="round"/></svg>
+            </div>
+            <h3 data-i18n="s01.c4.h3">Connected across all your docs</h3>
+            <p data-i18n="s01.c4.p">Surface related notes, links, and ideas from anywhere in your workspace in one keystroke.</p>
+          </div>
+          <div class="lp-feat-viz lp-feat-viz--graph">
+            <div class="lp-fv lp-fv-graph" id="lp-demo-graph">
+              
+                
+                <svg class="lp-fv-graph-svg" viewBox="0 0 340 182" aria-hidden="true">
+                <defs>
+                <linearGradient id="lp-g-fade" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#4078f2" stop-opacity="0.08"/>
+                <stop offset="100%" stop-color="#50a14f" stop-opacity="0.05"/>
+                </linearGradient>
+                </defs>
+                <rect class="lp-g-bg" x="4" y="4" width="332" height="174" rx="11" fill="url(#lp-g-fade)" stroke="currentColor" stroke-width="0.75" opacity="0.42"/>
+                <line class="lp-g-edge" x1="182" y1="92" x2="182" y2="64" stroke="currentColor" stroke-width="1.05" opacity="0.34"/>
+                <line class="lp-g-edge" x1="182" y1="92" x2="206.2" y2="78" stroke="currentColor" stroke-width="1.05" opacity="0.34"/>
+                <line class="lp-g-edge" x1="182" y1="92" x2="206.2" y2="106" stroke="currentColor" stroke-width="1.05" opacity="0.34"/>
+                <line class="lp-g-edge" x1="182" y1="92" x2="182" y2="120" stroke="currentColor" stroke-width="1.05" opacity="0.34"/>
+                <line class="lp-g-edge" x1="182" y1="92" x2="157.8" y2="106" stroke="currentColor" stroke-width="1.05" opacity="0.34"/>
+                <line class="lp-g-edge" x1="182" y1="92" x2="157.8" y2="78" stroke="currentColor" stroke-width="1.05" opacity="0.34"/>
+                <line class="lp-g-edge" x1="182" y1="64" x2="206.2" y2="78" stroke="currentColor" stroke-width="1.05" opacity="0.34"/>
+                <line class="lp-g-edge" x1="206.2" y1="78" x2="206.2" y2="106" stroke="currentColor" stroke-width="1.05" opacity="0.34"/>
+                <line class="lp-g-edge" x1="206.2" y1="106" x2="182" y2="120" stroke="currentColor" stroke-width="1.05" opacity="0.34"/>
+                <line class="lp-g-edge" x1="182" y1="120" x2="157.8" y2="106" stroke="currentColor" stroke-width="1.05" opacity="0.34"/>
+                <line class="lp-g-edge" x1="157.8" y1="106" x2="157.8" y2="78" stroke="currentColor" stroke-width="1.05" opacity="0.34"/>
+                <line class="lp-g-edge" x1="157.8" y1="78" x2="182" y2="64" stroke="currentColor" stroke-width="1.05" opacity="0.34"/>
+                <line class="lp-g-edge" x1="182" y1="92" x2="38" y2="94" stroke="currentColor" stroke-width="1.05" opacity="0.34"/>
+                <line class="lp-g-edge" x1="182" y1="92" x2="308" y2="56" stroke="currentColor" stroke-width="1.05" opacity="0.34"/>
+                <line class="lp-g-edge" x1="182" y1="92" x2="118" y2="34" stroke="currentColor" stroke-width="1.05" opacity="0.34"/>
+                <line class="lp-g-edge" x1="182" y1="92" x2="268" y2="138" stroke="currentColor" stroke-width="1.05" opacity="0.34"/>
+                <line class="lp-g-edge lp-g-edge--weak" x1="38" y1="94" x2="157.8" y2="106" stroke="currentColor" stroke-width="0.85" stroke-dasharray="3 3" opacity="0.2"/>
+                <line class="lp-g-edge lp-g-edge--weak" x1="308" y1="56" x2="206.2" y2="78" stroke="currentColor" stroke-width="0.85" stroke-dasharray="3 3" opacity="0.2"/>
+                <line class="lp-g-edge lp-g-edge--weak" x1="118" y1="34" x2="182" y2="64" stroke="currentColor" stroke-width="0.85" stroke-dasharray="3 3" opacity="0.2"/>
+                <line class="lp-g-edge lp-g-edge--weak" x1="268" y1="138" x2="182" y2="120" stroke="currentColor" stroke-width="0.85" stroke-dasharray="3 3" opacity="0.2"/>
+                <circle class="lp-g-hub lp-g-hub--main" cx="182" cy="92" r="7.5" fill="currentColor" opacity="0.93"/>
+                <circle class="lp-g-hub lp-g-hub--sec" cx="38" cy="94" r="5" fill="currentColor" opacity="0.55"/>
+                <circle class="lp-g-hub lp-g-hub--ter" cx="308" cy="56" r="4.6" fill="currentColor" opacity="0.5"/>
+                <circle class="lp-g-hub lp-g-hub--mini" cx="118" cy="34" r="4" fill="currentColor" opacity="0.45"/>
+                <circle class="lp-g-hub lp-g-hub--mini lp-g-hub--mini-r" cx="268" cy="138" r="3.8" fill="currentColor" opacity="0.42"/>
+                <circle class="lp-g-node" cx="182" cy="64" r="5" fill="var(--ol-bg3)" stroke="currentColor" stroke-width="1" opacity="0.6"/>
+                <circle class="lp-g-node" cx="206.2" cy="78" r="5" fill="var(--ol-bg3)" stroke="currentColor" stroke-width="1" opacity="0.6"/>
+                <circle class="lp-g-node" cx="206.2" cy="106" r="5" fill="var(--ol-bg3)" stroke="currentColor" stroke-width="1" opacity="0.6"/>
+                <circle class="lp-g-node" cx="182" cy="120" r="5" fill="var(--ol-bg3)" stroke="currentColor" stroke-width="1" opacity="0.6"/>
+                <circle class="lp-g-node" cx="157.8" cy="106" r="5" fill="var(--ol-bg3)" stroke="currentColor" stroke-width="1" opacity="0.6"/>
+                <circle class="lp-g-node" cx="157.8" cy="78" r="5" fill="var(--ol-bg3)" stroke="currentColor" stroke-width="1" opacity="0.6"/>
+                <text class="lp-g-lbl" x="182" y="57" text-anchor="middle">Q1</text>
+                <text class="lp-g-lbl" x="206.2" y="71" text-anchor="middle">Sync</text>
+                <text class="lp-g-lbl" x="206.2" y="117" text-anchor="middle">Ship</text>
+                <text class="lp-g-lbl" x="182" y="131" text-anchor="middle">Beta</text>
+                <text class="lp-g-lbl" x="157.8" y="117" text-anchor="middle">Arch</text>
+                <text class="lp-g-lbl" x="157.8" y="71" text-anchor="middle">Labs</text>
+                <text class="lp-g-lbl lp-g-lbl--hub" x="182" y="95" text-anchor="middle">you</text>
+                <text class="lp-g-lbl lp-g-lbl--hub-sec" x="38" y="97" text-anchor="middle">in</text>
+                <text class="lp-g-lbl lp-g-lbl--hub-sec" x="308" y="59" text-anchor="middle">out</text>
+                <text class="lp-g-lbl lp-g-lbl--hub-sec" x="118" y="37" text-anchor="middle">up</text>
+                <text class="lp-g-lbl lp-g-lbl--hub-sec" x="268" y="142" text-anchor="middle">log</text>
+                </svg>
+
+              
+              
+              <p class="lp-fv-caption">Wikilinks &amp; graph in sync</p>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- FEATURES SECTION 02 -->
+    <section class="lp-features lp-features-alt" aria-labelledby="features2-heading">
+      <div class="lp-features-label">
+        <span data-i18n="s02.label1">[02] FULL VAULT</span>
+        <span data-i18n="s02.label2">/ WITHIN REACH</span>
+      </div>
+
+      <h2 class="lp-features-heading" id="features2-heading" data-i18n-html="s02.heading">
+        Your entire knowledge base,<br /><em>always at hand</em>.
+      </h2>
+
+      <div class="lp-feat-grid lp-feat-grid-split">
+        <article class="lp-feat-card lp-feat-card-tall">
+          <div class="lp-feat-copy">
+            <div class="lp-feat-ic" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
+            </div>
+            <h3 data-i18n="s02.c1.h3">Markdown-first editing</h3>
+            <p data-i18n="s02.c1.p">Write the way your brain works. kuku understands structure and surfaces it intelligently.</p>
+          </div>
+          <div class="lp-feat-viz">
+            <div class="lp-fv lp-fv-md lp-fv-md-editor" id="lp-demo-md">
+              <div class="lp-fv-md-titlebar">
+                <span class="lp-fv-md-titlebar-dot" aria-hidden="true"></span>
+                <span class="lp-fv-md-filename">Q1 Planning.md</span>
+                <span class="lp-fv-md-titlebar-hint">Markdown</span>
+              </div>
+              <div class="lp-fv-md-pane">
+                <div class="lp-md-row" data-lp-md-row="0">
+                  <span class="lp-md-gutter">1</span>
+                  <div class="lp-md-line-wrap" data-lp-md-wrap="0">
+                    <span class="lp-md-typed lp-fv-mono" data-lp-md-typed></span><span class="lp-md-caret" id="lp-md-singleton-caret" aria-hidden="true"></span>
+                  </div>
+                </div>
+                <div class="lp-md-row lp-md-row--deferred lp-md-row--slash-host" data-lp-md-row="1">
+                  <span class="lp-md-gutter">2</span>
+                  <div class="lp-md-col">
+                    <div class="lp-md-line-wrap lp-md-line-wrap--body" data-lp-md-wrap="1">
+                      <span class="lp-md-typed" data-lp-md-typed></span>
+                    </div>
+                    <div class="lp-md-slash" id="lp-md-slash-pop" aria-hidden="true">
+                      <div class="lp-md-slash-title">Basic blocks</div>
+                      <div class="lp-md-slash-list" role="listbox">
+                        <div class="lp-md-slash-item" data-lp-slash-i="0" role="option">
+                          <span class="lp-md-slash-ic" aria-hidden="true">H2</span>
+                          <span class="lp-md-slash-txt">Heading 2</span>
+                          <span class="lp-md-slash-hint">#</span>
+                        </div>
+                        <div class="lp-md-slash-item" data-lp-slash-i="1" role="option">
+                          <span class="lp-md-slash-ic" aria-hidden="true">•</span>
+                          <span class="lp-md-slash-txt">Bulleted list</span>
+                        </div>
+                        <div class="lp-md-slash-item" data-lp-slash-i="2" role="option">
+                          <span class="lp-md-slash-ic lp-md-slash-ic--todo" aria-hidden="true">☐</span>
+                          <span class="lp-md-slash-txt">To-do list</span>
+                        </div>
+                        <div class="lp-md-slash-item" data-lp-slash-i="3" role="option">
+                          <span class="lp-md-slash-ic" aria-hidden="true">“</span>
+                          <span class="lp-md-slash-txt">Quote</span>
+                        </div>
+                        <div class="lp-md-slash-item" data-lp-slash-i="4" role="option">
+                          <span class="lp-md-slash-ic lp-md-slash-ic--code" aria-hidden="true">&lt;/&gt;</span>
+                          <span class="lp-md-slash-txt">Code</span>
+                          <span class="lp-md-slash-hint">```</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="lp-md-ai-code" id="lp-md-ai-code" aria-hidden="true">
+                      <div class="lp-md-ai-code-bar">
+                        <span class="lp-md-ai-badge">AI</span>
+                        <span class="lp-md-ai-file">vault/index.ts</span>
+                        <span class="lp-md-ai-status" id="lp-md-ai-status"></span>
+                      </div>
+                      <pre class="lp-md-pre"><code class="lp-md-code-wrap lp-fv-mono" id="lp-md-code-wrap"><span id="lp-md-code-text"></span><span class="lp-md-caret lp-md-caret--code" id="lp-md-code-caret" aria-hidden="true"></span></code></pre>
+                    </div>
+                  </div>
+                </div>
+                <div class="lp-md-row lp-md-row--static lp-md-row--pending" data-lp-md-row="2">
+                  <span class="lp-md-gutter">3</span>
+                  <div class="lp-md-line-wrap lp-fv-mono lp-fv-faint">
+                    <span class="lp-fv-wl">[[Team Sync]]</span> — blockers
+                  </div>
+                </div>
+                <div class="lp-md-row lp-md-row--pending" data-lp-md-row="3">
+                  <span class="lp-md-gutter">4</span>
+                  <div class="lp-md-line-wrap lp-fv-mono lp-fv-task-line" data-lp-task-line>
+                    <span class="lp-fv-task-box">[ ]</span> Graph QA checklist
+                  </div>
+                </div>
+                <div class="lp-md-row lp-md-row--static lp-md-row--done lp-md-row--pending" data-lp-md-row="4">
+                  <span class="lp-md-gutter">5</span>
+                  <div class="lp-md-line-wrap lp-fv-mono lp-fv-faint">- [x] Align on priorities</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+        <div class="lp-feat-stack">
+          <article class="lp-feat-card">
+            <div class="lp-feat-copy">
+              <div class="lp-feat-ic" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3l9 4.5v9L12 21l-9-4.5v-9L12 3z" stroke-linejoin="round"/><path d="M12 12l9-4.5M12 12v9M12 12L3 7.5" stroke-linecap="round"/></svg>
+              </div>
+              <h3 data-i18n="s02.c2.h3">AI that reads your docs</h3>
+              <p data-i18n="s02.c2.p">Upload any document and kuku learns its content for instant retrieval.</p>
+            </div>
+            <div class="lp-feat-viz">
+              <div class="lp-fv lp-fv-agent" id="lp-demo-agent">
+                <div class="lp-ai-cap">
+                  <span class="lp-ai-cap-dot" aria-hidden="true"></span>
+                  <span class="lp-ai-cap-title">Assistant</span>
+                  <span class="lp-ai-cap-sub">vault</span>
+                </div>
+                <div class="lp-ai-stream">
+                  <p class="lp-ai-prompt">
+                    <span class="lp-ai-prompt-label">You</span>
+                    <span class="lp-ai-prompt-inner">
+                      <span class="lp-ai-prompt-text" data-lp-ai-typed></span><span class="lp-ai-caret" data-lp-ai-caret aria-hidden="true"></span>
+                    </span>
+                  </p>
+                  <div class="lp-ai-step" data-lp-ai-step="search">
+                    <span class="lp-ai-spinner" aria-hidden="true"></span>
+                    <span class="lp-fv-cmd">[search_vault]</span>
+                    <span class="lp-fv-arg">&quot;OKR commitments&quot;</span>
+                  </div>
+                  <div class="lp-ai-step lp-ai-step--hit" data-lp-ai-step="hit">
+                    <span class="lp-ai-hit-ic" aria-hidden="true">↳</span>
+                    <span class="lp-ai-hit-txt">12 notes · <span class="lp-ai-latency">24 ms</span></span>
+                  </div>
+                  <div class="lp-ai-step" data-lp-ai-step="read">
+                    <span class="lp-fv-cmd lp-fv-cmd-ok">[read_file]</span>
+                    <span class="lp-fv-arg">Q1 Planning.md</span>
+                  </div>
+                  <div class="lp-ai-step lp-ai-step--meta" data-lp-ai-step="index">
+                    <span class="lp-fv-mono">→</span> 3 headings · 2 wikilinks · chunk ok
+                  </div>
+                  <div class="lp-ai-step lp-ai-step--idle" data-lp-ai-step="ready">
+                    <span class="lp-ai-idle-dot" aria-hidden="true"></span> Ready for follow-up
+                  </div>
+                </div>
+              </div>
+            </div>
+          </article>
+          <article class="lp-feat-card">
+            <div class="lp-feat-copy">
+              <div class="lp-feat-ic" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke-linecap="round"/></svg>
+              </div>
+              <h3 data-i18n="s02.c3.h3">Works offline too</h3>
+              <p data-i18n="s02.c3.p">Your notes are yours. kuku runs locally and never sends your data without permission.</p>
+            </div>
+            <div class="lp-feat-viz">
+              <div class="lp-fv lp-fv-local" id="lp-demo-local">
+                <div class="lp-fv-local-badge"><span class="lp-fv-local-dot"></span> Local vault</div>
+                <p class="lp-fv-caption lp-fv-local-caption">No cloud required for your files</p>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA FOOTER BANNER -->
+    <section class="lp-cta-banner" aria-label="Call to action">
+      <div class="lp-cta-banner-inner">
+        <h2 class="lp-cta-heading" data-i18n="cta.heading">Start thinking smarter today.</h2>
+        <p class="lp-cta-sub" data-i18n="cta.sub">Download kuku for macOS — free to try, no sign-up required.</p>
+        <div class="lp-hero-actions lp-cta-banner-actions">
+          <a class="lp-cta-outline" href="#features" data-i18n="cta.learn_more">Learn more</a>
+          <a class="lp-cta-filled" href="#download">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+            <span data-i18n="cta.download_mac">Download for macOS</span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <MarketingFooter />
+
+  </div>
 </BaseLayout>
+
+<style>
+  /* ── One Light (same tokens as app_mockup.astro) ── */
+  .lp-root {
+    --ol-bg: var(--theme-ol-bg);
+    --ol-bg2: var(--theme-ol-bg2);
+    --ol-bg3: var(--theme-ol-bg3);
+    --ol-border: var(--theme-ol-border);
+    --ol-border2: var(--theme-ol-border2);
+    --ol-text: var(--theme-ol-text);
+    --ol-text2: var(--theme-ol-text2);
+    --ol-text3: var(--theme-ol-text3);
+    --ol-accent: var(--theme-ol-accent);
+    --ol-accent-dim: var(--theme-ol-accent-dim);
+    --ol-sel: var(--theme-ol-sel);
+    --ol-inact: var(--theme-ol-inact);
+    --ol-success: var(--theme-ol-success);
+    --ol-on-ink: var(--theme-ol-on-ink);
+    --ol-ink-hover: var(--theme-ol-ink-hover);
+
+    --lp-bg0: var(--ol-bg);
+    --lp-bg1: var(--ol-bg2);
+    --lp-surface: var(--theme-lp-surface);
+    --lp-ink: var(--ol-text);
+    --lp-ink2: var(--ol-text2);
+    --lp-muted: var(--ol-text2);
+    --lp-faint: var(--ol-text3);
+    --lp-line: var(--ol-border);
+    --lp-line2: var(--ol-border2);
+    --lp-shadow: 0 1px 2px rgba(56, 58, 66, 0.06);
+    --lp-shadow-lg: 0 24px 64px rgba(56, 58, 66, 0.1), 0 8px 24px rgba(56, 58, 66, 0.06);
+    --font-lp-hero-dot: "Doto", ui-monospace, monospace;
+
+    background-color: var(--ol-bg);
+    color: var(--lp-ink);
+    min-height: 100vh;
+    font-family: var(--font-lp-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .lp-chevron {
+    opacity: 0.55;
+  }
+
+  /* ── Hero ── */
+  .lp-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 4rem 1rem 0;
+  }
+
+  .lp-hero-inner {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    max-width: 70rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+
+  .lp-hero-heading {
+    margin: 0;
+    width: max-content;
+    max-width: 100%;
+    margin-inline: auto;
+    font-family: var(--font-lp-hero-dot);
+    font-size: clamp(2.5rem, 6.5vw, 4.5rem);
+    font-weight: 700;
+    font-variation-settings: "ROND" 100;
+    letter-spacing: 0.02em;
+    line-height: 1.1;
+    color: var(--ol-text);
+    -webkit-font-smoothing: auto;
+    -moz-osx-font-smoothing: auto;
+    text-shadow: 0 0.06em 0 color-mix(in oklab, var(--ol-text) 24%, transparent);
+  }
+
+  .lp-hero-sub {
+    margin: clamp(0.85rem, 0.5rem + 1.2vw, 1.125rem) 0 0;
+    width: 100%;
+    max-width: 100%;
+    padding: 0;
+    box-sizing: border-box;
+    font-size: clamp(0.8125rem, 0.42rem + 1.45vw, 1rem);
+    font-weight: 400;
+    letter-spacing: -0.012em;
+    line-height: 1.55;
+    color: var(--lp-muted);
+  }
+
+  .lp-hero-sub-line {
+    display: block;
+  }
+
+  .lp-hero-sub-line + .lp-hero-sub-line {
+    margin-top: clamp(0.22rem, 0.12rem + 0.35vw, 0.3rem);
+  }
+
+  .lp-yc-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin: 1.25rem 0 0;
+    padding: 0;
+    border: none;
+    background: none;
+    box-shadow: none;
+    color: var(--ol-text2);
+    font-size: 0.875rem;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    line-height: 1.35;
+    text-decoration: none;
+    transition: color 0.18s ease;
+  }
+
+  .lp-yc-badge:hover {
+    color: var(--ol-text);
+  }
+
+  .lp-yc-badge:focus-visible {
+    outline: 2px solid rgba(64, 120, 242, 0.3);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  .lp-gh-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.2rem;
+    height: 1.2rem;
+    color: inherit;
+    opacity: 0.88;
+    flex-shrink: 0;
+  }
+
+  .lp-gh-badge svg {
+    width: 1.15rem;
+    height: 1.15rem;
+  }
+
+  .lp-yc-copy {
+    color: inherit;
+  }
+
+  .lp-yc-link {
+    position: relative;
+    display: inline-block;
+    color: inherit;
+    font-weight: inherit;
+    font-size: inherit;
+    text-decoration: none;
+  }
+
+  .lp-yc-link::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -0.08em;
+    height: 1px;
+    background: color-mix(in oklab, currentColor 82%, transparent);
+    transform: scaleX(0);
+    transform-origin: left center;
+    opacity: 0.8;
+    transition:
+      transform 0.26s cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 0.22s ease;
+  }
+
+  .lp-yc-badge:hover .lp-yc-link::after,
+  .lp-yc-badge:focus-visible .lp-yc-link::after {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+
+  .lp-yc-arrow {
+    width: 0.8rem;
+    height: 0.8rem;
+    color: inherit;
+    opacity: 0.42;
+    margin-left: 0.02rem;
+    transition:
+      transform 0.2s ease,
+      opacity 0.18s ease;
+    flex-shrink: 0;
+  }
+
+  .lp-yc-badge:hover .lp-yc-arrow {
+    transform: translate(2px, -2px);
+    opacity: 0.65;
+  }
+
+  .lp-hero-actions {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 2rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    overflow: visible;
+  }
+
+  .lp-cta-outline {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    height: 2.75rem;
+    padding: 0 1.25rem;
+    border: 1px solid var(--ol-border);
+    border-radius: 999px;
+    color: var(--ol-text);
+    background: var(--ol-bg);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+    box-shadow: var(--lp-shadow);
+  }
+
+  .lp-cta-outline:hover {
+    border-color: var(--ol-border2);
+    background: var(--lp-surface);
+  }
+
+  .lp-cta-filled {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    height: 2.75rem;
+    padding: 0 1.25rem;
+    border-radius: 999px;
+    background: var(--ol-text);
+    color: var(--ol-on-ink);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    text-decoration: none;
+    box-shadow: var(--lp-shadow);
+    transition: background 0.15s;
+  }
+
+  .lp-cta-filled:hover {
+    background: var(--ol-ink-hover);
+  }
+
+  .lp-hero-download {
+    position: relative;
+    z-index: 1;
+    display: inline-block;
+    list-style: none;
+  }
+
+  .lp-hero-download[open] {
+    z-index: 30;
+  }
+
+  .lp-hero-download summary.lp-cta-filled--download {
+    list-style: none;
+    cursor: pointer;
+  }
+
+  .lp-hero-download summary.lp-cta-filled--download::-webkit-details-marker {
+    display: none;
+  }
+
+  .lp-hero-download summary.lp-cta-filled--download:focus-visible {
+    outline: 2px solid rgba(64, 120, 242, 0.45);
+    outline-offset: 3px;
+  }
+
+  .lp-chevron--hero-dl {
+    opacity: 0.55;
+    flex-shrink: 0;
+    transition: transform 0.22s ease, opacity 0.2s ease;
+  }
+
+  .lp-hero-download[open] .lp-chevron--hero-dl {
+    transform: rotate(180deg);
+    opacity: 0.82;
+  }
+
+  .lp-hero-download[open] > .lp-cta-filled {
+    background: var(--ol-ink-hover);
+  }
+
+  /* Hero download dropdown (panel styles live here; nav has its own copy in LandingNav) */
+  .lp-download-panel {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 0.375rem);
+    z-index: 50;
+    min-width: 12.5rem;
+    padding: 0.35rem;
+    background: var(--lp-surface);
+    border: 1px solid color-mix(in oklab, var(--ol-border) 80%, transparent);
+    border-radius: 0.5rem;
+    box-shadow:
+      0 4px 24px rgba(56, 58, 66, 0.08),
+      0 1px 3px rgba(56, 58, 66, 0.06);
+  }
+
+  .lp-download-panel--hero {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+  }
+
+  .lp-download-row {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.45rem 0.6rem;
+    border-radius: 0.375rem;
+    font-size: 0.8125rem;
+    line-height: 1.35;
+    color: var(--ol-text2);
+  }
+
+  a.lp-download-row--link {
+    color: var(--ol-text);
+    font-weight: 600;
+    text-decoration: none;
+    transition:
+      background 0.18s ease,
+      color 0.18s ease;
+  }
+
+  a.lp-download-row--link:hover {
+    background: color-mix(in oklab, var(--ol-text) 5.5%, transparent);
+    color: var(--ol-text);
+  }
+
+  .lp-download-row--soon {
+    cursor: default;
+    color: var(--ol-text2);
+  }
+
+  .lp-download-soon {
+    flex-shrink: 0;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: var(--lp-faint);
+  }
+
+  /* ── App Screenshot ── */
+  .lp-screenshot-wrap {
+    position: relative;
+    z-index: 0;
+    width: min(100%, 96rem);
+    margin: clamp(2.25rem, 1.25rem + 2.5vw, 3.5rem) auto 0;
+    padding: 0 clamp(0.75rem, 0.35rem + 1.5vw, 2rem);
+    /* Hero is center-aligned; app preview text must stay left-aligned like the real app */
+    text-align: left;
+  }
+
+  .lp-screenshot-chrome {
+    border: 1px solid var(--ol-border);
+    border-radius: clamp(0.5rem, 0.35rem + 0.65vw, 0.875rem);
+    overflow: hidden;
+    background: var(--lp-surface);
+    box-shadow: var(--lp-shadow-lg);
+  }
+
+  /* ── Generic image placeholder ── */
+  .lp-img-placeholder {
+    background:
+      repeating-linear-gradient(
+        -45deg,
+        rgba(56, 58, 66, 0.04) 0,
+        rgba(56, 58, 66, 0.04) 1px,
+        transparent 0,
+        transparent 50%
+      );
+    background-size: 8px 8px;
+    background-color: var(--ol-bg2);
+    border: 1px dashed var(--ol-border);
+  }
+
+  /* screenshot body: sized to contain the app mockup; scales down on narrow viewports */
+  .lp-screenshot-body {
+    height: clamp(17.5rem, 12rem + 28vw, 50rem);
+    overflow: hidden;
+  }
+
+  /* ── Features ── */
+  .lp-features {
+    margin-top: 7rem;
+    padding: 4rem 2rem 5rem;
+    background: linear-gradient(180deg, var(--ol-bg2) 0%, var(--ol-bg3) 100%);
+    border-top: 1px solid var(--ol-border);
+  }
+
+  .lp-features-alt {
+    margin-top: 0;
+    background: linear-gradient(180deg, var(--ol-bg3) 0%, var(--ol-bg) 100%);
+  }
+
+  .lp-features-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 72rem;
+    margin: 0 auto 2.5rem;
+    color: var(--lp-faint);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-family: "SF Mono", "Fira Code", monospace;
+  }
+
+  .lp-features-label span:last-child {
+    color: var(--ol-text3);
+    opacity: 0.85;
+  }
+
+  .lp-features-heading {
+    max-width: 72rem;
+    margin: 0 auto 3rem;
+    font-size: clamp(1.75rem, 4vw, 2.75rem);
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1.15;
+    color: var(--lp-ink);
+  }
+
+  .lp-features-heading em {
+    font-family: var(--font-lp-accent-serif);
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    color: transparent;
+    background-image: linear-gradient(90deg, #3566d4 0%, #18a38a 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .lp-features-alt .lp-features-heading em {
+    background-image: linear-gradient(90deg, #7c4dff 0%, #e8912d 100%);
+  }
+
+  /* Feature cards — split copy / viz (One Light) */
+  .lp-feat-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.25rem;
+    max-width: 72rem;
+    margin: 0 auto;
+    align-items: start;
+  }
+
+  .lp-feat-grid-split {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .lp-feat-grid-split > .lp-feat-card-tall {
+    min-height: 100%;
+  }
+
+  .lp-feat-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    min-width: 0;
+  }
+
+  .lp-feat-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+    background: var(--lp-surface);
+    border: 1px solid var(--ol-border);
+    border-radius: 0.75rem;
+    overflow: hidden;
+    box-shadow: var(--lp-shadow);
+    min-height: 13.5rem;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+
+  .lp-feat-card:hover {
+    border-color: var(--ol-border2);
+    box-shadow:
+      0 2px 8px rgba(56, 58, 66, 0.07),
+      0 0 0 1px var(--ol-accent-dim);
+  }
+
+  .lp-feat-copy {
+    padding: 1.625rem 1.5rem;
+    border-right: 1px solid var(--ol-border);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    text-align: left;
+  }
+
+  .lp-feat-ic {
+    width: 2.5rem;
+    height: 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--ol-border);
+    border-radius: 0.5rem;
+    color: var(--ol-text2);
+    background: var(--ol-bg);
+    flex-shrink: 0;
+  }
+
+  .lp-feat-copy h3 {
+    margin: 0;
+    font-size: 1.0625rem;
+    font-weight: 600;
+    color: var(--ol-text);
+    letter-spacing: -0.015em;
+    line-height: 1.25;
+  }
+
+  .lp-feat-copy p {
+    margin: 0;
+    color: var(--ol-text2);
+    font-size: 0.9375rem;
+    line-height: 1.6;
+  }
+
+  .lp-feat-viz {
+    background: var(--ol-bg);
+    padding: 1.25rem 1.35rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+  }
+
+  .lp-fv {
+    width: 100%;
+    max-width: 17rem;
+  }
+
+  .lp-fv-mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.6875rem;
+  }
+
+  .lp-fv-faint {
+    color: var(--ol-text3);
+  }
+
+  .lp-fv-caption {
+    margin: 0.5rem 0 0;
+    font-size: 0.6875rem;
+    color: var(--ol-text3);
+    text-align: center;
+  }
+
+  /* viz: instant search */
+  .lp-fv-search-bar {
+    position: relative;
+    padding: 0.45rem 0.65rem;
+    border-radius: 0.375rem;
+    border: 1px solid var(--ol-border);
+    background: var(--lp-surface);
+    font-size: 0.75rem;
+    color: var(--ol-text3);
+    margin-bottom: 0.65rem;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.45rem;
+  }
+
+  .lp-fv-search-hit {
+    padding: 0.65rem;
+    border-radius: 0.375rem;
+    background: var(--lp-surface);
+    border: 1px solid var(--ol-border);
+  }
+
+  .lp-fv-search-hit .lp-fv-snippet {
+    margin: 0.35rem 0 0;
+    font-size: 0.75rem;
+    line-height: 1.45;
+    color: var(--ol-text2);
+  }
+
+  .lp-fv-search-hit mark {
+    background: var(--ol-accent-dim);
+    color: var(--ol-accent);
+    padding: 0 0.15em;
+    border-radius: 0.125rem;
+    font-weight: 500;
+  }
+
+  /* viz: sessions */
+  .lp-fv-sessions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .lp-fv-pill {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45rem 0.6rem;
+    border-radius: 0.375rem;
+    border: 1px solid var(--ol-border);
+    background: var(--lp-surface);
+    font-size: 0.6875rem;
+    color: var(--ol-text2);
+  }
+
+  .lp-fv-pill-past {
+    opacity: 0.85;
+  }
+
+  .lp-fv-pill-now {
+    border-color: rgba(80, 161, 79, 0.35);
+    background: rgba(80, 161, 79, 0.08);
+  }
+
+  .lp-fv-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ol-text3);
+    flex-shrink: 0;
+  }
+
+  .lp-fv-dot-on {
+    background: var(--ol-success, #50a14f);
+  }
+
+  .lp-fv-sessions .lp-fv-caption {
+    text-align: left;
+    margin-top: 0.25rem;
+  }
+
+  /* viz: follow-up chips */
+  .lp-fv-prompts {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .lp-fv-chip {
+    padding: 0.45rem 0.55rem;
+    border-radius: 0.375rem;
+    border: 1px solid var(--ol-border);
+    background: var(--lp-surface);
+    font-size: 0.6875rem;
+    color: var(--ol-text);
+    line-height: 1.35;
+  }
+
+  .lp-fv-chip-2 {
+    border-color: rgba(64, 120, 242, 0.25);
+    background: var(--ol-accent-dim);
+  }
+
+  .lp-fv-chip-dim {
+    color: var(--ol-text3);
+    border-style: dashed;
+  }
+
+  /* viz: graph */
+  .lp-fv-graph {
+    text-align: center;
+  }
+
+  .lp-feat-viz--graph .lp-fv {
+    max-width: 27.5rem;
+  }
+
+  .lp-fv-graph-svg {
+    width: 100%;
+    max-width: 25.5rem;
+    height: auto;
+    color: var(--ol-text2);
+  }
+
+  .lp-g-bg {
+    pointer-events: none;
+  }
+
+  .lp-g-lbl {
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 6.75px;
+    font-weight: 500;
+    fill: var(--ol-text3);
+    letter-spacing: 0.01em;
+    opacity: 0;
+    transition: opacity 0.45s ease;
+  }
+
+  .lp-g-lbl--hub {
+    font-size: 6.25px;
+    font-weight: 700;
+    fill: var(--theme-ol-on-ink);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .lp-g-lbl--hub-sec {
+    font-size: 5.6px;
+    font-weight: 700;
+    fill: var(--theme-ol-on-ink);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  /* viz: markdown editor chrome */
+  .lp-fv-md-editor {
+    padding: 0;
+    border-radius: 0.375rem;
+    border: 1px solid var(--ol-border);
+    background: var(--lp-surface);
+    overflow: hidden;
+  }
+
+  .lp-fv-md-titlebar {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.4rem 0.65rem;
+    border-bottom: 1px solid var(--ol-border);
+    background: var(--ol-bg2);
+    font-size: 0.6875rem;
+    color: var(--ol-text2);
+  }
+
+  .lp-fv-md-titlebar-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ol-accent);
+    opacity: 0.85;
+    flex-shrink: 0;
+  }
+
+  .lp-fv-md-filename {
+    flex: 1;
+    min-width: 0;
+    font-weight: 600;
+    color: var(--ol-text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.6875rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .lp-fv-md-titlebar-hint {
+    flex-shrink: 0;
+    font-size: 0.625rem;
+    color: var(--ol-text3);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+  }
+
+  .lp-fv-md-pane {
+    padding: 0.45rem 0.4rem 0.55rem 0.3rem;
+    /* Reserve peak height (slash + AI code + rows) so the card does not jump during the demo */
+    min-height: 21.5rem;
+  }
+
+  .lp-md-col {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+  }
+
+  .lp-md-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.45rem;
+    min-height: 1.45em;
+    margin: 0.04rem 0;
+    padding: 0.14rem 0.4rem 0.14rem 0.25rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--ol-text);
+    transition: background 0.2s ease;
+  }
+
+  .lp-md-row--active {
+    background: var(--ol-sel);
+  }
+
+  .lp-md-gutter {
+    width: 1rem;
+    flex-shrink: 0;
+    text-align: right;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.625rem;
+    color: var(--ol-text3);
+    line-height: 1.5;
+    user-select: none;
+  }
+
+  .lp-md-line-wrap {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .lp-md-caret {
+    display: inline-block;
+    width: 1.5px;
+    height: 0.88em;
+    background: var(--ol-accent);
+    margin-left: 1px;
+    vertical-align: -0.06em;
+    visibility: hidden;
+    animation: lp-md-caret-blink 1s step-end infinite;
+  }
+
+  .lp-md-caret.lp-md-caret--on {
+    visibility: visible;
+  }
+
+  @keyframes lp-md-caret-blink {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0;
+    }
+  }
+
+  .lp-md-row--pending {
+    opacity: 0;
+    transform: translateY(5px);
+    pointer-events: none;
+    transition:
+      opacity 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  #lp-demo-md.lp-md-rest-visible .lp-md-row--pending {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .lp-md-row--deferred {
+    max-height: 0;
+    opacity: 0;
+    margin: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    overflow: hidden;
+    pointer-events: none;
+    transition:
+      max-height 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 0.32s ease,
+      margin 0.32s ease,
+      padding 0.32s ease;
+  }
+
+  #lp-demo-md.lp-md-show-line2 .lp-md-row--deferred {
+    max-height: 22rem;
+    opacity: 1;
+    margin: 0.04rem 0;
+    padding: 0.14rem 0.4rem 0.14rem 0.25rem;
+    pointer-events: auto;
+  }
+
+  .lp-md-slash {
+    position: absolute;
+    left: 0;
+    top: 100%;
+    margin-top: 0.2rem;
+    z-index: 2;
+    min-width: 11.5rem;
+    max-width: 100%;
+    padding: 0.35rem 0;
+    border-radius: 0.5rem;
+    border: 1px solid var(--ol-border);
+    background: var(--lp-surface);
+    box-shadow:
+      0 4px 18px rgba(56, 58, 66, 0.1),
+      0 0 0 1px rgba(64, 120, 242, 0.06);
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+    pointer-events: none;
+    overflow: visible;
+    transition:
+      opacity 0.26s ease,
+      transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .lp-md-slash::before {
+    content: "";
+    position: absolute;
+    left: 1.15rem;
+    top: -5px;
+    width: 9px;
+    height: 9px;
+    background: var(--lp-surface);
+    border-left: 1px solid var(--ol-border);
+    border-top: 1px solid var(--ol-border);
+    transform: rotate(45deg);
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .lp-md-slash-title,
+  .lp-md-slash-list {
+    position: relative;
+    z-index: 1;
+  }
+
+  #lp-demo-md.lp-md-slash-open .lp-md-slash {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+  }
+
+  #lp-demo-md.lp-md-code-live .lp-md-slash {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.96);
+    pointer-events: none;
+  }
+
+  .lp-md-ai-code {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transform: translateY(-4px);
+    transition:
+      max-height 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 0.32s ease,
+      transform 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  #lp-demo-md.lp-md-code-live .lp-md-ai-code {
+    max-height: 10rem;
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .lp-md-ai-code-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0.35rem 0 0.3rem;
+    min-height: 1rem;
+  }
+
+  .lp-md-ai-badge {
+    font-size: 0.5625rem;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    padding: 0.1rem 0.32rem;
+    border-radius: 0.28rem;
+    background: var(--ol-accent-dim);
+    color: var(--ol-accent);
+    border: 1px solid rgba(64, 120, 242, 0.22);
+  }
+
+  .lp-md-ai-file {
+    font-size: 0.625rem;
+    font-weight: 650;
+    color: var(--ol-text2);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  .lp-md-ai-status {
+    margin-left: auto;
+    font-size: 0.5625rem;
+    color: var(--ol-text3);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  .lp-md-pre {
+    margin: 0;
+    padding: 0.42rem 0.48rem;
+    border-radius: 0.42rem;
+    border: 1px solid var(--ol-border);
+    background: color-mix(in oklab, var(--ol-bg2) 82%, #0d1117);
+  }
+
+  .lp-md-code-wrap {
+    display: block;
+    margin: 0;
+    padding: 0;
+    font-size: 0.625rem;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--ol-text);
+  }
+
+  .lp-md-caret--code {
+    display: inline-block;
+    width: 1.5px;
+    height: 0.88em;
+    margin-left: 1px;
+    vertical-align: -0.08em;
+    background: var(--ol-accent);
+    border-radius: 1px;
+    opacity: 0;
+    animation: none;
+  }
+
+  .lp-md-caret--code.lp-md-caret--on {
+    opacity: 1;
+    animation: lp-md-caret-blink 1s step-end infinite;
+  }
+
+  .lp-md-syn-kw {
+    color: color-mix(in oklab, #a626a4 75%, var(--ol-text));
+    font-weight: 600;
+  }
+
+  .lp-md-syn-fn {
+    color: color-mix(in oklab, #4078f2 85%, var(--ol-text));
+  }
+
+  .lp-md-syn-str {
+    color: color-mix(in oklab, #50a14f 80%, var(--ol-text));
+  }
+
+  .lp-md-syn-key {
+    color: color-mix(in oklab, #986801 85%, var(--ol-text));
+  }
+
+  .lp-md-slash-title {
+    padding: 0.15rem 0.65rem 0.35rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    color: var(--ol-text3);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .lp-md-slash-list {
+    padding: 0 0.3rem 0.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+
+  .lp-md-slash-item {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.32rem 0.45rem;
+    border-radius: 0.3rem;
+    font-size: 0.6875rem;
+    color: var(--ol-text);
+    transition: background 0.12s ease;
+  }
+
+  .lp-md-slash-item--act {
+    background: var(--ol-sel);
+    outline: 1px solid rgba(64, 120, 242, 0.22);
+  }
+
+  .lp-md-slash-ic {
+    width: 1.35rem;
+    height: 1.35rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.2rem;
+    background: var(--ol-bg2);
+    font-size: 0.58rem;
+    font-weight: 700;
+    color: var(--ol-text2);
+    flex-shrink: 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  .lp-md-slash-ic--todo {
+    font-size: 0.75rem;
+    font-weight: 400;
+  }
+
+  .lp-md-slash-txt {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .lp-md-slash-hint {
+    margin-left: auto;
+    font-size: 0.625rem;
+    color: var(--ol-text3);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  .lp-md-slash-ic--code {
+    font-size: 0.56rem;
+    letter-spacing: -0.05em;
+  }
+
+  .lp-fv-wl {
+    color: var(--ol-accent);
+    font-weight: 500;
+    background: var(--ol-accent-dim);
+    padding: 0 0.2em;
+    border-radius: 0.125rem;
+  }
+
+  .lp-fv-md-bold {
+    font-weight: 600;
+  }
+
+  /* viz: agent terminal */
+  .lp-fv-agent {
+    text-align: left;
+    padding: 0;
+    border-radius: 0.375rem;
+    border: 1px solid var(--ol-border);
+    background: var(--lp-surface);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 14.5rem;
+  }
+
+  .lp-ai-cap {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.6rem;
+    background: var(--ol-bg2);
+    border-bottom: 1px solid var(--ol-border);
+    font-size: 0.6875rem;
+    color: var(--ol-text2);
+  }
+
+  .lp-ai-cap-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ol-success, #50a14f);
+    box-shadow: 0 0 0 2px rgba(80, 161, 79, 0.2);
+    flex-shrink: 0;
+  }
+
+  .lp-ai-cap-title {
+    font-weight: 600;
+    color: var(--ol-text);
+  }
+
+  .lp-ai-cap-sub {
+    margin-left: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.625rem;
+    color: var(--ol-text3);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .lp-ai-stream {
+    padding: 0.5rem 0.6rem 0.55rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    flex: 1;
+    min-height: 10.25rem;
+  }
+
+  .lp-ai-prompt {
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35rem 0.5rem;
+    font-size: 0.6875rem;
+    line-height: 1.45;
+    color: var(--ol-text);
+  }
+
+  .lp-ai-prompt-label {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.625rem;
+    font-weight: 600;
+    color: var(--ol-text3);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .lp-ai-prompt-inner {
+    flex: 1;
+    min-width: 0;
+    color: var(--ol-text2);
+  }
+
+  .lp-ai-caret {
+    display: inline-block;
+    width: 1.5px;
+    height: 0.85em;
+    background: var(--ol-accent);
+    margin-left: 1px;
+    vertical-align: -0.05em;
+    animation: lp-md-caret-blink 1s step-end infinite;
+  }
+
+  .lp-ai-caret.lp-ai-caret--off {
+    visibility: hidden;
+    animation: none;
+  }
+
+  .lp-ai-step {
+    font-size: 0.6875rem;
+    line-height: 1.45;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    opacity: 0;
+    transform: translateY(5px);
+    max-height: 0;
+    overflow: hidden;
+    pointer-events: none;
+    transition:
+      opacity 0.38s ease,
+      transform 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+      max-height 0.45s ease;
+  }
+
+  .lp-ai-step.lp-ai-step--in {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 4rem;
+    pointer-events: auto;
+  }
+
+  .lp-ai-step--hit {
+    color: var(--ol-text2);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.65rem;
+  }
+
+  .lp-ai-hit-ic {
+    color: var(--ol-success, #50a14f);
+    font-weight: 600;
+  }
+
+  .lp-ai-latency {
+    color: var(--ol-text3);
+  }
+
+  .lp-ai-step--meta {
+    color: var(--ol-text3);
+    font-size: 0.65rem;
+  }
+
+  .lp-ai-step--idle {
+    color: var(--ol-text3);
+    font-size: 0.65rem;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .lp-ai-idle-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--ol-text3);
+    opacity: 0.65;
+  }
+
+  .lp-ai-spinner {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    border: 1.5px solid var(--ol-accent-dim);
+    border-top-color: var(--ol-accent);
+    flex-shrink: 0;
+    animation: lp-ai-spin 0.65s linear infinite;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+
+  .lp-ai-step.lp-ai-step--in .lp-ai-spinner {
+    opacity: 1;
+  }
+
+  .lp-ai-step.lp-ai-step--spin-done .lp-ai-spinner {
+    opacity: 0;
+    animation: none;
+  }
+
+  @keyframes lp-ai-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .lp-fv-cmd {
+    color: var(--ol-accent);
+    font-weight: 600;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  .lp-fv-cmd-ok {
+    color: var(--ol-success, #50a14f);
+  }
+
+  .lp-fv-arg {
+    color: var(--ol-text2);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  /* viz: local / offline */
+  .lp-fv-local {
+    text-align: center;
+  }
+
+  .lp-fv-local-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.85rem;
+    border-radius: 999px;
+    border: 1px solid var(--ol-border);
+    background: var(--lp-surface);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--ol-text);
+  }
+
+  .lp-fv-local-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--ol-success, #50a14f);
+    box-shadow: 0 0 0 2px rgba(80, 161, 79, 0.2);
+  }
+
+  /* ── Feature viz demos (motion + interaction) ── */
+  .lp-fv-search-placeholder {
+    transition: opacity 0.2s ease;
+  }
+
+  .lp-fv-search-placeholder.lp-fv-search-ph-hide {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+    opacity: 0;
+  }
+
+  .lp-fv-search-typed {
+    color: var(--ol-text);
+    font-size: 0.75rem;
+    min-height: 1em;
+  }
+
+  .lp-fv-caret {
+    display: inline-block;
+    width: 1.5px;
+    height: 0.85em;
+    background: var(--ol-accent);
+    margin-left: 1px;
+    vertical-align: -0.05em;
+    animation: lp-caret-blink 1s step-end infinite;
+  }
+
+  @keyframes lp-caret-blink {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0;
+    }
+  }
+
+  .lp-fv-search-hit {
+    opacity: 0;
+    transform: translateY(6px);
+    transition:
+      opacity 0.4s ease,
+      transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .lp-fv-search-hit.lp-fv-search-hit--show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .lp-fv-sess-connector {
+    width: 1px;
+    margin: -0.15rem 0 -0.15rem 0.85rem;
+    height: 0.65rem;
+    background: linear-gradient(to bottom, var(--ol-border), var(--ol-border2));
+    border-radius: 1px;
+    opacity: 0;
+    transition: opacity 0.35s ease;
+  }
+
+  #lp-demo-sessions.lp-sess-anim .lp-fv-sess-connector {
+    opacity: 0.85;
+  }
+
+  @keyframes lp-pill-glow {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 rgba(80, 161, 79, 0);
+    }
+    50% {
+      box-shadow: 0 0 0 3px rgba(80, 161, 79, 0.18);
+    }
+  }
+
+  .lp-fv-pill-now.lp-pill-pulse {
+    animation: lp-pill-glow 2s ease-in-out infinite;
+  }
+
+  .lp-fv-caption--sessions {
+    transition: opacity 0.35s ease, transform 0.35s ease;
+  }
+
+  #lp-demo-sessions.lp-sess-anim .lp-fv-caption--sessions {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  #lp-demo-sessions:not(.lp-sess-anim) .lp-fv-caption--sessions {
+    opacity: 0.65;
+    transform: translateY(2px);
+  }
+
+  .lp-fv-chip-btn {
+    display: block;
+    width: 100%;
+    margin: 0;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+    line-height: inherit;
+    transition:
+      border-color 0.2s ease,
+      background 0.2s ease,
+      transform 0.18s ease,
+      box-shadow 0.2s ease;
+  }
+
+  .lp-fv-chip-btn:hover {
+    border-color: var(--ol-border2);
+  }
+
+  .lp-fv-chip-btn:active {
+    transform: scale(0.99);
+  }
+
+  .lp-fv-chip-btn.lp-chip-active {
+    border-color: rgba(64, 120, 242, 0.55);
+    box-shadow: 0 0 0 2px rgba(64, 120, 242, 0.12);
+    background: var(--ol-accent-dim);
+  }
+
+  .lp-fv-chip-dim.lp-fv-chip-btn.lp-chip-active {
+    color: var(--ol-text2);
+    border-style: solid;
+  }
+
+  .lp-fv-graph-svg line.lp-g-edge {
+    stroke-dasharray: 200;
+    stroke-dashoffset: 200;
+    transition: stroke-dashoffset 0.05s linear;
+  }
+
+  #lp-demo-graph.lp-graph-live .lp-fv-graph-svg line.lp-g-edge {
+    stroke-dashoffset: 0;
+    transition: stroke-dashoffset 0.95s cubic-bezier(0.45, 0, 0.2, 1);
+  }
+
+  @keyframes lp-hub-pulse {
+    0%,
+    100% {
+      transform: scale(1);
+      opacity: 0.9;
+    }
+    50% {
+      transform: scale(1.05);
+      opacity: 1;
+    }
+  }
+
+  @keyframes lp-hub-pulse-sec {
+    0%,
+    100% {
+      transform: scale(1);
+      opacity: 0.52;
+    }
+    50% {
+      transform: scale(1.07);
+      opacity: 0.68;
+    }
+  }
+
+  @keyframes lp-node-pop {
+    0% {
+      transform: scale(0.88);
+      opacity: 0.32;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 0.62;
+    }
+  }
+
+  #lp-demo-graph.lp-graph-live .lp-g-hub--main {
+    transform-origin: 182px 92px;
+    transform-box: fill-box;
+    animation: lp-hub-pulse 2.6s ease-in-out infinite;
+  }
+
+  #lp-demo-graph.lp-graph-live .lp-g-hub--sec {
+    transform-origin: 38px 94px;
+    transform-box: fill-box;
+    animation: lp-hub-pulse-sec 3.1s ease-in-out infinite;
+  }
+
+  #lp-demo-graph.lp-graph-live .lp-g-hub--ter {
+    transform-origin: 308px 56px;
+    transform-box: fill-box;
+    animation: lp-hub-pulse-sec 3.4s ease-in-out infinite 0.2s;
+  }
+
+  #lp-demo-graph.lp-graph-live .lp-g-hub--mini {
+    transform-origin: 118px 34px;
+    transform-box: fill-box;
+    animation: lp-hub-pulse-sec 2.9s ease-in-out infinite 0.35s;
+  }
+
+  #lp-demo-graph.lp-graph-live .lp-g-hub--mini-r {
+    transform-origin: 268px 138px;
+    animation: lp-hub-pulse-sec 3s ease-in-out infinite 0.45s;
+  }
+
+  #lp-demo-graph.lp-graph-live .lp-g-node {
+    transform-box: fill-box;
+    animation: lp-node-pop 0.52s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    opacity: 0.32;
+  }
+
+  #lp-demo-graph.lp-graph-live .lp-g-lbl {
+    opacity: 1;
+  }
+
+  .lp-fv-task-line {
+    transition: color 0.25s ease;
+  }
+
+  .lp-fv-task-line.lp-task-checked {
+    color: var(--ol-success, #50a14f);
+  }
+
+  .lp-fv-task-box {
+    display: inline-block;
+    min-width: 1.65em;
+  }
+
+  @keyframes lp-local-dot-pulse {
+    0%,
+    100% {
+      box-shadow: 0 0 0 2px rgba(80, 161, 79, 0.2);
+    }
+    50% {
+      box-shadow: 0 0 0 5px rgba(80, 161, 79, 0.12);
+    }
+  }
+
+  #lp-demo-local.lp-local-live .lp-fv-local-dot {
+    animation: lp-local-dot-pulse 2.2s ease-in-out infinite;
+  }
+
+  .lp-fv-local-caption {
+    transition: opacity 0.45s ease;
+  }
+
+  #lp-demo-local.lp-local-live .lp-fv-local-caption {
+    opacity: 1;
+  }
+
+  #lp-demo-local:not(.lp-local-live) .lp-fv-local-caption {
+    opacity: 0.55;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lp-fv-caret {
+      animation: none;
+      opacity: 0.55;
+    }
+
+    .lp-fv-search-hit {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+
+    .lp-fv-sess-connector {
+      transition: none;
+      height: 0.65rem;
+      opacity: 0.85;
+    }
+
+    #lp-demo-sessions:not(.lp-sess-anim) .lp-fv-caption--sessions {
+      opacity: 1;
+      transform: none;
+    }
+
+    .lp-fv-pill-now.lp-pill-pulse {
+      animation: none;
+    }
+
+    .lp-fv-graph-svg .lp-g-edge {
+      stroke-dashoffset: 0;
+      transition: none;
+    }
+
+    #lp-demo-graph.lp-graph-live .lp-g-hub--main,
+    #lp-demo-graph.lp-graph-live .lp-g-hub--sec,
+    #lp-demo-graph.lp-graph-live .lp-g-hub--ter,
+    #lp-demo-graph.lp-graph-live .lp-g-hub--mini,
+    #lp-demo-graph.lp-graph-live .lp-g-hub--mini-r,
+    #lp-demo-graph.lp-graph-live .lp-g-node {
+      animation: none;
+    }
+
+    #lp-demo-graph.lp-graph-live .lp-g-node {
+      opacity: 0.55;
+    }
+
+    #lp-demo-local.lp-local-live .lp-fv-local-dot {
+      animation: none;
+    }
+
+    .lp-g-lbl {
+      opacity: 1;
+      transition: none;
+    }
+
+    .lp-md-row--pending {
+      opacity: 1;
+      transform: none;
+      transition: none;
+      pointer-events: auto;
+    }
+
+    .lp-md-row--deferred {
+      max-height: none;
+      opacity: 1;
+      margin: 0.04rem 0;
+      padding: 0.14rem 0.4rem 0.14rem 0.25rem;
+      pointer-events: auto;
+      transition: none;
+    }
+
+    .lp-md-caret {
+      animation: none;
+    }
+
+    .lp-ai-step {
+      opacity: 1;
+      transform: none;
+      max-height: none;
+      overflow: visible;
+      pointer-events: auto;
+      transition: none;
+    }
+
+    .lp-ai-spinner {
+      animation: none;
+      opacity: 0;
+    }
+
+    .lp-ai-caret {
+      animation: none;
+    }
+  }
+
+  /* ── CTA Banner (aligned with footer: left rail, soft rule) ── */
+  .lp-cta-banner {
+    padding: 3.5rem 2rem 3.25rem;
+    text-align: left;
+    border-top: 1px solid color-mix(in oklab, var(--ol-border) 38%, transparent);
+    background: var(--ol-bg);
+  }
+
+  .lp-cta-banner-inner {
+    max-width: 64rem;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .lp-cta-heading {
+    margin: 0;
+    max-width: 22rem;
+    font-size: clamp(1.65rem, 3.8vw, 2.35rem);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.12;
+    color: var(--lp-ink);
+  }
+
+  .lp-cta-sub {
+    margin: 0.85rem 0 0;
+    max-width: 28rem;
+    color: var(--lp-muted);
+    font-size: 0.9375rem;
+    line-height: 1.6;
+  }
+
+  .lp-cta-banner-actions {
+    margin-top: 1.5rem;
+    justify-content: flex-start;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 48rem) {
+    .lp-hero {
+      padding: 3.25rem 0.75rem 0;
+    }
+
+    .lp-screenshot-wrap {
+      padding: 0 1rem;
+    }
+
+    .lp-features {
+      padding: 3rem 1rem;
+    }
+
+    .lp-feat-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .lp-feat-grid-split {
+      grid-template-columns: 1fr;
+    }
+
+    .lp-feat-card {
+      grid-template-columns: 1fr;
+      min-height: 0;
+    }
+
+    .lp-feat-copy {
+      border-right: none;
+      border-bottom: 1px solid var(--ol-border);
+    }
+
+    .lp-feat-viz {
+      padding: 1.1rem 1.25rem 1.35rem;
+    }
+
+    .lp-cta-banner {
+      padding: 2.75rem 1.25rem 2.5rem;
+    }
+
+    .lp-cta-banner-actions {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .lp-cta-banner-actions .lp-cta-outline,
+    .lp-cta-banner-actions .lp-cta-filled {
+      justify-content: center;
+    }
+  }
+</style>
+
+<script is:inline>
+  (function () {
+    if (typeof window === "undefined" || typeof document === "undefined") return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    function whenVisible(el, fn) {
+      if (!el) return;
+      const io = new IntersectionObserver(
+        (entries) => {
+          for (const e of entries) {
+            if (e.isIntersecting) {
+              fn();
+              io.disconnect();
+            }
+          }
+        },
+        { threshold: 0.22, rootMargin: "0px 0px -6% 0px" },
+      );
+      io.observe(el);
+    }
+
+    const searchRoot = document.getElementById("lp-demo-search");
+    whenVisible(searchRoot, () => {
+      const q = (searchRoot && searchRoot.getAttribute("data-lp-query")) || "";
+      const typedEl = searchRoot && searchRoot.querySelector(".lp-fv-search-typed");
+      const ph = searchRoot && searchRoot.querySelector(".lp-fv-search-placeholder");
+      const hit = searchRoot && searchRoot.querySelector(".lp-fv-search-hit");
+      if (!typedEl || !hit) return;
+
+      const revealHit = () => hit.classList.add("lp-fv-search-hit--show");
+
+      if (reduce) {
+        typedEl.textContent = q;
+        if (ph) ph.classList.add("lp-fv-search-ph-hide");
+        revealHit();
+        return;
+      }
+
+      let i = 0;
+      const step = 42;
+      function tick() {
+        if (i <= q.length) {
+          typedEl.textContent = q.slice(0, i);
+          if (i > 0 && ph) ph.classList.add("lp-fv-search-ph-hide");
+          i++;
+          window.setTimeout(tick, step);
+        } else {
+          revealHit();
+        }
+      }
+      tick();
+    });
+
+    const sess = document.getElementById("lp-demo-sessions");
+    whenVisible(sess, () => {
+      if (!sess) return;
+      if (reduce) {
+        sess.classList.add("lp-sess-anim");
+        sess.querySelector(".lp-fv-pill-now")?.classList.add("lp-pill-pulse");
+        return;
+      }
+      window.setTimeout(() => sess.classList.add("lp-sess-anim"), 160);
+      window.setTimeout(() => sess.querySelector(".lp-fv-pill-now")?.classList.add("lp-pill-pulse"), 720);
+    });
+
+    const prompts = document.getElementById("lp-demo-prompts");
+    whenVisible(prompts, () => {
+      if (!prompts) return;
+      const chips = Array.from(prompts.querySelectorAll(".lp-fv-chip-btn"));
+      if (!chips.length) return;
+      let idx = 0;
+      function setActive(i) {
+        idx = ((i % chips.length) + chips.length) % chips.length;
+        chips.forEach((c, j) => c.classList.toggle("lp-chip-active", j === idx));
+      }
+      setActive(0);
+      chips.forEach((c, i) => {
+        c.addEventListener("click", () => setActive(i));
+      });
+      let cycleTimer = null;
+      function startCycle() {
+        if (reduce) return;
+        if (cycleTimer) window.clearInterval(cycleTimer);
+        cycleTimer = window.setInterval(() => setActive(idx + 1), 3000);
+      }
+      function stopCycle() {
+        if (cycleTimer) {
+          window.clearInterval(cycleTimer);
+          cycleTimer = null;
+        }
+      }
+      prompts.addEventListener("mouseenter", stopCycle);
+      prompts.addEventListener("mouseleave", startCycle);
+      startCycle();
+    });
+
+    const graph = document.getElementById("lp-demo-graph");
+    whenVisible(graph, () => {
+      if (!graph) return;
+      graph.classList.add("lp-graph-live");
+      if (reduce) return;
+      graph.querySelectorAll("line.lp-g-edge").forEach((ln, i) => {
+        ln.style.transitionDelay = `${i * 0.02}s`;
+      });
+      graph
+        .querySelectorAll(".lp-g-hub--main, .lp-g-hub--sec, .lp-g-hub--ter, .lp-g-hub--mini")
+        .forEach((h, i) => {
+          h.style.animationDelay = `${0.05 + i * 0.1}s`;
+        });
+      graph.querySelectorAll("circle.lp-g-node").forEach((c, i) => {
+        c.style.animationDelay = `${0.16 + i * 0.028}s`;
+      });
+      graph.querySelectorAll(".lp-g-lbl").forEach((t, i) => {
+        t.style.transitionDelay = `${0.35 + i * 0.018}s`;
+      });
+    });
+
+    const md = document.getElementById("lp-demo-md");
+    whenVisible(md, () => {
+      if (!md) return;
+      const row0 = md.querySelector('[data-lp-md-row="0"]');
+      const row1 = md.querySelector('[data-lp-md-row="1"]');
+      const wrap0 = md.querySelector('[data-lp-md-wrap="0"]');
+      const wrap1 = md.querySelector('[data-lp-md-wrap="1"]');
+      const typed0 = row0 && row0.querySelector("[data-lp-md-typed]");
+      const typed1 = row1 && row1.querySelector("[data-lp-md-typed]");
+      const caret = document.getElementById("lp-md-singleton-caret");
+      const taskWrap = md.querySelector("[data-lp-task-line]");
+      const taskBox = taskWrap && taskWrap.querySelector(".lp-fv-task-box");
+      const slashPop = document.getElementById("lp-md-slash-pop");
+      const slashItems = slashPop
+        ? Array.from(slashPop.querySelectorAll("[data-lp-slash-i]"))
+        : [];
+      const aiCodePanel = document.getElementById("lp-md-ai-code");
+      const codeTextEl = document.getElementById("lp-md-code-text");
+      const codeCaret = document.getElementById("lp-md-code-caret");
+      const codeWrapEl = document.getElementById("lp-md-code-wrap");
+      const aiStatusEl = document.getElementById("lp-md-ai-status");
+
+      function setSlashActive(i) {
+        slashItems.forEach((el) =>
+          el.classList.toggle(
+            "lp-md-slash-item--act",
+            Number(el.getAttribute("data-lp-slash-i")) === i,
+          ),
+        );
+      }
+
+      function vaultCodeHighlightedHtml() {
+        return (
+          '<span class="lp-md-syn-kw">const</span> g = ' +
+          '<span class="lp-md-syn-kw">await</span> ' +
+          '<span class="lp-md-syn-fn">indexVault</span>(' +
+          '<span class="lp-md-syn-str">root</span>, { ' +
+          '<span class="lp-md-syn-key">validateWikilinks</span>: ' +
+          '<span class="lp-md-syn-kw">true</span> });'
+        );
+      }
+
+      function applyVaultCodeHighlight() {
+        if (codeWrapEl) codeWrapEl.innerHTML = vaultCodeHighlightedHtml();
+      }
+
+      function caretOn() {
+        if (caret) caret.classList.add("lp-md-caret--on");
+      }
+
+      function caretOff() {
+        if (caret) caret.classList.remove("lp-md-caret--on");
+      }
+
+      function delay(ms) {
+        return new Promise((res) => window.setTimeout(res, ms));
+      }
+
+      function typeText(el, text, ms) {
+        return new Promise((resolve) => {
+          if (!el) {
+            resolve();
+            return;
+          }
+          let i = 0;
+          function tick() {
+            if (i <= text.length) {
+              el.textContent = text.slice(0, i);
+              i++;
+              window.setTimeout(tick, ms);
+            } else resolve();
+          }
+          tick();
+        });
+      }
+
+      function appendType(el, suffix, ms) {
+        return new Promise((resolve) => {
+          if (!el) {
+            resolve();
+            return;
+          }
+          const base = el.textContent || "";
+          let j = 0;
+          function tick() {
+            if (j <= suffix.length) {
+              el.textContent = base + suffix.slice(0, j);
+              j++;
+              window.setTimeout(tick, ms);
+            } else resolve();
+          }
+          tick();
+        });
+      }
+
+      function backspaceChars(el, count, ms) {
+        return new Promise((resolve) => {
+          if (!el || count <= 0) {
+            resolve();
+            return;
+          }
+          let left = count;
+          function tick() {
+            if (left <= 0) {
+              resolve();
+              return;
+            }
+            const t = el.textContent || "";
+            el.textContent = t.slice(0, Math.max(0, t.length - 1));
+            left--;
+            window.setTimeout(tick, ms);
+          }
+          tick();
+        });
+      }
+
+      async function runMd() {
+        md.classList.add("lp-md-live");
+        if (caret && wrap0 && !wrap0.contains(caret)) wrap0.appendChild(caret);
+        if (reduce) {
+          if (typed0) typed0.textContent = "# Q1 Planning";
+          if (typed1) {
+            typed1.innerHTML =
+              'Next: <span class="lp-fv-md-bold">triage open risks</span> after sync.';
+          }
+          md.classList.add(
+            "lp-md-show-line2",
+            "lp-md-rest-visible",
+            "lp-md-code-live",
+          );
+          applyVaultCodeHighlight();
+          if (aiCodePanel) aiCodePanel.setAttribute("aria-hidden", "false");
+          if (aiStatusEl) aiStatusEl.textContent = "done";
+          caretOff();
+          if (codeCaret) codeCaret.classList.remove("lp-md-caret--on");
+          if (taskWrap && taskBox) {
+            taskWrap.classList.add("lp-task-checked");
+            taskBox.textContent = "[x]";
+          }
+          return;
+        }
+
+        caretOn();
+        row0 && row0.classList.add("lp-md-row--active");
+        await typeText(typed0, "# Q1 Planning", 36);
+        row0 && row0.classList.remove("lp-md-row--active");
+        caretOff();
+        await delay(240);
+
+        md.classList.add("lp-md-show-line2");
+        await delay(400);
+        if (caret && wrap1) wrap1.appendChild(caret);
+        caretOn();
+        row1 && row1.classList.add("lp-md-row--active");
+        await typeText(typed1, "Next: /", 28);
+        md.classList.add("lp-md-slash-open");
+        if (slashPop) slashPop.setAttribute("aria-hidden", "false");
+        const slashSeq = [0, 1, 2, 3, 4, 1, 4];
+        for (const idx of slashSeq) {
+          setSlashActive(idx);
+          await delay(220);
+        }
+        await delay(320);
+        md.classList.remove("lp-md-slash-open");
+        md.classList.add("lp-md-code-live");
+        if (slashPop) slashPop.setAttribute("aria-hidden", "true");
+        if (aiCodePanel) aiCodePanel.setAttribute("aria-hidden", "false");
+        await delay(90);
+
+        caretOff();
+        if (codeCaret) codeCaret.classList.add("lp-md-caret--on");
+        if (typed1) typed1.textContent = "Next: ";
+        if (aiStatusEl) aiStatusEl.textContent = "editing…";
+
+        if (codeTextEl) {
+          await typeText(codeTextEl, "const g = await indexVault(root);", 17);
+          await delay(420);
+          await backspaceChars(codeTextEl, 2, 32);
+          await backspaceChars(codeTextEl, 4, 28);
+          await delay(160);
+          await appendType(codeTextEl, "root, { validateWikilinks: true }", 15);
+          await appendType(codeTextEl, ");", 20);
+        }
+
+        if (codeCaret) codeCaret.classList.remove("lp-md-caret--on");
+        applyVaultCodeHighlight();
+        if (aiStatusEl) aiStatusEl.textContent = "done";
+
+        await appendType(typed1, "triage open risks after sync.", 20);
+        row1 && row1.classList.remove("lp-md-row--active");
+        if (typed1) {
+          typed1.innerHTML =
+            'Next: <span class="lp-fv-md-bold">triage open risks</span> after sync.';
+        }
+
+        md.classList.add("lp-md-rest-visible");
+        await delay(520);
+        if (taskWrap && taskBox) {
+          taskWrap.classList.add("lp-task-checked");
+          taskBox.textContent = "[x]";
+        }
+      }
+
+      runMd();
+    });
+
+    const agent = document.getElementById("lp-demo-agent");
+    whenVisible(agent, () => {
+      if (!agent) return;
+      const typed = agent.querySelector("[data-lp-ai-typed]");
+      const caretAi = agent.querySelector("[data-lp-ai-caret]");
+      const stepEls = ["search", "hit", "read", "index", "ready"].map((k) =>
+        agent.querySelector(`[data-lp-ai-step="${k}"]`),
+      );
+      const q = "What are the OKR risks in Q1?";
+
+      function delay(ms) {
+        return new Promise((res) => window.setTimeout(res, ms));
+      }
+
+      async function typePrompt() {
+        if (!typed) return;
+        for (let i = 0; i <= q.length; i++) {
+          typed.textContent = q.slice(0, i);
+          await delay(26);
+        }
+      }
+
+      function resetSteps() {
+        stepEls.forEach((el) => {
+          if (!el) return;
+          el.classList.remove("lp-ai-step--in", "lp-ai-step--spin-done");
+        });
+        if (caretAi) caretAi.classList.remove("lp-ai-caret--off");
+        if (typed) typed.textContent = "";
+      }
+
+      async function runAiCycle() {
+        resetSteps();
+        if (reduce) {
+          if (typed) typed.textContent = q;
+          if (caretAi) caretAi.classList.add("lp-ai-caret--off");
+          stepEls.forEach((el) => el && el.classList.add("lp-ai-step--in", "lp-ai-step--spin-done"));
+          return;
+        }
+        await typePrompt();
+        if (caretAi) caretAi.classList.add("lp-ai-caret--off");
+        await delay(200);
+        stepEls[0] && stepEls[0].classList.add("lp-ai-step--in");
+        await delay(780);
+        stepEls[0] && stepEls[0].classList.add("lp-ai-step--spin-done");
+        stepEls[1] && stepEls[1].classList.add("lp-ai-step--in");
+        await delay(400);
+        stepEls[2] && stepEls[2].classList.add("lp-ai-step--in");
+        await delay(420);
+        stepEls[3] && stepEls[3].classList.add("lp-ai-step--in");
+        await delay(360);
+        stepEls[4] && stepEls[4].classList.add("lp-ai-step--in");
+      }
+
+      async function loopAi() {
+        await runAiCycle();
+        if (reduce) return;
+        await delay(3600);
+        loopAi();
+      }
+
+      loopAi();
+    });
+
+    const localEl = document.getElementById("lp-demo-local");
+    whenVisible(localEl, () => localEl && localEl.classList.add("lp-local-live"));
+  })();
+</script>

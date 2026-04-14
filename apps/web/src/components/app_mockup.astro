@@ -1,0 +1,2565 @@
+---
+// Landing app preview — One Light theme (vault, editor, graph panel, AI chat).
+// Matches desktop: GraphIcon + KukuIcon in tabs/right panel (general_icons.tsx).
+// Phases: editor → graph → ai-chat → loop
+---
+
+<div class="am-root" id="am-demo" data-phase="editor">
+  <header class="am-titlebar">
+    <div class="am-tb-traffic" aria-hidden="true">
+      <span class="am-traffic am-traffic-close"></span>
+      <span class="am-traffic am-traffic-min"></span>
+      <span class="am-traffic am-traffic-max"></span>
+    </div>
+    <div class="am-tb-region am-tb-left">
+      <button class="am-ibt am-ibt-on" type="button" title="Toggle sidebar">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="3" width="3" height="10" fill="currentColor" opacity="0.35"/>
+          <rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/>
+          <line x1="5.5" y1="2.5" x2="5.5" y2="13.5"/>
+        </svg>
+      </button>
+      <span class="am-tb-title" data-i18n="mock.vault_title">Research vault</span>
+    </div>
+    <div class="am-tb-fill" aria-hidden="true"></div>
+    <div class="am-tb-region am-tb-right">
+      <button class="am-ibt am-ibt-right-toggle" type="button" title="Toggle right panel">
+        <svg class="am-rp-icon-off" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/>
+          <line x1="10.5" y1="2.5" x2="10.5" y2="13.5"/>
+        </svg>
+        <svg class="am-rp-icon-on" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="11" y="3" width="3" height="10" fill="currentColor" opacity="0.35"/>
+          <rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/>
+          <line x1="10.5" y1="2.5" x2="10.5" y2="13.5"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="am-body">
+    <!-- ─── Vault sidebar ─── -->
+    <aside class="am-sidebar">
+      <div class="am-sb-header">
+        <svg aria-hidden="true" width="40" height="40" viewBox="0 0 1080 1080" fill="none" class="am-kuku-logo">
+          <path d="M285.659 184.338C312.48 182.739 343.379 186.996 375.084 193.487C406.883 199.998 440.662 209.018 473.144 217.384C505.892 225.819 537.346 233.597 565.49 238.017C593.846 242.469 619.367 244.707 642.888 246.504C666.193 248.285 688.125 249.665 708.236 252.423C749.248 258.046 784.916 269.662 817.956 303.378C882.891 369.64 888.924 473.009 877.135 560.067C864.724 651.718 818.877 690.918 759.981 754.189C731.042 785.278 703.458 818.978 673.774 844.684C643.383 871.002 608.969 890.757 564.362 894.334C477.505 901.3 388.514 852.969 333.349 785.903C304.28 750.564 297.968 720.247 295.852 685.534C293.771 651.404 295.544 615.052 284.174 561.15C278.585 534.656 268.295 504.591 256.47 472.816C244.803 441.469 231.509 408.129 220.756 376.751C209.991 345.337 201.204 314.342 198.714 286.854C196.24 259.549 199.734 232.907 216.858 213.133C233.838 193.526 258.894 185.934 285.659 184.338Z" fill="#121212" stroke="white" stroke-width="30"/>
+          <circle cx="389.242" cy="427.242" r="89.1895" fill="white" stroke="#121212" stroke-width="24.1053"/>
+          <circle cx="518.205" cy="453.758" r="89.1895" fill="white" stroke="#121212" stroke-width="24.1053"/>
+          <circle cx="389.242" cy="427.242" r="30.7342" fill="#121212"/>
+          <circle cx="518.205" cy="453.758" r="30.7342" fill="#121212"/>
+          <rect x="355.128" y="571.756" width="169.044" height="59" rx="29.5" transform="rotate(7.1769 355.128 571.756)" fill="#121212" stroke="white" stroke-width="30"/>
+        </svg>
+        <div class="am-sb-actions">
+          <button class="am-sb-btn" type="button" title="Search">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </button>
+          <button class="am-sb-btn" type="button" title="New folder">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+          </button>
+          <button class="am-sb-btn" type="button" title="New file">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="am-sb-tree">
+        <button class="am-row" type="button">
+          <span class="am-chevron am-chevron-open"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="9 18 15 12 9 6"/></svg></span>
+          <span class="am-icon-wrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="am-folder-ic"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>
+          <span class="am-row-name">Meetings</span>
+        </button>
+        <button class="am-row am-row-sel" type="button">
+          <span class="am-guide am-guide-branch"></span>
+          <span class="am-icon-spc"></span>
+          <span class="am-icon-wrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="am-file-ic"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg></span>
+          <span class="am-row-name">Q1 Planning</span>
+        </button>
+        <button class="am-row am-row-inact" type="button">
+          <span class="am-guide am-guide-branch"></span>
+          <span class="am-icon-spc"></span>
+          <span class="am-icon-wrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="am-file-ic"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg></span>
+          <span class="am-row-name">Team Sync</span>
+        </button>
+        <button class="am-row" type="button">
+          <span class="am-guide am-guide-corner"></span>
+          <span class="am-icon-spc"></span>
+          <span class="am-icon-wrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="am-file-ic"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg></span>
+          <span class="am-row-name">Product Review</span>
+        </button>
+        <button class="am-row am-row-inact" type="button">
+          <span class="am-guide am-guide-branch"></span>
+          <span class="am-icon-spc"></span>
+          <span class="am-icon-wrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="am-file-ic"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg></span>
+          <span class="am-row-name">Sprint Retro 04</span>
+        </button>
+        <button class="am-row am-row-inact" type="button">
+          <span class="am-guide am-guide-corner"></span>
+          <span class="am-icon-spc"></span>
+          <span class="am-icon-wrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="am-file-ic"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg></span>
+          <span class="am-row-name">Graph QA checklist</span>
+        </button>
+        <button class="am-row" type="button">
+          <span class="am-chevron am-chevron-open"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="9 18 15 12 9 6"/></svg></span>
+          <span class="am-icon-wrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="am-folder-ic"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>
+          <span class="am-row-name">Projects</span>
+        </button>
+        <button class="am-row am-row-inact" type="button">
+          <span class="am-guide am-guide-branch"></span>
+          <span class="am-icon-spc"></span>
+          <span class="am-icon-wrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="am-file-ic"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg></span>
+          <span class="am-row-name">Mobile shell</span>
+        </button>
+        <button class="am-row am-row-inact" type="button">
+          <span class="am-guide am-guide-branch"></span>
+          <span class="am-icon-spc"></span>
+          <span class="am-icon-wrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="am-file-ic"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg></span>
+          <span class="am-row-name">Indexer v2</span>
+        </button>
+        <button class="am-row am-row-inact" type="button">
+          <span class="am-guide am-guide-branch"></span>
+          <span class="am-icon-spc"></span>
+          <span class="am-icon-wrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="am-file-ic"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg></span>
+          <span class="am-row-name">Auth RFC</span>
+        </button>
+        <button class="am-row am-row-inact" type="button">
+          <span class="am-guide am-guide-branch"></span>
+          <span class="am-icon-spc"></span>
+          <span class="am-icon-wrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="am-file-ic"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg></span>
+          <span class="am-row-name">Design tokens</span>
+        </button>
+        <button class="am-row am-row-inact" type="button">
+          <span class="am-guide am-guide-branch"></span>
+          <span class="am-icon-spc"></span>
+          <span class="am-icon-wrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="am-file-ic"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg></span>
+          <span class="am-row-name">Changelog draft</span>
+        </button>
+        <button class="am-row am-row-inact" type="button">
+          <span class="am-guide am-guide-corner"></span>
+          <span class="am-icon-spc"></span>
+          <span class="am-icon-wrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="am-file-ic"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg></span>
+          <span class="am-row-name">Pricing one-pager</span>
+        </button>
+        <button class="am-row" type="button">
+          <span class="am-chevron am-chevron-open"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="9 18 15 12 9 6"/></svg></span>
+          <span class="am-icon-wrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="am-folder-ic"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>
+          <span class="am-row-name">References</span>
+        </button>
+        <button class="am-row am-row-inact" type="button">
+          <span class="am-guide am-guide-branch"></span>
+          <span class="am-icon-spc"></span>
+          <span class="am-icon-wrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="am-file-ic"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg></span>
+          <span class="am-row-name">OKR template</span>
+        </button>
+        <button class="am-row am-row-inact" type="button">
+          <span class="am-guide am-guide-branch"></span>
+          <span class="am-icon-spc"></span>
+          <span class="am-icon-wrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="am-file-ic"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg></span>
+          <span class="am-row-name">User interviews</span>
+        </button>
+        <button class="am-row am-row-inact" type="button">
+          <span class="am-guide am-guide-branch"></span>
+          <span class="am-icon-spc"></span>
+          <span class="am-icon-wrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="am-file-ic"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg></span>
+          <span class="am-row-name">Competitor matrix</span>
+        </button>
+        <button class="am-row am-row-inact" type="button">
+          <span class="am-guide am-guide-corner"></span>
+          <span class="am-icon-spc"></span>
+          <span class="am-icon-wrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="am-file-ic"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg></span>
+          <span class="am-row-name">RFC — search</span>
+        </button>
+        <button class="am-row" type="button">
+          <span class="am-chevron"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="9 18 15 12 9 6"/></svg></span>
+          <span class="am-icon-wrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="am-folder-ic"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>
+          <span class="am-row-name">Archive</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- ─── Editor center ─── -->
+    <main class="am-center">
+      <div class="am-tabbar">
+        <div class="am-tabs-row">
+          <span class="am-tsep"></span>
+          <div class="am-tab am-tab-active">
+            <span class="am-tab-ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg></span>
+            <span class="am-tab-name">Q1 Planning</span>
+            <button class="am-tab-x" type="button"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg></button>
+          </div>
+          <span class="am-tsep"></span>
+          <div class="am-tab">
+            <span class="am-tab-ic am-tab-ic-graph"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.5 12c.015 0 .028-.004.042-.004l.94 4.226a2.497 2.497 0 1 0 3.345 3.173l7.182 1.197a2.491 2.491 0 1 0 3.527-2.36l1.902-8.238c.021 0 .04.006.062.006a2.5 2.5 0 1 0-2.03-3.95l-4.53-2.012a2.5 2.5 0 1 0-4.692.528L5.151 7.637A2.495 2.495 0 1 0 3.5 12zm1.018-.222a2.51 2.51 0 0 0 1.26-1.26l4.226.94c0 .014-.004.027-.004.042a2.484 2.484 0 0 0 .416 1.377l-3.54 3.54A2.483 2.483 0 0 0 5.5 16c-.014 0-.028.004-.042.004zm7.184-2.635a2.501 2.501 0 0 0-1.48 1.339l-4.226-.94c0-.014.004-.027.004-.042a2.472 2.472 0 0 0-.247-1.065l4.096-3.072a2.477 2.477 0 0 0 1.457.617zM14 11v1a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1zm1.173 8.605L7.99 18.408a2.483 2.483 0 0 0-.407-1.285l3.54-3.54a2.405 2.405 0 0 0 2.123.29l2.632 4.74a2.494 2.494 0 0 0-.706.992zM6 20H5a1 1 0 0 1-1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1zm13 0v1a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1zm-1.438-1.994c-.02 0-.04-.006-.062-.006a2.466 2.466 0 0 0-.747.127l-2.632-4.74a2.411 2.411 0 0 0 .784-2.53l3.638-1.82a2.502 2.502 0 0 0 .92.731zM20 6h1a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zm-1.939.963a2.301 2.301 0 0 0 .034 1.18l-3.638 1.82a2.483 2.483 0 0 0-1.763-.943l-.396-3.163a2.499 2.499 0 0 0 1.231-.908zM10 4V3a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1zM2 9a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z"/></svg></span>
+            <span class="am-tab-name">Graph</span>
+            <button class="am-tab-x am-tab-x-h" type="button"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg></button>
+          </div>
+          <span class="am-tsep"></span>
+        </div>
+        <div class="am-tab-acts">
+          <button class="am-ibt" type="button"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+        </div>
+      </div>
+
+      <div class="am-ed-scroll" id="am-ed-scroll">
+        <div class="am-ed" id="am-ed-root">
+          <h1 class="am-h1">Q1 Planning</h1>
+          <p class="am-p am-meta"><span class="am-k">Date</span> March 15, 2026 · <span class="am-k">Attendees</span> Alice, Bob, Charlie</p>
+
+          <div class="am-slash-block" id="am-slash-block">
+            <div class="am-slash-layer-stack">
+              <div class="am-slash-phase">
+                <div class="am-slash-line-clip">
+                  <p class="am-p am-slash-line">
+                    <span id="am-slash-typed"></span><span class="am-cursor am-cursor-doc am-slash-caret" id="am-slash-caret" aria-hidden="true"></span>
+                  </p>
+                </div>
+                <div class="am-slash-pop" id="am-slash-pop" aria-hidden="true">
+                  <div class="am-slash-search-ph" data-i18n="mock.slash_filter">Filter…</div>
+                  <div class="am-slash-head">
+                    <span class="am-slash-title" data-i18n="mock.slash_blocks">Basic blocks</span>
+                  </div>
+                  <div class="am-slash-list" role="listbox">
+                    <div class="am-slash-item" data-am-slash-i="0" role="option">
+                      <span class="am-slash-ic" aria-hidden="true">
+                        <span class="am-slash-glyph">H2</span>
+                      </span>
+                      <span class="am-slash-txt" data-i18n="mock.slash_h2">Heading 2</span>
+                      <span class="am-slash-hint">##</span>
+                    </div>
+                    <div class="am-slash-item" data-am-slash-i="1" role="option">
+                      <span class="am-slash-ic am-slash-ic-bullet" aria-hidden="true">•</span>
+                      <span class="am-slash-txt" data-i18n="mock.slash_bullet">Bulleted list</span>
+                    </div>
+                    <div class="am-slash-item" data-am-slash-i="2" role="option">
+                      <span class="am-slash-ic am-slash-ic-todo" aria-hidden="true">&#9744;</span>
+                      <span class="am-slash-txt" data-i18n="mock.slash_todo">To-do list</span>
+                    </div>
+                    <div class="am-slash-item" data-am-slash-i="3" role="option">
+                      <span class="am-slash-ic am-slash-ic-quote" aria-hidden="true">”</span>
+                      <span class="am-slash-txt" data-i18n="mock.slash_quote">Quote</span>
+                    </div>
+                    <div class="am-slash-item" data-am-slash-i="4" role="option">
+                      <span class="am-slash-ic am-slash-ic-code" aria-hidden="true">&lt;/&gt;</span>
+                      <span class="am-slash-txt" data-i18n="mock.slash_code">Code</span>
+                      <span class="am-slash-hint">```</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <h2 class="am-h2 am-h2-slash-insert am-slash-heading-phase" id="am-h2-slash-insert">
+                <span class="am-h2-slash-ph" id="am-h2-slash-ph" data-i18n="mock.slash_h2">Heading 2</span><span id="am-h2-slash-text"></span><span class="am-h2-slash-caret" id="am-h2-slash-caret" aria-hidden="true"></span>
+              </h2>
+            </div>
+          </div>
+
+          <h2 class="am-h2" data-i18n="mock.agenda">Agenda</h2>
+          <div class="am-tasklist">
+            <div class="am-task"><span class="am-cb am-cb-done"><span class="am-cb-ctrl am-cb-ctrl-done"></span></span><span class="am-task-txt" data-i18n="mock.task1">Review Q4 retrospective</span></div>
+            <div class="am-task"><span class="am-cb am-cb-done"><span class="am-cb-ctrl am-cb-ctrl-done"></span></span><span class="am-task-txt" data-i18n="mock.task2">Align on team priorities</span></div>
+            <div class="am-task" id="am-task-live">
+              <span class="am-cb" id="am-cb-live"><span class="am-cb-ctrl" id="am-cb-ctrl-live"></span></span>
+              <span class="am-task-txt" id="am-task-live-txt"></span>
+            </div>
+          </div>
+
+          <h2 class="am-h2" data-i18n="mock.decisions">Decisions</h2>
+          <p class="am-p">Ship the <strong class="am-type-target" id="am-type-strong">writing experience</strong><span id="am-type-rest"></span><span class="am-cursor am-cursor-doc" id="am-doc-cursor"></span></p>
+          <p class="am-p am-doc-kr4 am-doc-kr4--hid" id="am-doc-kr4" data-i18n-html="mock.kr4">
+            <strong class="am-kr-tag">KR4</strong> — Ship observability hooks; vault paths stay indexed with graph nodes.
+          </p>
+          <p class="am-p am-ai-patch" id="am-ai-patch">
+            <span id="am-ai-patch-inner" class="am-ai-patch-inner"></span>
+          </p>
+
+          <blockquote class="am-bq"><p class="am-p" data-i18n="mock.bq">“Users should never be interrupted. Every feature must serve flow state.”</p></blockquote>
+
+          <h3 class="am-h3" data-i18n="mock.backlog">Backlog</h3>
+          <ul class="am-ul">
+            <li class="am-li" data-i18n="mock.li1">Wikilink-aware navigation</li>
+            <li class="am-li" data-i18n="mock.li2">Vault-wide graph &amp; clusters</li>
+            <li class="am-li" data-i18n="mock.li3">Agent mode in AI Chat</li>
+          </ul>
+
+          <pre class="am-pre am-pre-live" id="am-pre-live"><code class="am-precode am-precode-stack" id="am-precode">
+<span class="am-crow"><span class="syn-comment">// Indexer — same vault paths as graph nodes</span></span>
+<span class="am-crow"><span class="syn-kw">async function</span> <span class="syn-fn">indexVault</span><span class="syn-p">(</span><span class="syn-param">root</span><span class="syn-p">:</span> <span class="syn-type">string</span><span class="syn-p">)</span> &#123;</span>
+<span class="am-crow"><span class="am-tab2"></span><span class="syn-kw">const</span> files <span class="syn-p">=</span> <span class="syn-kw">await</span> <span class="syn-fn">walkMarkdown</span><span class="syn-p">(</span>root<span class="syn-p">);</span></span>
+<span class="am-crow am-crow-ai am-crow--hid" id="am-crow-ai-1"><span class="am-tab2"></span><span class="syn-kw">const</span> filtered <span class="syn-p">=</span> files<span class="syn-p">.</span><span class="syn-fn">filter</span><span class="syn-p">((</span>p<span class="syn-p">)</span> <span class="syn-p">=&gt;</span> <span class="syn-p">!</span>p<span class="syn-p">.</span><span class="syn-fn">endsWith</span><span class="syn-p">(</span><span class="syn-str">".draft.md"</span><span class="syn-p">));</span></span>
+<span class="am-crow am-crow-ai am-crow--hid" id="am-crow-ai-2"><span class="am-tab2"></span><span class="syn-kw">await</span> <span class="syn-fn">assertGraphConsistency</span><span class="syn-p">(</span>root<span class="syn-p">,</span> filtered<span class="syn-p">);</span></span>
+<span class="am-crow" id="am-crow-promise"><span class="am-tab2"></span><span class="syn-kw">await</span> <span class="syn-type">Promise</span><span class="syn-p">.</span><span class="syn-fn">all</span><span class="syn-p">(</span><span id="am-crow-map-arg">files</span><span class="syn-p">.</span><span class="syn-fn">map</span><span class="syn-p">(</span>indexFile<span class="syn-p">));</span></span>
+<span class="am-crow">&#125;</span>
+</code><span class="am-pre-caret" id="am-pre-caret" aria-hidden="true"></span></pre>
+
+          <p class="am-p am-wikiline" id="am-wikiline">
+            <span class="am-muted" data-i18n="mock.see_also">See also</span>
+            <span class="am-wl-chunk" data-i="0">[[Team Sync]]</span>
+            <span class="am-wl-gap am-wl-chunk" data-i="1">·</span>
+            <span class="am-wl-chunk" data-i="2">[[Architecture Overview]]</span>
+            <span class="am-wl-gap am-wl-chunk" data-i="3">·</span>
+            <span class="am-wl-chunk" data-i="4">[[Product Roadmap]]</span>
+          </p>
+        </div>
+      </div>
+    </main>
+
+    <!-- ─── Right panel: Graph | AI Chat ─── -->
+    <aside class="am-right">
+      <div class="am-right-inner">
+        <div class="am-rtbar">
+          <div class="am-rt-tabs">
+            <button class="am-rt-tab am-rt-tab-graph" type="button" title="Graph View" data-for="graph">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.5 12c.015 0 .028-.004.042-.004l.94 4.226a2.497 2.497 0 1 0 3.345 3.173l7.182 1.197a2.491 2.491 0 1 0 3.527-2.36l1.902-8.238c.021 0 .04.006.062.006a2.5 2.5 0 1 0-2.03-3.95l-4.53-2.012a2.5 2.5 0 1 0-4.692.528L5.151 7.637A2.495 2.495 0 1 0 3.5 12zm1.018-.222a2.51 2.51 0 0 0 1.26-1.26l4.226.94c0 .014-.004.027-.004.042a2.484 2.484 0 0 0 .416 1.377l-3.54 3.54A2.483 2.483 0 0 0 5.5 16c-.014 0-.028.004-.042.004zm7.184-2.635a2.501 2.501 0 0 0-1.48 1.339l-4.226-.94c0-.014.004-.027.004-.042a2.472 2.472 0 0 0-.247-1.065l4.096-3.072a2.477 2.477 0 0 0 1.457.617zM14 11v1a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1zm1.173 8.605L7.99 18.408a2.483 2.483 0 0 0-.407-1.285l3.54-3.54a2.405 2.405 0 0 0 2.123.29l2.632 4.74a2.494 2.494 0 0 0-.706.992zM6 20H5a1 1 0 0 1-1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1zm13 0v1a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1zm-1.438-1.994c-.02 0-.04-.006-.062-.006a2.466 2.466 0 0 0-.747.127l-2.632-4.74a2.411 2.411 0 0 0 .784-2.53l3.638-1.82a2.502 2.502 0 0 0 .92.731zM20 6h1a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zm-1.939.963a2.301 2.301 0 0 0 .034 1.18l-3.638 1.82a2.483 2.483 0 0 0-1.763-.943l-.396-3.163a2.499 2.499 0 0 0 1.231-.908zM10 4V3a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1zM2 9a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z"/></svg>
+            </button>
+            <button class="am-rt-tab am-rt-tab-ai" type="button" title="AI Chat" data-for="ai">
+              <svg width="18" height="18" viewBox="0 0 26 26" fill="none" aria-hidden="true" class="am-kuku-icon">
+                <g clip-path="url(#am-mock-kuku-clip)" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                  <path
+                    d="M4.522 1.145c.894-.054 1.924.088 2.98.305 1.06.217 2.187.517 3.27.796 1.091.281 2.14.54 3.078.688a32 32 0 0 0 2.58.283c.776.06 1.508.105 2.178.197 1.367.188 2.556.575 3.657 1.699 2.165 2.208 2.366 5.654 1.973 8.556-.414 3.055-1.942 4.362-3.905 6.47-.965 1.037-1.884 2.16-2.874 3.017-1.013.877-2.16 1.536-3.647 1.655-2.895.232-5.862-1.379-7.7-3.614-.97-1.178-1.18-2.189-1.25-3.346-.07-1.137-.01-2.35-.39-4.146-.186-.883-.529-1.885-.923-2.944-.389-1.045-.832-2.157-1.19-3.203-.36-1.047-.652-2.08-.735-2.996-.083-.91.034-1.798.605-2.458.566-.653 1.4-.906 2.293-.96"
+                    stroke-width=".8"
+                  />
+                  <circle cx="7.75" cy="8.75" r="2.97" stroke-width=".65" />
+                  <circle cx="12.27" cy="10.12" r="2.97" stroke-width=".65" />
+                  <circle cx="7.2" cy="8.75" r=".95" fill="currentColor" stroke="none" />
+                  <circle cx="11.7" cy="10.12" r=".95" fill="currentColor" stroke="none" />
+                  <path
+                    d="m11.453 14.64-3.64-.459a.983.983 0 1 0-.245 1.952l3.639.458a.983.983 0 1 0 .246-1.951"
+                    stroke-width=".8"
+                  />
+                </g>
+                <defs>
+                  <clipPath id="am-mock-kuku-clip">
+                    <path fill="#fff" d="M0 0h26v26H0z" />
+                  </clipPath>
+                </defs>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="am-rp-content">
+          <div class="am-panel-graph">
+            <div class="am-graph-canvas">
+              <svg class="am-graph-svg" viewBox="0 0 280 380" aria-hidden="true">
+                <defs>
+                  <marker id="am-arr" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+                    <path d="M0,0 L7,3.5 L0,7 Z" fill="rgba(0,0,0,0.2)"/>
+                  </marker>
+                </defs>
+                <!-- Cluster hulls (same idea as graph_canvas cluster backgrounds) -->
+                <path class="am-g-cluster am-gc0" d="M48 52 C 20 90 28 160 72 198 C 110 230 168 218 188 168 C 205 128 198 70 150 48 C 110 32 72 36 48 52 Z"/>
+                <path class="am-g-cluster am-gc1" d="M 155 38 C 210 28 258 72 268 128 C 276 180 248 232 200 248 C 165 258 130 230 122 188 C 115 145 125 95 155 38 Z"/>
+                <path class="am-g-cluster am-gc2" d="M 38 220 C 55 200 95 210 118 242 C 145 282 168 332 220 338 C 255 342 268 305 248 268 C 225 228 175 205 120 212 C 75 218 35 235 38 220 Z"/>
+
+                <g class="am-glinks">
+                  <path class="am-glink" d="M 140 175 Q 95 130 62 98" marker-end="url(#am-arr)"/>
+                  <path class="am-glink" d="M 140 175 Q 185 120 218 95" marker-end="url(#am-arr)"/>
+                  <path class="am-glink" d="M 140 175 Q 195 195 225 200" marker-end="url(#am-arr)"/>
+                  <path class="am-glink" d="M 140 175 Q 95 220 78 265" marker-end="url(#am-arr)"/>
+                  <path class="am-glink" d="M 140 175 Q 70 185 48 195" marker-end="url(#am-arr)"/>
+                  <path class="am-glink" d="M 62 98 Q 48 145 48 195" marker-end="url(#am-arr)"/>
+                  <path class="am-glink" d="M 218 95 Q 232 150 225 200" marker-end="url(#am-arr)"/>
+                  <path class="am-glink" d="M 78 265 Q 140 285 198 295" marker-end="url(#am-arr)"/>
+                  <path class="am-glink am-glink-dim" d="M 140 175 Q 160 95 175 52" marker-end="url(#am-arr)"/>
+                  <path class="am-glink am-glink-dim" d="M 140 175 Q 230 140 255 168" marker-end="url(#am-arr)"/>
+                  <path class="am-glink am-glink-dim" d="M 140 175 Q 85 155 55 128" marker-end="url(#am-arr)"/>
+                  <path class="am-glink am-glink-dim" d="M 225 200 Q 200 245 175 288" marker-end="url(#am-arr)"/>
+                  <path class="am-glink am-glink-dim" d="M 62 98 Q 110 72 155 58" marker-end="url(#am-arr)"/>
+                  <path class="am-glink am-glink-dim" d="M 198 295 Q 230 255 248 210" marker-end="url(#am-arr)"/>
+                  <path class="am-glink am-glink-dim" d="M 48 195 Q 28 235 42 278" marker-end="url(#am-arr)"/>
+                  <path class="am-glink am-glink-dim" d="M 218 95 Q 248 72 268 58" marker-end="url(#am-arr)"/>
+                </g>
+
+                <g class="am-gnodes">
+                  <g class="am-gnode am-gnode-hub" transform="translate(140,175)">
+                    <circle class="am-glow" r="22" fill="rgba(64,120,242,0.18)"/>
+                    <circle r="14" fill="var(--ol-accent)" stroke="rgba(56,58,66,0.45)" stroke-width="1.6"/>
+                    <rect class="am-glbl-bg" x="-38" y="22" width="76" height="16" rx="2" fill="var(--ol-bg2)"/>
+                    <text class="am-glbl" y="33" text-anchor="middle" fill="var(--ol-accent)" font-size="8.5" font-weight="600">Q1 Planning</text>
+                  </g>
+                  <g class="am-gnode am-gn" transform="translate(62,98)">
+                    <circle r="10" fill="hsl(0,72%,62%)" stroke="var(--ol-border)" stroke-width="0.9"/>
+                    <rect class="am-glbl-bg" x="-32" y="14" width="64" height="14" rx="2" fill="var(--ol-bg2)"/>
+                    <text class="am-glbl" y="24" text-anchor="middle" fill="var(--ol-text2)" font-size="7.5">Team Sync</text>
+                  </g>
+                  <g class="am-gnode am-gn" transform="translate(218,95)">
+                    <circle r="11" fill="hsl(137.5,72%,62%)" stroke="var(--ol-border)" stroke-width="0.9"/>
+                    <rect class="am-glbl-bg" x="-40" y="15" width="80" height="14" rx="2" fill="var(--ol-bg2)"/>
+                    <text class="am-glbl" y="25" text-anchor="middle" fill="var(--ol-text2)" font-size="7.5">Architecture</text>
+                  </g>
+                  <g class="am-gnode am-gn" transform="translate(225,200)">
+                    <circle r="9" fill="hsl(137.5,72%,62%)" stroke="var(--ol-border)" stroke-width="0.9"/>
+                    <rect class="am-glbl-bg" x="-36" y="13" width="72" height="14" rx="2" fill="var(--ol-bg2)"/>
+                    <text class="am-glbl" y="23" text-anchor="middle" fill="var(--ol-text2)" font-size="7.5">Product Rev.</text>
+                  </g>
+                  <g class="am-gnode am-gn" transform="translate(78,265)">
+                    <circle r="8" fill="hsl(275,72%,62%)" stroke="var(--ol-border)" stroke-width="0.9"/>
+                    <rect class="am-glbl-bg" x="-38" y="12" width="76" height="14" rx="2" fill="var(--ol-bg2)"/>
+                    <text class="am-glbl" y="22" text-anchor="middle" fill="var(--ol-text2)" font-size="7.5">Daily Journal</text>
+                  </g>
+                  <g class="am-gnode am-gn" transform="translate(198,295)">
+                    <circle r="7" fill="hsl(275,72%,62%)" stroke="var(--ol-border)" stroke-width="0.9"/>
+                    <rect class="am-glbl-bg" x="-34" y="11" width="68" height="14" rx="2" fill="var(--ol-bg2)"/>
+                    <text class="am-glbl" y="21" text-anchor="middle" fill="var(--ol-text2)" font-size="7.5">Reading List</text>
+                  </g>
+                  <g class="am-gnode am-gn" transform="translate(48,195)">
+                    <circle r="8" fill="hsl(0,72%,62%)" stroke="var(--ol-border)" stroke-width="0.9"/>
+                    <rect class="am-glbl-bg" x="-30" y="12" width="60" height="14" rx="2" fill="var(--ol-bg2)"/>
+                    <text class="am-glbl" y="22" text-anchor="middle" fill="var(--ol-text2)" font-size="7.5">Handbook</text>
+                  </g>
+                  <g class="am-gnode am-gn" transform="translate(175,52)">
+                    <circle r="7" fill="hsl(210,55%,58%)" stroke="var(--ol-border)" stroke-width="0.9"/>
+                    <rect class="am-glbl-bg" x="-36" y="10" width="72" height="14" rx="2" fill="var(--ol-bg2)"/>
+                    <text class="am-glbl" y="20" text-anchor="middle" fill="var(--ol-text2)" font-size="7.5">Roadmap</text>
+                  </g>
+                  <g class="am-gnode am-gn" transform="translate(255,168)">
+                    <circle r="7" fill="hsl(32,70%,58%)" stroke="var(--ol-border)" stroke-width="0.9"/>
+                    <rect class="am-glbl-bg" x="-34" y="10" width="68" height="14" rx="2" fill="var(--ol-bg2)"/>
+                    <text class="am-glbl" y="20" text-anchor="middle" fill="var(--ol-text2)" font-size="7.5">OKRs</text>
+                  </g>
+                  <g class="am-gnode am-gn" transform="translate(55,128)">
+                    <circle r="6" fill="hsl(280,45%,58%)" stroke="var(--ol-border)" stroke-width="0.9"/>
+                    <rect class="am-glbl-bg" x="-32" y="9" width="64" height="14" rx="2" fill="var(--ol-bg2)"/>
+                    <text class="am-glbl" y="19" text-anchor="middle" fill="var(--ol-text2)" font-size="7.5">Inbox</text>
+                  </g>
+                  <g class="am-gnode am-gn" transform="translate(175,288)">
+                    <circle r="6" fill="hsl(137.5,55%,55%)" stroke="var(--ol-border)" stroke-width="0.9"/>
+                    <rect class="am-glbl-bg" x="-38" y="9" width="76" height="14" rx="2" fill="var(--ol-bg2)"/>
+                    <text class="am-glbl" y="19" text-anchor="middle" fill="var(--ol-text2)" font-size="7.5">Graph QA</text>
+                  </g>
+                  <g class="am-gnode am-gn" transform="translate(155,58)">
+                    <circle r="6" fill="hsl(200,50%,55%)" stroke="var(--ol-border)" stroke-width="0.9"/>
+                    <rect class="am-glbl-bg" x="-30" y="9" width="60" height="14" rx="2" fill="var(--ol-bg2)"/>
+                    <text class="am-glbl" y="19" text-anchor="middle" fill="var(--ol-text2)" font-size="7.5">RFC</text>
+                  </g>
+                  <g class="am-gnode am-gn" transform="translate(248,210)">
+                    <circle r="6" fill="hsl(0,50%,58%)" stroke="var(--ol-border)" stroke-width="0.9"/>
+                    <rect class="am-glbl-bg" x="-34" y="9" width="68" height="14" rx="2" fill="var(--ol-bg2)"/>
+                    <text class="am-glbl" y="19" text-anchor="middle" fill="var(--ol-text2)" font-size="7.5">Retro</text>
+                  </g>
+                  <g class="am-gnode am-gn" transform="translate(42,278)">
+                    <circle r="5" fill="hsl(275,40%,55%)" stroke="var(--ol-border)" stroke-width="0.9"/>
+                    <rect class="am-glbl-bg" x="-28" y="8" width="56" height="14" rx="2" fill="var(--ol-bg2)"/>
+                    <text class="am-glbl" y="18" text-anchor="middle" fill="var(--ol-text2)" font-size="7.5">Drafts</text>
+                  </g>
+                  <g class="am-gnode am-gn" transform="translate(268,58)">
+                    <circle r="6" fill="hsl(137.5,60%,58%)" stroke="var(--ol-border)" stroke-width="0.9"/>
+                    <rect class="am-glbl-bg" x="-36" y="9" width="72" height="14" rx="2" fill="var(--ol-bg2)"/>
+                    <text class="am-glbl" y="19" text-anchor="middle" fill="var(--ol-text2)" font-size="7.5">Changelog</text>
+                  </g>
+                </g>
+              </svg>
+            </div>
+            <div class="am-graph-hud">
+              <div class="am-graph-hud-inner">
+                <span class="am-gh-btn" title="Zoom in">+</span>
+                <span class="am-gh-btn" title="Zoom out">−</span>
+                <span class="am-gh-btn" title="Fit to view">fit</span>
+                <span class="am-gh-zoom">112%</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="am-panel-ai">
+            <div class="am-chat-hd">
+              <span class="am-chat-status" id="am-chat-status">Idle</span>
+              <div class="am-chat-hd-actions">
+                <button class="am-icon-btn" type="button" title="Clear chat" aria-label="Clear chat">×</button>
+              </div>
+            </div>
+            <div class="am-chat-msgs" id="am-chat-msgs">
+              <div class="am-msg am-msg-user" id="am-cm-user">
+                <div class="am-bubble am-bubble-user" data-i18n="mock.user_msg">
+                  From this note, draft Q1 OKRs as bullets. Cross-check wikilinks so nothing stays orphaned in the graph.
+                </div>
+              </div>
+              <div class="am-tool-block" id="am-cm-tools">
+                <div class="am-tool-row" id="am-tool-1">
+                  <span class="am-tool-dot am-tool-pulse"></span>
+                  <span class="am-tool-label" data-i18n="mock.tool_search">Searching vault</span>
+                  <span class="am-tool-detail">"OKR commitments"</span>
+                </div>
+                <div class="am-tool-row am-tool-done" id="am-tool-2">
+                  <span class="am-tool-check">✓</span>
+                  <span class="am-tool-label" data-i18n="mock.tool_read">Reading note</span>
+                  <span class="am-tool-detail">Q1 Planning.md</span>
+                </div>
+                <div class="am-tool-row" id="am-tool-3">
+                  <span class="am-tool-dot am-tool-pulse"></span>
+                  <span class="am-tool-check am-tool-check-hid" aria-hidden="true">✓</span>
+                  <span class="am-tool-label" data-i18n="mock.tool_apply">Applying patch</span>
+                  <span class="am-tool-detail">Q1 Planning.md</span>
+                </div>
+              </div>
+              <div class="am-msg am-msg-ai" id="am-cm-typing">
+                <div class="am-bubble am-bubble-typing">
+                  <span class="am-td"></span><span class="am-td"></span><span class="am-td"></span>
+                </div>
+              </div>
+              <div class="am-msg am-msg-ai" id="am-cm-resp">
+                <div class="am-bubble am-bubble-ai">
+                  <p class="am-chat-p" data-i18n="mock.ai_intro">Here is a tight OKR scaffold grounded in this file:</p>
+                  <ul class="am-chat-ul">
+                    <li><strong class="am-chat-strong">O</strong><span data-i18n="mock.okr_o"> — Make the writing experience the north star for the quarter.</span></li>
+                    <li><strong class="am-chat-strong">KR1</strong><span data-i18n-html="mock.okr_kr1"> — Cut cold load by <span class="am-chat-num">40%</span> (ties to Architecture notes).</span></li>
+                    <li><strong class="am-chat-strong">KR2</strong><span data-i18n="mock.okr_kr2"> — Ship wikilink suggestions with graph-cluster validation.</span></li>
+                    <li><strong class="am-chat-strong">KR3</strong><span data-i18n="mock.okr_kr3"> — Automate repetitive edits via Agent mode with approvals.</span></li>
+                    <li><strong class="am-chat-strong">KR4</strong><span data-i18n="mock.okr_kr4"> — Observability hooks + vault paths indexed with graph consistency checks.</span></li>
+                  </ul>
+                  <p class="am-chat-p am-chat-foot">
+                    <span class="am-chat-ref" data-i18n="mock.referenced">Referenced:</span>
+                    <span class="am-chat-lnk">Team Sync</span> · <span class="am-chat-lnk">Architecture Overview</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div class="am-chat-input">
+              <div class="am-chat-input-top">
+                <textarea class="am-chat-ta" rows="2" readonly placeholder="Ask the assistant to search, create or edit notes…" data-i18n-placeholder="mock.ta_ph"></textarea>
+              </div>
+              <div class="am-chat-input-ft">
+                <button class="am-mode-btn" type="button"><span>agent</span><span class="am-caret">▼</span></button>
+                <span class="am-chat-hint" data-i18n-html="mock.chat_hint"><span class="am-kbd">Enter</span> send · <span class="am-kbd">Shift+Enter</span> newline</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script is:inline>
+  (function () {
+    const root = document.getElementById("am-demo");
+    if (!root) return;
+
+    /* ── i18n helper: pull animation strings from the same T table ── */
+    var AM_T = {
+      en: {
+        slashHeading: "Parking lot",
+        patchCallout: "\u2713 Assistant wrote into Q1 Planning \u2014 KR4, indexer guardrails, and graph consistency checks.",
+        fullStrong:   "writing experience",
+        fullRest:     " leads the roadmap; graph + agent keep context attached to each paragraph.",
+        taskLine:     "Define graph QA checklist before beta",
+        running:      "Running tools\u2026",
+        writing:      "Writing to vault\u2026",
+        generating:   "Generating\u2026",
+        idle:         "Idle",
+      },
+      ko: {
+        slashHeading: "\ud30c\ud0b9 \ub85c\ud2b8",
+        patchCallout: "\u2713 \uc5b4\uc2dc\uc2a4\ud134\ud2b8\uac00 Q1 Planning\uc5d0 \ubc18\uc601\ud588\uc2b5\ub2c8\ub2e4 \u2014 KR4, \uc778\ub371\uc11c \uac00\ub4dc\ub808\uc77c, \uadf8\ub798\ud504 \uc77c\uad00\uc131 \uccb4\ud06c.",
+        fullStrong:   "\uc791\ubb38 \uacbd\ud5d8",
+        fullRest:     "\uc774 \ub85c\ub4dc\ub9f5\uc758 \uc911\uc2ec\uc785\ub2c8\ub2e4. \uadf8\ub798\ud504\uc640 \uc5d0\uc774\uc804\ud2b8\uac00 \uac01 \ub2e8\ub77d\uc758 \ub9e5\ub77d\uc744 \uc774\uc5b4\uc90d\ub2c8\ub2e4.",
+        taskLine:     "\ubca0\ud0c0 \uc774\uc804\uc5d0 \uadf8\ub798\ud504 QA \uccb4\ud06c\ub9ac\uc2a4\ud2b8 \uc815\uc758",
+        running:      "\ub3c4\uad6c \uc2e4\ud589 \uc911\u2026",
+        writing:      "\ubcfc\ud2b8\uc5d0 \uc791\uc131 \uc911\u2026",
+        generating:   "\uc0dd\uc131 \uc911\u2026",
+        idle:         "\ub300\uae30 \uc911",
+      },
+      ja: {
+        slashHeading: "\u30d1\u30fc\u30ad\u30f3\u30b0\u30ed\u30c3\u30c8",
+        patchCallout: "\u2713 \u30a2\u30b7\u30b9\u30bf\u30f3\u30c8\u304cQ1 Planning\u306b\u53cd\u6620\u3057\u307e\u3057\u305f \u2014 KR4\u3001\u30a4\u30f3\u30c7\u30af\u30b5\u30fc\u306e\u30ac\u30fc\u30c9\u30ec\u30fc\u30eb\u3001\u30b0\u30e9\u30d5\u6574\u5408\u6027\u30c1\u30a7\u30c3\u30af\u3002",
+        fullStrong:   "\u57f7\u7b46\u4f53\u9a13",
+        fullRest:     "\u304c\u30ed\u30fc\u30c9\u30de\u30c3\u30d7\u306e\u4e2d\u5fc3\u3067\u3059\u3002\u30b0\u30e9\u30d5\u3068\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u304c\u5404\u6bb5\u843d\u306e\u6587\u8108\u3092\u3064\u306a\u304e\u307e\u3059\u3002",
+        taskLine:     "\u30d9\u30fc\u30bf\u524d\u306b\u30b0\u30e9\u30d5QA\u30c1\u30a7\u30c3\u30af\u30ea\u30b9\u30c8\u3092\u5b9a\u7fa9",
+        running:      "\u30c4\u30fc\u30eb\u3092\u5b9f\u884c\u4e2d\u2026",
+        writing:      "\u30dc\u30eb\u30c8\u306b\u66f8\u304d\u8fbc\u307f\u4e2d\u2026",
+        generating:   "\u751f\u6210\u4e2d\u2026",
+        idle:         "\u30a2\u30a4\u30c9\u30eb",
+      },
+    };
+    function amT(key) {
+      var lang = (localStorage.getItem("kuku_lang") || "en");
+      return (AM_T[lang] || AM_T.en)[key] || AM_T.en[key];
+    }
+
+    const phases = ["editor", "graph", "ai-chat"];
+    const durations = [11200, 7800, 17600];
+    const ED_SLASH_OFFSET = 3920;
+    const easeOut = "cubic-bezier(0.22, 1, 0.36, 1)";
+    const easeSoft = "cubic-bezier(0.33, 1, 0.68, 1)";
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let idx = 0;
+    let timers = [];
+
+    function clearTimers() {
+      timers.forEach(clearTimeout);
+      timers = [];
+    }
+    function delay(fn, ms) {
+      const t = setTimeout(fn, ms);
+      timers.push(t);
+      return t;
+    }
+
+    function scrollWithin(container, target, block) {
+      if (!container || !target) return;
+      const c = container.getBoundingClientRect();
+      const t = target.getBoundingClientRect();
+      const margin = 10;
+      let delta = 0;
+      if (block === "center") {
+        delta = t.top - c.top - (c.height - t.height) / 2;
+      } else {
+        if (t.top < c.top + margin) delta = t.top - c.top - margin;
+        else if (t.bottom > c.bottom - margin)
+          delta = t.bottom - c.bottom + margin;
+        else return;
+      }
+      const next = Math.max(0, container.scrollTop + delta);
+      if (reduceMotion) {
+        container.scrollTop = next;
+        return;
+      }
+      container.scrollTo({ top: next, behavior: "smooth" });
+    }
+
+    function smoothScrollEditorTop() {
+      const el = document.getElementById("am-ed-scroll");
+      if (!el) return;
+      el.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
+    }
+
+    function resetEditorAnim() {
+      const strong = document.getElementById("am-type-strong");
+      const rest = document.getElementById("am-type-rest");
+      const cursor = document.getElementById("am-doc-cursor");
+      const liveTxt = document.getElementById("am-task-live-txt");
+      const cbCtrl = document.getElementById("am-cb-ctrl-live");
+      const chunks = root.querySelectorAll(".am-wl-chunk");
+      const patchInner = document.getElementById("am-ai-patch-inner");
+      const kr4 = document.getElementById("am-doc-kr4");
+      const crowAi1 = document.getElementById("am-crow-ai-1");
+      const crowAi2 = document.getElementById("am-crow-ai-2");
+      const mapArg = document.getElementById("am-crow-map-arg");
+      const preLive = document.getElementById("am-pre-live");
+      const preCaret = document.getElementById("am-pre-caret");
+
+      if (strong) strong.textContent = "";
+      if (rest) rest.textContent = "";
+      if (liveTxt) liveTxt.textContent = "";
+      if (patchInner) patchInner.textContent = "";
+      if (kr4) kr4.classList.add("am-doc-kr4--hid");
+      crowAi1?.classList.add("am-crow--hid");
+      crowAi2?.classList.add("am-crow--hid");
+      crowAi1?.classList.remove("am-crow--glow");
+      crowAi2?.classList.remove("am-crow--glow");
+      if (mapArg) {
+        mapArg.textContent = "files";
+        mapArg.classList.remove("am-code-ix");
+      }
+      document.getElementById("am-crow-promise")?.classList.remove("am-crow--mut");
+      preLive?.classList.remove("am-pre--caret-on", "am-pre--ai-focus");
+      if (preCaret) preCaret.style.opacity = "";
+      if (cbCtrl) {
+        cbCtrl.classList.remove("am-cb-ctrl-done");
+        const parent = document.getElementById("am-cb-live");
+        parent?.classList.remove("am-cb-done");
+      }
+      chunks.forEach((c) => {
+        c.style.opacity = "0";
+        c.style.transform = "translateY(6px)";
+      });
+      if (cursor) {
+        cursor.style.opacity = "0";
+      }
+      const edRoot = document.getElementById("am-ed-root");
+      edRoot?.classList.remove("am-ed--patched");
+      const slashBlock = document.getElementById("am-slash-block");
+      const slashTyped = document.getElementById("am-slash-typed");
+      const slashPop = document.getElementById("am-slash-pop");
+      const slashCaret = document.getElementById("am-slash-caret");
+      slashBlock?.classList.remove("am-slash-open", "am-slash-block--done");
+      if (slashTyped) slashTyped.textContent = "";
+      slashPop?.setAttribute("aria-hidden", "true");
+      slashPop
+        ?.querySelectorAll(".am-slash-item")
+        ?.forEach((el) => el.classList.remove("am-slash-item--act"));
+      slashCaret?.classList.remove("am-slash-caret--on");
+      const h2Text = document.getElementById("am-h2-slash-text");
+      const h2Ins = document.getElementById("am-h2-slash-insert");
+      const h2Caret = document.getElementById("am-h2-slash-caret");
+      if (h2Text) h2Text.textContent = "";
+      h2Ins?.classList.remove("am-h2-slash-has-text");
+      h2Caret?.classList.remove("am-h2-slash-caret--on");
+    }
+
+    function scheduleHumanType(el, text, t0) {
+      if (!el || !text) return t0;
+      let acc = t0;
+      for (let c = 0; c <= text.length; c++) {
+        const n = c;
+        delay(() => {
+          el.textContent = text.slice(0, n);
+        }, acc);
+        if (c < text.length) {
+          const ch = text[c];
+          let pause = 46 + Math.round(Math.random() * 26);
+          if (ch === " ") pause += 36;
+          if (",.;:".indexOf(ch) >= 0) pause += 55;
+          acc += pause;
+        }
+      }
+      return acc;
+    }
+
+    function runSlashMenuIntro() {
+      const block = document.getElementById("am-slash-block");
+      const typed = document.getElementById("am-slash-typed");
+      const caret = document.getElementById("am-slash-caret");
+      const pop = document.getElementById("am-slash-pop");
+      const items = pop
+        ? Array.from(pop.querySelectorAll("[data-am-slash-i]"))
+        : [];
+      const h2Text = document.getElementById("am-h2-slash-text");
+      const h2Ins = document.getElementById("am-h2-slash-insert");
+      const h2Caret = document.getElementById("am-h2-slash-caret");
+
+      function setSlashActive(i) {
+        items.forEach((el) => {
+          const j = Number(el.getAttribute("data-am-slash-i"));
+          el.classList.toggle("am-slash-item--act", j === i);
+        });
+      }
+
+      delay(() => caret?.classList.add("am-slash-caret--on"), 180);
+      scheduleTypewriter(typed, "/", 420, 28);
+      delay(() => {
+        block?.classList.add("am-slash-open");
+        pop?.setAttribute("aria-hidden", "false");
+      }, 560);
+      const seq = [0, 1, 2, 3, 2, 1, 0];
+      let navT = 820;
+      seq.forEach((idx, k) => {
+        delay(() => setSlashActive(idx), navT);
+        if (k < seq.length - 1) {
+          navT += 118 + ((k * 23 + (idx % 3) * 11) % 52);
+        }
+      });
+      const dwellOnChoice = 480;
+      const menuCloseAt = navT + dwellOnChoice;
+      delay(() => {
+        block?.classList.remove("am-slash-open");
+        pop?.setAttribute("aria-hidden", "true");
+      }, menuCloseAt);
+      const applyBlockAt = menuCloseAt + 140;
+      delay(() => {
+        block?.classList.add("am-slash-block--done");
+        if (typed) typed.textContent = "";
+        caret?.classList.remove("am-slash-caret--on");
+      }, applyBlockAt);
+      const headingReadyAt = applyBlockAt + 260;
+      delay(() => h2Caret?.classList.add("am-h2-slash-caret--on"), headingReadyAt);
+      delay(
+        () => h2Ins?.classList.add("am-h2-slash-has-text"),
+        headingReadyAt + 70,
+      );
+      const typeEnd = scheduleHumanType(
+        h2Text,
+        amT("slashHeading"),
+        headingReadyAt + 95,
+      );
+      delay(
+        () => h2Caret?.classList.remove("am-h2-slash-caret--on"),
+        typeEnd + 260,
+      );
+    }
+
+    function scheduleTypewriter(el, text, t0, charMs) {
+      if (!el || !text) return;
+      let acc = t0;
+      for (let i = 0; i <= text.length; i++) {
+        const n = i;
+        delay(() => {
+          el.textContent = text.slice(0, n);
+        }, acc);
+        if (n < text.length) {
+          const ch = text[n];
+          acc += charMs + (ch === " " ? 14 : 0);
+        }
+      }
+    }
+
+    function runEditorAnim() {
+      resetEditorAnim();
+      runSlashMenuIntro();
+      const off = ED_SLASH_OFFSET;
+      const fullStrong = amT("fullStrong");
+      const fullRest = amT("fullRest");
+      const taskLine = amT("taskLine");
+      const strongEl = document.getElementById("am-type-strong");
+      const restEl = document.getElementById("am-type-rest");
+      const cursor = document.getElementById("am-doc-cursor");
+      const liveTxt = document.getElementById("am-task-live-txt");
+      const scrollEl = document.getElementById("am-ed-scroll");
+
+      let t = off + 420;
+      const typeChunk = (el, text, start, baseSpeed) => {
+        if (!el || !text) return;
+        let j = 0;
+        const tick = () => {
+          j++;
+          el.textContent = text.slice(0, j);
+          if (j >= text.length) return;
+          const ch = text[j];
+          let pause = baseSpeed + Math.round(Math.random() * 18);
+          if (".,;:".indexOf(ch) >= 0) pause += 110;
+          if (ch === " ") pause += 35;
+          delay(tick, pause);
+        };
+        delay(tick, start);
+      };
+
+      const estTypeMs = (s, b) => s.length * (b + 28) + 400;
+      typeChunk(strongEl, fullStrong, t, 52);
+      t += estTypeMs(fullStrong, 52) + 280;
+      typeChunk(restEl, fullRest, t, 36);
+      t += estTypeMs(fullRest, 36) + 320;
+      delay(() => {
+        if (cursor) {
+          cursor.style.transition = "opacity 0.55s " + easeSoft;
+          cursor.style.opacity = "1";
+        }
+      }, t);
+
+      delay(() => {
+        typeChunk(liveTxt, taskLine, 0, 44);
+      }, off + 980);
+
+      delay(() => {
+        const cbCtrl = document.getElementById("am-cb-ctrl-live");
+        const parent = document.getElementById("am-cb-live");
+        cbCtrl?.classList.add("am-cb-ctrl-done");
+        parent?.classList.add("am-cb-done");
+      }, off + 3100);
+
+      const chunks = root.querySelectorAll(".am-wl-chunk");
+      chunks.forEach((el, i) => {
+        delay(() => {
+          el.style.transition =
+            "opacity 0.55s " + easeOut + ", transform 0.55s " + easeOut;
+          el.style.opacity = "1";
+          el.style.transform = "translateY(0)";
+        }, off + 1280 + i * 340);
+      });
+
+      delay(() => {
+        if (!scrollEl) return;
+        scrollEl.scrollTo({
+          top: scrollEl.scrollHeight,
+          behavior: reduceMotion ? "auto" : "smooth",
+        });
+      }, off + 5200);
+    }
+
+    function animateGraph() {
+      const links = root.querySelectorAll(".am-glink");
+      const nodes = root.querySelectorAll(".am-gnode");
+
+      links.forEach((path) => {
+        const len = (path).getTotalLength?.() ?? 120;
+        path.style.strokeDasharray = `${len}`;
+        path.style.strokeDashoffset = `${len}`;
+        path.style.transition = "none";
+      });
+      nodes.forEach((n) => {
+        n.style.transition = "none";
+        n.style.opacity = "0";
+      });
+
+      delay(() => {
+        links.forEach((path, i) => {
+          path.style.transition = `stroke-dashoffset 1.15s ${easeSoft} ${i * 55}ms`;
+          path.style.strokeDashoffset = "0";
+        });
+      }, 200);
+
+      root.querySelectorAll(".am-g-cluster").forEach((c, i) => {
+        c.style.opacity = "0";
+        delay(() => {
+          c.style.transition = "opacity 0.75s " + easeSoft;
+          c.style.opacity = "1";
+        }, 120 + i * 95);
+      });
+
+      nodes.forEach((n, i) => {
+        delay(() => {
+          n.style.transition = "opacity 0.65s " + easeOut;
+          n.style.opacity = "1";
+        }, 320 + i * 110);
+      });
+
+      const hub = root.querySelector(".am-gnode-hub .am-glow");
+      if (hub) {
+        hub.style.animation = "none";
+        void hub.getBoundingClientRect();
+        hub.style.animation = "";
+      }
+    }
+
+    function animateChat() {
+      const user = document.getElementById("am-cm-user");
+      const tools = document.getElementById("am-cm-tools");
+      const typing = document.getElementById("am-cm-typing");
+      const resp = document.getElementById("am-cm-resp");
+      const status = document.getElementById("am-chat-status");
+      const t1 = document.getElementById("am-tool-1");
+      const t2 = document.getElementById("am-tool-2");
+      const t3 = document.getElementById("am-tool-3");
+      const edRoot = document.getElementById("am-ed-root");
+      const patchInner = document.getElementById("am-ai-patch-inner");
+      const kr4 = document.getElementById("am-doc-kr4");
+      const crowAi1 = document.getElementById("am-crow-ai-1");
+      const crowAi2 = document.getElementById("am-crow-ai-2");
+      const mapArg = document.getElementById("am-crow-map-arg");
+      const crowPromise = document.getElementById("am-crow-promise");
+      const preLive = document.getElementById("am-pre-live");
+      const scrollEl = document.getElementById("am-ed-scroll");
+
+      [user, tools, typing, resp].forEach((el) => {
+        if (!el) return;
+        el.style.transition = "none";
+        el.style.opacity = "0";
+        el.style.transform = "translateY(10px)";
+      });
+      if (t2) t2.style.opacity = "0";
+      if (t3) {
+        t3.style.transition = "none";
+        t3.style.opacity = "0";
+        t3.classList.remove("am-tool-done");
+        const dot3 = t3.querySelector(".am-tool-dot");
+        const chk3 = t3.querySelector(".am-tool-check");
+        dot3?.classList.add("am-tool-pulse");
+        dot3?.classList.remove("am-tool-ok");
+        chk3?.classList.add("am-tool-check-hid");
+      }
+      if (status) {
+        status.textContent = amT("idle");
+        status.className = "am-chat-status";
+      }
+      if (t1) {
+        const dot = t1.querySelector(".am-tool-dot");
+        dot?.classList.add("am-tool-pulse");
+        dot?.classList.remove("am-tool-ok");
+      }
+
+      const show = (el, ms) => {
+        if (!el) return;
+        delay(() => {
+          el.style.transition =
+            "opacity 0.68s " + easeOut + ", transform 0.68s " + easeOut;
+          el.style.opacity = "1";
+          el.style.transform = "translateY(0)";
+        }, ms);
+      };
+
+      show(user, 520);
+      delay(() => {
+        if (status) {
+          status.textContent = amT("running");
+          status.className = "am-chat-status am-chat-status-busy";
+        }
+      }, 920);
+      show(tools, 1180);
+      if (t2) {
+        t2.style.opacity = "0";
+        delay(() => {
+          t2.style.transition = "opacity 0.62s " + easeSoft;
+          t2.style.opacity = "1";
+        }, 3180);
+      }
+      if (t3) {
+        delay(() => {
+          t3.style.transition = "opacity 0.55s " + easeSoft;
+          t3.style.opacity = "1";
+        }, 3520);
+      }
+      delay(() => {
+        if (t1) {
+          const dot = t1.querySelector(".am-tool-dot");
+          dot?.classList.remove("am-tool-pulse");
+          dot?.classList.add("am-tool-ok");
+        }
+      }, 3600);
+      delay(() => {
+        if (t3) {
+          const dot = t3.querySelector(".am-tool-dot");
+          const chk = t3.querySelector(".am-tool-check");
+          dot?.classList.remove("am-tool-pulse");
+          chk?.classList.remove("am-tool-check-hid");
+          t3.classList.add("am-tool-done");
+        }
+        if (status) {
+          status.textContent = amT("writing");
+          status.className = "am-chat-status am-chat-status-busy";
+        }
+      }, 4600);
+      delay(() => {
+        scrollWithin(scrollEl, preLive, "center");
+        preLive?.classList.add("am-pre--ai-focus");
+      }, 4320);
+      delay(() => {
+        edRoot?.classList.add("am-ed--patched");
+      }, 4880);
+      scheduleTypewriter(patchInner, amT("patchCallout"), 4960, 19);
+      delay(() => {
+        kr4?.classList.remove("am-doc-kr4--hid");
+      }, 5600);
+      delay(() => {
+        preLive?.classList.add("am-pre--caret-on");
+        crowAi1?.classList.remove("am-crow--hid");
+        crowAi1?.classList.add("am-crow--glow");
+      }, 5900);
+      delay(() => {
+        crowAi1?.classList.remove("am-crow--glow");
+        crowAi2?.classList.remove("am-crow--hid");
+        crowAi2?.classList.add("am-crow--glow");
+      }, 6500);
+      delay(() => {
+        crowAi2?.classList.remove("am-crow--glow");
+        if (mapArg) {
+          mapArg.textContent = "filtered";
+          mapArg.classList.add("am-code-ix");
+        }
+        crowPromise?.classList.add("am-crow--mut");
+      }, 7100);
+      delay(() => {
+        mapArg?.classList.remove("am-code-ix");
+        preLive?.classList.remove("am-pre--caret-on", "am-pre--ai-focus");
+      }, 8200);
+      delay(() => {
+        scrollWithin(scrollEl, kr4, "nearest");
+      }, 8600);
+      delay(() => {
+        if (status) {
+          status.textContent = amT("generating");
+          status.className = "am-chat-status am-chat-status-gen";
+        }
+      }, 9000);
+      show(typing, 9120);
+      delay(() => {
+        if (typing) {
+          typing.style.transition = "opacity 0.52s " + easeSoft;
+          typing.style.opacity = "0";
+        }
+      }, 11200);
+      delay(() => {
+        if (status) {
+          status.textContent = amT("idle");
+          status.className = "am-chat-status";
+        }
+      }, 12000);
+      show(resp, 10400);
+    }
+
+    function restartCssAnim(sel) {
+      const el = root.querySelector(sel);
+      if (!el) return;
+      (el).style.animation = "none";
+      void (el).offsetWidth;
+      (el).style.animation = "";
+    }
+
+    function advance() {
+      clearTimers();
+      const prevPhase = root.getAttribute("data-phase");
+      const phase = phases[idx];
+      root.setAttribute("data-phase", phase);
+
+      if (phase === "graph") {
+        restartCssAnim(".am-gnode-hub .am-glow");
+        animateGraph();
+      }
+      if (phase === "ai-chat") animateChat();
+      if (phase === "editor") {
+        if (prevPhase === "ai-chat") {
+          smoothScrollEditorTop();
+          delay(
+            () => runEditorAnim(),
+            reduceMotion ? 40 : 420,
+          );
+        } else {
+          runEditorAnim();
+        }
+      }
+
+      let waitMs = durations[idx];
+      if (phase === "editor" && prevPhase === "ai-chat" && !reduceMotion) {
+        waitMs += 420;
+      }
+
+      delay(() => {
+        idx = (idx + 1) % phases.length;
+        advance();
+      }, waitMs);
+    }
+
+    delay(advance, 720);
+  })();
+</script>
+
+<style>
+  /* ── One Light palette (landing mockup) ── */
+  .am-root {
+    --ol-bg: var(--theme-ol-bg);
+    --ol-bg2: var(--theme-ol-bg2);
+    --ol-bg3: var(--theme-ol-bg3);
+    --ol-border: var(--theme-ol-border);
+    --ol-border2: var(--theme-ol-border2);
+    --ol-text: var(--theme-ol-text);
+    --ol-text2: var(--theme-ol-text2);
+    --ol-text3: var(--theme-ol-text3);
+    --ol-accent: var(--theme-ol-accent);
+    --ol-accent-dim: var(--theme-ol-accent-dim);
+    --ol-sel: var(--theme-ol-sel);
+    --ol-inact: var(--theme-ol-inact);
+    --ol-success: var(--theme-ol-success);
+    --ol-page: var(--theme-ol-bg);
+    --ol-page2: var(--theme-ol-bg2);
+    --syn-kw: #a626a4;
+    --syn-type: #c18401;
+    --syn-fn: #4078f2;
+    --syn-comment: #a0a1a7;
+    --syn-param: #e45649;
+    --syn-str: #50a14f;
+    /* map to existing rule names */
+    --ku-bg0: var(--ol-bg);
+    --ku-bg1: var(--ol-bg2);
+    --ku-bg2: var(--ol-bg3);
+    --ku-elev: var(--ol-bg3);
+    --ku-border: var(--ol-border);
+    --ku-border-focus: var(--ol-border2);
+    --ku-text: var(--ol-text);
+    --ku-text2: var(--ol-text2);
+    --ku-text3: var(--ol-text3);
+    --ku-accent: var(--ol-text);
+    --ku-accent-dim: var(--ol-accent-dim);
+    --ku-info: var(--ol-accent);
+    --ku-success: var(--ol-success);
+    --ku-list-inact: var(--ol-inact);
+    --ku-list-sel: var(--ol-sel);
+    /* Responsive internals: keep proportions while viewport narrows */
+    --am-ui-font-size: clamp(11.4px, 0.35vw + 9.6px, 13px);
+    --am-sidebar-w: clamp(168px, 20vw, 200px);
+    --am-panel-w: clamp(320px, 34vw, 440px);
+    --am-tab-max-w: clamp(136px, 14vw, 176px);
+  }
+
+  .am-root {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    font-size: var(--am-ui-font-size);
+    background: var(--ku-bg0);
+    color: var(--ku-text);
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+    text-align: left;
+  }
+
+  .am-titlebar {
+    display: flex;
+    align-items: center;
+    height: 34px;
+    padding: 0 6px 0 0;
+    background: var(--ku-elev);
+    border-bottom: 1px solid var(--ku-border);
+    flex-shrink: 0;
+  }
+  .am-tb-traffic {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 7px;
+    padding: 0 12px 0 14px;
+  }
+  .am-traffic {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.12);
+  }
+  .am-traffic-close {
+    background: #ec6a5e;
+  }
+  .am-traffic-min {
+    background: #f4be4f;
+  }
+  .am-traffic-max {
+    background: #61c454;
+  }
+  .am-tb-region {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 8px;
+  }
+  .am-tb-left {
+    flex-shrink: 0;
+  }
+  .am-tb-fill {
+    flex: 1;
+    min-width: 8px;
+  }
+  .am-tb-title {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--ku-text2);
+    max-width: 42vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .am-tb-right {
+    flex-shrink: 0;
+  }
+
+  .am-ibt {
+    display: flex;
+    width: 26px;
+    height: 26px;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    border-radius: 2px;
+    color: var(--ku-text3);
+    cursor: default;
+    padding: 0;
+    transition: background 0.1s, color 0.1s;
+  }
+  .am-ibt-on {
+    color: var(--ku-text2);
+  }
+  .am-ibt:hover {
+    background: rgba(0, 0, 0, 0.06);
+    color: var(--ku-text2);
+  }
+
+  .am-rp-icon-off {
+    display: block;
+  }
+  .am-rp-icon-on {
+    display: none;
+  }
+  [data-phase="graph"] .am-rp-icon-off,
+  [data-phase="ai-chat"] .am-rp-icon-off {
+    display: none;
+  }
+  [data-phase="graph"] .am-rp-icon-on,
+  [data-phase="ai-chat"] .am-rp-icon-on {
+    display: block;
+  }
+  [data-phase="graph"] .am-ibt-right-toggle,
+  [data-phase="ai-chat"] .am-ibt-right-toggle {
+    color: var(--ku-text2);
+  }
+
+  .am-body {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .am-sidebar {
+    width: var(--am-sidebar-w);
+    flex-shrink: 0;
+    background: var(--ku-bg1);
+    border-right: 1px solid var(--ku-border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    text-align: left;
+  }
+  .am-sb-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    flex-shrink: 0;
+  }
+  .am-sb-actions {
+    display: flex;
+    gap: 6px;
+  }
+  .am-sb-btn {
+    display: flex;
+    width: 24px;
+    height: 24px;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    border-radius: 2px;
+    color: var(--ku-text3);
+    padding: 0;
+    transition: background 0.1s, color 0.1s;
+  }
+  .am-sb-btn:hover {
+    background: var(--ol-accent-dim);
+    color: var(--ku-text2);
+  }
+  .am-sb-tree {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 4px 8px;
+    text-align: left;
+  }
+  .am-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    width: 100%;
+    padding: 3px 2px;
+    border: none;
+    background: transparent;
+    border-radius: 2px;
+    font-size: 13px;
+    color: var(--ku-text2);
+    cursor: default;
+    white-space: nowrap;
+    overflow: hidden;
+    transition: background 0.07s;
+    text-align: left;
+  }
+  .am-row:hover {
+    background: var(--ol-accent-dim);
+  }
+  .am-row-sel {
+    background: var(--ku-list-sel) !important;
+    color: var(--ku-text);
+  }
+  .am-row-inact {
+    background: var(--ku-list-inact);
+  }
+  .am-row-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-left: 4px;
+    line-height: 18px;
+    text-align: left;
+  }
+  .am-chevron {
+    width: 14px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--ku-text3);
+  }
+  .am-chevron-open {
+    transform: rotate(90deg);
+  }
+  .am-icon-spc {
+    width: 14px;
+    flex-shrink: 0;
+  }
+  .am-icon-wrap {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .am-guide {
+    position: relative;
+    width: 14px;
+    flex-shrink: 0;
+    align-self: stretch;
+  }
+  .am-guide-branch::before {
+    content: "";
+    position: absolute;
+    left: 7px;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: rgba(0, 0, 0, 0.14);
+  }
+  .am-guide-branch::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 7px;
+    width: 7px;
+    height: 1px;
+    background: rgba(0, 0, 0, 0.14);
+  }
+  .am-guide-corner::before {
+    content: "";
+    position: absolute;
+    left: 7px;
+    top: 0;
+    height: 50%;
+    width: 1px;
+    background: rgba(0, 0, 0, 0.14);
+  }
+  .am-guide-corner::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 7px;
+    width: 7px;
+    height: 1px;
+    background: rgba(0, 0, 0, 0.14);
+  }
+
+  .am-center {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--ol-page);
+    position: relative;
+    overflow: hidden;
+  }
+  .am-tabbar {
+    display: flex;
+    height: 38px;
+    align-items: center;
+    padding: 0 8px 0 12px;
+    gap: 4px;
+    background: var(--ol-page);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    flex-shrink: 0;
+  }
+  .am-tabs-row {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    padding: 4px 0;
+  }
+  .am-tsep {
+    width: 1px;
+    height: 16px;
+    background: var(--ku-border);
+    margin: 0 2px;
+    flex-shrink: 0;
+  }
+  .am-tab {
+    display: flex;
+    align-items: center;
+    height: 30px;
+    max-width: var(--am-tab-max-w);
+    flex-shrink: 0;
+    gap: 6px;
+    padding: 0 10px;
+    border-radius: 2px;
+    font-size: 13px;
+    color: var(--ku-text3);
+  }
+  .am-tab-active {
+    color: var(--ku-text);
+    outline: 1px solid var(--ku-border-focus);
+    outline-offset: 0;
+  }
+  .am-tab-x {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    border-radius: 2px;
+    color: var(--ku-text3);
+    padding: 0;
+    opacity: 0.5;
+  }
+  .am-tab-x-h {
+    opacity: 0;
+  }
+  .am-tab:hover .am-tab-x-h {
+    opacity: 0.45;
+  }
+  .am-tab-acts {
+    display: flex;
+    gap: 2px;
+    border-left: 1px solid var(--ku-border);
+    padding-left: 6px;
+  }
+
+  .am-ed-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scroll-behavior: smooth;
+    background: var(--ol-page);
+  }
+  .am-ed-scroll::-webkit-scrollbar {
+    width: 10px;
+  }
+  .am-ed-scroll::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.12);
+    border-radius: 99px;
+    border: 3px solid transparent;
+    background-clip: padding-box;
+  }
+  .am-ed {
+    box-sizing: border-box;
+    max-width: min(720px, 100%);
+    margin-left: 0;
+    margin-right: auto;
+    padding: clamp(24px, 3.2vw, 36px) clamp(24px, 3.6vw, 40px) clamp(72px, 10vw, 120px) clamp(28px, 5.2vw, 56px);
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--ku-text);
+    user-select: text;
+    letter-spacing: -0.011em;
+  }
+  .am-h1 {
+    font-size: 1.85em;
+    font-weight: 700;
+    margin: 0 0 0.25em;
+    letter-spacing: -0.03em;
+    line-height: 1.2;
+  }
+  .am-h2 {
+    font-size: 1.28em;
+    font-weight: 600;
+    margin: 1.25em 0 0.2em;
+  }
+  .am-h3 {
+    font-size: 1.05em;
+    font-weight: 600;
+    margin: 1em 0 0.15em;
+  }
+  .am-p {
+    margin: 0 0 0.55em;
+    padding: 0.05em 0;
+  }
+  .am-meta {
+    color: var(--ku-text2);
+    font-size: 13px;
+  }
+
+  /* Slash menu: minimal monochrome (Notion / Obsidian-ish) */
+  .am-slash-block {
+    position: relative;
+    z-index: 0;
+    margin: 0.2em 0 0.45em;
+  }
+
+  /* Pop extends below block; lift whole block so later siblings (e.g. Agenda) don’t paint over it */
+  .am-slash-block.am-slash-open {
+    z-index: 200;
+  }
+
+  /* Same grid cell: slash UI and heading overlap — crossfade only, no vertical reflow */
+  .am-slash-layer-stack {
+    display: grid;
+    grid-template-columns: 1fr;
+    isolation: isolate;
+  }
+
+  .am-slash-phase,
+  .am-slash-heading-phase {
+    grid-area: 1 / 1;
+    align-self: start;
+    justify-self: stretch;
+  }
+
+  .am-slash-phase {
+    position: relative;
+    z-index: 2;
+    padding-bottom: 2px;
+    visibility: visible;
+    transition: opacity 0.34s cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
+
+  .am-slash-heading-phase {
+    z-index: 1;
+    opacity: 0;
+    transition: opacity 0.38s cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
+
+  .am-slash-block--done .am-slash-phase {
+    opacity: 0;
+    pointer-events: none;
+    visibility: hidden;
+    transition:
+      opacity 0.32s cubic-bezier(0.25, 0.8, 0.25, 1),
+      visibility 0s linear 0.32s;
+  }
+
+  .am-slash-block--done .am-slash-heading-phase {
+    opacity: 1;
+    z-index: 3;
+    transition: opacity 0.4s cubic-bezier(0.25, 0.8, 0.25, 1) 0.05s;
+  }
+
+  .am-slash-line-clip {
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  .am-slash-line {
+    margin: 0;
+    min-height: 1.45em;
+  }
+
+  .am-slash-pop {
+    position: absolute;
+    left: -2px;
+    top: 100%;
+    margin-top: 5px;
+    z-index: 100;
+    width: min(320px, calc(100vw - 40px));
+    max-width: 100%;
+    padding: 0 0 6px;
+    border-radius: 10px;
+    border: 1px solid color-mix(in oklab, var(--ku-border) 85%, transparent);
+    background: color-mix(in oklab, var(--ol-page) 98%, transparent);
+    box-shadow:
+      0 1px 0 rgba(0, 0, 0, 0.02),
+      0 14px 44px rgba(0, 0, 0, 0.09),
+      0 0 0 1px color-mix(in oklab, var(--ku-border) 35%, transparent) inset;
+    opacity: 0;
+    transform: translateY(2px);
+    transform-origin: 16px 0;
+    pointer-events: none;
+    transition:
+      opacity 0.22s cubic-bezier(0.25, 0.8, 0.25, 1),
+      transform 0.24s cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
+
+  .am-slash-block.am-slash-open .am-slash-pop {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  .am-slash-search-ph {
+    margin: 10px 10px 0;
+    padding: 9px 12px;
+    border-radius: 7px;
+    border: 1px solid color-mix(in oklab, var(--ku-border) 82%, transparent);
+    background: color-mix(in oklab, var(--ku-text) 4%, transparent);
+    color: var(--ku-text3);
+    font-size: 13px;
+    line-height: 1.45;
+    letter-spacing: -0.011em;
+  }
+
+  .am-slash-head {
+    margin: 10px 10px 0;
+    padding: 8px 2px 6px;
+    border-top: 1px solid color-mix(in oklab, var(--ku-border) 72%, transparent);
+  }
+
+  .am-slash-title {
+    display: block;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--ku-text3);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    opacity: 0.78;
+  }
+
+  .am-slash-list {
+    padding: 4px 8px 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .am-slash-item {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 8px 10px;
+    border-radius: 7px;
+    font-size: 13px;
+    line-height: 1.45;
+    letter-spacing: -0.013em;
+    color: var(--ku-text);
+    cursor: default;
+    transition: background 0.14s ease;
+  }
+
+  .am-slash-item--act {
+    background: color-mix(in oklab, var(--ku-text) 9%, transparent);
+  }
+
+  .am-slash-ic {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 5px;
+    background: color-mix(in oklab, var(--ku-text) 8%, transparent);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ku-text2);
+    flex-shrink: 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  .am-slash-glyph {
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  .am-slash-ic-bullet {
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .am-slash-ic-todo {
+    font-size: 13px;
+    font-weight: 400;
+  }
+
+  .am-slash-ic-quote {
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1;
+  }
+
+  .am-slash-ic-code {
+    font-size: 9px;
+    letter-spacing: -0.05em;
+  }
+
+  .am-slash-txt {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .am-slash-hint {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--ku-text3);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  .am-slash-caret {
+    visibility: hidden;
+  }
+
+  .am-slash-caret.am-slash-caret--on {
+    visibility: visible;
+  }
+
+  .am-h2-slash-insert {
+    margin: 0 0 0.45em;
+    padding: 2px 0 1px;
+    font-size: 1.28em;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    line-height: 1.25;
+    position: relative;
+    min-height: 1.28em;
+  }
+
+  .am-h2-slash-ph {
+    color: var(--ku-text3);
+    font-weight: 500;
+    font-size: 1em;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .am-h2-slash-has-text .am-h2-slash-ph {
+    display: none;
+  }
+
+  .am-h2-slash-caret {
+    display: inline-block;
+    width: 2px;
+    height: 0.92em;
+    margin-left: 2px;
+    vertical-align: -0.04em;
+    background: var(--ku-text);
+    border-radius: 1px;
+    opacity: 0;
+    animation: am-blink 1.05s ease-in-out infinite;
+  }
+
+  .am-h2-slash-caret.am-h2-slash-caret--on {
+    opacity: 1;
+  }
+  .am-k {
+    color: var(--ku-text3);
+    margin-right: 0.35em;
+  }
+  .am-bq {
+    border-left: 3px solid rgba(56, 58, 66, 0.22);
+    margin: 0.85em 0;
+    padding: 0.65em 1em 0.65em 1.05em;
+    color: var(--ku-text2);
+    background: color-mix(in oklab, var(--ol-page) 72%, transparent);
+    border-radius: 4px;
+  }
+  .am-ul {
+    margin: 0.4em 0;
+    padding-left: 1.35em;
+    list-style: disc;
+  }
+  .am-li {
+    margin: 0.2em 0;
+  }
+  .am-pre {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.82em;
+    line-height: 1.55;
+    background: var(--ol-page2);
+    border: 1px solid color-mix(in oklab, var(--ku-border) 72%, transparent);
+    border-radius: 6px;
+    padding: 0.75em 1em;
+    margin: 0.75em 0;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .syn-comment {
+    color: var(--syn-comment);
+    font-style: italic;
+  }
+  .syn-kw {
+    color: var(--syn-kw);
+  }
+  .syn-type {
+    color: var(--syn-type);
+  }
+  .syn-fn {
+    color: var(--syn-fn);
+  }
+  .syn-param {
+    color: var(--syn-param);
+  }
+  .syn-p {
+    color: var(--ku-text);
+  }
+  .syn-str {
+    color: var(--syn-str);
+  }
+
+  .am-tab2::before {
+    content: "  ";
+    white-space: pre;
+  }
+
+  .am-pre-live {
+    position: relative;
+    white-space: normal;
+  }
+
+  .am-precode-stack {
+    display: block;
+    white-space: normal;
+  }
+
+  .am-crow {
+    display: block;
+    white-space: pre;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+  }
+
+  .am-crow--hid {
+    display: none;
+  }
+
+  .am-crow--glow {
+    background: linear-gradient(90deg, rgba(80, 161, 79, 0.16), transparent 92%);
+    border-radius: 3px;
+    margin: 0 -0.25em;
+    padding: 0.06em 0.25em;
+    transition: background 0.45s ease;
+  }
+
+  .am-crow--mut {
+    background: linear-gradient(90deg, rgba(64, 120, 242, 0.1), transparent 90%);
+    border-radius: 3px;
+    margin: 0 -0.25em;
+    padding: 0.06em 0.25em;
+    transition: background 0.5s ease;
+  }
+
+  #am-crow-map-arg.am-code-ix {
+    background: rgba(80, 161, 79, 0.35);
+    border-radius: 2px;
+    padding: 0 0.1em;
+    transition: background 0.35s ease;
+  }
+
+  .am-pre--ai-focus {
+    box-shadow:
+      0 0 0 1px rgba(64, 120, 242, 0.28),
+      0 6px 20px rgba(64, 120, 242, 0.08);
+    transition: box-shadow 0.45s ease;
+  }
+
+  .am-pre-caret {
+    display: none;
+    position: absolute;
+    right: 14px;
+    bottom: 12px;
+    width: 2px;
+    height: 13px;
+    background: var(--ol-accent);
+    border-radius: 1px;
+    animation: am-blink 1.05s ease-in-out infinite;
+  }
+
+  .am-pre--caret-on .am-pre-caret {
+    display: block;
+  }
+
+  .am-doc-kr4 {
+    margin: 0 0 0.5em;
+    padding: 0.42em 0.58em;
+    border-radius: 5px;
+    background: rgba(80, 161, 79, 0.09);
+    box-shadow: inset 0 0 0 1px rgba(80, 161, 79, 0.22);
+    font-size: 14px;
+    line-height: 1.45;
+    transition:
+      opacity 0.45s ease,
+      max-height 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+      margin 0.45s ease,
+      padding 0.45s ease;
+  }
+
+  .am-doc-kr4--hid {
+    opacity: 0;
+    max-height: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .am-kr-tag {
+    color: var(--ku-success);
+    font-weight: 700;
+    margin-right: 0.28em;
+  }
+
+  .am-ai-patch-inner {
+    display: inline;
+  }
+
+  .am-tasklist {
+    margin: 0.45em 0;
+  }
+  .am-task {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0.2em 0;
+  }
+  .am-cb {
+    display: flex;
+    width: 1.45em;
+    height: 1.45em;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 0.15em;
+  }
+  .am-cb-ctrl {
+    width: 0.95em;
+    height: 0.95em;
+    border: 1px solid var(--ku-border-focus);
+    border-radius: 3px;
+    background: var(--ku-bg0);
+  }
+  .am-cb-ctrl-done {
+    background: var(--ku-text);
+    border-color: var(--ku-text);
+    position: relative;
+  }
+  .am-cb-ctrl-done::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 0.4em;
+    height: 0.22em;
+    border: 2px solid var(--ku-bg0);
+    border-top: 0;
+    border-right: 0;
+    transform: translate(-52%, -58%) rotate(-45deg);
+  }
+  .am-task-txt {
+    flex: 1;
+    min-width: 0;
+    color: var(--ku-text);
+  }
+
+  .am-wikiline {
+    margin-top: 1.25em;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .am-muted {
+    color: var(--ku-text3);
+    margin-right: 0.5em;
+  }
+  .am-wl-chunk {
+    display: inline-block;
+    opacity: 0;
+    transform: translateY(5px);
+    color: var(--ol-accent);
+    font-weight: 500;
+    padding: 0.08em 0.35em;
+    border-radius: 4px;
+    background: var(--ol-accent-dim);
+    margin: 0 0.12em;
+  }
+  .am-wl-gap {
+    color: var(--ku-text3);
+    background: transparent;
+    font-weight: 400;
+    padding: 0 0.1em;
+  }
+
+  .am-cursor-doc {
+    display: inline-block;
+    width: 2px;
+    height: 1em;
+    background: var(--ku-text);
+    vertical-align: text-bottom;
+    margin-left: 2px;
+    opacity: 0;
+    border-radius: 1px;
+    animation: am-blink 1.05s ease-in-out infinite;
+  }
+  @keyframes am-blink {
+    0%,
+    42% {
+      opacity: 1;
+    }
+    50%,
+    92% {
+      opacity: 0.15;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+
+  .am-tab-ic-graph {
+    display: inline-flex;
+    line-height: 0;
+  }
+
+  .am-kuku-icon {
+    display: block;
+  }
+
+  /* Right panel */
+  .am-right {
+    width: 0;
+    flex-shrink: 0;
+    overflow: hidden;
+    transition: width 0.62s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  [data-phase="graph"] .am-right,
+  [data-phase="ai-chat"] .am-right {
+    width: var(--am-panel-w);
+  }
+
+  .am-right-inner {
+    width: var(--am-panel-w);
+    min-width: var(--am-panel-w);
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: var(--ol-page);
+    border-left: 1px solid rgba(0, 0, 0, 0.07);
+  }
+  .am-rtbar {
+    height: 38px;
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    flex-shrink: 0;
+    background: var(--ol-page);
+  }
+  .am-rt-tabs {
+    display: flex;
+    gap: 2px;
+  }
+  .am-rt-tab {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    border-radius: 2px;
+    color: var(--ku-text3);
+    padding: 0;
+    cursor: default;
+  }
+  [data-phase="graph"] .am-rt-tab-graph {
+    color: var(--ku-text2);
+    box-shadow: 0 0 0 1px var(--ku-border-focus);
+  }
+  [data-phase="ai-chat"] .am-rt-tab-ai {
+    color: var(--ku-text2);
+    box-shadow: 0 0 0 1px var(--ku-border-focus);
+  }
+
+  .am-rp-content {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .am-panel-graph,
+  .am-panel-ai {
+    display: none;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  [data-phase="graph"] .am-panel-graph {
+    display: flex;
+  }
+  [data-phase="ai-chat"] .am-panel-ai {
+    display: flex;
+  }
+
+  .am-graph-canvas {
+    flex: 1;
+    min-height: 0;
+    background: var(--ol-page);
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 10px 8px 0;
+    position: relative;
+  }
+  .am-graph-svg {
+    width: 100%;
+    height: 100%;
+    max-height: 400px;
+    display: block;
+  }
+  .am-g-cluster {
+    opacity: 0;
+  }
+  .am-gc0 {
+    fill: hsla(0, 72%, 62%, 0.12);
+    stroke: hsla(0, 72%, 62%, 0.22);
+    stroke-width: 1;
+  }
+  .am-gc1 {
+    fill: hsla(137.5, 72%, 62%, 0.1);
+    stroke: hsla(137.5, 72%, 62%, 0.2);
+    stroke-width: 1;
+  }
+  .am-gc2 {
+    fill: hsla(275, 72%, 62%, 0.09);
+    stroke: hsla(275, 72%, 62%, 0.18);
+    stroke-width: 1;
+  }
+  .am-glink {
+    fill: none;
+    stroke: rgba(0, 0, 0, 0.12);
+    stroke-width: 1.1;
+  }
+  .am-gnode,
+  .am-gnode-hub {
+    opacity: 0;
+  }
+  .am-gnode-hub .am-glow {
+    animation: am-hub-pulse 2.8s ease-out infinite;
+  }
+  @keyframes am-hub-pulse {
+    0% {
+      transform: scale(0.85);
+      opacity: 0.55;
+    }
+    100% {
+      transform: scale(1.45);
+      opacity: 0;
+    }
+  }
+  .am-graph-hud {
+    flex-shrink: 0;
+    padding: 6px 8px 8px;
+    display: flex;
+    justify-content: center;
+    background: linear-gradient(to top, var(--ku-bg1), transparent);
+  }
+  .am-graph-hud-inner {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px 6px;
+    border-radius: 3px;
+    border: 1px solid var(--ku-border);
+    background: color-mix(in oklab, var(--ol-page) 95%, transparent);
+    font-size: 11px;
+    color: var(--ku-text3);
+  }
+  .am-gh-btn {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 2px;
+    cursor: default;
+  }
+  .am-gh-zoom {
+    margin-left: 4px;
+    padding-left: 6px;
+    border-left: 1px solid var(--ku-border);
+    font-variant-numeric: tabular-nums;
+    font-size: 10px;
+  }
+
+  /* AI Chat */
+  .am-chat-hd {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 40px;
+    padding: 0 10px;
+    border-bottom: 1px solid color-mix(in oklab, var(--ku-border) 72%, transparent);
+    flex-shrink: 0;
+    background: var(--ol-page);
+  }
+  .am-chat-status {
+    font-size: 12px;
+    color: var(--ku-text3);
+  }
+  .am-chat-status-busy {
+    color: var(--ku-info);
+  }
+  .am-chat-status-gen {
+    color: var(--ku-success);
+  }
+  .am-icon-btn {
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    border-radius: 2px;
+    color: var(--ku-text3);
+    cursor: default;
+    font-size: 13px;
+  }
+  .am-chat-msgs {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 12px 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: var(--ol-page);
+    align-items: stretch;
+  }
+  .am-msg-user {
+    display: flex;
+    justify-content: flex-start;
+  }
+  .am-bubble-user {
+    max-width: 100%;
+    border-radius: 8px;
+    border: 1px solid color-mix(in oklab, var(--ku-border) 72%, transparent);
+    background: color-mix(in oklab, var(--ol-page) 88%, transparent);
+    color: var(--ku-text);
+    padding: 9px 11px;
+    font-size: 12.5px;
+    line-height: 1.55;
+    box-shadow: 0 1px 2px rgba(15, 15, 15, 0.04);
+  }
+  .am-tool-block {
+    margin: 0 2px;
+    padding: 6px;
+    border-radius: 10px;
+    border: 1px solid color-mix(in oklab, var(--ku-border) 78%, transparent);
+    background: color-mix(in oklab, var(--ol-page) 95%, transparent);
+    box-shadow: 0 1px 1px rgba(15, 15, 15, 0.05);
+  }
+  .am-tool-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 11.5px;
+    padding: 5px 6px;
+    color: var(--ku-text2);
+    border-radius: 8px;
+    min-height: 28px;
+  }
+  .am-tool-row + .am-tool-row {
+    margin-top: 2px;
+  }
+  .am-tool-row:hover {
+    background: color-mix(in oklab, var(--ku-text) 7%, transparent);
+  }
+  .am-tool-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: color-mix(in oklab, var(--ku-text3) 74%, transparent);
+    flex-shrink: 0;
+    position: relative;
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--ku-border-focus) 58%, transparent);
+  }
+  .am-tool-pulse {
+    background: var(--ku-info);
+    animation: am-pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes am-pulse {
+    0%,
+    100% {
+      opacity: 0.5;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.06);
+    }
+  }
+  .am-tool-ok {
+    background: var(--ku-success);
+    animation: none;
+    opacity: 1;
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--ku-success) 55%, transparent);
+  }
+  .am-tool-check {
+    color: var(--ku-success);
+    font-size: 10px;
+    font-weight: 700;
+    width: 12px;
+    flex-shrink: 0;
+    text-align: center;
+    opacity: 0.75;
+    line-height: 1;
+  }
+  .am-tool-done .am-tool-check {
+    opacity: 1;
+  }
+  .am-tool-check-hid {
+    display: none !important;
+  }
+  #am-tool-3.am-tool-done .am-tool-dot {
+    display: none;
+  }
+  .am-ai-patch {
+    margin: 0;
+    padding: 0 0 0 10px;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: var(--ku-text2);
+    border-left: 3px solid var(--ku-success);
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+    transition:
+      opacity 0.5s cubic-bezier(0.33, 1, 0.68, 1),
+      max-height 0.5s cubic-bezier(0.33, 1, 0.68, 1),
+      margin 0.45s ease;
+  }
+  .am-ed--patched .am-ai-patch {
+    opacity: 1;
+    max-height: 6.5rem;
+    margin-top: 0.4rem;
+    margin-bottom: 0.15rem;
+  }
+  .am-glink-dim {
+    opacity: 0.45;
+  }
+  .am-tool-label {
+    color: var(--ku-text);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+  .am-tool-detail {
+    margin-left: auto;
+    color: var(--ku-text3);
+    font-size: 10px;
+    max-width: 48%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 2px 7px;
+    border-radius: 6px;
+    background: color-mix(in oklab, var(--ku-text) 8%, transparent);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    border: 1px solid color-mix(in oklab, var(--ku-border) 74%, transparent);
+  }
+  .am-bubble-typing {
+    display: flex;
+    gap: 5px;
+    padding: 10px 12px;
+    border-radius: 2px;
+    background: var(--ku-bg2);
+    border: 1px solid var(--ku-border);
+  }
+  .am-td {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--ku-text3);
+    animation: am-bounce 1.15s ease-in-out infinite;
+  }
+  .am-td:nth-child(2) {
+    animation-delay: 0.15s;
+  }
+  .am-td:nth-child(3) {
+    animation-delay: 0.3s;
+  }
+  @keyframes am-bounce {
+    0%,
+    70%,
+    100% {
+      transform: translateY(0);
+      opacity: 0.45;
+    }
+    35% {
+      transform: translateY(-5px);
+      opacity: 1;
+    }
+  }
+  .am-bubble-ai {
+    border-radius: 8px;
+    border: 1px solid color-mix(in oklab, var(--ku-border) 72%, transparent);
+    background: color-mix(in oklab, var(--ol-page) 91%, transparent);
+    padding: 9px 11px;
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--ku-text);
+    max-width: 100%;
+    box-shadow: 0 1px 2px rgba(15, 15, 15, 0.04);
+  }
+  .am-chat-p {
+    margin: 0 0 0.5em;
+  }
+  .am-chat-ul {
+    margin: 0.35em 0 0.6em;
+    padding-left: 1.1em;
+  }
+  .am-chat-ul li {
+    margin: 0.2em 0;
+  }
+  .am-chat-strong {
+    font-weight: 700;
+    margin-right: 0.25em;
+  }
+  .am-chat-num {
+    color: var(--ku-info);
+    font-weight: 600;
+  }
+  .am-chat-foot {
+    margin-bottom: 0 !important;
+    font-size: 11px;
+    color: var(--ku-text3);
+  }
+  .am-chat-ref {
+    margin-right: 0.35em;
+  }
+  .am-chat-lnk {
+    color: var(--ku-info);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: default;
+  }
+
+  .am-chat-input {
+    flex-shrink: 0;
+    margin: 6px 12px 14px;
+    border: 1px solid color-mix(in oklab, var(--ku-border) 78%, transparent);
+    border-radius: 10px;
+    background: color-mix(in oklab, var(--ol-page) 96%, transparent);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+  }
+  .am-chat-input-top {
+    border-bottom: 1px solid color-mix(in oklab, var(--ku-border) 72%, transparent);
+  }
+  .am-chat-ta {
+    box-sizing: border-box;
+    display: block;
+    width: 100%;
+    resize: none;
+    border: none;
+    background: transparent;
+    padding: 12px 14px 10px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--ku-text);
+    font-family: inherit;
+    outline: none;
+  }
+  .am-chat-ta::placeholder {
+    color: var(--ku-text3);
+    opacity: 0.88;
+  }
+  .am-chat-input-ft {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 10px;
+    background: color-mix(in oklab, var(--ku-text) 4%, transparent);
+  }
+  .am-mode-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 11px;
+    border-radius: 6px;
+    border: none;
+    background: color-mix(in oklab, var(--ku-text) 10%, transparent);
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: capitalize;
+    color: var(--ku-text2);
+    cursor: default;
+    font-family: inherit;
+    flex-shrink: 0;
+    transition: background 0.12s ease, color 0.12s ease;
+  }
+  .am-mode-btn:hover {
+    background: color-mix(in oklab, var(--ku-text) 14%, transparent);
+    color: var(--ku-text);
+  }
+  .am-caret {
+    font-size: 8px;
+    line-height: 1;
+    opacity: 0.65;
+    color: var(--ku-text3);
+  }
+  .am-chat-hint {
+    font-size: 10px;
+    line-height: 1.35;
+    color: var(--ku-text3);
+    text-align: right;
+    min-width: 0;
+  }
+  .am-kbd {
+    display: inline-block;
+    padding: 1px 5px;
+    border-radius: 4px;
+    border: 1px solid color-mix(in oklab, var(--ku-border) 82%, transparent);
+    background: color-mix(in oklab, var(--ol-page) 92%, transparent);
+    font-size: 9px;
+    font-weight: 500;
+    margin: 0 2px;
+    color: var(--ku-text2);
+  }
+</style>
