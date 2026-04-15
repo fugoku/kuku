@@ -24,8 +24,8 @@ mod wikilink;
 mod writer;
 
 use db::{
-    load_doc_identities, load_wikilink_rows, open_connection, query_body_hits, query_metadata_hits,
-    visit_advanced_body_rows, visit_advanced_title_rows,
+    load_doc_identities, load_document_freshness, load_wikilink_rows, open_connection,
+    query_body_hits, query_metadata_hits, visit_advanced_body_rows, visit_advanced_title_rows,
 };
 use wikilink::{DocIndex, RESOLUTION_AMBIGUOUS, doc_display_name, folder_label, resolve_wikilink};
 use writer::{WriterJob, queue_rebuild, start_writer_thread};
@@ -381,6 +381,49 @@ impl SearchState {
         });
     }
 
+    pub(crate) fn reconcile_loaded_markdown(&self, path: &str) -> Result<(), String> {
+        if !is_markdown_path(path) {
+            return Ok(());
+        }
+
+        let Some(runtime) = self.runtime_snapshot() else {
+            return Ok(());
+        };
+        if !runtime.incremental_updates {
+            return Ok(());
+        }
+
+        let absolute = runtime.vault_root.join(path);
+        let file_mtime_ms = fs::metadata(&absolute)
+            .ok()
+            .and_then(|meta| meta.modified().ok())
+            .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
+            .map(|duration| duration.as_millis() as i64);
+        let Some(file_mtime_ms) = file_mtime_ms else {
+            return Ok(());
+        };
+
+        let conn = open_connection(&runtime.db_path)?;
+        let stored = load_document_freshness(&conn, path)?;
+        let should_queue = match stored {
+            None => true,
+            Some(stored) => file_mtime_ms > stored.mtime_ms,
+        };
+
+        if !should_queue {
+            return Ok(());
+        }
+
+        runtime
+            .job_tx
+            .send(WriterJob::IndexFile {
+                path: path.to_string(),
+                source: "load-stale-reconcile".to_string(),
+            })
+            .map_err(|e| format!("Failed to enqueue load reconcile job: {e}"))?;
+        Ok(())
+    }
+
     pub fn query_simple(
         &self,
         query: &str,
@@ -687,13 +730,19 @@ impl SearchState {
 
     fn runtime_snapshot(&self) -> Option<RuntimeSnapshot> {
         self.with_runtime(|runtime| RuntimeSnapshot {
+            vault_root: runtime.vault_root.clone(),
             db_path: runtime.db_path.clone(),
+            job_tx: runtime.job_tx.clone(),
+            incremental_updates: runtime.config.lock().incremental_updates,
         })
     }
 }
 
 struct RuntimeSnapshot {
+    vault_root: PathBuf,
     db_path: PathBuf,
+    job_tx: Sender<WriterJob>,
+    incremental_updates: bool,
 }
 
 pub fn search_db_path(
@@ -810,6 +859,7 @@ mod tests {
             doc_id: doc_id.to_string(),
             title: title.map(ToString::to_string),
             mtime_ms: 1,
+            content_checksum: format!("checksum:{doc_id}"),
             meta_json: "{}".to_string(),
             chunks: chunks
                 .into_iter()
@@ -840,6 +890,7 @@ mod tests {
             doc_id: doc_id.to_string(),
             title: None,
             mtime_ms: 1,
+            content_checksum: format!("checksum:{doc_id}"),
             meta_json: "{}".to_string(),
             chunks: vec![],
             wikilink_refs: wikilinks
@@ -967,6 +1018,52 @@ mod tests {
             job_rx.try_recv(),
             Ok(WriterJob::FullRebuild { reason: _ })
         ));
+    }
+
+    #[test]
+    fn reconcile_loaded_markdown_queues_when_file_mtime_is_newer() {
+        let (state, job_rx) = build_state_with_job_rx(IndexerConfig::default());
+        let runtime = state.runtime_snapshot().unwrap();
+        fs::write(runtime.vault_root.join("note.md"), "# Title\nbody").unwrap();
+
+        let mut conn = open_connection(&runtime.db_path).unwrap();
+        let tx = conn.transaction().unwrap();
+        db::replace_document(
+            &tx,
+            &IndexedDocument {
+                note_uid: None,
+                doc_id: "note.md".to_string(),
+                title: Some("Title".to_string()),
+                mtime_ms: 1,
+                content_checksum: "stale-checksum".to_string(),
+                meta_json: "{}".to_string(),
+                chunks: vec![],
+                wikilink_refs: vec![],
+            },
+        )
+        .unwrap();
+        tx.commit().unwrap();
+
+        state.reconcile_loaded_markdown("note.md").unwrap();
+
+        assert!(matches!(
+            job_rx.try_recv(),
+            Ok(WriterJob::IndexFile { path, source })
+                if path == "note.md" && source == "load-stale-reconcile"
+        ));
+    }
+
+    #[test]
+    fn reconcile_loaded_markdown_skips_when_incremental_updates_are_disabled() {
+        let mut config = IndexerConfig::default();
+        config.incremental_updates = false;
+        let (state, job_rx) = build_state_with_job_rx(config);
+        let runtime = state.runtime_snapshot().unwrap();
+        fs::write(runtime.vault_root.join("note.md"), "# Title\nbody").unwrap();
+
+        state.reconcile_loaded_markdown("note.md").unwrap();
+
+        assert!(job_rx.try_recv().is_err());
     }
 
     #[test]

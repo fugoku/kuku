@@ -32,9 +32,16 @@ pub struct IndexedDocument {
     pub doc_id: String,
     pub title: Option<String>,
     pub mtime_ms: i64,
+    pub content_checksum: String,
     pub meta_json: String,
     pub chunks: Vec<IndexedChunkRow>,
     pub wikilink_refs: Vec<IndexedWikilinkRow>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoredDocumentFreshness {
+    pub mtime_ms: i64,
+    pub content_checksum: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -75,6 +82,7 @@ CREATE TABLE IF NOT EXISTS documents (
     doc_id TEXT NOT NULL UNIQUE,
     title TEXT,
     mtime_ms INTEGER NOT NULL,
+    content_checksum TEXT,
     meta_json TEXT NOT NULL
 );
 
@@ -163,7 +171,9 @@ pub fn init_schema(conn: &Connection) -> Result<(), String> {
     }
 
     conn.execute_batch(CREATE_SCHEMA_SQL)
-        .map_err(|e| format!("Failed to initialize search schema: {e}"))
+        .map_err(|e| format!("Failed to initialize search schema: {e}"))?;
+
+    ensure_documents_freshness_columns(conn)
 }
 
 pub fn replace_document(tx: &Transaction<'_>, doc: &IndexedDocument) -> Result<i64, String> {
@@ -188,15 +198,23 @@ pub fn replace_document(tx: &Transaction<'_>, doc: &IndexedDocument) -> Result<i
             .map_err(|e| format!("Failed to delete existing wikilinks: {e}"))?;
             tx.execute(
                 r#"
-                INSERT INTO documents (note_uid, doc_id, title, mtime_ms, meta_json)
-                VALUES (?1, ?2, ?3, ?4, ?5)
+                INSERT INTO documents (note_uid, doc_id, title, mtime_ms, content_checksum, meta_json)
+                VALUES (?1, ?2, ?3, ?4, ?5, ?6)
                 ON CONFLICT(note_uid) DO UPDATE SET
                     doc_id = excluded.doc_id,
                     title = excluded.title,
                     mtime_ms = excluded.mtime_ms,
+                    content_checksum = excluded.content_checksum,
                     meta_json = excluded.meta_json
                 "#,
-                params![note_uid, doc.doc_id, doc.title, doc.mtime_ms, doc.meta_json],
+                params![
+                    note_uid,
+                    doc.doc_id,
+                    doc.title,
+                    doc.mtime_ms,
+                    doc.content_checksum,
+                    doc.meta_json
+                ],
             )
             .map_err(|e| format!("Failed to upsert document: {e}"))?;
             note_uid
@@ -213,8 +231,14 @@ pub fn replace_document(tx: &Transaction<'_>, doc: &IndexedDocument) -> Result<i
             )
             .map_err(|e| format!("Failed to delete existing document: {e}"))?;
             tx.execute(
-                "INSERT INTO documents (doc_id, title, mtime_ms, meta_json) VALUES (?, ?, ?, ?)",
-                params![doc.doc_id, doc.title, doc.mtime_ms, doc.meta_json],
+                "INSERT INTO documents (doc_id, title, mtime_ms, content_checksum, meta_json) VALUES (?, ?, ?, ?, ?)",
+                params![
+                    doc.doc_id,
+                    doc.title,
+                    doc.mtime_ms,
+                    doc.content_checksum,
+                    doc.meta_json
+                ],
             )
             .map_err(|e| format!("Failed to insert document: {e}"))?;
             tx.last_insert_rowid()
@@ -370,6 +394,41 @@ pub fn load_doc_identities(conn: &Connection) -> Result<Vec<DocIdentity>, String
         docs.push(row.map_err(|e| format!("Failed to read document identity: {e}"))?);
     }
     Ok(docs)
+}
+
+pub fn load_document_freshness(
+    conn: &Connection,
+    doc_id: &str,
+) -> Result<Option<StoredDocumentFreshness>, String> {
+    conn.query_row(
+        "SELECT mtime_ms, content_checksum FROM documents WHERE doc_id = ?1",
+        params![doc_id],
+        |row| {
+            Ok(StoredDocumentFreshness {
+                mtime_ms: row.get(0)?,
+                content_checksum: row.get(1)?,
+            })
+        },
+    )
+    .optional()
+    .map_err(|e| format!("Failed to query document freshness: {e}"))
+}
+
+pub fn update_document_freshness(
+    tx: &Transaction<'_>,
+    doc_id: &str,
+    mtime_ms: i64,
+    content_checksum: &str,
+) -> Result<(), String> {
+    tx.execute(
+        "UPDATE documents
+         SET mtime_ms = ?2,
+             content_checksum = ?3
+         WHERE doc_id = ?1",
+        params![doc_id, mtime_ms, content_checksum],
+    )
+    .map_err(|e| format!("Failed to update document freshness: {e}"))?;
+    Ok(())
 }
 
 pub fn load_wikilink_rows(conn: &Connection) -> Result<Vec<StoredWikilinkRefRow>, String> {
@@ -719,6 +778,19 @@ fn schema_reset_required(conn: &Connection) -> Result<bool, String> {
     Ok(!table_has_column(conn, "documents", "note_uid")?)
 }
 
+fn ensure_documents_freshness_columns(conn: &Connection) -> Result<(), String> {
+    if !table_exists(conn, "documents")? {
+        return Ok(());
+    }
+
+    if !table_has_column(conn, "documents", "content_checksum")? {
+        conn.execute("ALTER TABLE documents ADD COLUMN content_checksum TEXT", [])
+            .map_err(|e| format!("Failed to add content_checksum column: {e}"))?;
+    }
+
+    Ok(())
+}
+
 fn table_exists(conn: &Connection, table_name: &str) -> Result<bool, String> {
     conn.query_row(
         "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type IN ('table', 'view') AND name = ?1)",
@@ -807,6 +879,7 @@ mod tests {
                 doc_id: "note.md".to_string(),
                 title: Some("Alpha Title".to_string()),
                 mtime_ms: 1,
+                content_checksum: "checksum:note.md".to_string(),
                 meta_json: "{}".to_string(),
                 chunks: vec![IndexedChunkRow {
                     section_path_json: serde_json::to_string(&vec!["Section".to_string()]).unwrap(),
@@ -852,6 +925,7 @@ mod tests {
                 doc_id: "note.md".to_string(),
                 title: None,
                 mtime_ms: 1,
+                content_checksum: "checksum:note.md".to_string(),
                 meta_json: "{}".to_string(),
                 chunks: vec![],
                 wikilink_refs: vec![IndexedWikilinkRow {
@@ -870,5 +944,27 @@ mod tests {
         assert_eq!(refs.len(), 1);
         assert_eq!(refs[0].source_note_uid, note_uid);
         assert_eq!(refs[0].raw_target, "target");
+    }
+
+    #[test]
+    fn init_schema_adds_content_checksum_column_without_reset() {
+        let conn = Connection::open_in_memory().unwrap();
+        configure_connection(&conn).unwrap();
+        conn.execute_batch(
+            r#"
+            CREATE TABLE documents (
+                note_uid INTEGER PRIMARY KEY AUTOINCREMENT,
+                doc_id TEXT NOT NULL UNIQUE,
+                title TEXT,
+                mtime_ms INTEGER NOT NULL,
+                meta_json TEXT NOT NULL
+            );
+            "#,
+        )
+        .unwrap();
+
+        init_schema(&conn).unwrap();
+
+        assert!(table_has_column(&conn, "documents", "content_checksum").unwrap());
     }
 }

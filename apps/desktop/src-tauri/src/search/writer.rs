@@ -12,13 +12,15 @@ use crate::models::{IndexerConfig, IndexerDebugStatus, IndexerStatus};
 use crate::search::db::{
     IndexedChunkRow, IndexedDocument, IndexedWikilinkRow, StoredWikilinkRefRow,
     find_note_uid_by_doc_id, find_note_uid_by_doc_id_nocase, list_indexed_doc_ids,
-    load_doc_identities, load_link_counts, load_wikilink_rows, open_connection, remove_document,
-    replace_document, update_wikilink_resolution,
+    load_doc_identities, load_document_freshness, load_link_counts, load_wikilink_rows,
+    open_connection, remove_document, replace_document, update_document_freshness,
+    update_wikilink_resolution,
 };
 use crate::search::wikilink::{
     DocIndex, basename_from_normalized, normalize_link_target, resolve_wikilink,
 };
 use crate::search::{RebuildQueueState, is_markdown_path, to_relative_path};
+use crate::vault::checksum::compute_checksum;
 use crate::vault::should_ignore_path;
 
 #[derive(Debug, Clone)]
@@ -203,6 +205,19 @@ fn record_last_job(
     guard.last_job_source = Some(source.to_string());
 }
 
+fn refresh_document_freshness_only(
+    conn: &mut Connection,
+    doc: &IndexedDocument,
+) -> Result<(), String> {
+    let tx = conn
+        .transaction()
+        .map_err(|e| format!("Failed to open freshness refresh transaction: {e}"))?;
+    update_document_freshness(&tx, &doc.doc_id, doc.mtime_ms, &doc.content_checksum)?;
+    tx.commit()
+        .map_err(|e| format!("Failed to commit freshness refresh transaction: {e}"))?;
+    Ok(())
+}
+
 fn collect_markdown_files(dir: &Path, root: &Path, out: &mut Vec<String>) -> Result<(), String> {
     let entries = fs::read_dir(dir).map_err(|e| format!("Failed to read vault directory: {e}"))?;
     for entry in entries {
@@ -252,6 +267,7 @@ fn build_document(
 
     let markdown =
         fs::read_to_string(&absolute).map_err(|e| format!("Failed to read markdown file: {e}"))?;
+    let content_checksum = compute_checksum(&markdown);
     let extracted = kuku_indexer::extract_document(&markdown);
     let meta_json = serde_json::to_string(
         &extracted
@@ -299,6 +315,7 @@ fn build_document(
         doc_id: rel_path.to_string(),
         title: extracted.title,
         mtime_ms: mtime_ms(&absolute),
+        content_checksum,
         meta_json,
         chunks,
         wikilink_refs,
@@ -415,6 +432,17 @@ fn handle_index_file(
 
     let mut plan = ReResolutionPlan::default();
     let maybe_doc = build_document(conn, vault_root, path)?;
+    if let Some(doc) = maybe_doc.as_ref() {
+        if let Some(stored) = load_document_freshness(conn, path)?
+            && stored.content_checksum.as_deref() == Some(doc.content_checksum.as_str())
+        {
+            refresh_document_freshness_only(conn, doc)?;
+            refresh_idle_status(conn, status)?;
+            record_last_job(debug_status, "index-file-skip", Some(path), source);
+            return Ok(());
+        }
+    }
+
     let tx = conn
         .transaction()
         .map_err(|e| format!("Failed to open index transaction: {e}"))?;
@@ -758,5 +786,45 @@ mod tests {
             Some(old_uid)
         );
         assert_eq!(find_note_uid_by_doc_id(&conn, "BAse.md").unwrap(), None);
+    }
+
+    #[test]
+    fn index_file_skip_refreshes_mtime_when_checksum_matches() {
+        let root = unique_path("kuku-index-root");
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("note.md"), "# Title\nhello").unwrap();
+
+        let db_path = unique_path("kuku-index-db").with_extension("sqlite3");
+        let mut conn = open_connection(&db_path).unwrap();
+        let status = Arc::new(Mutex::new(IndexerStatus::default()));
+        let debug_status = Arc::new(Mutex::new(IndexerDebugStatus::default()));
+
+        handle_index_file(&mut conn, &root, "note.md", "test", &status, &debug_status).unwrap();
+        let first = load_document_freshness(&conn, "note.md").unwrap().unwrap();
+
+        thread::sleep(Duration::from_millis(20));
+        let content = fs::read_to_string(root.join("note.md")).unwrap();
+        fs::write(root.join("note.md"), content).unwrap();
+
+        handle_index_file(
+            &mut conn,
+            &root,
+            "note.md",
+            "load-stale-reconcile",
+            &status,
+            &debug_status,
+        )
+        .unwrap();
+
+        let refreshed = load_document_freshness(&conn, "note.md").unwrap().unwrap();
+        assert_eq!(refreshed.content_checksum, first.content_checksum);
+        assert!(refreshed.mtime_ms >= first.mtime_ms);
+
+        let debug = debug_status.lock().clone();
+        assert_eq!(debug.last_job_kind.as_deref(), Some("index-file-skip"));
+        assert_eq!(
+            debug.last_job_source.as_deref(),
+            Some("load-stale-reconcile")
+        );
     }
 }

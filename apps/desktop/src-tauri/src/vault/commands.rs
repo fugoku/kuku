@@ -242,6 +242,7 @@ pub async fn vault_write_binary(
 #[command]
 pub async fn vault_read_with_checksum(
     state: State<'_, VaultState>,
+    search: State<'_, SearchState>,
     path: String,
 ) -> Result<FileReadResult, String> {
     // Read-only bootstrap path for editor load. This command does not
@@ -252,6 +253,11 @@ pub async fn vault_read_with_checksum(
         .await
         .map_err(|e| e.to_string())?;
     let checksum = compute_checksum(&content);
+    let search_state = search.inner().clone();
+    let reconcile_path = path.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let _ = search_state.reconcile_loaded_markdown(&reconcile_path);
+    });
     Ok(FileReadResult { content, checksum })
 }
 
