@@ -1,4 +1,4 @@
-import { For, Show, createMemo, type JSX } from "solid-js";
+import { For, Show, createMemo, createSignal, onCleanup, type JSX } from "solid-js";
 
 import {
   SettingsBanner,
@@ -16,6 +16,8 @@ import {
 } from "./settings_blocks";
 import Switch from "~/components/ui/switch";
 import { authState } from "~/plugins/builtin/core_auth/auth_service";
+import { getSearchService } from "~/plugins/builtin/search/runtime";
+import type { IndexerDebugStatus } from "~/plugins/builtin/core_indexer/types";
 import { indexerStatus } from "~/plugins/builtin/core_indexer/status_store";
 import { registryState } from "~/plugins/registry";
 import { filesState, getActiveTab } from "~/stores/files";
@@ -37,7 +39,13 @@ function reloadDebugView(): void {
   window.location.reload();
 }
 
+function formatDebugTimestamp(ts: number | null): string {
+  if (!ts) return "None";
+  return new Date(ts).toLocaleString();
+}
+
 function SettingsDebugView(): JSX.Element {
+  const [indexerDebug, setIndexerDebug] = createSignal<IndexerDebugStatus | null>(null);
   const localStorageKeys = createMemo(() => {
     const keys: string[] = [];
     for (let index = 0; index < localStorage.length; index += 1) {
@@ -56,6 +64,28 @@ function SettingsDebugView(): JSX.Element {
   };
 
   const activeRightPanel = () => layoutState.activeRightPanelViewId ?? "None";
+  const refreshIndexerDebug = async () => {
+    const service = getSearchService();
+    if (!service) {
+      setIndexerDebug(null);
+      return;
+    }
+
+    try {
+      setIndexerDebug(await service.getDebugStatus());
+    } catch {
+      setIndexerDebug(null);
+    }
+  };
+
+  void refreshIndexerDebug();
+  const debugTimer = window.setInterval(() => {
+    void refreshIndexerDebug();
+  }, 1000);
+  onCleanup(() => {
+    window.clearInterval(debugTimer);
+  });
+
   const copyDebugSnapshot = async () => {
     const snapshot = {
       buildMode: buildModeLabel(),
@@ -72,6 +102,7 @@ function SettingsDebugView(): JSX.Element {
         state: indexerStatus.state,
         indexedDocs: indexerStatus.indexedDocs,
         totalDocs: indexerStatus.totalDocs,
+        debug: indexerDebug(),
       },
       vaultRoot: vaultState.rootPath,
       language: settingsState.general.language,
@@ -142,6 +173,75 @@ function SettingsDebugView(): JSX.Element {
           <SettingsMetricRow label="Vault root" value={vaultState.rootPath ?? "None"} />
           <SettingsMetricRow label="Language" value={settingsState.general.language} />
           <SettingsMetricRow label="Theme" value={settingsState.appearance.theme} />
+        </div>
+      </SettingsCard>
+
+      <SettingsCard
+        title="Indexer Debug"
+        description="Backend-only debug snapshot for rebuild reasons, watcher dedupe, and last writer job."
+        tone="subtle"
+      >
+        <div class="space-y-1.5">
+          <SettingsMetricRow
+            label="Runtime active"
+            value={indexerDebug()?.runtimeActive ? "Yes" : "No"}
+          />
+          <SettingsMetricRow label="DB path" value={indexerDebug()?.dbPath ?? "None"} />
+          <SettingsMetricRow
+            label="Last job"
+            value={
+              indexerDebug()?.lastJobKind
+                ? `${indexerDebug()?.lastJobKind} (${indexerDebug()?.lastJobSource ?? "unknown"})`
+                : "None"
+            }
+          />
+          <SettingsMetricRow label="Last job path" value={indexerDebug()?.lastJobPath ?? "None"} />
+          <SettingsMetricRow
+            label="Last rebuild reason"
+            value={indexerDebug()?.lastRebuildReason ?? "None"}
+          />
+          <SettingsMetricRow
+            label="Queued rebuild reason"
+            value={indexerDebug()?.queuedRebuildReason ?? "None"}
+          />
+          <SettingsMetricRow
+            label="Rebuild queue"
+            value={
+              indexerDebug()
+                ? `queued=${indexerDebug()?.rebuildQueued ? "true" : "false"} running=${indexerDebug()?.rebuildRunning ? "true" : "false"} rerun=${indexerDebug()?.rebuildRerun ? "true" : "false"}`
+                : "None"
+            }
+          />
+          <SettingsMetricRow
+            label="Coalesced rebuilds"
+            value={String(indexerDebug()?.coalescedRebuildCount ?? 0)}
+          />
+          <SettingsMetricRow
+            label="Last watcher event"
+            value={
+              indexerDebug()?.lastWatcherEventKind
+                ? `${indexerDebug()?.lastWatcherEventKind} (${indexerDebug()?.lastWatcherEventSource ?? "unknown"})`
+                : "None"
+            }
+          />
+          <SettingsMetricRow
+            label="Watcher path"
+            value={indexerDebug()?.lastWatcherEventPath ?? "None"}
+          />
+          <SettingsMetricRow
+            label="Watcher skipped"
+            value={
+              indexerDebug()?.lastWatcherEventSkipped === null
+                ? "None"
+                : indexerDebug()?.lastWatcherEventSkipped
+                  ? "true"
+                  : "false"
+            }
+          />
+          <SettingsMetricRow
+            label="Watcher timestamp"
+            value={formatDebugTimestamp(indexerDebug()?.lastWatcherEventAt ?? null)}
+          />
         </div>
       </SettingsCard>
 

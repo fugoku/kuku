@@ -3,6 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::mpsc::Sender;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use blake3::Hash;
 use kuku_indexer::{
@@ -13,8 +14,8 @@ use regex::RegexBuilder;
 
 use crate::models::{
     AdvancedQueryRequest, FileChangeEvent, GraphLinkDto, GraphNodeDto, GraphSnapshot,
-    IndexerConfig, IndexerStatus, IndexerStorageLocation, ResolveWikilinkResult,
-    SimpleSearchResult,
+    IndexerConfig, IndexerDebugStatus, IndexerStatus, IndexerStorageLocation,
+    ResolveWikilinkResult, SimpleSearchResult,
 };
 
 pub mod commands;
@@ -51,6 +52,7 @@ struct SearchRuntime {
     db_path: PathBuf,
     job_tx: Sender<WriterJob>,
     status: Arc<Mutex<IndexerStatus>>,
+    debug_status: Arc<Mutex<IndexerDebugStatus>>,
     rebuild_state: Arc<Mutex<RebuildQueueState>>,
     config: Arc<Mutex<IndexerConfig>>,
 }
@@ -77,6 +79,13 @@ fn config_change_effect(previous: &IndexerConfig, next: &IndexerConfig) -> Confi
     }
 
     ConfigChangeEffect::RuntimeOnly
+}
+
+fn now_ms() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as i64
 }
 
 impl SearchState {
@@ -108,6 +117,7 @@ impl SearchState {
         }
 
         let status = Arc::new(Mutex::new(IndexerStatus::default()));
+        let debug_status = Arc::new(Mutex::new(IndexerDebugStatus::default()));
         let rebuild_state = Arc::new(Mutex::new(RebuildQueueState::default()));
         let runtime_config = Arc::new(Mutex::new(config.clone()));
         let job_tx = start_writer_thread(
@@ -115,6 +125,7 @@ impl SearchState {
             db_path.clone(),
             status.clone(),
             rebuild_state.clone(),
+            debug_status.clone(),
             runtime_config.clone(),
         );
         let runtime = SearchRuntime {
@@ -122,6 +133,7 @@ impl SearchState {
             db_path,
             job_tx,
             status,
+            debug_status,
             rebuild_state,
             config: runtime_config,
         };
@@ -134,7 +146,7 @@ impl SearchState {
         drop(manager);
 
         if request_reindex_on_open && config.reindex_on_vault_open {
-            self.request_rebuild()?;
+            self.request_rebuild_with_reason("vault-open")?;
         }
 
         Ok(())
@@ -151,6 +163,20 @@ impl SearchState {
     pub fn get_status(&self) -> IndexerStatus {
         self.with_runtime(|runtime| runtime.status.lock().clone())
             .unwrap_or_default()
+    }
+
+    pub fn get_debug_status(&self) -> IndexerDebugStatus {
+        self.with_runtime(|runtime| {
+            let mut debug = runtime.debug_status.lock().clone();
+            let rebuild = runtime.rebuild_state.lock();
+            debug.runtime_active = true;
+            debug.db_path = Some(runtime.db_path.to_string_lossy().to_string());
+            debug.rebuild_queued = rebuild.queued;
+            debug.rebuild_running = rebuild.running;
+            debug.rebuild_rerun = rebuild.rerun;
+            debug
+        })
+        .unwrap_or_default()
     }
 
     pub fn get_config(&self) -> IndexerConfig {
@@ -190,46 +216,90 @@ impl SearchState {
             effect,
             ConfigChangeEffect::Rebuild | ConfigChangeEffect::RestartAndRebuild
         ) {
-            self.request_rebuild()?;
+            let reason = match effect {
+                ConfigChangeEffect::Rebuild => "config-resolution-policy",
+                ConfigChangeEffect::RestartAndRebuild => "config-storage-location",
+                _ => "unknown",
+            };
+            self.request_rebuild_with_reason(reason)?;
         }
 
         Ok(())
     }
 
     pub fn request_rebuild(&self) -> Result<(), String> {
+        self.request_rebuild_with_reason("manual-rebuild")
+    }
+
+    pub(crate) fn request_rebuild_with_reason(&self, reason: &str) -> Result<(), String> {
         {
             let manager = self.inner.lock();
             let Some(runtime) = manager.runtime.as_ref() else {
                 return Ok(());
             };
-            queue_rebuild(&runtime.rebuild_state, &runtime.job_tx);
+            queue_rebuild(
+                &runtime.rebuild_state,
+                &runtime.job_tx,
+                &runtime.debug_status,
+                reason,
+            );
         }
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn notify_written(&self, path: &str) -> Result<(), String> {
+        self.notify_written_with_source(path, "unknown")
+    }
+
+    pub(crate) fn notify_written_with_source(
+        &self,
+        path: &str,
+        source: &str,
+    ) -> Result<(), String> {
         self.with_runtime_result(|runtime| {
             if !is_markdown_path(path) {
                 return Ok(());
             }
             if !runtime.config.lock().incremental_updates {
-                queue_rebuild(&runtime.rebuild_state, &runtime.job_tx);
+                queue_rebuild(
+                    &runtime.rebuild_state,
+                    &runtime.job_tx,
+                    &runtime.debug_status,
+                    source,
+                );
                 return Ok(());
             }
             runtime
                 .job_tx
                 .send(WriterJob::IndexFile {
                     path: path.to_string(),
+                    source: source.to_string(),
                 })
                 .map_err(|e| format!("Failed to enqueue index job: {e}"))?;
             Ok(())
         })
     }
 
+    #[allow(dead_code)]
     pub fn notify_removed(&self, path: &str, is_dir: bool) -> Result<(), String> {
+        self.notify_removed_with_source(path, is_dir, "unknown")
+    }
+
+    pub(crate) fn notify_removed_with_source(
+        &self,
+        path: &str,
+        is_dir: bool,
+        source: &str,
+    ) -> Result<(), String> {
         self.with_runtime_result(|runtime| {
             if !runtime.config.lock().incremental_updates {
-                queue_rebuild(&runtime.rebuild_state, &runtime.job_tx);
+                queue_rebuild(
+                    &runtime.rebuild_state,
+                    &runtime.job_tx,
+                    &runtime.debug_status,
+                    source,
+                );
                 return Ok(());
             }
             runtime
@@ -237,21 +307,38 @@ impl SearchState {
                 .send(WriterJob::RemoveFile {
                     path: path.to_string(),
                     is_dir,
+                    source: source.to_string(),
                 })
                 .map_err(|e| format!("Failed to enqueue remove job: {e}"))?;
             Ok(())
         })
     }
 
+    #[allow(dead_code)]
     pub fn notify_renamed(
         &self,
         old_path: &str,
         new_path: &str,
         is_dir: bool,
     ) -> Result<(), String> {
+        self.notify_renamed_with_source(old_path, new_path, is_dir, "unknown")
+    }
+
+    pub(crate) fn notify_renamed_with_source(
+        &self,
+        old_path: &str,
+        new_path: &str,
+        is_dir: bool,
+        source: &str,
+    ) -> Result<(), String> {
         self.with_runtime_result(|runtime| {
             if !runtime.config.lock().incremental_updates {
-                queue_rebuild(&runtime.rebuild_state, &runtime.job_tx);
+                queue_rebuild(
+                    &runtime.rebuild_state,
+                    &runtime.job_tx,
+                    &runtime.debug_status,
+                    source,
+                );
                 return Ok(());
             }
             runtime
@@ -260,6 +347,7 @@ impl SearchState {
                     old_path: old_path.to_string(),
                     new_path: new_path.to_string(),
                     is_dir,
+                    source: source.to_string(),
                 })
                 .map_err(|e| format!("Failed to enqueue rename job: {e}"))?;
             Ok(())
@@ -268,15 +356,29 @@ impl SearchState {
 
     pub fn handle_watcher_event(&self, event: &FileChangeEvent) -> Result<(), String> {
         match event.kind.as_str() {
-            "create" | "modify" => self.notify_written(&event.path),
-            "delete" => self.notify_removed(&event.path, event.is_dir),
-            "rename" => self.notify_renamed(
+            "create" | "modify" => self.notify_written_with_source(&event.path, "external-watch"),
+            "delete" => {
+                self.notify_removed_with_source(&event.path, event.is_dir, "external-watch")
+            }
+            "rename" => self.notify_renamed_with_source(
                 event.old_path.as_deref().unwrap_or_default(),
                 &event.path,
                 event.is_dir,
+                "external-watch",
             ),
             _ => Ok(()),
         }
+    }
+
+    pub(crate) fn note_watcher_event(&self, event: &FileChangeEvent, source: &str, skipped: bool) {
+        let _ = self.with_runtime(|runtime| {
+            let mut debug = runtime.debug_status.lock();
+            debug.last_watcher_event_kind = Some(event.kind.clone());
+            debug.last_watcher_event_path = Some(event.path.clone());
+            debug.last_watcher_event_source = Some(source.to_string());
+            debug.last_watcher_event_skipped = Some(skipped);
+            debug.last_watcher_event_at = Some(now_ms());
+        });
     }
 
     pub fn query_simple(
@@ -667,6 +769,7 @@ mod tests {
                     db_path,
                     job_tx,
                     status: Arc::new(Mutex::new(IndexerStatus::default())),
+                    debug_status: Arc::new(Mutex::new(IndexerDebugStatus::default())),
                     rebuild_state: Arc::new(Mutex::new(RebuildQueueState::default())),
                     config: Arc::new(Mutex::new(IndexerConfig::default())),
                 }),
@@ -687,6 +790,7 @@ mod tests {
                     db_path,
                     job_tx,
                     status: Arc::new(Mutex::new(IndexerStatus::default())),
+                    debug_status: Arc::new(Mutex::new(IndexerDebugStatus::default())),
                     rebuild_state: Arc::new(Mutex::new(RebuildQueueState::default())),
                     config: Arc::new(Mutex::new(config.clone())),
                 }),
@@ -859,7 +963,10 @@ mod tests {
 
         state.set_config(next).unwrap();
 
-        assert!(matches!(job_rx.try_recv(), Ok(WriterJob::FullRebuild)));
+        assert!(matches!(
+            job_rx.try_recv(),
+            Ok(WriterJob::FullRebuild { reason: _ })
+        ));
     }
 
     #[test]

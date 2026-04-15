@@ -143,7 +143,7 @@ impl AiHostBindings for DesktopAiHost {
 
         let mut applied = Vec::new();
         let mut warnings = Vec::new();
-        let mutation_sync = AppMutationSync::new(&vault.expected_mutations, &search);
+        let mutation_sync = AppMutationSync::new(&vault.expected_mutations, &search, "ai-mutation");
 
         for (index, op) in plan.operations.iter().enumerate() {
             let mutation = mutation_for_applied_op(&root, op)
@@ -319,7 +319,7 @@ fn sync_search(
     recorded: &RecordedAppMutation,
 ) -> Option<String> {
     if let Err(error) = mutation_sync.notify_applied(recorded) {
-        let _ = search.request_rebuild();
+        let _ = search.request_rebuild_with_reason("sync-error");
         return Some(format!("Search sync fallback: {error}"));
     }
 

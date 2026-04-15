@@ -8,7 +8,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use parking_lot::Mutex;
 use rusqlite::Connection;
 
-use crate::models::{IndexerConfig, IndexerStatus};
+use crate::models::{IndexerConfig, IndexerDebugStatus, IndexerStatus};
 use crate::search::db::{
     IndexedChunkRow, IndexedDocument, IndexedWikilinkRow, StoredWikilinkRefRow,
     find_note_uid_by_doc_id, find_note_uid_by_doc_id_nocase, list_indexed_doc_ids,
@@ -23,18 +23,23 @@ use crate::vault::should_ignore_path;
 
 #[derive(Debug, Clone)]
 pub enum WriterJob {
-    FullRebuild,
+    FullRebuild {
+        reason: String,
+    },
     IndexFile {
         path: String,
+        source: String,
     },
     RemoveFile {
         path: String,
         is_dir: bool,
+        source: String,
     },
     RenameFile {
         old_path: String,
         new_path: String,
         is_dir: bool,
+        source: String,
     },
     Shutdown,
 }
@@ -52,6 +57,7 @@ pub fn start_writer_thread(
     db_path: PathBuf,
     status: Arc<Mutex<IndexerStatus>>,
     rebuild_state: Arc<Mutex<RebuildQueueState>>,
+    debug_status: Arc<Mutex<IndexerDebugStatus>>,
     _config: Arc<Mutex<IndexerConfig>>,
 ) -> Sender<WriterJob> {
     let (job_tx, job_rx) = mpsc::channel::<WriterJob>();
@@ -73,29 +79,54 @@ pub fn start_writer_thread(
                 break;
             }
 
-            let is_full_rebuild = matches!(&job, WriterJob::FullRebuild);
+            let is_full_rebuild = matches!(&job, WriterJob::FullRebuild { .. });
             let result = match job {
-                WriterJob::FullRebuild => {
-                    handle_full_rebuild(&mut conn, &vault_root, &status, &rebuild_state, &loop_tx)
-                }
-                WriterJob::IndexFile { path } => {
-                    handle_index_file(&mut conn, &vault_root, &path, &status)
-                }
-                WriterJob::RemoveFile { path, is_dir } => {
-                    handle_remove_file(&mut conn, &path, is_dir, &status, &rebuild_state, &loop_tx)
-                }
+                WriterJob::FullRebuild { reason } => handle_full_rebuild(
+                    &mut conn,
+                    &vault_root,
+                    &status,
+                    &rebuild_state,
+                    &debug_status,
+                    &loop_tx,
+                    &reason,
+                ),
+                WriterJob::IndexFile { path, source } => handle_index_file(
+                    &mut conn,
+                    &vault_root,
+                    &path,
+                    &source,
+                    &status,
+                    &debug_status,
+                ),
+                WriterJob::RemoveFile {
+                    path,
+                    is_dir,
+                    source,
+                } => handle_remove_file(
+                    &mut conn,
+                    &path,
+                    is_dir,
+                    &source,
+                    &status,
+                    &rebuild_state,
+                    &debug_status,
+                    &loop_tx,
+                ),
                 WriterJob::RenameFile {
                     old_path,
                     new_path,
                     is_dir,
+                    source,
                 } => handle_rename_file(
                     &mut conn,
                     &vault_root,
                     &old_path,
                     &new_path,
                     is_dir,
+                    &source,
                     &status,
                     &rebuild_state,
+                    &debug_status,
                     &loop_tx,
                 ),
                 WriterJob::Shutdown => Ok(()),
@@ -158,6 +189,18 @@ fn reset_rebuild_state_after_error(rebuild_state: &Arc<Mutex<RebuildQueueState>>
     guard.queued = false;
     guard.running = false;
     guard.rerun = false;
+}
+
+fn record_last_job(
+    debug_status: &Arc<Mutex<IndexerDebugStatus>>,
+    kind: &str,
+    path: Option<&str>,
+    source: &str,
+) {
+    let mut guard = debug_status.lock();
+    guard.last_job_kind = Some(kind.to_string());
+    guard.last_job_path = path.map(ToString::to_string);
+    guard.last_job_source = Some(source.to_string());
 }
 
 fn collect_markdown_files(dir: &Path, root: &Path, out: &mut Vec<String>) -> Result<(), String> {
@@ -267,12 +310,19 @@ fn handle_full_rebuild(
     vault_root: &Path,
     status: &Arc<Mutex<IndexerStatus>>,
     rebuild_state: &Arc<Mutex<RebuildQueueState>>,
+    debug_status: &Arc<Mutex<IndexerDebugStatus>>,
     loop_tx: &Sender<WriterJob>,
+    reason: &str,
 ) -> Result<(), String> {
     {
         let mut guard = rebuild_state.lock();
         guard.queued = false;
         guard.running = true;
+    }
+    {
+        let mut guard = debug_status.lock();
+        guard.queued_rebuild_reason = None;
+        guard.last_rebuild_reason = Some(reason.to_string());
     }
 
     let mut files = Vec::new();
@@ -325,6 +375,7 @@ fn handle_full_rebuild(
 
     resolve_all_wikilinks(conn)?;
     refresh_idle_status(conn, status)?;
+    record_last_job(debug_status, "full-rebuild", None, reason);
 
     let should_rerun = {
         let mut guard = rebuild_state.lock();
@@ -339,7 +390,9 @@ fn handle_full_rebuild(
     };
 
     if should_rerun {
-        let _ = loop_tx.send(WriterJob::FullRebuild);
+        let _ = loop_tx.send(WriterJob::FullRebuild {
+            reason: "rebuild-rerun".to_string(),
+        });
     }
 
     Ok(())
@@ -349,7 +402,9 @@ fn handle_index_file(
     conn: &mut Connection,
     vault_root: &Path,
     path: &str,
+    source: &str,
     status: &Arc<Mutex<IndexerStatus>>,
+    debug_status: &Arc<Mutex<IndexerDebugStatus>>,
 ) -> Result<(), String> {
     if !is_markdown_path(path) {
         return Ok(());
@@ -387,6 +442,7 @@ fn handle_index_file(
 
     rereresolve_wikilinks(conn, &plan)?;
     refresh_idle_status(conn, status)?;
+    record_last_job(debug_status, "index-file", Some(path), source);
     Ok(())
 }
 
@@ -394,12 +450,14 @@ fn handle_remove_file(
     conn: &mut Connection,
     path: &str,
     is_dir: bool,
+    source: &str,
     status: &Arc<Mutex<IndexerStatus>>,
     rebuild_state: &Arc<Mutex<RebuildQueueState>>,
+    debug_status: &Arc<Mutex<IndexerDebugStatus>>,
     loop_tx: &Sender<WriterJob>,
 ) -> Result<(), String> {
     if is_dir {
-        queue_rebuild(rebuild_state, loop_tx);
+        queue_rebuild(rebuild_state, loop_tx, debug_status, "directory-mutation");
         return Ok(());
     }
 
@@ -424,6 +482,7 @@ fn handle_remove_file(
     plan.target_basenames.insert(basename);
     rereresolve_wikilinks(conn, &plan)?;
     refresh_idle_status(conn, status)?;
+    record_last_job(debug_status, "remove-file", Some(path), source);
     Ok(())
 }
 
@@ -433,12 +492,14 @@ fn handle_rename_file(
     old_path: &str,
     new_path: &str,
     is_dir: bool,
+    source: &str,
     status: &Arc<Mutex<IndexerStatus>>,
     rebuild_state: &Arc<Mutex<RebuildQueueState>>,
+    debug_status: &Arc<Mutex<IndexerDebugStatus>>,
     loop_tx: &Sender<WriterJob>,
 ) -> Result<(), String> {
     if is_dir {
-        queue_rebuild(rebuild_state, loop_tx);
+        queue_rebuild(rebuild_state, loop_tx, debug_status, "directory-mutation");
         return Ok(());
     }
 
@@ -479,6 +540,7 @@ fn handle_rename_file(
     }
     rereresolve_wikilinks(conn, &plan)?;
     refresh_idle_status(conn, status)?;
+    record_last_job(debug_status, "rename-file", Some(new_path), source);
     Ok(())
 }
 
@@ -543,22 +605,36 @@ fn refresh_idle_status(
     Ok(())
 }
 
-pub fn queue_rebuild(rebuild_state: &Arc<Mutex<RebuildQueueState>>, job_tx: &Sender<WriterJob>) {
+pub fn queue_rebuild(
+    rebuild_state: &Arc<Mutex<RebuildQueueState>>,
+    job_tx: &Sender<WriterJob>,
+    debug_status: &Arc<Mutex<IndexerDebugStatus>>,
+    reason: &str,
+) {
     let should_send = {
         let mut guard = rebuild_state.lock();
         if guard.running {
             guard.rerun = true;
+            let mut debug = debug_status.lock();
+            debug.coalesced_rebuild_count += 1;
+            debug.queued_rebuild_reason = Some(reason.to_string());
             false
         } else if guard.queued {
+            let mut debug = debug_status.lock();
+            debug.coalesced_rebuild_count += 1;
+            debug.queued_rebuild_reason = Some(reason.to_string());
             false
         } else {
             guard.queued = true;
+            debug_status.lock().queued_rebuild_reason = Some(reason.to_string());
             true
         }
     };
 
     if should_send {
-        let _ = job_tx.send(WriterJob::FullRebuild);
+        let _ = job_tx.send(WriterJob::FullRebuild {
+            reason: reason.to_string(),
+        });
     }
 }
 
@@ -587,15 +663,17 @@ mod tests {
         let db_path = unique_path("kuku-search-db").with_extension("sqlite3");
         let status = Arc::new(Mutex::new(IndexerStatus::default()));
         let rebuild_state = Arc::new(Mutex::new(RebuildQueueState::default()));
+        let debug_status = Arc::new(Mutex::new(IndexerDebugStatus::default()));
         let job_tx = start_writer_thread(
             missing_root,
             db_path,
             status.clone(),
             rebuild_state.clone(),
+            debug_status.clone(),
             Arc::new(Mutex::new(IndexerConfig::default())),
         );
 
-        queue_rebuild(&rebuild_state, &job_tx);
+        queue_rebuild(&rebuild_state, &job_tx, &debug_status, "manual-rebuild");
 
         let deadline = std::time::Instant::now() + Duration::from_secs(2);
         while std::time::Instant::now() < deadline {
@@ -623,17 +701,20 @@ mod tests {
         let db_path = unique_path("kuku-index-db").with_extension("sqlite3");
         let status = Arc::new(Mutex::new(IndexerStatus::default()));
         let rebuild_state = Arc::new(Mutex::new(RebuildQueueState::default()));
+        let debug_status = Arc::new(Mutex::new(IndexerDebugStatus::default()));
         let job_tx = start_writer_thread(
             root.clone(),
             db_path,
             status.clone(),
             rebuild_state,
+            debug_status,
             Arc::new(Mutex::new(IndexerConfig::default())),
         );
 
         job_tx
             .send(WriterJob::IndexFile {
                 path: "note.md".to_string(),
+                source: "test".to_string(),
             })
             .unwrap();
 
@@ -663,12 +744,13 @@ mod tests {
         let db_path = unique_path("kuku-index-db").with_extension("sqlite3");
         let mut conn = open_connection(&db_path).unwrap();
         let status = Arc::new(Mutex::new(IndexerStatus::default()));
+        let debug_status = Arc::new(Mutex::new(IndexerDebugStatus::default()));
 
-        handle_index_file(&mut conn, &root, "BAse.md", &status).unwrap();
+        handle_index_file(&mut conn, &root, "BAse.md", "test", &status, &debug_status).unwrap();
         let old_uid = find_note_uid_by_doc_id(&conn, "BAse.md").unwrap().unwrap();
 
         fs::rename(root.join("BAse.md"), root.join("Base.md")).unwrap();
-        handle_index_file(&mut conn, &root, "Base.md", &status).unwrap();
+        handle_index_file(&mut conn, &root, "Base.md", "test", &status, &debug_status).unwrap();
 
         assert_eq!(list_indexed_doc_ids(&conn).unwrap(), vec!["Base.md"]);
         assert_eq!(

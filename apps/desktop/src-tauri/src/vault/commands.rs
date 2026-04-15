@@ -204,7 +204,7 @@ pub async fn vault_write_text(
         state.expected_mutations.cancel(mutation);
         return Err(error.to_string());
     }
-    if let Err(error) = search.notify_written(&path) {
+    if let Err(error) = search.notify_written_with_source(&path, "app-save") {
         state.expected_mutations.cancel(mutation);
         return Err(error);
     }
@@ -286,7 +286,7 @@ pub async fn vault_write_with_checksum(
         state.expected_mutations.cancel(mutation);
         return Err(error.to_string());
     }
-    if let Err(error) = search.notify_written(&path) {
+    if let Err(error) = search.notify_written_with_source(&path, "app-save") {
         state.expected_mutations.cancel(mutation);
         return Err(error);
     }
@@ -428,7 +428,7 @@ pub async fn vault_delete(
         return Err(error);
     }
 
-    if let Err(error) = search.notify_removed(&path, is_dir) {
+    if let Err(error) = search.notify_removed_with_source(&path, is_dir, "app-delete") {
         if let Some(mutation) = mutation {
             state.expected_mutations.cancel(mutation);
         }
@@ -473,7 +473,7 @@ pub async fn vault_rename(
         state.expected_mutations.cancel(mutation);
         return Err(error.to_string());
     }
-    if let Err(error) = search.notify_renamed(&from, &to, is_dir) {
+    if let Err(error) = search.notify_renamed_with_source(&from, &to, is_dir, "app-rename") {
         state.expected_mutations.cancel(mutation);
         return Err(error);
     }

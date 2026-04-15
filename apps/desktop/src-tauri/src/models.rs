@@ -63,6 +63,61 @@ impl Default for IndexerStatus {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IndexerDebugStatus {
+    pub runtime_active: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub db_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_job_kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_job_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_job_source: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_rebuild_reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub queued_rebuild_reason: Option<String>,
+    pub coalesced_rebuild_count: usize,
+    pub rebuild_queued: bool,
+    pub rebuild_running: bool,
+    pub rebuild_rerun: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_watcher_event_kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_watcher_event_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_watcher_event_source: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_watcher_event_skipped: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_watcher_event_at: Option<i64>,
+}
+
+impl Default for IndexerDebugStatus {
+    fn default() -> Self {
+        Self {
+            runtime_active: false,
+            db_path: None,
+            last_job_kind: None,
+            last_job_path: None,
+            last_job_source: None,
+            last_rebuild_reason: None,
+            queued_rebuild_reason: None,
+            coalesced_rebuild_count: 0,
+            rebuild_queued: false,
+            rebuild_running: false,
+            rebuild_rerun: false,
+            last_watcher_event_kind: None,
+            last_watcher_event_path: None,
+            last_watcher_event_source: None,
+            last_watcher_event_skipped: None,
+            last_watcher_event_at: None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct IndexerConfig {

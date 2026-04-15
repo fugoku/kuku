@@ -525,6 +525,17 @@ pub fn start_watching_with_search(
                         &mut path_kind_cache,
                     ) {
                         let skip_search = expected_mutations.consume_matching(&pending_delete);
+                        if let Some(search_state) = &search_state {
+                            search_state.note_watcher_event(
+                                &pending_delete,
+                                if skip_search {
+                                    "deduped-app-mutation"
+                                } else {
+                                    "external-watch"
+                                },
+                                skip_search,
+                            );
+                        }
                         if let Some(search_state) = &search_state
                             && !skip_search
                         {
@@ -540,6 +551,17 @@ pub fn start_watching_with_search(
                         &mut path_kind_cache,
                     ) {
                         let skip_search = expected_mutations.consume_matching(&mapped);
+                        if let Some(search_state) = &search_state {
+                            search_state.note_watcher_event(
+                                &mapped,
+                                if skip_search {
+                                    "deduped-app-mutation"
+                                } else {
+                                    "external-watch"
+                                },
+                                skip_search,
+                            );
+                        }
                         if let Some(search_state) = &search_state
                             && !skip_search
                         {
@@ -556,6 +578,17 @@ pub fn start_watching_with_search(
                         &mut path_kind_cache,
                     ) {
                         let skip_search = expected_mutations.consume_matching(&pending_delete);
+                        if let Some(search_state) = &search_state {
+                            search_state.note_watcher_event(
+                                &pending_delete,
+                                if skip_search {
+                                    "deduped-app-mutation"
+                                } else {
+                                    "external-watch"
+                                },
+                                skip_search,
+                            );
+                        }
                         if let Some(search_state) = &search_state
                             && !skip_search
                         {
@@ -588,7 +621,7 @@ fn handle_search_event(
     {
         storm_state.modify_create_count += 1;
         if storm_state.modify_create_count > 100 {
-            let _ = search_state.request_rebuild();
+            let _ = search_state.request_rebuild_with_reason("watcher-storm");
             return;
         }
     }

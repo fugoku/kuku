@@ -4,6 +4,7 @@ import type {
   AdvancedQueryRequest,
   GraphSnapshot,
   IndexerConfig,
+  IndexerDebugStatus,
   IndexerStatus,
   ResolveWikilinkResult,
   SimpleSearchResult,
@@ -13,6 +14,7 @@ interface SearchService {
   querySimple(query: string, options?: { maxResults?: number }): Promise<SimpleSearchResult>;
   queryAdvanced(request: AdvancedQueryRequest): Promise<SimpleSearchResult>;
   getStatus(): Promise<IndexerStatus>;
+  getDebugStatus(): Promise<IndexerDebugStatus>;
   requestRebuild(): Promise<void>;
   getGraphSnapshot(): Promise<GraphSnapshot>;
   resolveWikilink(sourcePath: string, rawTarget: string): Promise<ResolveWikilinkResult>;
@@ -39,6 +41,9 @@ function createSearchService(): SearchService {
     },
     async getStatus() {
       return invoke<IndexerStatus>("search_get_status");
+    },
+    async getDebugStatus() {
+      return invoke<IndexerDebugStatus>("search_get_debug_status");
     },
     async requestRebuild() {
       await invoke<void>("search_request_rebuild");

@@ -9,6 +9,25 @@ export interface IndexerStatus {
   error: string | null;
 }
 
+export interface IndexerDebugStatus {
+  runtimeActive: boolean;
+  dbPath: string | null;
+  lastJobKind: string | null;
+  lastJobPath: string | null;
+  lastJobSource: string | null;
+  lastRebuildReason: string | null;
+  queuedRebuildReason: string | null;
+  coalescedRebuildCount: number;
+  rebuildQueued: boolean;
+  rebuildRunning: boolean;
+  rebuildRerun: boolean;
+  lastWatcherEventKind: string | null;
+  lastWatcherEventPath: string | null;
+  lastWatcherEventSource: string | null;
+  lastWatcherEventSkipped: boolean | null;
+  lastWatcherEventAt: number | null;
+}
+
 export interface SimpleSearchHit {
   docId: string;
   title: string | null;

@@ -114,6 +114,7 @@ pub fn run() {
             search::commands::search_query_simple,
             search::commands::search_query_advanced,
             search::commands::search_get_status,
+            search::commands::search_get_debug_status,
             search::commands::search_request_rebuild,
             search::commands::search_get_graph_snapshot,
             search::commands::search_resolve_wikilink,

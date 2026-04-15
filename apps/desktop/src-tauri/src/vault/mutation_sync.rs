@@ -21,6 +21,7 @@ pub enum AppMutation {
 pub struct AppMutationSync<'a> {
     ledger: &'a ExpectedMutationLedger,
     search: &'a SearchState,
+    source: &'a str,
 }
 
 #[derive(Debug)]
@@ -30,8 +31,16 @@ pub struct RecordedAppMutation {
 }
 
 impl<'a> AppMutationSync<'a> {
-    pub fn new(ledger: &'a ExpectedMutationLedger, search: &'a SearchState) -> Self {
-        Self { ledger, search }
+    pub fn new(
+        ledger: &'a ExpectedMutationLedger,
+        search: &'a SearchState,
+        source: &'a str,
+    ) -> Self {
+        Self {
+            ledger,
+            search,
+            source,
+        }
     }
 
     pub fn record(&self, mutation: AppMutation) -> RecordedAppMutation {
@@ -60,15 +69,20 @@ impl<'a> AppMutationSync<'a> {
                 if *is_dir {
                     Ok(())
                 } else {
-                    self.search.notify_written(path)
+                    self.search.notify_written_with_source(path, self.source)
                 }
             }
-            AppMutation::Delete { path, is_dir } => self.search.notify_removed(path, *is_dir),
+            AppMutation::Delete { path, is_dir } => {
+                self.search
+                    .notify_removed_with_source(path, *is_dir, self.source)
+            }
             AppMutation::Rename {
                 old_path,
                 new_path,
                 is_dir,
-            } => self.search.notify_renamed(old_path, new_path, *is_dir),
+            } => self
+                .search
+                .notify_renamed_with_source(old_path, new_path, *is_dir, self.source),
         }
     }
 }
