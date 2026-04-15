@@ -89,6 +89,9 @@ importers:
         specifier: ^3.0.0
         version: 3.0.0(patch_hash=31b98686c745b05b0eeadcb5aba1166eed97bf246fcbe6c0f62faebf805f7d8c)
     devDependencies:
+      '@eslint/css-tree':
+        specifier: ^4.0.1
+        version: 4.0.1
       '@tailwindcss/vite':
         specifier: ^4.2.2
         version: 4.2.2(vite@8.0.3(@emnapi/core@1.9.1)(@emnapi/runtime@1.9.1)(@types/node@25.5.0)(esbuild@0.27.7)(jiti@2.6.1)(yaml@2.8.3))
@@ -725,6 +728,10 @@ packages:
   '@eslint/css-tree@3.6.9':
     resolution: {integrity: sha512-3D5/OHibNEGk+wKwNwMbz63NMf367EoR4mVNNpxddCHKEb2Nez7z62J2U6YjtErSsZDoY0CsccmoUpdEbkogNA==}
     engines: {node: ^10 || ^12.20.0 || ^14.13.0 || >=15.0.0}
+
+  '@eslint/css-tree@4.0.1':
+    resolution: {integrity: sha512-2fCSKRwoUHntYq9J1Lm28s2zeoCSNh1Cbk6Tg7k7ViwOnveIfZwPRFGwBglz+dzw2MHe5w5Fo9+VJfqL9nco2w==}
+    engines: {node: ^20.19.0 || ^22.13.0 || >=24}
 
   '@exodus/bytes@1.15.0':
     resolution: {integrity: sha512-UY0nlA+feH81UGSHv92sLEPLCeZFjXOuHhrIo0HQydScuQc8s0A7kL/UdgwgDq8g8ilksmuoF35YVTNphV2aBQ==}
@@ -4796,6 +4803,11 @@ snapshots:
   '@eslint/css-tree@3.6.9':
     dependencies:
       mdn-data: 2.23.0
+      source-map-js: 1.2.1
+
+  '@eslint/css-tree@4.0.1':
+    dependencies:
+      mdn-data: 2.27.1
       source-map-js: 1.2.1
 
   '@exodus/bytes@1.15.0': {}
