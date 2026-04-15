@@ -1,9 +1,20 @@
-import { Show, type JSX } from "solid-js";
+import { createEffect, createSignal, on, onCleanup, Show, type JSX } from "solid-js";
 
-import { Select } from "~/components/ui";
+import {
+  SettingsBanner,
+  SettingsCard,
+  SettingsFieldRow,
+  SettingsMetricRow,
+  SettingsPanel,
+  SettingsProgress,
+  SettingsSelect,
+  SettingsStatusBadge,
+  SettingsToolbarAction,
+} from "~/components/settings/settings_blocks";
 import Switch from "~/components/ui/switch";
+import { useSettingsRefreshToken } from "~/components/settings/settings_refresh";
 
-import { indexerConfig, updateIndexerConfig } from "./settings";
+import { hydrateIndexerConfigFromSettings, indexerConfig, updateIndexerConfig } from "./settings";
 import type { IndexerConfig } from "./types";
 import { indexerStatus, refreshIndexerStatus } from "../core_indexer/status_store";
 import { getSearchService } from "../search/runtime";
@@ -25,20 +36,111 @@ function statusLabel(state: string): string {
   return "Ready";
 }
 
+function statusTone(state: string): "success" | "info" | "error" {
+  if (state === "error") return "error";
+  if (state === "indexing") return "info";
+  return "success";
+}
+
 function IndexerSettings(): JSX.Element {
+  const [isRefreshingStatus, setIsRefreshingStatus] = createSignal(false);
+  const [isRebuildStarting, setIsRebuildStarting] = createSignal(false);
   const isIndexing = () => indexerStatus.state === "indexing";
+  const settingsRefreshToken = useSettingsRefreshToken();
+  let pollTimer: number | undefined;
+  let rebuildBaselineLastIndexedAt: number | null = null;
+  let rebuildIssuedAt: number | null = null;
+
+  function clearPolling(): void {
+    if (pollTimer !== undefined) {
+      window.clearInterval(pollTimer);
+      pollTimer = undefined;
+    }
+  }
+
+  function maybeResolveRebuildStart(): void {
+    if (!isRebuildStarting()) return;
+
+    if (indexerStatus.state === "indexing" || indexerStatus.state === "error") {
+      setIsRebuildStarting(false);
+      rebuildBaselineLastIndexedAt = null;
+      rebuildIssuedAt = null;
+      return;
+    }
+
+    if (
+      rebuildBaselineLastIndexedAt !== null &&
+      indexerStatus.lastIndexedAt !== null &&
+      indexerStatus.lastIndexedAt !== rebuildBaselineLastIndexedAt
+    ) {
+      setIsRebuildStarting(false);
+      rebuildBaselineLastIndexedAt = null;
+      rebuildIssuedAt = null;
+      return;
+    }
+
+    if (rebuildIssuedAt !== null && Date.now() - rebuildIssuedAt > 5000) {
+      setIsRebuildStarting(false);
+      rebuildBaselineLastIndexedAt = null;
+      rebuildIssuedAt = null;
+    }
+  }
+
+  async function syncIndexerStatus(options?: {
+    reloadConfig?: boolean;
+    allowWhileRefreshing?: boolean;
+  }): Promise<void> {
+    if (isRefreshingStatus() && !options?.allowWhileRefreshing) {
+      return;
+    }
+
+    const service = getSearchService();
+    if (!service) return;
+
+    setIsRefreshingStatus(true);
+    try {
+      if (options?.reloadConfig) {
+        await hydrateIndexerConfigFromSettings();
+      }
+      await refreshIndexerStatus(service);
+      maybeResolveRebuildStart();
+    } finally {
+      setIsRefreshingStatus(false);
+    }
+  }
+
+  createEffect(
+    on(
+      settingsRefreshToken,
+      () => {
+        clearPolling();
+        void syncIndexerStatus({ reloadConfig: true, allowWhileRefreshing: true });
+        pollTimer = window.setInterval(() => {
+          void syncIndexerStatus();
+        }, 500);
+      },
+      { defer: false },
+    ),
+  );
+
+  onCleanup(() => {
+    clearPolling();
+  });
 
   async function handleRebuild(): Promise<void> {
     const service = getSearchService();
-    if (!service) return;
+    if (!service || isRebuildStarting() || isIndexing()) return;
+
+    rebuildBaselineLastIndexedAt = indexerStatus.lastIndexedAt;
+    rebuildIssuedAt = Date.now();
+    setIsRebuildStarting(true);
+
     await service.requestRebuild();
-    await refreshIndexerStatus(service);
+    await syncIndexerStatus({ allowWhileRefreshing: true });
   }
 
   async function handleRefreshStatus(): Promise<void> {
-    const service = getSearchService();
-    if (!service) return;
-    await refreshIndexerStatus(service);
+    await syncIndexerStatus({ allowWhileRefreshing: true });
   }
 
   async function handleConfigChange<K extends keyof IndexerConfig>(
@@ -52,169 +154,126 @@ function IndexerSettings(): JSX.Element {
   }
 
   return (
-    <div class="overflow-hidden rounded-xs border border-border bg-bg-primary">
-      <div class="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
-        <div>
-          <h3 class="text-[0.8125rem] font-medium text-text-primary">Indexer</h3>
-          <p class="mt-0.5 text-[0.75rem] text-text-muted">
-            Manage search, wikilink graph indexing, and refresh policy.
-          </p>
-        </div>
-        <button
-          type="button"
-          class="rounded-xs border border-border bg-bg-secondary px-2.5 py-1 text-[0.6875rem] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+    <SettingsPanel
+      title="Indexer"
+      description="Manage search, wikilink graph indexing, and refresh policy."
+      action={
+        <SettingsToolbarAction
+          disabled={isRefreshingStatus() || isRebuildStarting()}
           onClick={() => void handleRefreshStatus()}
         >
-          Refresh
-        </button>
-      </div>
-
-      <div class="space-y-3 p-4">
-        <div class="rounded-xs border border-border bg-bg-secondary/70 p-3">
-          <div class="flex items-center justify-between gap-2">
-            <span class="text-[0.6875rem] tracking-[0.12em] text-text-muted uppercase">
-              Index Status
-            </span>
-            <span
-              class="rounded-xs border px-2 py-0.5 text-[0.6875rem]"
-              classList={{
-                "border-success-border bg-success-bg text-success": indexerStatus.state === "idle",
-                "border-info-border bg-info-bg text-info": isIndexing(),
-                "border-error-border bg-error-bg text-error": indexerStatus.state === "error",
-              }}
-            >
-              {statusLabel(indexerStatus.state)}
-            </span>
-          </div>
-
-          <div class="mt-3 space-y-1.5 text-[0.75rem]">
-            <StatRow
-              label="Documents"
-              value={`${indexerStatus.indexedDocs} / ${indexerStatus.totalDocs}`}
-            />
-            <StatRow label="Resolved links" value={String(indexerStatus.resolvedLinks)} />
-            <StatRow label="Unresolved links" value={String(indexerStatus.unresolvedLinks)} />
-            <StatRow label="Ambiguous links" value={String(indexerStatus.ambiguousLinks)} />
-            <StatRow label="Last indexed" value={formatTimestamp(indexerStatus.lastIndexedAt)} />
-          </div>
-
-          <Show when={isIndexing() && indexerStatus.totalDocs > 0}>
-            <div class="mt-3 h-1 overflow-hidden rounded-xs bg-bg-tertiary">
-              <div
-                class="h-full rounded-xs bg-info transition-all duration-300"
-                style={{
-                  width: `${Math.round((indexerStatus.indexedDocs / indexerStatus.totalDocs) * 100)}%`,
-                }}
-              />
-            </div>
-          </Show>
+          {isRefreshingStatus() ? "Refreshing..." : "Refresh"}
+        </SettingsToolbarAction>
+      }
+    >
+      <SettingsCard
+        title="Index Status"
+        tone="subtle"
+        action={
+          <SettingsStatusBadge tone={statusTone(indexerStatus.state)}>
+            {statusLabel(indexerStatus.state)}
+          </SettingsStatusBadge>
+        }
+      >
+        <div class="space-y-1.5">
+          <SettingsMetricRow
+            label="Documents"
+            value={`${indexerStatus.indexedDocs} / ${indexerStatus.totalDocs}`}
+          />
+          <SettingsMetricRow label="Resolved links" value={String(indexerStatus.resolvedLinks)} />
+          <SettingsMetricRow
+            label="Unresolved links"
+            value={String(indexerStatus.unresolvedLinks)}
+          />
+          <SettingsMetricRow label="Ambiguous links" value={String(indexerStatus.ambiguousLinks)} />
+          <SettingsMetricRow
+            label="Last indexed"
+            value={formatTimestamp(indexerStatus.lastIndexedAt)}
+          />
         </div>
 
-        <Show when={indexerStatus.error}>
-          {(error) => (
-            <div class="rounded-xs border border-error-border bg-error-bg px-3 py-2 text-[0.75rem] text-error">
-              {error()}
-            </div>
-          )}
+        <Show when={isIndexing() && indexerStatus.totalDocs > 0}>
+          <SettingsProgress
+            class="mt-3"
+            tone="info"
+            label="Index progress"
+            value={indexerStatus.indexedDocs}
+            max={indexerStatus.totalDocs}
+          />
         </Show>
+      </SettingsCard>
 
-        <div class="rounded-xs border border-border bg-bg-secondary/40 p-3">
-          <div class="flex items-center justify-between gap-2">
-            <div>
-              <div class="text-[0.6875rem] tracking-[0.12em] text-text-muted uppercase">
-                Wikilink Indexing
+      <Show when={indexerStatus.error}>
+        {(error) => <SettingsBanner tone="error" description={error()} />}
+      </Show>
+
+      <SettingsCard
+        title="Wikilink Indexing"
+        description="Resolution policy is fixed to closest-folder."
+        tone="subtle"
+      >
+        <div class="space-y-3">
+          <SettingsFieldRow
+            label="Index storage location"
+            description="Choose whether the SQLite index lives in app data or inside the current vault. Changing this switches to a different DB and queues a rebuild."
+            control={
+              <div class="w-64">
+                <SettingsSelect
+                  options={STORAGE_LOCATION_OPTIONS}
+                  value={indexerConfig.storageLocation}
+                  onChange={(value) =>
+                    void handleConfigChange(
+                      "storageLocation",
+                      value as IndexerConfig["storageLocation"],
+                    )
+                  }
+                  placeholder="Select location"
+                  label="Index storage location"
+                />
               </div>
-              <p class="mt-1 text-[0.75rem] text-text-muted">
-                Resolution policy is fixed to{" "}
-                <span class="font-medium text-text-primary">closest-folder</span>.
-              </p>
-            </div>
-          </div>
-
-          <div class="mt-4 space-y-3">
-            <SettingRow
-              title="Index storage location"
-              description="Choose whether the SQLite index lives in app data or inside the current vault. Changing this switches to a different DB and queues a rebuild."
-              control={
-                <div class="w-64">
-                  <Select
-                    options={STORAGE_LOCATION_OPTIONS}
-                    value={indexerConfig.storageLocation}
-                    onChange={(value) =>
-                      void handleConfigChange(
-                        "storageLocation",
-                        value as IndexerConfig["storageLocation"],
-                      )
-                    }
-                    placeholder="Select location"
-                    label="Index storage location"
-                  />
-                </div>
-              }
-            />
-            <SettingRow
-              title="Incremental updates"
-              description="Apply file changes as targeted link/index updates instead of full rebuilds."
-              control={
-                <Switch
-                  checked={indexerConfig.incrementalUpdates}
-                  onChange={(checked) => void handleConfigChange("incrementalUpdates", checked)}
-                />
-              }
-            />
-            <SettingRow
-              title="Reindex on vault open"
-              description="Run a cold-start rebuild when a vault opens."
-              control={
-                <Switch
-                  checked={indexerConfig.reindexOnVaultOpen}
-                  onChange={(checked) => void handleConfigChange("reindexOnVaultOpen", checked)}
-                />
-              }
-            />
-          </div>
+            }
+          />
+          <SettingsFieldRow
+            label="Incremental updates"
+            description="Apply file changes as targeted link/index updates instead of full rebuilds."
+            control={
+              <Switch
+                checked={indexerConfig.incrementalUpdates}
+                onChange={(checked) => void handleConfigChange("incrementalUpdates", checked)}
+              />
+            }
+          />
+          <SettingsFieldRow
+            label="Reindex on vault open"
+            description="Run a cold-start rebuild when a vault opens."
+            control={
+              <Switch
+                checked={indexerConfig.reindexOnVaultOpen}
+                onChange={(checked) => void handleConfigChange("reindexOnVaultOpen", checked)}
+              />
+            }
+          />
         </div>
+      </SettingsCard>
 
-        <div class="flex items-center justify-between gap-2">
-          <p class="text-[0.6875rem] text-text-muted">
-            Rebuild clears and re-indexes search chunks plus wikilink graph data.
-          </p>
-          <button
-            type="button"
-            disabled={isIndexing()}
-            class="shrink-0 rounded-xs border border-warning-border bg-warning-bg px-3 py-1.5 text-[0.6875rem] text-warning transition-colors hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+      <SettingsCard
+        tone="muted"
+        description="Rebuild clears and re-indexes search chunks plus wikilink graph data."
+        action={
+          <SettingsToolbarAction
+            variant="warning"
+            disabled={isIndexing() || isRebuildStarting()}
             onClick={() => void handleRebuild()}
           >
-            {isIndexing() ? "Indexing…" : "Rebuild Index"}
-          </button>
+            {isIndexing() || isRebuildStarting() ? "Indexing…" : "Rebuild Index"}
+          </SettingsToolbarAction>
+        }
+      >
+        <div class="text-[0.6875rem] text-text-muted">
+          Use rebuild when search results or wikilink graph data need a clean resync.
         </div>
-      </div>
-    </div>
-  );
-}
-
-function StatRow(props: { label: string; value: string }): JSX.Element {
-  return (
-    <div class="flex items-center justify-between text-text-secondary">
-      <span>{props.label}</span>
-      <span class="font-medium text-text-primary">{props.value}</span>
-    </div>
-  );
-}
-
-function SettingRow(props: {
-  title: string;
-  description: string;
-  control: JSX.Element;
-}): JSX.Element {
-  return (
-    <div class="flex items-start justify-between gap-4 rounded-xs border border-border/60 bg-bg-primary/60 px-3 py-2">
-      <div>
-        <div class="text-[0.75rem] font-medium text-text-primary">{props.title}</div>
-        <p class="mt-0.5 text-[0.6875rem] text-text-muted">{props.description}</p>
-      </div>
-      <div class="shrink-0">{props.control}</div>
-    </div>
+      </SettingsCard>
+    </SettingsPanel>
   );
 }
 

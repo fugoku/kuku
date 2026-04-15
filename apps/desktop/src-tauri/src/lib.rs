@@ -6,8 +6,11 @@ mod auth_commands;
 mod config;
 mod models;
 mod plugin_fs;
+#[allow(dead_code)]
+mod plugin_secrets;
 mod plugin_settings;
 mod search;
+mod secure_storage;
 mod vault;
 
 use std::sync::Arc;
@@ -63,6 +66,7 @@ pub fn run() {
             auth_commands::auth_list_plugin_authorizations,
             auth_commands::auth_logout,
             auth_commands::auth_open_login,
+            auth_commands::auth_reset,
             auth_commands::auth_refresh,
             auth_commands::auth_set_plugin_authorized,
             auth_commands::auth_authorization_headers,
@@ -79,6 +83,10 @@ pub fn run() {
             plugin_settings::plugin_ensure_root_dirs,
             plugin_settings::plugin_get_settings,
             plugin_settings::plugin_save_settings,
+            plugin_settings::plugin_get_settings_with_secrets,
+            plugin_settings::plugin_save_settings_with_secrets,
+            plugin_settings::plugin_clear_settings_with_secrets,
+            plugin_settings::plugin_clear_all_settings,
             // App Settings
             app_settings::app_settings_get,
             app_settings::app_settings_set,
@@ -97,6 +105,9 @@ pub fn run() {
             vault::commands::vault_exists,
             vault::commands::vault_list_dir,
             vault::commands::vault_mkdir,
+            vault::commands::vault_delete,
+            vault::commands::vault_empty_trash,
+            vault::commands::vault_get_trash_path,
             vault::commands::vault_remove,
             vault::commands::vault_rename,
             // Search

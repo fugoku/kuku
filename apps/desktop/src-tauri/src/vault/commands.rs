@@ -1,5 +1,6 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
+use serde::Deserialize;
 use tauri::{AppHandle, State, command};
 use tauri_plugin_dialog::DialogExt;
 
@@ -10,6 +11,51 @@ use crate::vault::{
     DEFAULT_FILE_EXTENSIONS, get_vault_root, read_directory_recursive, resolve_vault_path,
 };
 use crate::vault::{VaultState, watcher};
+
+const KUKU_TRASH_DIR: &str = ".trash";
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "kebab-case")]
+pub enum VaultDeleteMode {
+    Trash,
+    KukuTrash,
+    Permanent,
+}
+
+fn next_available_path(path: &Path) -> PathBuf {
+    if !path.exists() {
+        return path.to_path_buf();
+    }
+
+    let parent = path
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| PathBuf::from("."));
+    let stem = path
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .or_else(|| path.file_name().and_then(|value| value.to_str()))
+        .unwrap_or("item");
+    let ext = path.extension().and_then(|value| value.to_str());
+
+    for index in 1.. {
+        let candidate_name = match ext {
+            Some(ext) if !ext.is_empty() => format!("{stem} {index}.{ext}"),
+            _ => format!("{stem} {index}"),
+        };
+        let candidate = parent.join(candidate_name);
+        if !candidate.exists() {
+            return candidate;
+        }
+    }
+
+    unreachable!("path suffix loop must eventually find a free candidate");
+}
+
+fn build_kuku_trash_destination(root: &Path, relative_path: &str) -> Result<PathBuf, String> {
+    let candidate = resolve_vault_path(root, &format!("{KUKU_TRASH_DIR}/{relative_path}"))?;
+    Ok(next_available_path(&candidate))
+}
 
 #[command]
 pub async fn vault_open(
@@ -223,10 +269,48 @@ pub async fn vault_mkdir(state: State<'_, VaultState>, path: String) -> Result<(
 }
 
 #[command]
-pub async fn vault_remove(
+pub async fn vault_get_trash_path(
+    state: State<'_, VaultState>,
+    ensure_exists: bool,
+) -> Result<String, String> {
+    let root = get_vault_root(&state)?;
+    let trash_path = root.join(KUKU_TRASH_DIR);
+    if ensure_exists {
+        tokio::fs::create_dir_all(&trash_path)
+            .await
+            .map_err(|e| e.to_string())?;
+    }
+
+    Ok(trash_path.to_string_lossy().to_string())
+}
+
+#[command]
+pub async fn vault_empty_trash(state: State<'_, VaultState>) -> Result<(), String> {
+    let root = get_vault_root(&state)?;
+    let trash_path = root.join(KUKU_TRASH_DIR);
+
+    if tokio::fs::try_exists(&trash_path)
+        .await
+        .map_err(|e| e.to_string())?
+    {
+        tokio::fs::remove_dir_all(&trash_path)
+            .await
+            .map_err(|e| e.to_string())?;
+    }
+
+    tokio::fs::create_dir_all(&trash_path)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[command]
+pub async fn vault_delete(
     state: State<'_, VaultState>,
     search: State<'_, SearchState>,
     path: String,
+    mode: VaultDeleteMode,
 ) -> Result<(), String> {
     let root = get_vault_root(&state)?;
     let resolved = resolve_vault_path(&root, &path)?;
@@ -241,18 +325,52 @@ pub async fn vault_remove(
     };
     let is_dir = metadata.as_ref().is_some_and(|entry| entry.is_dir());
 
-    match metadata {
-        Some(metadata) if metadata.is_dir() => tokio::fs::remove_dir_all(&resolved)
+    match (mode, metadata) {
+        (_, None) => {}
+        (VaultDeleteMode::Permanent, Some(metadata)) if metadata.is_dir() => {
+            tokio::fs::remove_dir_all(&resolved)
+                .await
+                .map_err(|e| e.to_string())?;
+        }
+        (VaultDeleteMode::Permanent, Some(_)) => {
+            tokio::fs::remove_file(&resolved)
+                .await
+                .map_err(|e| e.to_string())?;
+        }
+        (VaultDeleteMode::KukuTrash, Some(_)) => {
+            let destination = build_kuku_trash_destination(&root, &path)?;
+            let parent = destination
+                .parent()
+                .ok_or_else(|| "Failed to resolve trash destination parent".to_string())?;
+            tokio::fs::create_dir_all(parent)
+                .await
+                .map_err(|e| e.to_string())?;
+            tokio::fs::rename(&resolved, &destination)
+                .await
+                .map_err(|e| e.to_string())?;
+        }
+        (VaultDeleteMode::Trash, Some(_)) => {
+            let resolved_for_delete = resolved.clone();
+            tauri::async_runtime::spawn_blocking(move || {
+                trash::delete(&resolved_for_delete)
+                    .map_err(|e| format!("Failed to move item to system trash: {e}"))
+            })
             .await
-            .map_err(|e| e.to_string())?,
-        Some(_) => tokio::fs::remove_file(&resolved)
-            .await
-            .map_err(|e| e.to_string())?,
-        None => {}
+            .map_err(|e| format!("Failed to move item to system trash: {e}"))??;
+        }
     }
 
     search.notify_removed(&path, is_dir)?;
     Ok(())
+}
+
+#[command]
+pub async fn vault_remove(
+    state: State<'_, VaultState>,
+    search: State<'_, SearchState>,
+    path: String,
+) -> Result<(), String> {
+    vault_delete(state, search, path, VaultDeleteMode::Permanent).await
 }
 
 #[command]
@@ -342,5 +460,26 @@ mod tests {
         assert!(entries.iter().any(|e| e.path == "note.md"));
         assert!(!entries.iter().any(|e| e.path == "image.png"));
         assert!(!entries.iter().any(|e| e.path == "data.json"));
+    }
+
+    #[test]
+    fn test_build_kuku_trash_destination_preserves_relative_path() {
+        let root = temp_vault();
+
+        let destination = build_kuku_trash_destination(&root, "notes/a.md").unwrap();
+
+        assert_eq!(destination, root.join(".trash/notes/a.md"));
+    }
+
+    #[test]
+    fn test_build_kuku_trash_destination_appends_suffix_when_needed() {
+        let root = temp_vault();
+        let existing = root.join(".trash/notes/a.md");
+        fs::create_dir_all(existing.parent().unwrap()).unwrap();
+        fs::write(&existing, "old").unwrap();
+
+        let destination = build_kuku_trash_destination(&root, "notes/a.md").unwrap();
+
+        assert_eq!(destination, root.join(".trash/notes/a 1.md"));
     }
 }

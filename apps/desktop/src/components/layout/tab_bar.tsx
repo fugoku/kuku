@@ -19,7 +19,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "~/components/ui";
-import { closeTab, filesState, openTab, setActiveTab } from "~/stores/files";
+import { closeTab, filesState, openSettings, openTab, setActiveTab } from "~/stores/files";
 import { createAndOpenNewFile } from "~/stores/vault";
 
 // NOTE: The following CSS rules live in scrollbar.css (library DOM we can't add classes to):
@@ -210,11 +210,7 @@ export default function TabBar() {
                 onSelect={() => openTab("Graph", null, "graph")}
               />
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                label="Settings"
-                shortcut="⌘,"
-                onSelect={() => openTab("Settings", null, "settings")}
-              />
+              <DropdownMenuItem label="Settings" shortcut="⌘," onSelect={() => openSettings()} />
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

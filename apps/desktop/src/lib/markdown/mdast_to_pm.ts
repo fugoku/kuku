@@ -243,11 +243,28 @@ export function convertMarkChildren(
  */
 export function makeText(value: string, marks: PMMarkJSON[]): PMNodeJSON {
   const result: PMNodeJSON = { type: "text", text: value };
-  if (marks.length > 0) result.marks = marks;
+  const normalizedMarks = normalizeMarks(marks);
+  if (normalizedMarks.length > 0) result.marks = normalizedMarks;
   return result;
 }
 
 // ── Internal helpers ────────────────────────────────────────────────────
+
+function normalizeMarks(marks: PMMarkJSON[]): PMMarkJSON[] {
+  if (marks.length < 2) return marks;
+
+  const seen = new Set<string>();
+  const result: PMMarkJSON[] = [];
+
+  for (const mark of marks) {
+    const key = `${mark.type}:${JSON.stringify(mark.attrs ?? {})}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(mark);
+  }
+
+  return result;
+}
 
 function mergeAdjacentText(nodes: PMNodeJSON[]): PMNodeJSON[] {
   const result: PMNodeJSON[] = [];

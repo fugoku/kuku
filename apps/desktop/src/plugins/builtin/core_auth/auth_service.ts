@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { createStore, unwrap } from "solid-js/store";
+import { openUrl } from "@tauri-apps/plugin-opener";
 
 import type {
   AuthAuthorizationResult,
@@ -22,12 +23,30 @@ const [authAuthorizations, setAuthAuthorizations] = createStore<AuthPluginAuthor
 
 let authServiceRef: AuthService | null = null;
 
+function accountDashboardUrl(): string {
+  return `${import.meta.env.PROD ? "https://www.kuku.mom" : "http://localhost:4321"}/dashboard`;
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 function getAuthService(): AuthService | null {
   return authServiceRef;
 }
 
 function setAuthService(service: AuthService | null): void {
   authServiceRef = service;
+}
+
+function resetAuthServiceState(): void {
+  setAuthState({
+    loading: false,
+    authenticated: false,
+    user: null,
+    error: null,
+  });
+  setAuthAuthorizations([]);
 }
 
 async function createAuthService(): Promise<AuthService> {
@@ -41,9 +60,11 @@ async function createAuthService(): Promise<AuthService> {
     }
   }
 
-  async function checkAuth(): Promise<void> {
+  async function checkAuth(options?: { clearError?: boolean }): Promise<void> {
     setAuthState("loading", true);
-    setAuthState("error", null);
+    if (options?.clearError ?? true) {
+      setAuthState("error", null);
+    }
     try {
       const authenticated = await invoke<boolean>("auth_check_status");
       const user = authenticated ? await invoke<AuthUser | null>("auth_get_user") : null;
@@ -52,7 +73,7 @@ async function createAuthService(): Promise<AuthService> {
     } catch (error) {
       setAuthState("authenticated", false);
       setAuthState("user", null);
-      setAuthState("error", error instanceof Error ? error.message : String(error));
+      setAuthState("error", getErrorMessage(error));
     } finally {
       setAuthState("loading", false);
       emit();
@@ -60,8 +81,13 @@ async function createAuthService(): Promise<AuthService> {
   }
 
   async function loadAuthorizations(): Promise<void> {
-    const items = await invoke<AuthPluginAuthorization[]>("auth_list_plugin_authorizations");
-    setAuthAuthorizations(items);
+    try {
+      const items = await invoke<AuthPluginAuthorization[]>("auth_list_plugin_authorizations");
+      setAuthAuthorizations(items);
+    } catch (error) {
+      setAuthAuthorizations([]);
+      throw error;
+    }
   }
 
   async function login(): Promise<void> {
@@ -83,12 +109,48 @@ async function createAuthService(): Promise<AuthService> {
     setAuthState("authenticated", false);
     setAuthState("user", null);
     setAuthState("error", null);
+    try {
+      await loadAuthorizations();
+    } catch (error) {
+      setAuthState("error", getErrorMessage(error));
+    }
     emit();
   }
 
+  async function openAccountDashboard(): Promise<void> {
+    await openUrl(accountDashboardUrl());
+  }
+
   async function refresh(): Promise<void> {
-    await invoke<void>("auth_refresh");
     await checkAuth();
+
+    if (!authState.authenticated) {
+      try {
+        await loadAuthorizations();
+      } catch (error) {
+        setAuthState("error", getErrorMessage(error));
+        emit();
+      }
+      return;
+    }
+
+    let refreshError: string | null = null;
+    try {
+      await invoke<void>("auth_refresh");
+    } catch (error) {
+      refreshError = getErrorMessage(error);
+    }
+
+    try {
+      await Promise.all([checkAuth({ clearError: refreshError === null }), loadAuthorizations()]);
+    } catch (error) {
+      refreshError ??= getErrorMessage(error);
+    }
+
+    if (refreshError !== null) {
+      setAuthState("error", refreshError);
+      emit();
+    }
   }
 
   async function authorizationHeaders(
@@ -162,6 +224,7 @@ async function createAuthService(): Promise<AuthService> {
   const service: AuthService = {
     login,
     logout,
+    openAccountDashboard,
     refresh,
     snapshot,
     subscribe,
@@ -187,4 +250,11 @@ function snapshotAuthState(): AuthSnapshot {
   };
 }
 
-export { authAuthorizations, authState, createAuthService, getAuthService, setAuthService };
+export {
+  authAuthorizations,
+  authState,
+  createAuthService,
+  getAuthService,
+  resetAuthServiceState,
+  setAuthService,
+};

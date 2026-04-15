@@ -37,3 +37,4 @@ kuku-indexer = { path = "../../../crates/kuku-indexer" }
 regex = "1"
 async-trait = "0.1"
 keyring = { version = "3.6.3", features = ["apple-native"] }
+trash = "5"

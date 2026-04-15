@@ -2,6 +2,17 @@ import { invoke } from "@tauri-apps/api/core";
 import { createStore } from "solid-js/store";
 
 import { openApprovalDiff } from "./approval_diff";
+import {
+  AI_CHAT_SETTINGS_PLUGIN_ID,
+  AI_CHAT_SECURE_KEYS,
+  DEFAULT_MODEL,
+  DEFAULT_PROVIDER,
+  DEFAULT_PROXY_TIMEOUT_MS,
+  DEFAULT_ROUND_LIMIT,
+  DEFAULT_SERVER_URL,
+  createDefaultAiConfig,
+  normalizeAiConfig,
+} from "./config";
 import { createContextSnapshotSource } from "./context_snapshot";
 import { hasRespondingSession } from "./responding_state";
 import type {
@@ -22,12 +33,8 @@ import type {
   ToolDescriptor,
 } from "./types";
 import { setContextKey } from "~/plugins/context_keys";
+import { loadPluginSettings, savePluginSettings } from "~/plugins/settings_store";
 
-const DEFAULT_MODEL = "gemini-3.1-flash-lite-preview";
-const DEFAULT_PROVIDER = "gemini" as const;
-const DEFAULT_SERVER_URL = "http://localhost:8080";
-const DEFAULT_ROUND_LIMIT = 8;
-const DEFAULT_PROXY_TIMEOUT_MS = 15_000;
 const BUSY_SESSION_STATUSES: ChatSessionState["status"][] = [
   "streaming",
   "awaiting-approval",
@@ -57,6 +64,22 @@ const [chatState, setChatState] = createStore<ChatStoreState>({
 let lastResponding = false;
 
 setContextKey("aiResponding", false);
+
+function createDefaultConfigState(): ChatStoreState["config"] {
+  return {
+    apiKey: "",
+    provider: DEFAULT_PROVIDER,
+    serverUrl: DEFAULT_SERVER_URL,
+    model: DEFAULT_MODEL,
+    rawConfig: {},
+    loading: false,
+    saving: false,
+    error: null,
+    toolsLoading: false,
+    toolsError: null,
+    availableTools: [],
+  };
+}
 
 function getActiveSession(): ChatSessionState | null {
   const id = chatState.activeSessionId;
@@ -92,6 +115,19 @@ function isSessionBusy(session: ChatSessionState | null | undefined): boolean {
 
 function setSelectedMode(mode: ChatMode): void {
   setChatState("selectedMode", mode);
+}
+
+function resetChatState(): void {
+  setChatState({
+    selectedMode: "ask",
+    activeSessionId: null,
+    sessions: {},
+    isCreatingSession: false,
+    isSendingMessage: false,
+    config: createDefaultConfigState(),
+  });
+  lastResponding = false;
+  setContextKey("aiResponding", false);
 }
 
 function setDraft(value: string): void {
@@ -539,7 +575,13 @@ async function loadConfig(): Promise<void> {
   setChatState("config", "loading", true);
   setChatState("config", "error", null);
   try {
-    const config = await invoke<AiConfig>("plugin:kuku-ai|ai_get_config");
+    const config = await loadPluginSettings<AiConfig>({
+      pluginId: AI_CHAT_SETTINGS_PLUGIN_ID,
+      defaults: createDefaultAiConfig(),
+      secureKeys: [...AI_CHAT_SECURE_KEYS],
+      normalize: (raw) => normalizeAiConfig(raw),
+    });
+    await invoke<void>("plugin:kuku-ai|ai_set_config", { config });
     setChatState("config", "rawConfig", config as unknown as Record<string, unknown>);
     setChatState("config", "apiKey", config.apiKey ?? "");
     setChatState("config", "provider", config.provider ?? DEFAULT_PROVIDER);
@@ -547,10 +589,11 @@ async function loadConfig(): Promise<void> {
     setChatState("config", "model", config.model || DEFAULT_MODEL);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    setChatState("config", "apiKey", "");
-    setChatState("config", "provider", DEFAULT_PROVIDER);
-    setChatState("config", "serverUrl", DEFAULT_SERVER_URL);
-    setChatState("config", "model", DEFAULT_MODEL);
+    const defaults = createDefaultAiConfig();
+    setChatState("config", "apiKey", defaults.apiKey ?? "");
+    setChatState("config", "provider", defaults.provider ?? DEFAULT_PROVIDER);
+    setChatState("config", "serverUrl", defaults.serverUrl ?? DEFAULT_SERVER_URL);
+    setChatState("config", "model", defaults.model);
     setChatState("config", "rawConfig", {});
     setChatState("config", "error", message);
   } finally {
@@ -576,6 +619,7 @@ async function saveConfig(
       roundLimit: currentConfig.roundLimit ?? DEFAULT_ROUND_LIMIT,
       proxyToolTimeoutMs: currentConfig.proxyToolTimeoutMs ?? DEFAULT_PROXY_TIMEOUT_MS,
     };
+    await savePluginSettings(AI_CHAT_SETTINGS_PLUGIN_ID, nextConfig, [...AI_CHAT_SECURE_KEYS]);
     await invoke<void>("plugin:kuku-ai|ai_set_config", { config: nextConfig });
     setChatState("config", "rawConfig", nextConfig as unknown as Record<string, unknown>);
     setChatState("config", "apiKey", nextApiKey);
@@ -588,6 +632,13 @@ async function saveConfig(
   } finally {
     setChatState("config", "saving", false);
   }
+}
+
+async function clearPersistedConfig(): Promise<void> {
+  await invoke<void>("plugin_clear_settings_with_secrets", {
+    pluginId: AI_CHAT_SETTINGS_PLUGIN_ID,
+    secureKeys: [...AI_CHAT_SECURE_KEYS],
+  });
 }
 
 async function loadTools(): Promise<void> {
@@ -638,11 +689,13 @@ export {
   appendDelta,
   chatState,
   cancelSession,
+  clearPersistedConfig,
   createSession,
   endToolCall,
   ensureSession,
   finishSession,
   getActiveSession,
+  resetChatState,
   loadConfig,
   loadTools,
   resetToSession,

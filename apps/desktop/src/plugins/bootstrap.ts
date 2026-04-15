@@ -10,7 +10,7 @@
 //   3. Activate in topological order (per-plugin try/catch isolation)
 //
 // The `pluginsReady` signal gates editor rendering — MarkdownEditor must
-// wait for all plugins (especially editor-core with its schema-defining
+// wait for all plugins (especially core-editor with its schema-defining
 // mark/node specs) to be activated before calling createKukuEditor().
 // This is because ProseKit requires all schema extensions at createEditor()
 // time; editor.use() cannot add node/mark specs after creation.
@@ -20,11 +20,12 @@
 import { createSignal } from "solid-js";
 
 import { initAppPaths } from "~/plugins/app_paths";
+import { coreToolRegistryPlugin } from "~/plugins/builtin/core_tool_registry";
 import { coreAuthPlugin } from "~/plugins/builtin/core_auth";
 import { coreIndexerPlugin } from "~/plugins/builtin/core_indexer";
 import { coreCommandsPlugin } from "~/plugins/builtin/core_commands";
 import { aiChatPlugin } from "~/plugins/builtin/ai_chat";
-import { editorCorePlugin } from "~/plugins/builtin/editor_core";
+import { editorCorePlugin } from "~/plugins/builtin/core_editor";
 import { graphViewPlugin } from "~/plugins/builtin/graph_view";
 import { searchPlugin } from "~/plugins/builtin/search";
 import { wikilinkPlugin } from "~/plugins/builtin/wikilink";
@@ -65,6 +66,7 @@ const [pluginsReady, setPluginsReady] = createSignal(false);
  * Registration is order-independent (v1.3: no deps check at register time).
  */
 const builtinPlugins: KukuPlugin[] = [
+  coreToolRegistryPlugin,
   coreAuthPlugin,
   coreCommandsPlugin,
   coreIndexerPlugin,

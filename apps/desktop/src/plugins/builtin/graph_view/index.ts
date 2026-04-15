@@ -14,7 +14,7 @@
 
 import { lazy } from "solid-js";
 
-import type { AiProxyToolRegistry } from "~/plugins/builtin/ai_chat/types";
+import type { AiProxyToolRegistry } from "~/plugins/builtin/core_tool_registry/types";
 import type { SearchService } from "~/plugins/builtin/core_indexer/service";
 import { registerFill } from "~/plugins/slots";
 import type { KukuPlugin } from "~/plugins/types";
@@ -27,8 +27,12 @@ import {
   buildSuggestLinksQuery,
   buildVaultStatsPayload,
 } from "./graph_proxy_tools";
-import { GraphSettingsPanel, loadGraphSettings } from "./graph_settings";
-import { createGraphStore, setGraphStore } from "./graph_store";
+import {
+  GraphSettingsPanel,
+  loadGraphSettings,
+  restoreGraphSettingsDefaults,
+} from "./graph_settings";
+import { createGraphStore, getGraphStore, setGraphStore } from "./graph_store";
 
 // ── Lazy-loaded view components ──
 //
@@ -46,7 +50,7 @@ const graphViewPlugin: KukuPlugin = {
   version: "0.2.0",
   description: "Visualize wikilink connections across the vault",
   canDisable: true,
-  dependencies: ["wikilink", "ai-chat", "core-indexer"],
+  dependencies: ["wikilink", "core-indexer", "core-tool-registry"],
 
   views: [
     {
@@ -91,6 +95,11 @@ const graphViewPlugin: KukuPlugin = {
     },
   ],
 
+  reset() {
+    restoreGraphSettingsDefaults();
+    getGraphStore()?.clear();
+  },
+
   async activate(ctx) {
     // ── Load persisted graph settings ───────────────────────
     await loadGraphSettings();
@@ -120,7 +129,7 @@ const graphViewPlugin: KukuPlugin = {
     });
     ctx.services.register("store", store);
 
-    const proxyTools = ctx.services.get<AiProxyToolRegistry>("ai-chat.proxyTools");
+    const proxyTools = ctx.services.get<AiProxyToolRegistry>("core-tool-registry.proxyTools");
     if (proxyTools) {
       const registrations = [
         proxyTools.register({

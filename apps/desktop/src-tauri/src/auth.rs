@@ -6,11 +6,14 @@ use std::time::{Duration, SystemTime};
 
 use serde::{Deserialize, Serialize};
 
+use crate::secure_storage;
+
 static PENDING_AUTH_STATE: OnceLock<Mutex<Option<String>>> = OnceLock::new();
 
 const SECURE_SERVICE: &str = "mom.kuku.desktop.auth";
 const SECURE_ACCOUNT: &str = "tokens";
 const LEGACY_EXPIRES_IN: i64 = 3600;
+const DEFAULT_AUTHORIZED_PLUGIN_IDS: &[&str] = &["ai-chat"];
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StoredTokens {
@@ -59,6 +62,16 @@ impl std::fmt::Display for TokenError {
 
 impl std::error::Error for TokenError {}
 
+impl From<secure_storage::SecureStorageError> for TokenError {
+    fn from(value: secure_storage::SecureStorageError) -> Self {
+        match value {
+            secure_storage::SecureStorageError::State(message) => Self::State(message),
+            secure_storage::SecureStorageError::Store(message) => Self::Store(message),
+            secure_storage::SecureStorageError::NotFound => Self::NotFound,
+        }
+    }
+}
+
 pub fn store_pending_state(state: &str) {
     let mut guard = pending_state()
         .lock()
@@ -72,6 +85,13 @@ pub fn validate_auth_state(received_state: &str) -> bool {
         .unwrap_or_else(|err| err.into_inner());
     let expected = guard.take();
     expected.as_deref() == Some(received_state)
+}
+
+fn clear_pending_state() {
+    let mut guard = pending_state()
+        .lock()
+        .unwrap_or_else(|err| err.into_inner());
+    *guard = None;
 }
 
 pub fn store_tokens(
@@ -92,7 +112,7 @@ pub fn replace_tokens(tokens: StoredTokens) -> Result<(), TokenError> {
 }
 
 pub fn read_tokens() -> Result<StoredTokens, TokenError> {
-    match secure_store::read(SECURE_SERVICE, SECURE_ACCOUNT)? {
+    match secure_storage::read_bytes(SECURE_SERVICE, SECURE_ACCOUNT)? {
         Some(content) => serde_json::from_slice(&content)
             .map_err(|err| TokenError::Store(format!("invalid secure token JSON: {err}"))),
         None => migrate_legacy_tokens(),
@@ -122,9 +142,9 @@ pub fn token_expires_soon(tokens: &StoredTokens) -> bool {
 }
 
 pub fn clear_tokens() -> Result<(), TokenError> {
-    match secure_store::delete(SECURE_SERVICE, SECURE_ACCOUNT) {
-        Ok(()) | Err(TokenError::NotFound) => {}
-        Err(error) => return Err(error),
+    match secure_storage::delete(SECURE_SERVICE, SECURE_ACCOUNT) {
+        Ok(()) | Err(secure_storage::SecureStorageError::NotFound) => {}
+        Err(error) => return Err(error.into()),
     }
     let legacy_path = legacy_auth_path()?;
     if legacy_path.exists() {
@@ -133,8 +153,23 @@ pub fn clear_tokens() -> Result<(), TokenError> {
     Ok(())
 }
 
+pub fn clear_permissions() -> Result<(), TokenError> {
+    let path = permissions_path()?;
+    if path.exists() {
+        fs::remove_file(path).map_err(|err| TokenError::Store(err.to_string()))?;
+    }
+    Ok(())
+}
+
+pub fn reset_auth_state() -> Result<(), TokenError> {
+    clear_pending_state();
+    clear_tokens()?;
+    clear_permissions()?;
+    Ok(())
+}
+
 pub fn list_plugin_authorizations() -> Result<Vec<PluginAuthorization>, TokenError> {
-    let permissions = read_permissions()?;
+    let permissions = load_permissions()?;
     let mut plugin_ids = permissions.requested_plugins;
     plugin_ids.extend(permissions.authorized_plugins.keys().cloned());
 
@@ -152,7 +187,7 @@ pub fn list_plugin_authorizations() -> Result<Vec<PluginAuthorization>, TokenErr
 }
 
 pub fn is_plugin_authorized(plugin_id: &str) -> Result<bool, TokenError> {
-    let mut permissions = read_permissions()?;
+    let mut permissions = load_permissions()?;
     permissions.requested_plugins.insert(plugin_id.to_string());
     let authorized = permissions
         .authorized_plugins
@@ -164,7 +199,7 @@ pub fn is_plugin_authorized(plugin_id: &str) -> Result<bool, TokenError> {
 }
 
 pub fn set_plugin_authorized(plugin_id: &str, authorized: bool) -> Result<(), TokenError> {
-    let mut permissions = read_permissions()?;
+    let mut permissions = load_permissions()?;
     permissions.requested_plugins.insert(plugin_id.to_string());
     permissions
         .authorized_plugins
@@ -179,7 +214,7 @@ fn pending_state() -> &'static Mutex<Option<String>> {
 fn write_tokens(tokens: &StoredTokens) -> Result<(), TokenError> {
     let content =
         serde_json::to_vec_pretty(tokens).map_err(|err| TokenError::Store(err.to_string()))?;
-    secure_store::write(SECURE_SERVICE, SECURE_ACCOUNT, &content)
+    secure_storage::write_bytes(SECURE_SERVICE, SECURE_ACCOUNT, &content).map_err(Into::into)
 }
 
 fn migrate_legacy_tokens() -> Result<StoredTokens, TokenError> {
@@ -209,6 +244,32 @@ fn read_permissions() -> Result<AuthPermissions, TokenError> {
     }
     let content = fs::read(path).map_err(|err| TokenError::Store(err.to_string()))?;
     serde_json::from_slice(&content).map_err(|err| TokenError::Store(err.to_string()))
+}
+
+fn load_permissions() -> Result<AuthPermissions, TokenError> {
+    let mut permissions = read_permissions()?;
+    if apply_default_plugin_permissions(&mut permissions) {
+        write_permissions(&permissions)?;
+    }
+    Ok(permissions)
+}
+
+fn apply_default_plugin_permissions(permissions: &mut AuthPermissions) -> bool {
+    let mut changed = false;
+
+    for plugin_id in DEFAULT_AUTHORIZED_PLUGIN_IDS {
+        changed |= permissions
+            .requested_plugins
+            .insert((*plugin_id).to_string());
+        if !permissions.authorized_plugins.contains_key(*plugin_id) {
+            permissions
+                .authorized_plugins
+                .insert((*plugin_id).to_string(), true);
+            changed = true;
+        }
+    }
+
+    changed
 }
 
 fn write_permissions(permissions: &AuthPermissions) -> Result<(), TokenError> {
@@ -305,89 +366,27 @@ fn days_from_civil(year: i32, month: u32, day: u32) -> Option<i64> {
     Some(era * 146_097 + day_of_era - 719_468)
 }
 
-mod secure_store {
-    use super::TokenError;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    #[cfg(debug_assertions)]
-    pub fn read(service: &str, account: &str) -> Result<Option<Vec<u8>>, TokenError> {
-        let path = debug_store_path(service, account)?;
-        if !path.exists() {
-            return Ok(None);
-        }
-        std::fs::read(path)
-            .map(Some)
-            .map_err(|error| TokenError::Store(format!("failed to read debug auth store: {error}")))
+    #[test]
+    fn clear_pending_state_resets_pending_auth_callback() {
+        store_pending_state("pending-state");
+        clear_pending_state();
+
+        assert!(!validate_auth_state("pending-state"));
     }
 
-    #[cfg(debug_assertions)]
-    pub fn write(service: &str, account: &str, content: &[u8]) -> Result<(), TokenError> {
-        let path = debug_store_path(service, account)?;
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent).map_err(|error| {
-                TokenError::Store(format!("failed to create debug auth store: {error}"))
-            })?;
-        }
-        std::fs::write(path, content).map_err(|error| {
-            TokenError::Store(format!("failed to write debug auth store: {error}"))
-        })
-    }
+    #[test]
+    fn apply_default_plugin_permissions_registers_core_plugins_once() {
+        let mut permissions = AuthPermissions::default();
 
-    #[cfg(debug_assertions)]
-    pub fn delete(service: &str, account: &str) -> Result<(), TokenError> {
-        let path = debug_store_path(service, account)?;
-        if !path.exists() {
-            return Err(TokenError::NotFound);
-        }
-        std::fs::remove_file(path).map_err(|error| {
-            TokenError::Store(format!("failed to delete debug auth store: {error}"))
-        })
-    }
+        let changed = apply_default_plugin_permissions(&mut permissions);
 
-    #[cfg(debug_assertions)]
-    fn debug_store_path(service: &str, account: &str) -> Result<std::path::PathBuf, TokenError> {
-        let home = dirs::home_dir().ok_or_else(|| {
-            TokenError::State("cannot resolve the user home directory".to_string())
-        })?;
-        Ok(home
-            .join(".kuku")
-            .join("debug-secure-store")
-            .join(format!("{service}.{account}.json")))
-    }
-
-    #[cfg(not(debug_assertions))]
-    pub fn read(service: &str, account: &str) -> Result<Option<Vec<u8>>, TokenError> {
-        let entry = keyring::Entry::new(service, account)
-            .map_err(|error| TokenError::Store(format!("failed to open keyring: {error}")))?;
-        match entry.get_password() {
-            Ok(content) => Ok(Some(content.into_bytes())),
-            Err(keyring::Error::NoEntry) => Ok(None),
-            Err(error) => Err(TokenError::Store(format!(
-                "failed to read keyring: {error}"
-            ))),
-        }
-    }
-
-    #[cfg(not(debug_assertions))]
-    pub fn write(service: &str, account: &str, content: &[u8]) -> Result<(), TokenError> {
-        let entry = keyring::Entry::new(service, account)
-            .map_err(|error| TokenError::Store(format!("failed to open keyring: {error}")))?;
-        let content = std::str::from_utf8(content)
-            .map_err(|error| TokenError::Store(format!("invalid token JSON bytes: {error}")))?;
-        entry
-            .set_password(content)
-            .map_err(|error| TokenError::Store(format!("failed to write keyring: {error}")))
-    }
-
-    #[cfg(not(debug_assertions))]
-    pub fn delete(service: &str, account: &str) -> Result<(), TokenError> {
-        let entry = keyring::Entry::new(service, account)
-            .map_err(|error| TokenError::Store(format!("failed to open keyring: {error}")))?;
-        match entry.delete_credential() {
-            Ok(()) => Ok(()),
-            Err(keyring::Error::NoEntry) => Err(TokenError::NotFound),
-            Err(error) => Err(TokenError::Store(format!(
-                "failed to delete keyring: {error}"
-            ))),
-        }
+        assert!(changed);
+        assert!(permissions.requested_plugins.contains("ai-chat"));
+        assert_eq!(permissions.authorized_plugins.get("ai-chat"), Some(&true));
+        assert!(!apply_default_plugin_permissions(&mut permissions));
     }
 }

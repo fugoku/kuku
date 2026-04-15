@@ -35,6 +35,7 @@
     "remark-directive": "^4.0.0",
     "remark-gfm": "^4.0.1",
     "solid-js": "^1.9.12",
+    "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.2.2",
     "tinykeys": "^3.0.0"
   },

@@ -12,17 +12,18 @@
 
 import { describe, it, expect } from "vitest";
 
-import { editorCoreMarkdown } from "~/plugins/builtin/editor_core/markdown_handlers";
+import { editorCoreMarkdown } from "~/plugins/builtin/core_editor/markdown_handlers";
 
 import {
   RegistryBuilder,
   createProcessor,
+  makeText,
   mdastToProseMirror,
   proseMirrorToMdast,
   type RemarkPlugin,
 } from "~/lib/markdown";
 
-// ── Test registry (base + all editor_core handlers) ──
+// ── Test registry (base + all core_editor handlers) ──
 
 function createTestRegistry() {
   const builder = new RegistryBuilder().addBase();
@@ -403,6 +404,12 @@ describe("PM JSON structure", () => {
     const textNode = (pm.content ?? [])[0].content?.[0];
     expect(textNode?.text).toBe("code");
     expect(textNode?.marks).toEqual([{ type: "code" }]);
+  });
+
+  it("deduplicates repeated marks on text nodes", () => {
+    const textNode = makeText("value", [{ type: "code" }, { type: "bold" }, { type: "bold" }]);
+
+    expect(textNode.marks).toEqual([{ type: "code" }, { type: "bold" }]);
   });
 
   it("bold+italic produces nested marks", () => {

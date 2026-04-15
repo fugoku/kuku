@@ -2,11 +2,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockListVaultFiles = vi.fn();
 const mockVaultRename = vi.fn();
+const mockVaultDelete = vi.fn();
 const mockVaultRemove = vi.fn();
+const mockVaultGetTrashPath = vi.fn();
 const mockListen = vi.fn().mockResolvedValue(() => {});
 const mockRenameTabsForMovedPath = vi.fn();
 const mockCloseTabsForDeletedPath = vi.fn();
 const mockReconcileEditorTabsWithVault = vi.fn();
+const mockSettingsState = {
+  files: {
+    deletedFiles: "trash",
+  },
+};
 
 const FILES = [
   {
@@ -41,6 +48,7 @@ vi.mock("~/stores/files", () => ({
 
 vi.mock("~/stores/settings", () => ({
   setTopLevelSetting: vi.fn(),
+  settingsState: mockSettingsState,
 }));
 
 vi.mock("~/lib/vault_fs", () => ({
@@ -50,6 +58,8 @@ vi.mock("~/lib/vault_fs", () => ({
   readVaultFile: vi.fn(),
   readVaultFileWithChecksum: vi.fn(),
   vaultExists: vi.fn(),
+  vaultDelete: mockVaultDelete,
+  vaultGetTrashPath: mockVaultGetTrashPath,
   vaultMkdir: vi.fn(),
   vaultRemove: mockVaultRemove,
   vaultRename: mockVaultRename,
@@ -66,11 +76,14 @@ describe("vault actions", () => {
   beforeEach(() => {
     mockListVaultFiles.mockReset().mockResolvedValue(FILES);
     mockVaultRename.mockReset().mockResolvedValue(undefined);
+    mockVaultDelete.mockReset().mockResolvedValue(undefined);
     mockVaultRemove.mockReset().mockResolvedValue(undefined);
+    mockVaultGetTrashPath.mockReset().mockResolvedValue("/tmp/vault/.trash");
     mockRenameTabsForMovedPath.mockReset();
     mockCloseTabsForDeletedPath.mockReset();
     mockReconcileEditorTabsWithVault.mockReset();
     mockListen.mockClear();
+    mockSettingsState.files.deletedFiles = "trash";
   });
 
   it("starts file rename with basename-only editing", async () => {
@@ -141,7 +154,7 @@ describe("vault actions", () => {
 
   it("keeps tabs and edit state intact when delete fails", async () => {
     const vault = await loadVaultModule();
-    mockVaultRemove.mockRejectedValueOnce(new Error("permission denied"));
+    mockVaultDelete.mockRejectedValueOnce(new Error("permission denied"));
 
     await vault.loadFiles("/tmp/vault");
     vault.startRename("notes/a.md");
@@ -152,5 +165,16 @@ describe("vault actions", () => {
       kind: "rename",
       targetPath: "notes/a.md",
     });
+  });
+
+  it("uses the configured delete mode", async () => {
+    const vault = await loadVaultModule();
+    mockSettingsState.files.deletedFiles = "kuku-trash";
+
+    await vault.loadFiles("/tmp/vault");
+    await vault.deleteEntry("notes/a.md");
+
+    expect(mockVaultDelete).toHaveBeenCalledWith("notes/a.md", "kuku-trash");
+    expect(mockCloseTabsForDeletedPath).toHaveBeenCalledWith("notes/a.md", false);
   });
 });

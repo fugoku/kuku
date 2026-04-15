@@ -1,11 +1,13 @@
+import { invoke } from "@tauri-apps/api/core";
 import { lazy } from "solid-js";
 
 import { closeRightPanelView, layoutState, openRightPanelView } from "~/stores/layout";
+import type { AiProxyToolRegistry } from "~/plugins/builtin/core_tool_registry/types";
 import type { KukuPlugin } from "~/plugins/types";
 
 import { createAiEventBridge } from "./event_bridge";
 import { createProxyToolBridge } from "./proxy_tool_bridge";
-import { loadConfig, loadTools } from "./chat_store";
+import { clearPersistedConfig, loadConfig, loadTools, resetChatState } from "./chat_store";
 
 const ChatPanelView = lazy(() => import("./chat_panel"));
 const AiSettingsView = lazy(() =>
@@ -18,7 +20,7 @@ const aiChatPlugin: KukuPlugin = {
   version: "0.1.0",
   description: "Chat with Gemini from the right panel",
   canDisable: true,
-  dependencies: ["core-auth"],
+  dependencies: ["core-auth", "core-tool-registry"],
 
   views: [
     {
@@ -53,10 +55,18 @@ const aiChatPlugin: KukuPlugin = {
     },
   ],
 
+  async reset() {
+    await clearPersistedConfig();
+    await invoke<void>("plugin:kuku-ai|ai_reset_state");
+    resetChatState();
+  },
+
   async activate(ctx) {
-    const { registry, dispose } = await createProxyToolBridge();
-    ctx.services.register("proxyTools", registry);
-    ctx.track(dispose);
+    const proxyTools = ctx.services.get<AiProxyToolRegistry>("core-tool-registry.proxyTools");
+    if (proxyTools) {
+      const disposeProxyBridge = await createProxyToolBridge(proxyTools);
+      ctx.track(disposeProxyBridge);
+    }
 
     const disposeEvents = await createAiEventBridge();
     ctx.track(disposeEvents);

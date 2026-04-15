@@ -17,12 +17,39 @@ import { buildVaultTreeIndex } from "~/stores/vault_tree";
 
 type TabType = "editor" | "diff" | "graph" | "search" | "settings";
 
+type SettingsCategoryId =
+  | "general"
+  | "appearance"
+  | "editor"
+  | "files"
+  | "keybindings"
+  | "plugins"
+  | "about"
+  | "debug";
+
+type SettingsTarget =
+  | {
+      kind: "category";
+      categoryId: SettingsCategoryId;
+      anchor?: string;
+    }
+  | {
+      kind: "plugin";
+      fillId: string;
+      anchor?: string;
+    };
+
+interface TabState {
+  settingsTarget?: SettingsTarget;
+}
+
 interface Tab {
   id: string;
   fileName: string;
   filePath: string | null;
   type: TabType;
   isDirty: boolean;
+  state?: TabState;
 }
 
 interface FilesState {
@@ -48,6 +75,7 @@ function createTab(
   fileName: string,
   filePath: string | null = null,
   type: TabType = "editor",
+  state?: TabState,
 ): Tab {
   return {
     id: crypto.randomUUID(),
@@ -55,6 +83,7 @@ function createTab(
     filePath,
     type,
     isDirty: false,
+    state,
   };
 }
 
@@ -71,7 +100,12 @@ function loadTabsSync(): FilesState {
   if (!raw) return emptyState;
   try {
     const data = JSON.parse(raw) as {
-      tabs?: { fileName: string; filePath: string; type?: TabType }[];
+      tabs?: {
+        fileName: string;
+        filePath: string;
+        type?: TabType;
+        state?: TabState;
+      }[];
       activeFilePath?: string | null;
     };
     if (!data?.tabs?.length) {
@@ -80,7 +114,7 @@ function loadTabsSync(): FilesState {
 
     const restored = data.tabs
       .filter((tab) => tab.type !== "diff")
-      .map((t) => createTab(t.fileName, t.filePath || null, t.type ?? "editor"));
+      .map((t) => createTab(t.fileName, t.filePath || null, t.type ?? "editor", t.state));
     const active = data.activeFilePath
       ? restored.find((t) => t.filePath === data.activeFilePath)
       : restored[0];
@@ -105,6 +139,7 @@ function saveTabsSync(): void {
       fileName: t.fileName,
       filePath: t.filePath ?? "",
       type: t.type,
+      state: t.state,
     })),
     activeFilePath: active?.type === "diff" ? null : (active?.filePath ?? null),
   };
@@ -140,6 +175,14 @@ function getActiveEditorFolder(): string {
 
 // ── Actions ──
 
+/**
+ * Opens or focuses a tab.
+ *
+ * @deprecated Do not add new Settings navigation call sites with this helper.
+ * Settings is moving to a typed `openSettings(target)` API so callers can
+ * target a specific category / plugin section / anchor instead of only the
+ * singleton `"settings"` tab.
+ */
 function openTab(fileName: string, filePath: string | null = null, type: TabType = "editor"): void {
   // Focus existing tab if same filePath + tab type
   if (filePath) {
@@ -166,6 +209,61 @@ function openTab(fileName: string, filePath: string | null = null, type: TabType
     produce((s) => {
       s.tabs.push(tab);
       s.activeTabId = tab.id;
+    }),
+  );
+  saveTabsSync();
+}
+
+function openSettings(target?: SettingsTarget): void {
+  const existingIndex = filesState.tabs.findIndex((tab) => tab.type === "settings");
+  if (existingIndex !== -1) {
+    setFilesState(
+      produce((state) => {
+        state.activeTabId = state.tabs[existingIndex].id;
+        if (target) {
+          state.tabs[existingIndex].state ??= {};
+          state.tabs[existingIndex].state.settingsTarget = target;
+        }
+      }),
+    );
+    saveTabsSync();
+    return;
+  }
+
+  const tab = createTab(
+    "Settings",
+    null,
+    "settings",
+    target ? { settingsTarget: target } : undefined,
+  );
+  setFilesState(
+    produce((state) => {
+      state.tabs.push(tab);
+      state.activeTabId = tab.id;
+    }),
+  );
+  saveTabsSync();
+}
+
+function setSettingsTarget(target: SettingsTarget | undefined): void {
+  const settingsIndex = filesState.tabs.findIndex((tab) => tab.type === "settings");
+  if (settingsIndex === -1) return;
+
+  setFilesState(
+    produce((state) => {
+      const tab = state.tabs[settingsIndex];
+      if (!target) {
+        if (tab.state) {
+          delete tab.state.settingsTarget;
+          if (Object.keys(tab.state).length === 0) {
+            delete tab.state;
+          }
+        }
+        return;
+      }
+
+      tab.state ??= {};
+      tab.state.settingsTarget = target;
     }),
   );
   saveTabsSync();
@@ -207,6 +305,36 @@ function clearEditorTabs(): void {
       s.activeTabId = active?.id ?? null;
     }),
   );
+  saveTabsSync();
+}
+
+function resetFilesState(options?: {
+  preserveSettingsTab?: boolean;
+  settingsTarget?: SettingsTarget;
+}): void {
+  for (const tab of filesState.tabs) {
+    purgeClosedTab(tab);
+  }
+
+  const tabs =
+    options?.preserveSettingsTab === true
+      ? [
+          createTab(
+            "Settings",
+            null,
+            "settings",
+            options.settingsTarget ? { settingsTarget: options.settingsTarget } : undefined,
+          ),
+        ]
+      : [];
+
+  setFilesState({
+    tabs,
+    activeTabId: tabs[0]?.id ?? null,
+    cachedContent: {},
+    cachedChecksums: {},
+    viewportState: {},
+  });
   saveTabsSync();
 }
 
@@ -370,14 +498,17 @@ export {
   initCloseHandler,
   markTabDirty,
   nextTab,
+  openSettings,
   openTab,
   prevTab,
   reconcileEditorTabsWithVault,
   renameTabsForMovedPath,
+  resetFilesState,
   saveCachedChecksum,
   saveCachedContent,
   saveViewportState,
+  setSettingsTarget,
   setActiveTab,
 };
-export type { Tab, TabType };
+export type { SettingsCategoryId, SettingsTarget, Tab, TabType };
 export type { ViewportState };

@@ -2,7 +2,7 @@ import { lazy } from "solid-js";
 
 import type { KukuPlugin } from "~/plugins/types";
 
-import { createAuthService } from "./auth_service";
+import { createAuthService, resetAuthServiceState } from "./auth_service";
 
 const AuthSettingsView = lazy(() =>
   import("./auth_settings").then((module) => ({ default: module.AuthSettings })),
@@ -10,7 +10,7 @@ const AuthSettingsView = lazy(() =>
 
 const coreAuthPlugin: KukuPlugin = {
   id: "core-auth",
-  name: "Core Auth",
+  name: "Auth",
   version: "0.1.0",
   description: "Kuku account session and plugin authorization service",
   canDisable: false,
@@ -24,6 +24,10 @@ const coreAuthPlugin: KukuPlugin = {
       component: AuthSettingsView,
     },
   ],
+
+  reset() {
+    resetAuthServiceState();
+  },
 
   async activate(ctx) {
     const service = await createAuthService();
