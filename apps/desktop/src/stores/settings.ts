@@ -8,7 +8,6 @@ export type ThemePreference = "system" | "light" | "dark";
 export type EffectiveTheme = "light" | "dark";
 
 interface GeneralSettings {
-  language: string;
   autoSave: boolean;
   spellCheck: boolean;
   typingIndicator: boolean;
@@ -22,8 +21,6 @@ interface AppearanceSettings {
 
 interface EditorSettings {
   tabSize: number;
-  wordWrap: boolean;
-  lineNumbers: boolean;
   /** General font for the editor — CSS font-family name, e.g. "Goorm Sans" */
   fontFamily: string;
   /** Monospace font for the editor — CSS font-family name, e.g. "Goorm Sans Code" */
@@ -76,7 +73,6 @@ interface PersistedSettings {
   last_opened_vault?: string;
   disabled_plugins?: string[];
   general?: {
-    language?: string;
     auto_save?: boolean;
     spell_check?: boolean;
     typing_indicator?: boolean;
@@ -87,8 +83,6 @@ interface PersistedSettings {
   };
   editor?: {
     tab_size?: number;
-    word_wrap?: boolean;
-    line_numbers?: boolean;
     font_family?: string;
     font_mono?: string;
     font_size?: number;
@@ -109,7 +103,6 @@ const DEFAULTS: Settings = {
   lastOpenedVault: null,
   disabledPlugins: [],
   general: {
-    language: "en",
     autoSave: true,
     spellCheck: false,
     typingIndicator: true,
@@ -120,8 +113,6 @@ const DEFAULTS: Settings = {
   },
   editor: {
     tabSize: 4,
-    wordWrap: true,
-    lineNumbers: false,
     fontFamily: "Goorm Sans",
     fontMono: "Goorm Sans Code",
     fontSize: 16,
@@ -258,8 +249,6 @@ function patchFromLegacySettings(value: unknown): SettingsPatch | null {
   const generalRaw = isRecord(value.general) ? value.general : null;
   if (generalRaw) {
     const general: Partial<GeneralSettings> = {};
-    const language = asNonEmptyString(generalRaw.language);
-    if (language) general.language = language;
     const autoSave = asBoolean(generalRaw.autoSave);
     if (autoSave !== undefined) general.autoSave = autoSave;
     const spellCheck = asBoolean(generalRaw.spellCheck);
@@ -284,10 +273,6 @@ function patchFromLegacySettings(value: unknown): SettingsPatch | null {
     const editor: Partial<EditorSettings> = {};
     const tabSize = asPositiveInteger(editorRaw.tabSize);
     if (tabSize !== undefined) editor.tabSize = tabSize;
-    const wordWrap = asBoolean(editorRaw.wordWrap);
-    if (wordWrap !== undefined) editor.wordWrap = wordWrap;
-    const lineNumbers = asBoolean(editorRaw.lineNumbers);
-    if (lineNumbers !== undefined) editor.lineNumbers = lineNumbers;
     const fontFamily = asNonEmptyString(editorRaw.fontFamily);
     if (fontFamily) editor.fontFamily = fontFamily;
     const fontMono = asNonEmptyString(editorRaw.fontMono);
@@ -333,8 +318,6 @@ function patchFromPersistedSettings(value: unknown): SettingsPatch | null {
   const generalRaw = isRecord(value.general) ? value.general : null;
   if (generalRaw) {
     const general: Partial<GeneralSettings> = {};
-    const language = asNonEmptyString(generalRaw.language);
-    if (language) general.language = language;
     const autoSave = asBoolean(generalRaw.auto_save);
     if (autoSave !== undefined) general.autoSave = autoSave;
     const spellCheck = asBoolean(generalRaw.spell_check);
@@ -359,10 +342,6 @@ function patchFromPersistedSettings(value: unknown): SettingsPatch | null {
     const editor: Partial<EditorSettings> = {};
     const tabSize = asPositiveInteger(editorRaw.tab_size);
     if (tabSize !== undefined) editor.tabSize = tabSize;
-    const wordWrap = asBoolean(editorRaw.word_wrap);
-    if (wordWrap !== undefined) editor.wordWrap = wordWrap;
-    const lineNumbers = asBoolean(editorRaw.line_numbers);
-    if (lineNumbers !== undefined) editor.lineNumbers = lineNumbers;
     const fontFamily = asNonEmptyString(editorRaw.font_family);
     if (fontFamily) editor.fontFamily = fontFamily;
     const fontMono = asNonEmptyString(editorRaw.font_mono);
@@ -397,7 +376,6 @@ function toPersistedSettings(settings: Settings): PersistedSettings {
   const persisted: PersistedSettings = {
     disabled_plugins: [...settings.disabledPlugins],
     general: {
-      language: settings.general.language,
       auto_save: settings.general.autoSave,
       spell_check: settings.general.spellCheck,
       typing_indicator: settings.general.typingIndicator,
@@ -408,8 +386,6 @@ function toPersistedSettings(settings: Settings): PersistedSettings {
     },
     editor: {
       tab_size: settings.editor.tabSize,
-      word_wrap: settings.editor.wordWrap,
-      line_numbers: settings.editor.lineNumbers,
       font_family: settings.editor.fontFamily,
       font_mono: settings.editor.fontMono,
       font_size: settings.editor.fontSize,

@@ -11,6 +11,7 @@ const DEFAULT_INDEXER_CONFIG: IndexerConfig = {
   storageLocation: "app-global",
   incrementalUpdates: true,
   reindexOnVaultOpen: true,
+  // Internal/fixed for now: the settings UI intentionally does not expose this.
   resolutionPolicy: "closest-folder",
 };
 

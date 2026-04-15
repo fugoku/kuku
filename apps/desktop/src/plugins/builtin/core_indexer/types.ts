@@ -57,6 +57,7 @@ export interface IndexerConfig {
   storageLocation: IndexerStorageLocation;
   incrementalUpdates: boolean;
   reindexOnVaultOpen: boolean;
+  // Internal/fixed for now; keep closest-folder as the backend compatibility contract.
   resolutionPolicy: "closest-folder";
 }
 

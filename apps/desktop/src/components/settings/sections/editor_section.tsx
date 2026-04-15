@@ -74,6 +74,16 @@ function EditorSection() {
         }
       />
       <SettingsFieldRow
+        label="Spell check"
+        description="Use the system spell checker while editing."
+        control={
+          <Switch
+            checked={settingsState.general.spellCheck}
+            onChange={(value) => setGeneralSetting("spellCheck", value)}
+          />
+        }
+      />
+      <SettingsFieldRow
         label="Tab size"
         description="Number of spaces per tab character."
         control={

@@ -112,7 +112,6 @@ function SettingsDebugView(): JSX.Element {
         debug: indexerDebug(),
       },
       vaultRoot: vaultState.rootPath,
-      language: settingsState.general.language,
       theme: settingsState.appearance.theme,
       localStorageKeys: localStorageKeys(),
     };
@@ -178,7 +177,6 @@ function SettingsDebugView(): JSX.Element {
             <SettingsStatusBadge tone={indexerTone()}>{indexerStatus.state}</SettingsStatusBadge>
           </div>
           <SettingsMetricRow label="Vault root" value={vaultState.rootPath ?? "None"} />
-          <SettingsMetricRow label="Language" value={settingsState.general.language} />
           <SettingsMetricRow label="Theme" value={settingsState.appearance.theme} />
         </div>
       </SettingsCard>

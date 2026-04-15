@@ -7,6 +7,7 @@ const DEFAULT_PROVIDER = "remote" as const;
 const DEFAULT_SERVER_URL =
   import.meta.env.VITE_KUKU_AI_SERVER_URL?.trim() ||
   (import.meta.env.PROD ? "https://www.kuku.mom" : "http://localhost:8080");
+// Internal guardrails: these are intentionally kept out of the settings UI.
 const DEFAULT_ROUND_LIMIT = 12;
 const DEFAULT_PROXY_TIMEOUT_MS = 15_000;
 

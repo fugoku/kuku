@@ -42,7 +42,7 @@ export default function App() {
   });
 
   createEffect(() => {
-    const { fontFamily, fontMono, fontSize, lineHeight, wordWrap, tabSize } = settingsState.editor;
+    const { fontFamily, fontMono, fontSize, lineHeight, tabSize } = settingsState.editor;
     document.documentElement.style.setProperty(
       "--font-editor",
       buildFontFamily(fontFamily, FONT_SANS_FALLBACK),
@@ -55,34 +55,13 @@ export default function App() {
     document.documentElement.style.setProperty("--editor-tab-size", String(tabSize));
     document.documentElement.style.setProperty("--editor-list-indent", `${tabSize * 0.5}em`);
     document.documentElement.style.setProperty("--editor-line-height", String(lineHeight));
-    document.documentElement.style.setProperty(
-      "--editor-overflow-wrap",
-      wordWrap ? "break-word" : "normal",
-    );
-    document.documentElement.style.setProperty(
-      "--editor-white-space",
-      wordWrap ? "break-spaces" : "pre",
-    );
-    document.documentElement.style.setProperty(
-      "--editor-content-width",
-      wordWrap ? "100%" : "max-content",
-    );
-    document.documentElement.style.setProperty(
-      "--editor-code-width",
-      wordWrap ? "100%" : "fit-content",
-    );
-    document.documentElement.style.setProperty(
-      "--editor-code-overflow-x",
-      wordWrap ? "auto" : "visible",
-    );
-    document.documentElement.style.setProperty(
-      "--editor-table-width",
-      wordWrap ? "fit-content" : "max-content",
-    );
-    document.documentElement.style.setProperty(
-      "--editor-table-max-width",
-      wordWrap ? "100%" : "none",
-    );
+    document.documentElement.style.setProperty("--editor-overflow-wrap", "break-word");
+    document.documentElement.style.setProperty("--editor-white-space", "break-spaces");
+    document.documentElement.style.setProperty("--editor-content-width", "100%");
+    document.documentElement.style.setProperty("--editor-code-width", "100%");
+    document.documentElement.style.setProperty("--editor-code-overflow-x", "auto");
+    document.documentElement.style.setProperty("--editor-table-width", "fit-content");
+    document.documentElement.style.setProperty("--editor-table-max-width", "100%");
   });
 
   onMount(() => {

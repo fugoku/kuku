@@ -3,19 +3,12 @@ import { createSignal } from "solid-js";
 import {
   SettingsFieldRow,
   SettingsPanel,
-  SettingsSelect,
   SettingsStatusBadge,
   SettingsToolbarAction,
   SettingsCard,
 } from "~/components/settings/settings_blocks";
-import { setGeneralSetting, settingsState } from "~/stores/settings";
+import { settingsState } from "~/stores/settings";
 import { clearConfiguredVault, selectVault } from "~/stores/vault";
-
-const LANGUAGE_OPTIONS = [
-  { value: "en", label: "English" },
-  { value: "ko", label: "한국어" },
-  { value: "ja", label: "日本語" },
-];
 
 function VaultFolderControl() {
   const [isBusy, setIsBusy] = createSignal(false);
@@ -84,30 +77,12 @@ function VaultFolderControl() {
 
 function GeneralSection() {
   return (
-    <SettingsPanel
-      title="General"
-      description="Configure the active vault and application language."
-      anchor="general"
-    >
+    <SettingsPanel title="General" description="Configure the active vault." anchor="general">
       <SettingsFieldRow
         stacked
         label="Vault folder"
         description="Choose the folder used as the current vault. Changes apply immediately."
         control={<VaultFolderControl />}
-      />
-      <SettingsFieldRow
-        label="Language (WIP)"
-        description="Select the display language for the interface."
-        control={
-          <div class="w-56">
-            <SettingsSelect
-              options={LANGUAGE_OPTIONS}
-              value={settingsState.general.language}
-              onChange={(value) => setGeneralSetting("language", value)}
-              placeholder="Select language"
-            />
-          </div>
-        }
       />
     </SettingsPanel>
   );

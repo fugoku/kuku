@@ -7,6 +7,7 @@ interface AiConfig {
   model: string;
   provider?: "gemini" | "remote";
   serverUrl?: string | null;
+  // Internal guardrails; not exposed in settings UI.
   roundLimit?: number;
   proxyToolTimeoutMs?: number;
 }
