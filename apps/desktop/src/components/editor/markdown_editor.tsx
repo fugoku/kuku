@@ -1199,6 +1199,19 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     return true;
   }
 
+  function shouldDeferTabToStructuralKeymap(): boolean {
+    const { $from } = editor.view.state.selection;
+
+    for (let depth = $from.depth; depth >= 0; depth -= 1) {
+      const nodeName = $from.node(depth).type.name;
+      if (nodeName === "list" || nodeName === "tableCell" || nodeName === "tableHeader") {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   useKeymap(
     () => ({
       ArrowDown: () => {
@@ -1215,7 +1228,9 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
       },
       Tab: () => {
         if (isDiffMode) return false;
-        return handleEditorMenuKey("Tab") || insertEditorIndent();
+        if (handleEditorMenuKey("Tab")) return true;
+        if (shouldDeferTabToStructuralKeymap()) return false;
+        return insertEditorIndent();
       },
       Escape: () => {
         if (isDiffMode) return false;
