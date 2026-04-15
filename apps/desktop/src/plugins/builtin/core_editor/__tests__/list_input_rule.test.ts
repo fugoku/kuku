@@ -6,11 +6,20 @@ import { listInputRules } from "prosemirror-flat-list";
 import { describe, expect, it } from "vitest";
 
 import { defineHeading } from "../nodes/heading";
-import { defineList, shouldAutoWrapListInputRule } from "../nodes/list";
+import {
+  defineList,
+  getListMarkerClickAttrs,
+  isToggleListInputRule,
+  shouldAutoWrapListInputRule,
+} from "../nodes/list";
+
+function createListExtensions() {
+  return union(defineDoc(), defineText(), defineParagraph(), defineHeading(), defineList());
+}
 
 function createTestEditor() {
   return createEditor({
-    extension: union(defineDoc(), defineText(), defineParagraph(), defineHeading(), defineList()),
+    extension: createListExtensions(),
   });
 }
 
@@ -95,6 +104,50 @@ describe("guarded list input rules", () => {
           content: [{ type: "paragraph" }],
         },
       ],
+    });
+  });
+
+  it("does not keep the toggle list input rule enabled", () => {
+    expect(listInputRules.some((rule) => isToggleListInputRule(rule))).toBe(true);
+
+    const editor = createTestEditor();
+    editor.setContent(
+      {
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            content: [{ type: "text", text: ">>" }],
+          },
+        ],
+      },
+      "end",
+    );
+
+    // @ts-expect-error – accessing private instance for test
+    const state = editor.instance.getState();
+    // @ts-expect-error – accessing private instance for test
+    editor.instance.dispatch(state.tr.insertText(" ", state.selection.from, state.selection.to));
+
+    expect(editor.getDocJSON()).toEqual({
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: ">> " }],
+        },
+      ],
+    });
+  });
+
+  it("ignores toggle marker clicks while keeping task marker toggles", () => {
+    expect(getListMarkerClickAttrs({ kind: "toggle", checked: false })).toEqual({
+      kind: "toggle",
+      checked: false,
+    });
+    expect(getListMarkerClickAttrs({ kind: "task", checked: false })).toEqual({
+      kind: "task",
+      checked: true,
     });
   });
 });

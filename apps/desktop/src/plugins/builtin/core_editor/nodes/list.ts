@@ -1,7 +1,7 @@
 // ── List Node ──
 //
 // Defines the "list" node using prosemirror-flat-list for flat list structure.
-// Supports bullet, ordered, and task lists with indent/dedent/split/toggle
+// Supports bullet, ordered, and task lists with indent/dedent/split
 // plus clipboard serialization normalization.
 //
 // Vendored from ProseKit predefined extension with customizations.
@@ -21,25 +21,22 @@ import { chainCommands, deleteSelection } from "prosekit/pm/commands";
 import { InputRule } from "prosekit/pm/inputrules";
 import type { Node as ProseMirrorNode } from "prosekit/pm/model";
 import { Plugin, type EditorState, type Transaction } from "prosekit/pm/state";
+import type { EditorView } from "prosekit/pm/view";
 import {
   createDedentListCommand,
   createIndentListCommand,
   createListSpec,
   createMoveListCommand,
   createSplitListCommand,
-  createToggleCollapsedCommand,
   createToggleListCommand,
   createUnwrapListCommand,
   createWrapInListCommand,
   deleteCommand,
   enterCommand,
-  joinCollapsedListBackward,
   joinListUp,
   listInputRules,
   listToDOM,
-  protectCollapsed,
   unwrapListSlice,
-  createListEventPlugin,
   createListRenderingPlugin,
   createSafariInputMethodWorkaroundPlugin,
   joinListElements,
@@ -61,6 +58,8 @@ interface InputRuleInternal {
   inCodeMark: boolean;
 }
 
+const TOGGLE_LIST_INPUT_RULE_PATTERN = /^\s?>>\s$/;
+
 function shouldAutoWrapListInputRule(rule: InputRule): InputRule {
   const internal = rule as unknown as InputRuleInternal;
   return new InputRule(
@@ -78,6 +77,11 @@ function shouldAutoWrapListInputRule(rule: InputRule): InputRule {
       inCodeMark: internal.inCodeMark,
     },
   );
+}
+
+function isToggleListInputRule(rule: InputRule): boolean {
+  const internal = rule as unknown as InputRuleInternal;
+  return internal.match.source === TOGGLE_LIST_INPUT_RULE_PATTERN.source;
 }
 
 function defineListSerializer() {
@@ -174,7 +178,70 @@ interface ListAttrs {
   kind?: string;
   order?: number | null;
   checked?: boolean;
-  collapsed?: boolean;
+}
+
+function getListMarkerClickAttrs(attrs: ListAttrs): ListAttrs {
+  if (attrs.kind === "task") {
+    return { ...attrs, checked: !attrs.checked };
+  }
+
+  return attrs;
+}
+
+function setNodeAttributes(
+  tr: Transaction,
+  pos: number,
+  previousAttrs: ListAttrs,
+  nextAttrs: ListAttrs,
+): boolean {
+  let changed = false;
+
+  for (const key of Object.keys(nextAttrs) as (keyof ListAttrs)[]) {
+    if (nextAttrs[key] === previousAttrs[key]) {
+      continue;
+    }
+
+    tr.setNodeAttribute(pos, key, nextAttrs[key]);
+    changed = true;
+  }
+
+  return changed;
+}
+
+function handleListMarkerMouseDown(view: EditorView, event: MouseEvent): boolean {
+  const target = event.target;
+  if (!(target instanceof HTMLElement) || !target.closest(".list-marker-click-target")) {
+    return false;
+  }
+
+  event.preventDefault();
+
+  const pos = view.posAtDOM(target, -10, -10);
+  const tr = view.state.tr;
+  const $pos = tr.doc.resolve(pos);
+  const list = $pos.parent;
+  if (list.type.name !== "list") {
+    return false;
+  }
+
+  const listPos = $pos.before($pos.depth);
+  const nextAttrs = getListMarkerClickAttrs(list.attrs as ListAttrs);
+  if (setNodeAttributes(tr, listPos, list.attrs as ListAttrs, nextAttrs)) {
+    view.dispatch(tr);
+  }
+
+  return true;
+}
+
+function createStandardListEventPlugin(): Plugin {
+  return new Plugin({
+    props: {
+      handleDOMEvents: {
+        mousedown: (view, event) =>
+          event instanceof MouseEvent ? handleListMarkerMouseDown(view, event) : false,
+      },
+    },
+  });
 }
 
 function getListAttributes(node: {
@@ -184,15 +251,14 @@ function getListAttributes(node: {
 }): Record<string, string | undefined> {
   const attrs = node.attrs as ListAttrs;
   const hasNestedFirstChild = node.firstChild?.type.name === "list";
-  const markerType = hasNestedFirstChild ? undefined : attrs.kind || "bullet";
+  const kind = attrs.kind === "toggle" ? "bullet" : attrs.kind;
+  const markerType = hasNestedFirstChild ? undefined : kind || "bullet";
 
   return {
     class: "prosemirror-flat-list",
     "data-list-kind": markerType,
     "data-list-order": attrs.order != null ? String(attrs.order) : undefined,
     "data-list-checked": attrs.checked ? "" : undefined,
-    "data-list-collapsed": attrs.collapsed ? "" : undefined,
-    "data-list-collapsable": node.childCount >= 2 ? "" : undefined,
     style: attrs.order != null ? `--prosemirror-flat-list-order: ${attrs.order}` : undefined,
   };
 }
@@ -249,7 +315,6 @@ function defineListCommands(): Extension {
     indentList: createIndentListCommand,
     moveList: createMoveListCommand,
     splitList: createSplitListCommand,
-    toggleCollapsed: createToggleCollapsedCommand,
     unwrapList: createUnwrapListCommand,
     toggleList: createToggleListCommand,
     wrapInList: createWrapInListCommand,
@@ -260,18 +325,17 @@ function defineListCommands(): Extension {
 // ── Input Rules ──
 
 function defineListInputRules(): Extension {
-  return union(listInputRules.map((rule) => defineInputRule(shouldAutoWrapListInputRule(rule))));
+  return union(
+    listInputRules
+      .filter((rule) => !isToggleListInputRule(rule))
+      .map((rule) => defineInputRule(shouldAutoWrapListInputRule(rule))),
+  );
 }
 
 // ── Keymap ──
 
 function defineListKeymap(): Extension {
-  const backspaceCommand = chainCommands(
-    protectCollapsed,
-    deleteSelection,
-    joinListUp,
-    joinCollapsedListBackward,
-  );
+  const backspaceCommand = chainCommands(deleteSelection, joinListUp);
   const dedentListCommand = createDedentListCommand();
   const indentListCommand = createIndentListCommand();
 
@@ -290,7 +354,7 @@ function defineListKeymap(): Extension {
 
 function defineListPlugins(): Extension {
   return definePlugin(() => [
-    createListEventPlugin(),
+    createStandardListEventPlugin(),
     createListRenderingPlugin(),
     new Plugin({ props: { transformCopied: unwrapListSlice } }),
     createSafariInputMethodWorkaroundPlugin(),
@@ -310,4 +374,4 @@ function defineList(): Extension {
   );
 }
 
-export { defineList, shouldAutoWrapListInputRule };
+export { defineList, getListMarkerClickAttrs, isToggleListInputRule, shouldAutoWrapListInputRule };
