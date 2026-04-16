@@ -185,6 +185,47 @@ function resolveLayoutReason(args: {
   return "unknown";
 }
 
+function clampUnit(value: number): number {
+  return Math.max(0, Math.min(1, value));
+}
+
+function syncScrollbarAxis(
+  scrollbar: { scrollbar: HTMLElement; handle: HTMLElement },
+  scrollOffset: number,
+  scrollSize: number,
+  clientSize: number,
+): void {
+  const maxScroll = Math.max(0, scrollSize - clientSize);
+  const scrollPercent = maxScroll > 0 ? clampUnit(scrollOffset / maxScroll) : 0;
+  const viewportPercent = scrollSize > 0 ? clampUnit(clientSize / scrollSize) : 1;
+
+  scrollbar.scrollbar.style.setProperty("--os-scroll-percent", `${scrollPercent}`);
+  scrollbar.scrollbar.style.setProperty("--os-viewport-percent", `${viewportPercent}`);
+  scrollbar.scrollbar.style.setProperty("--os-scroll-direction", "0");
+  scrollbar.handle.style.removeProperty("top");
+  scrollbar.handle.style.removeProperty("left");
+  scrollbar.handle.style.removeProperty("height");
+  scrollbar.handle.style.removeProperty("width");
+  scrollbar.handle.style.removeProperty("transform");
+}
+
+function syncScrollbarVisuals(instance: OverlayScrollbars): void {
+  const { viewport, scrollbarHorizontal, scrollbarVertical } = instance.elements();
+
+  syncScrollbarAxis(
+    scrollbarVertical,
+    viewport.scrollTop,
+    viewport.scrollHeight,
+    viewport.clientHeight,
+  );
+  syncScrollbarAxis(
+    scrollbarHorizontal,
+    viewport.scrollLeft,
+    viewport.scrollWidth,
+    viewport.clientWidth,
+  );
+}
+
 // ── Component ──
 
 /**
@@ -216,6 +257,7 @@ export default function ScrollArea(props: ScrollAreaProps) {
 
   let hostEl: HTMLDivElement | undefined;
   let contentsEl: HTMLDivElement | undefined;
+  let pendingScrollbarSyncFrame: number | null = null;
 
   const getResolvedVisibility = (): ScrollbarVisibility => {
     const deprecatedVisibility = local.options?.scrollbars?.visibility;
@@ -270,6 +312,7 @@ export default function ScrollArea(props: ScrollAreaProps) {
     events: createMemo(() => ({
       ...local.events,
       initialized: (instance: OverlayScrollbars) => {
+        syncScrollbarVisuals(instance);
         const handle = getHandle();
         if (handle) {
           local.onViewportReady?.(handle);
@@ -281,6 +324,7 @@ export default function ScrollArea(props: ScrollAreaProps) {
         }
       },
       updated: (instance: OverlayScrollbars, args) => {
+        scheduleScrollbarVisualSync(instance);
         const handle = getHandle();
         if (handle) {
           local.onLayout?.(handle, resolveLayoutReason(args));
@@ -291,6 +335,7 @@ export default function ScrollArea(props: ScrollAreaProps) {
         }
       },
       scroll: (instance: OverlayScrollbars, event: Event) => {
+        scheduleScrollbarVisualSync(instance);
         const handle = getHandle();
         if (handle) {
           local.onScroll?.(event, handle);
@@ -301,6 +346,7 @@ export default function ScrollArea(props: ScrollAreaProps) {
         }
       },
       destroyed: (instance: OverlayScrollbars, canceled: boolean) => {
+        clearPendingScrollbarSyncFrame();
         const userDestroyed = local.events?.destroyed;
         if (typeof userDestroyed === "function") {
           userDestroyed(instance, canceled);
@@ -343,6 +389,22 @@ export default function ScrollArea(props: ScrollAreaProps) {
     getElement: () => hostEl ?? null,
   };
 
+  const clearPendingScrollbarSyncFrame = () => {
+    if (pendingScrollbarSyncFrame !== null) {
+      cancelAnimationFrame(pendingScrollbarSyncFrame);
+      pendingScrollbarSyncFrame = null;
+    }
+  };
+
+  const scheduleScrollbarVisualSync = (instance = osInstance()) => {
+    if (!instance || pendingScrollbarSyncFrame !== null) return;
+
+    pendingScrollbarSyncFrame = requestAnimationFrame(() => {
+      pendingScrollbarSyncFrame = null;
+      syncScrollbarVisuals(instance);
+    });
+  };
+
   const handleWheel = (event: WheelEvent) => {
     if (!local.horizontalWheel) return;
     const viewport = getViewport();
@@ -372,6 +434,7 @@ export default function ScrollArea(props: ScrollAreaProps) {
   });
 
   onCleanup(() => {
+    clearPendingScrollbarSyncFrame();
     contentsEl?.removeEventListener("wheel", handleWheel);
   });
 

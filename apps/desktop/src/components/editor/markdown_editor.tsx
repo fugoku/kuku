@@ -1,9 +1,7 @@
 import { createEffect, createSignal, onCleanup, onMount, Show, untrack } from "solid-js";
-import type { OverlayScrollbars } from "overlayscrollbars";
 import { union, type Editor } from "prosekit/core";
 import { TextSelection } from "prosekit/pm/state";
 import { ProseKit, useDocChange, useKeymap } from "prosekit/solid";
-import type { OverlayScrollbarsComponentRef } from "overlayscrollbars-solid";
 
 import { createKukuEditor, destroyEditor } from "~/components/editor/system/editor_engine";
 import EditorContextMenu from "~/components/editor/editor_context_menu";
@@ -15,7 +13,7 @@ import {
   computeSlashMenuPosition,
   type SlashMenuPosition,
 } from "~/components/editor/slash_menu_position";
-import ScrollArea from "~/components/scroll_area";
+import ScrollArea, { type ScrollAreaHandle } from "~/components/scroll_area";
 import type { PMNodeJSON } from "~/lib/markdown";
 import {
   dispatchAnchorEditResolveFromAnchor,
@@ -83,10 +81,6 @@ interface ResolvedWikilinkMenu {
   to: number;
   query: string;
   position: SlashMenuPosition;
-}
-
-function clampUnit(value: number): number {
-  return Math.max(0, Math.min(1, value));
 }
 
 function isLinkEditorElement(value: EventTarget | null): boolean {
@@ -196,13 +190,12 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
   let inFlightSaveContent: string | null = null;
   let queuedSaveContent: string | null = null;
   let containerRef: HTMLDivElement | undefined;
-  let osRef: OverlayScrollbarsComponentRef | undefined;
+  let scrollHandle: ScrollAreaHandle | undefined;
   let osReady = false;
   let pendingViewportAction: (() => void) | null = null;
   let viewportScrollCleanup: (() => void) | null = null;
   let viewportPersistTimer: number | null = null;
   let lastKnownScrollTop = 0;
-  let pendingScrollbarSyncRaf: number | null = null;
   let hoverOpenTimer: number | null = null;
   let hoverCloseTimer: number | null = null;
   let pendingHoverAnchor: HTMLAnchorElement | null = null;
@@ -223,9 +216,9 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
   );
   const [wikilinkMenuSelectedIndex, setWikilinkMenuSelectedIndex] = createSignal(0);
 
-  /** Returns the scroll viewport element managed by OverlayScrollbars. */
+  /** Returns the editor scroll viewport exposed by ScrollArea. */
   function getScrollViewport(): HTMLElement | undefined {
-    return osRef?.osInstance()?.elements().viewport;
+    return scrollHandle?.viewport;
   }
 
   function clearPendingViewportAction(): void {
@@ -241,13 +234,6 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     if (viewportPersistTimer !== null) {
       window.clearTimeout(viewportPersistTimer);
       viewportPersistTimer = null;
-    }
-  }
-
-  function clearPendingScrollbarSyncRaf(): void {
-    if (pendingScrollbarSyncRaf !== null) {
-      cancelAnimationFrame(pendingScrollbarSyncRaf);
-      pendingScrollbarSyncRaf = null;
     }
   }
 
@@ -303,53 +289,6 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     saveViewportState(props.tabId, snapshot);
   }
 
-  function syncScrollbarAxis(
-    scrollbar: { scrollbar: HTMLElement; handle: HTMLElement },
-    scrollOffset: number,
-    scrollSize: number,
-    clientSize: number,
-  ): void {
-    const maxScroll = Math.max(0, scrollSize - clientSize);
-    const scrollPercent = maxScroll > 0 ? clampUnit(scrollOffset / maxScroll) : 0;
-    const viewportPercent = scrollSize > 0 ? clampUnit(clientSize / scrollSize) : 1;
-
-    scrollbar.scrollbar.style.setProperty("--os-scroll-percent", `${scrollPercent}`);
-    scrollbar.scrollbar.style.setProperty("--os-viewport-percent", `${viewportPercent}`);
-    scrollbar.scrollbar.style.setProperty("--os-scroll-direction", "0");
-    scrollbar.handle.style.removeProperty("top");
-    scrollbar.handle.style.removeProperty("left");
-    scrollbar.handle.style.removeProperty("height");
-    scrollbar.handle.style.removeProperty("width");
-    scrollbar.handle.style.removeProperty("transform");
-  }
-
-  function syncScrollbarVisuals(instance = osRef?.osInstance()): void {
-    if (!instance) return;
-
-    const { viewport, scrollbarHorizontal, scrollbarVertical } = instance.elements();
-    syncScrollbarAxis(
-      scrollbarVertical,
-      viewport.scrollTop,
-      viewport.scrollHeight,
-      viewport.clientHeight,
-    );
-    syncScrollbarAxis(
-      scrollbarHorizontal,
-      viewport.scrollLeft,
-      viewport.scrollWidth,
-      viewport.clientWidth,
-    );
-  }
-
-  function scheduleScrollbarVisualSync(instance = osRef?.osInstance()): void {
-    if (!instance || pendingScrollbarSyncRaf !== null) return;
-
-    pendingScrollbarSyncRaf = requestAnimationFrame(() => {
-      pendingScrollbarSyncRaf = null;
-      syncScrollbarVisuals(instance);
-    });
-  }
-
   function scheduleViewportStatePersist(): void {
     if (!contentReady || disposed) {
       return;
@@ -381,7 +320,6 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     const handleScroll = () => {
       lastKnownScrollTop = viewport.scrollTop;
       scheduleViewportStatePersist();
-      scheduleScrollbarVisualSync();
       requestAnimationFrame(() => {
         refreshSlashMenu();
         refreshWikilinkMenu();
@@ -425,12 +363,12 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
   }
 
   /**
-   * Schedule an action that requires the OverlayScrollbars viewport to be
+   * Schedule an action that requires the scroll viewport to be
    * ready (e.g. scroll restore, search-result navigation).
    *
-   * - If OS is already initialised the action runs after one rAF so the
+   * - If the scroll viewport is already initialised the action runs after one rAF so the
    *   browser has a chance to compute layout.
-   * - Otherwise it is queued and flushed from the `initialized` event.
+   * - Otherwise it is queued and flushed from the viewport-ready hook.
    */
   function scheduleViewportAction(action: () => void): void {
     if (osReady) {
@@ -442,7 +380,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
 
   /**
    * Apply viewport snapshot restore (selection + scroll position).
-   * Must only be called when the OS viewport is ready.
+   * Must only be called when the scroll viewport is ready.
    */
   function applyViewportRestore(): void {
     const snapshot = getViewportState(props.tabId);
@@ -474,7 +412,6 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     if (viewport) {
       viewport.scrollTop = snapshot.scrollTop;
       lastKnownScrollTop = viewport.scrollTop;
-      scheduleScrollbarVisualSync();
     } else {
       lastKnownScrollTop = snapshot.scrollTop;
     }
@@ -971,7 +908,6 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
   onCleanup(() => {
     clearPendingViewportAction();
     clearViewportPersistRaf();
-    clearPendingScrollbarSyncRaf();
     clearHoverOpenTimer();
     clearHoverCloseTimer();
     clearSlashMenuLayoutObserver();
@@ -1259,23 +1195,17 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
         axis="both"
         class="size-full bg-bg-primary"
         data-editor-scroll=""
-        ref={(r) => {
-          osRef = r;
+        handleRef={(handle) => {
+          scrollHandle = handle;
         }}
-        events={{
-          initialized: (instance: OverlayScrollbars) => {
-            osReady = true;
-            ensureViewportScrollListener(instance.elements().viewport);
-            syncScrollbarVisuals(instance);
-            if (pendingViewportAction) {
-              const action = pendingViewportAction;
-              clearPendingViewportAction();
-              runAfterLayoutSettles(action);
-            }
-          },
-          updated: (instance: OverlayScrollbars) => {
-            syncScrollbarVisuals(instance);
-          },
+        onViewportReady={(handle) => {
+          osReady = true;
+          ensureViewportScrollListener(handle.viewport);
+          if (pendingViewportAction) {
+            const action = pendingViewportAction;
+            clearPendingViewportAction();
+            runAfterLayoutSettles(action);
+          }
         }}
       >
         <Show
