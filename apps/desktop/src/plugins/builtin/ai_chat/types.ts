@@ -29,6 +29,8 @@ interface EditorContext {
   activeFile: string | null;
   selectedText: string | null;
   embeddedFiles?: EmbeddedFileContext[];
+  openTabs?: string[];
+  cursorLine?: number | null;
 }
 
 interface ChatFileMessageAttachment {

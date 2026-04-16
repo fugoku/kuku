@@ -556,13 +556,20 @@ fn content_with_turn_context(
     editor_context: &EditorContext,
 ) -> String {
     let selected_text = selected_text_context(editor_context);
-    if selected_text.is_none() && editor_context.embedded_files.is_empty() {
+    let active_editor_context = active_editor_context_block(editor_context);
+    if selected_text.is_none()
+        && editor_context.embedded_files.is_empty()
+        && active_editor_context.is_none()
+    {
         return content_with_mode_notice(previous_mode, run_mode, content);
     }
 
     let mut sections = Vec::new();
     if previous_mode != run_mode {
         sections.push(mode_notice(previous_mode, run_mode));
+    }
+    if let Some(active_editor_context) = active_editor_context {
+        sections.push(active_editor_context);
     }
     if let Some(selected_text) = selected_text {
         sections.push(selected_text_block(
@@ -597,6 +604,49 @@ fn selected_text_context(editor_context: &EditorContext) -> Option<&str> {
         .selected_text
         .as_deref()
         .filter(|text| !text.trim().is_empty())
+}
+
+fn active_editor_context_block(editor_context: &EditorContext) -> Option<String> {
+    let active_file = editor_context
+        .active_file
+        .as_deref()
+        .map(str::trim)
+        .filter(|path| !path.is_empty());
+    let open_tabs = editor_context
+        .open_tabs
+        .iter()
+        .map(String::as_str)
+        .map(str::trim)
+        .filter(|path| !path.is_empty())
+        .fold(Vec::<&str>::new(), |mut acc, path| {
+            if !acc.contains(&path) {
+                acc.push(path);
+            }
+            acc
+        });
+
+    if active_file.is_none() && open_tabs.is_empty() {
+        return None;
+    }
+
+    let mut output = String::from(
+        "[Internal context: The user is working in the editor. Resolve references like 'this document' against the active file first. Open tabs provide nearby document context by path only; they are not attached as full content.]",
+    );
+
+    if let Some(active_file) = active_file {
+        output.push_str("\n\n");
+        output.push_str(&format!("Active file: {}", escape_prompt_attr(active_file)));
+    }
+
+    if !open_tabs.is_empty() {
+        output.push_str("\nOpen tabs:");
+        for path in open_tabs {
+            output.push_str("\n- ");
+            output.push_str(&escape_prompt_attr(path));
+        }
+    }
+
+    Some(output)
 }
 
 fn selected_text_block(selected_text: &str, active_file: Option<&str>) -> String {
@@ -1089,6 +1139,34 @@ mod tests {
         assert!(content.contains("checksum=\"checksum-1\""));
         assert!(content.contains("# Base\ncontent"));
         assert!(content.ends_with("--- USER MESSAGE ---\nsummarize it"));
+    }
+
+    #[test]
+    fn content_with_turn_context_includes_active_file_and_open_tabs() {
+        let context = EditorContext {
+            active_file: Some("notes/Current.md".to_string()),
+            open_tabs: vec![
+                "notes/Current.md".to_string(),
+                "notes/Related.md".to_string(),
+                "notes/Related.md".to_string(),
+            ],
+            ..EditorContext::default()
+        };
+
+        let content = content_with_turn_context(
+            ChatMode::Ask,
+            ChatMode::Ask,
+            "고도화해줘".to_string(),
+            &context,
+        );
+
+        assert!(content.contains("Resolve references like 'this document'"));
+        assert!(content.contains("Active file: notes/Current.md"));
+        assert!(content.contains("Open tabs:"));
+        assert!(content.contains("- notes/Current.md"));
+        assert!(content.contains("- notes/Related.md"));
+        assert_eq!(content.matches("- notes/Related.md").count(), 1);
+        assert!(content.ends_with("--- USER MESSAGE ---\n고도화해줘"));
     }
 
     #[test]
