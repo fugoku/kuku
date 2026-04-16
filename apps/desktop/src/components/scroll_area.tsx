@@ -191,6 +191,37 @@ function syncScrollbarVisuals(instance: OverlayScrollbars): void {
 /**
  * Custom scroll container with a VSCode / Zed-style square scrollbar.
  *
+ * IMPORTANT:
+ * Do not mount this inside ProseMirror-managed editable DOM/contentDOM.
+ * For scrollable surfaces inside the editor, prefer native overflow so
+ * ProseMirror remains the only owner of that subtree.
+ *
+ * OK:
+ * ```tsx
+ * <ScrollArea axis="y" class="min-h-0 flex-1">
+ *   <SidebarList />
+ * </ScrollArea>
+ * ```
+ *
+ * OK inside ProseMirror contentDOM:
+ * ```tsx
+ * <div class="overflow-x-auto" data-editor-native-scrollbar="">
+ *   <table />
+ * </div>
+ * ```
+ *
+ * NOT OK inside ProseMirror contentDOM:
+ * ```tsx
+ * <ScrollArea axis="x">
+ *   <table />
+ * </ScrollArea>
+ * ```
+ *
+ * Note:
+ * `pre` is styled automatically in `editor.css`. Other native editor
+ * scrollers should opt in with `.editor-native-scrollbar` or
+ * `[data-editor-native-scrollbar]`.
+ *
  * The public contract is backend-neutral. The current implementation keeps
  * OverlayScrollbars as the backend while exposing stable DOM hooks and a
  * neutral imperative handle for future migration flexibility.
