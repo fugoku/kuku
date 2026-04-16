@@ -508,9 +508,6 @@ async function switchMode(mode: ChatMode): Promise<void> {
   if (chatState.selectedMode === mode && active?.mode === mode) {
     return;
   }
-  if (isSessionBusy(active)) {
-    return;
-  }
   setChatState("selectedMode", mode);
   if (active) {
     setChatState("sessions", active.id, "mode", mode);

@@ -164,6 +164,28 @@ describe("ai_chat chat_store session modes", () => {
     });
   });
 
+  it("can switch back to ask mode without creating a new session", async () => {
+    mockInvoke.mockImplementation(async (command: string) => {
+      switch (command) {
+        case "plugin:kuku-ai|ai_new_session":
+          return { sessionId: "session-1" };
+        default:
+          throw new Error(`unexpected invoke: ${command}`);
+      }
+    });
+
+    const chat = await loadChatStoreModule();
+
+    await chat.createSession("ask");
+    await chat.switchMode("agent");
+    await chat.switchMode("ask");
+
+    expect(chat.chatState.activeSessionId).toBe("session-1");
+    expect(chat.chatState.selectedMode).toBe("ask");
+    expect(chat.chatState.sessions["session-1"]?.mode).toBe("ask");
+    expect(mockInvoke).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps the current session when sending after a mode switch", async () => {
     mockInvoke.mockImplementation(async (command: string) => {
       switch (command) {
@@ -204,7 +226,7 @@ describe("ai_chat chat_store session modes", () => {
     });
   });
 
-  it("does not switch mode while the active session is busy", async () => {
+  it("lets the next selected mode change while the active session is busy", async () => {
     mockInvoke.mockImplementation(async (command: string) => {
       switch (command) {
         case "plugin:kuku-ai|ai_new_session":
@@ -220,8 +242,8 @@ describe("ai_chat chat_store session modes", () => {
     chat.setSessionStatus("session-1", "streaming");
     await chat.switchMode("agent");
 
-    expect(chat.chatState.selectedMode).toBe("ask");
-    expect(chat.chatState.sessions["session-1"]?.mode).toBe("ask");
+    expect(chat.chatState.selectedMode).toBe("agent");
+    expect(chat.chatState.sessions["session-1"]?.mode).toBe("agent");
     expect(mockInvoke).toHaveBeenCalledTimes(1);
   });
 });

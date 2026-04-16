@@ -86,8 +86,9 @@ impl SessionRuntime {
         }
     }
 
-    fn set_mode(&self, mode: ChatMode) {
-        *self.mode.write() = mode;
+    fn replace_mode(&self, mode: ChatMode) -> ChatMode {
+        let mut current = self.mode.write();
+        std::mem::replace(&mut *current, mode)
     }
 
     pub fn start_run(&self) -> Result<CancellationToken, AiError> {
@@ -286,8 +287,9 @@ async fn run_turn_inner(
     editor_context: EditorContext,
 ) -> Result<(FinishReason, Option<crate::types::TokenUsage>), AiError> {
     let cancel = session.start_run()?;
-    session.set_mode(mode.clone());
+    let previous_mode = session.replace_mode(mode.clone());
     let run_mode = mode;
+    let content = content_with_mode_notice(previous_mode, run_mode.clone(), content);
     *session.editor_context.write() = editor_context.clone();
     session.messages.write().push(ChatMessage::User {
         content,
@@ -431,8 +433,10 @@ async fn run_turn_inner(
                 tool_call.tool_call_id,
                 tool_call.provider_call_id
             ));
-            let result =
-                handle_tool_call(app, state, &session, &cancel, &run_mode, &tool_call).await?;
+            let result = handle_tool_call(
+                app, state, &session, &cancel, &run_mode, &allowed, &tool_call,
+            )
+            .await?;
             session.messages.write().push(ChatMessage::ToolResult {
                 call_id: tool_call.call_id.clone(),
                 tool_name: tool_call.tool_name.clone(),
@@ -469,12 +473,13 @@ async fn handle_tool_call(
     session: &Arc<SessionRuntime>,
     cancel: &CancellationToken,
     mode: &ChatMode,
+    allowed: &[ToolDescriptor],
     tool_call: &ModelToolCall,
 ) -> Result<(String, bool), AiError> {
-    let descriptor = state
-        .tool_descriptors()
-        .into_iter()
-        .find(|tool| tool.name == tool_call.tool_name);
+    let descriptor = allowed
+        .iter()
+        .find(|tool| tool.name == tool_call.tool_name)
+        .cloned();
     let tool_id = descriptor
         .as_ref()
         .map(|tool| tool.tool_id.clone())
@@ -487,10 +492,7 @@ async fn handle_tool_call(
     ));
 
     let outcome = match descriptor {
-        None => (
-            AiError::ToolNotFound(tool_call.tool_name.clone()).to_string(),
-            true,
-        ),
+        None => (tool_not_allowed_message(&tool_call.tool_name, mode), true),
         Some(descriptor) => match descriptor.source {
             ToolSource::Native => {
                 match execute_native_tool(app, state, session, cancel, mode, tool_call, descriptor)
@@ -525,6 +527,39 @@ async fn handle_tool_call(
         session.id, tool_call.tool_name, tool_call.call_id, outcome.1
     ));
     Ok(outcome)
+}
+
+fn content_with_mode_notice(
+    previous_mode: ChatMode,
+    run_mode: ChatMode,
+    content: String,
+) -> String {
+    if previous_mode == run_mode {
+        return content;
+    }
+
+    format!(
+        "[Internal context: The user switched AI mode from {} to {} before this message. Use the current {} mode instructions and available tools for this turn.]\n\n{}",
+        mode_label(previous_mode),
+        mode_label(run_mode.clone()),
+        mode_label(run_mode),
+        content
+    )
+}
+
+fn tool_not_allowed_message(tool_name: &str, mode: &ChatMode) -> String {
+    format!(
+        "Tool '{tool_name}' is not available in {} mode for this turn.",
+        mode_label(mode.clone())
+    )
+}
+
+fn mode_label(mode: ChatMode) -> &'static str {
+    match mode {
+        ChatMode::Ask => "Ask",
+        ChatMode::Agent => "Agent",
+        ChatMode::Inline => "Inline",
+    }
 }
 
 async fn execute_native_tool(
@@ -866,7 +901,10 @@ fn empty_directory_checksum() -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{SessionRuntime, SessionStatus, summarize_output};
+    use super::{
+        SessionRuntime, SessionStatus, content_with_mode_notice, summarize_output,
+        tool_not_allowed_message,
+    };
     use crate::types::ChatMode;
 
     #[test]
@@ -895,5 +933,36 @@ mod tests {
 
         assert!(cancel.is_cancelled());
         assert!(session.complete_run());
+    }
+
+    #[test]
+    fn content_with_mode_notice_keeps_content_when_mode_is_same() {
+        let content = "hello".to_string();
+
+        assert_eq!(
+            content_with_mode_notice(ChatMode::Ask, ChatMode::Ask, content),
+            "hello"
+        );
+    }
+
+    #[test]
+    fn content_with_mode_notice_describes_mode_changes() {
+        let content = content_with_mode_notice(
+            ChatMode::Agent,
+            ChatMode::Ask,
+            "answer without editing".to_string(),
+        );
+
+        assert!(content.contains("from Agent to Ask"));
+        assert!(content.contains("current Ask mode"));
+        assert!(content.ends_with("answer without editing"));
+    }
+
+    #[test]
+    fn tool_not_allowed_message_mentions_current_mode() {
+        assert_eq!(
+            tool_not_allowed_message("edit_file", &ChatMode::Ask),
+            "Tool 'edit_file' is not available in Ask mode for this turn."
+        );
     }
 }
