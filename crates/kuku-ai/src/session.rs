@@ -61,7 +61,7 @@ struct PathSnapshot {
 
 pub struct SessionRuntime {
     pub id: String,
-    pub mode: ChatMode,
+    mode: RwLock<ChatMode>,
     pub messages: RwLock<Vec<ChatMessage>>,
     pub editor_context: RwLock<EditorContext>,
     approvals: Mutex<HashMap<String, oneshot::Sender<ApprovalDecision>>>,
@@ -73,7 +73,7 @@ impl SessionRuntime {
     pub fn new(mode: ChatMode) -> Self {
         Self {
             id: Uuid::new_v4().to_string(),
-            mode,
+            mode: RwLock::new(mode),
             messages: RwLock::new(Vec::new()),
             editor_context: RwLock::new(EditorContext::default()),
             approvals: Mutex::new(HashMap::new()),
@@ -84,6 +84,10 @@ impl SessionRuntime {
                 deferred_cancel: false,
             }),
         }
+    }
+
+    fn set_mode(&self, mode: ChatMode) {
+        *self.mode.write() = mode;
     }
 
     pub fn start_run(&self) -> Result<CancellationToken, AiError> {
@@ -232,16 +236,17 @@ pub async fn run_turn(
     app: AppHandle<Wry>,
     state: AiState,
     session: Arc<SessionRuntime>,
+    mode: ChatMode,
     content: String,
     editor_context: EditorContext,
 ) {
     debug_ai_log(format!(
         "run start session={} mode={:?} input_len={}",
         session.id,
-        session.mode,
+        mode,
         content.len()
     ));
-    let result = run_turn_inner(&app, &state, session.clone(), content, editor_context).await;
+    let result = run_turn_inner(&app, &state, session.clone(), mode, content, editor_context).await;
 
     match result {
         Ok((finish_reason, usage)) => {
@@ -276,10 +281,13 @@ async fn run_turn_inner(
     app: &AppHandle<Wry>,
     state: &AiState,
     session: Arc<SessionRuntime>,
+    mode: ChatMode,
     content: String,
     editor_context: EditorContext,
 ) -> Result<(FinishReason, Option<crate::types::TokenUsage>), AiError> {
     let cancel = session.start_run()?;
+    session.set_mode(mode.clone());
+    let run_mode = mode;
     *session.editor_context.write() = editor_context.clone();
     session.messages.write().push(ChatMessage::User {
         content,
@@ -294,12 +302,12 @@ async fn run_turn_inner(
     let backend = state.backend()?;
     let config = state.config();
     let descriptors = state.tool_descriptors();
-    let allowed = allowed_tools(session.mode.clone(), &descriptors);
+    let allowed = allowed_tools(run_mode.clone(), &descriptors);
 
     let mut final_usage = None;
 
     for round in 0..config.round_limit {
-        let system_prompt = build_system_prompt(session.mode.clone(), &allowed);
+        let system_prompt = build_system_prompt(run_mode.clone(), &allowed);
         let authorization_header = match config.provider {
             crate::types::ProviderKind::Remote => Some(
                 state
@@ -423,7 +431,8 @@ async fn run_turn_inner(
                 tool_call.tool_call_id,
                 tool_call.provider_call_id
             ));
-            let result = handle_tool_call(app, state, &session, &cancel, &tool_call).await?;
+            let result =
+                handle_tool_call(app, state, &session, &cancel, &run_mode, &tool_call).await?;
             session.messages.write().push(ChatMessage::ToolResult {
                 call_id: tool_call.call_id.clone(),
                 tool_name: tool_call.tool_name.clone(),
@@ -459,6 +468,7 @@ async fn handle_tool_call(
     state: &AiState,
     session: &Arc<SessionRuntime>,
     cancel: &CancellationToken,
+    mode: &ChatMode,
     tool_call: &ModelToolCall,
 ) -> Result<(String, bool), AiError> {
     let descriptor = state
@@ -483,7 +493,8 @@ async fn handle_tool_call(
         ),
         Some(descriptor) => match descriptor.source {
             ToolSource::Native => {
-                match execute_native_tool(app, state, session, cancel, tool_call, descriptor).await
+                match execute_native_tool(app, state, session, cancel, mode, tool_call, descriptor)
+                    .await
                 {
                     Ok(outcome) => outcome,
                     Err(AiError::Cancelled) => return Err(AiError::Cancelled),
@@ -521,6 +532,7 @@ async fn execute_native_tool(
     state: &AiState,
     session: &Arc<SessionRuntime>,
     cancel: &CancellationToken,
+    mode: &ChatMode,
     tool_call: &ModelToolCall,
     descriptor: ToolDescriptor,
 ) -> Result<(String, bool), AiError> {
@@ -533,7 +545,7 @@ async fn execute_native_tool(
     let ctx = ToolCallContext {
         app,
         session_id: &session.id,
-        mode: session.mode.clone(),
+        mode: mode.clone(),
         editor_context: &editor_context,
     };
 

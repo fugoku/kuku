@@ -494,7 +494,10 @@ async function createSession(mode: ChatMode = chatState.selectedMode): Promise<s
 async function ensureSession(): Promise<string | null> {
   const active = getActiveSession();
   const mode = chatState.selectedMode;
-  if (active && active.mode === mode) {
+  if (active) {
+    if (active.mode !== mode) {
+      setChatState("sessions", active.id, "mode", mode);
+    }
     return active.id;
   }
   return createSession(mode);
@@ -508,7 +511,10 @@ async function switchMode(mode: ChatMode): Promise<void> {
   if (isSessionBusy(active)) {
     return;
   }
-  await createSession(mode);
+  setChatState("selectedMode", mode);
+  if (active) {
+    setChatState("sessions", active.id, "mode", mode);
+  }
 }
 
 async function sendMessage(content: string): Promise<void> {
@@ -539,6 +545,7 @@ async function sendMessage(content: string): Promise<void> {
   try {
     await invoke<void>("plugin:kuku-ai|ai_send_message", {
       sessionId,
+      mode: chatState.selectedMode,
       content: trimmed,
       editorContext: createContextSnapshotSource().snapshot(),
     });

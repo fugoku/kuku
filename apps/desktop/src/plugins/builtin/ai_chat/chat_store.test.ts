@@ -132,3 +132,96 @@ describe("ai_chat chat_store config", () => {
     });
   });
 });
+
+describe("ai_chat chat_store session modes", () => {
+  beforeEach(() => {
+    mockInvoke.mockReset();
+  });
+
+  it("switches mode without creating a new session", async () => {
+    mockInvoke.mockImplementation(async (command: string) => {
+      switch (command) {
+        case "plugin:kuku-ai|ai_new_session":
+          return { sessionId: "session-1" };
+        default:
+          throw new Error(`unexpected invoke: ${command}`);
+      }
+    });
+
+    const chat = await loadChatStoreModule();
+
+    await chat.createSession("ask");
+    chat.setDraft("keep this draft");
+    await chat.switchMode("agent");
+
+    expect(chat.chatState.activeSessionId).toBe("session-1");
+    expect(chat.chatState.selectedMode).toBe("agent");
+    expect(chat.chatState.sessions["session-1"]?.mode).toBe("agent");
+    expect(chat.chatState.sessions["session-1"]?.draft).toBe("keep this draft");
+    expect(mockInvoke).toHaveBeenCalledTimes(1);
+    expect(mockInvoke).toHaveBeenCalledWith("plugin:kuku-ai|ai_new_session", {
+      mode: "ask",
+    });
+  });
+
+  it("keeps the current session when sending after a mode switch", async () => {
+    mockInvoke.mockImplementation(async (command: string) => {
+      switch (command) {
+        case "plugin:kuku-ai|ai_new_session":
+          return { sessionId: "session-1" };
+        case "plugin:kuku-ai|ai_send_message":
+          return undefined;
+        default:
+          throw new Error(`unexpected invoke: ${command}`);
+      }
+    });
+
+    const chat = await loadChatStoreModule();
+
+    await chat.createSession("ask");
+    await chat.switchMode("agent");
+    await chat.sendMessage("edit this note");
+
+    expect(chat.chatState.activeSessionId).toBe("session-1");
+    expect(chat.chatState.sessions["session-1"]?.messages).toMatchObject([
+      {
+        kind: "text",
+        role: "user",
+        content: "edit this note",
+      },
+    ]);
+    expect(mockInvoke).toHaveBeenCalledTimes(2);
+    expect(mockInvoke).toHaveBeenNthCalledWith(2, "plugin:kuku-ai|ai_send_message", {
+      sessionId: "session-1",
+      mode: "agent",
+      content: "edit this note",
+      editorContext: {
+        activeFile: null,
+        selectedText: null,
+        openTabs: [],
+        cursorLine: null,
+      },
+    });
+  });
+
+  it("does not switch mode while the active session is busy", async () => {
+    mockInvoke.mockImplementation(async (command: string) => {
+      switch (command) {
+        case "plugin:kuku-ai|ai_new_session":
+          return { sessionId: "session-1" };
+        default:
+          throw new Error(`unexpected invoke: ${command}`);
+      }
+    });
+
+    const chat = await loadChatStoreModule();
+
+    await chat.createSession("ask");
+    chat.setSessionStatus("session-1", "streaming");
+    await chat.switchMode("agent");
+
+    expect(chat.chatState.selectedMode).toBe("ask");
+    expect(chat.chatState.sessions["session-1"]?.mode).toBe("ask");
+    expect(mockInvoke).toHaveBeenCalledTimes(1);
+  });
+});

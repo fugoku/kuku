@@ -21,6 +21,7 @@ pub async fn ai_send_message(
     app: AppHandle<Wry>,
     state: State<'_, AiState>,
     session_id: String,
+    mode: ChatMode,
     content: String,
     editor_context: Option<EditorContext>,
 ) -> Result<(), String> {
@@ -34,6 +35,7 @@ pub async fn ai_send_message(
             app_clone,
             state_clone,
             session,
+            mode,
             content,
             editor_context.unwrap_or_default(),
         )
