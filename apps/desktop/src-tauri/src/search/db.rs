@@ -1045,7 +1045,10 @@ mod tests {
         assert!(init_schema(&conn).unwrap());
 
         assert!(table_has_column(&conn, "documents", "content_checksum").unwrap());
-        assert_eq!(load_index_version(&conn).unwrap(), Some(CURRENT_INDEX_VERSION));
+        assert_eq!(
+            load_index_version(&conn).unwrap(),
+            Some(CURRENT_INDEX_VERSION)
+        );
     }
 
     #[test]
