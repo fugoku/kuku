@@ -1,5 +1,5 @@
 import { ContextMenu as KMenu } from "@kobalte/core/context-menu";
-import { type JSX, Show } from "solid-js";
+import { type JSX, Show, splitProps } from "solid-js";
 
 export function ContextMenu(props: {
   children: JSX.Element;
@@ -12,17 +12,37 @@ export function ContextMenuTrigger(props: { children: JSX.Element }) {
   return <KMenu.Trigger>{props.children}</KMenu.Trigger>;
 }
 
+function ContextMenuSurface(props: JSX.HTMLAttributes<HTMLDivElement>) {
+  const [local, outerProps] = splitProps(props, ["children", "class", "style"]);
+
+  const shadowFilter =
+    "drop-shadow(0 10px 28px rgba(0, 0, 0, 0.22)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.08))";
+
+  const style = () =>
+    typeof local.style === "string"
+      ? `${local.style}; filter: ${shadowFilter};`
+      : { ...local.style, filter: shadowFilter };
+
+  return (
+    <div
+      {...outerProps}
+      style={style()}
+      class={[
+        "z-1000 min-w-44 origin-[var(--kb-menu-content-transform-origin)] outline-none",
+        local.class ?? "",
+      ].join(" ")}
+    >
+      <div class="overflow-hidden rounded-xs border border-border bg-bg-secondary p-1">
+        {local.children}
+      </div>
+    </div>
+  );
+}
+
 export function ContextMenuContent(props: { children: JSX.Element; class?: string }) {
   return (
     <KMenu.Portal>
-      <KMenu.Content
-        class={[
-          "z-1000 min-w-44 overflow-hidden rounded-xs border border-border bg-bg-secondary p-1",
-          "shadow-[0_4px_16px_rgba(0,0,0,0.28),0_0_0_1px_rgba(0,0,0,0.06)]",
-          "origin-[var(--kb-menu-content-transform-origin)]",
-          props.class ?? "",
-        ].join(" ")}
-      >
+      <KMenu.Content as={ContextMenuSurface} class={[props.class ?? ""].join(" ")}>
         {props.children}
       </KMenu.Content>
     </KMenu.Portal>
@@ -119,14 +139,7 @@ export function ContextMenuSubTrigger(props: { label: string; disabled?: boolean
 export function ContextMenuSubContent(props: { children: JSX.Element; class?: string }) {
   return (
     <KMenu.Portal>
-      <KMenu.SubContent
-        class={[
-          "z-1000 min-w-44 overflow-hidden rounded-xs border border-border bg-bg-secondary p-1",
-          "shadow-[0_4px_16px_rgba(0,0,0,0.28),0_0_0_1px_rgba(0,0,0,0.06)]",
-          "origin-[var(--kb-menu-content-transform-origin)]",
-          props.class ?? "",
-        ].join(" ")}
-      >
+      <KMenu.SubContent as={ContextMenuSurface} class={[props.class ?? ""].join(" ")}>
         {props.children}
       </KMenu.SubContent>
     </KMenu.Portal>
