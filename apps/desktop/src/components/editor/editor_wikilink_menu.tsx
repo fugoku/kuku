@@ -1,7 +1,6 @@
 import { createEffect, For, Show } from "solid-js";
-import type { OverlayScrollbarsComponentRef } from "overlayscrollbars-solid";
 
-import ScrollArea from "~/components/scroll_area";
+import ScrollArea, { type ScrollAreaHandle } from "~/components/scroll_area";
 import type { SlashMenuPosition } from "~/components/editor/slash_menu_position";
 import type { WikilinkSuggestItem } from "~/plugins/builtin/wikilink/wikilink_suggest";
 
@@ -39,7 +38,7 @@ function highlightMatch(text: string, query: string) {
 }
 
 export default function EditorWikilinkMenu(props: EditorWikilinkMenuProps) {
-  let scrollAreaRef: OverlayScrollbarsComponentRef | undefined;
+  let scrollHandle: ScrollAreaHandle | undefined;
   const itemRefs: (HTMLButtonElement | undefined)[] = [];
 
   // Keep the refs array in sync with the items length.
@@ -53,7 +52,7 @@ export default function EditorWikilinkMenu(props: EditorWikilinkMenuProps) {
     if (selectedIndex < 0 || selectedIndex >= props.items.length) return;
 
     requestAnimationFrame(() => {
-      const viewport = scrollAreaRef?.osInstance()?.elements().viewport;
+      const viewport = scrollHandle?.viewport;
       const item = itemRefs[selectedIndex];
       if (!viewport || !item) return;
 
@@ -94,8 +93,10 @@ export default function EditorWikilinkMenu(props: EditorWikilinkMenuProps) {
           <ScrollArea
             axis="y"
             class="py-1"
+            handleRef={(handle) => {
+              scrollHandle = handle;
+            }}
             style={{ "max-height": `${props.position.maxHeight}px` }}
-            ref={(ref) => (scrollAreaRef = ref)}
           >
             <For each={props.items}>
               {(item, index) => {

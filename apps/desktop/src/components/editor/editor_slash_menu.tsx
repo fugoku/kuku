@@ -1,5 +1,4 @@
 import { createEffect, For, Show, type JSX } from "solid-js";
-import type { OverlayScrollbarsComponentRef } from "overlayscrollbars-solid";
 
 import {
   CodeIcon,
@@ -10,7 +9,7 @@ import {
   ListOrderedIcon,
   QuoteIcon,
 } from "~/components/icons";
-import ScrollArea from "~/components/scroll_area";
+import ScrollArea, { type ScrollAreaHandle } from "~/components/scroll_area";
 import type { SlashMenuPosition } from "~/components/editor/slash_menu_position";
 import type { EditorSlashItem } from "~/plugins/builtin/core_editor/slash_items";
 
@@ -59,7 +58,7 @@ function renderSlashItemIcon(item: EditorSlashItem): JSX.Element {
 }
 
 export default function EditorSlashMenu(props: EditorSlashMenuProps) {
-  let scrollAreaRef: OverlayScrollbarsComponentRef | undefined;
+  let scrollHandle: ScrollAreaHandle | undefined;
   const itemRefs: (HTMLButtonElement | undefined)[] = [];
 
   createEffect(() => {
@@ -72,7 +71,7 @@ export default function EditorSlashMenu(props: EditorSlashMenuProps) {
     if (selectedIndex < 0 || selectedIndex >= props.items.length) return;
 
     requestAnimationFrame(() => {
-      const viewport = scrollAreaRef?.osInstance()?.elements().viewport;
+      const viewport = scrollHandle?.viewport;
       const item = itemRefs[selectedIndex];
       if (!viewport || !item) return;
 
@@ -109,8 +108,10 @@ export default function EditorSlashMenu(props: EditorSlashMenuProps) {
           <ScrollArea
             axis="y"
             class="py-1"
+            handleRef={(handle) => {
+              scrollHandle = handle;
+            }}
             style={{ "max-height": `${props.position.maxHeight}px` }}
-            ref={(ref) => (scrollAreaRef = ref)}
           >
             <For each={props.items}>
               {(item, index) => {

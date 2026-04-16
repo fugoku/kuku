@@ -250,7 +250,7 @@ export default function SettingsView() {
     <div class="flex h-full">
       {/* ── Left Nav ── */}
       <nav class="flex w-45 shrink-0 flex-col border-r border-border bg-bg-secondary py-2">
-        <ScrollArea class="flex-1 px-2" axis="y" autoHide="leave">
+        <ScrollArea class="flex-1 px-2" axis="y" scrollbarAutoHide="leave">
           {/* Main categories */}
           <For each={primaryCategories()}>
             {(cat) => (
@@ -337,7 +337,7 @@ export default function SettingsView() {
       {/* ── Right Content ── */}
       <div class="flex min-w-0 flex-1 flex-col">
         {/* Settings content */}
-        <ScrollArea class="min-h-0 flex-1" axis="y" alwaysVisible>
+        <ScrollArea class="min-h-0 flex-1" axis="y" scrollbarVisibility="always">
           <div ref={contentRootRef} class="mx-auto max-w-140 px-5 py-2">
             <Show when={activePluginFillId()} fallback={<Dynamic component={sectionComponent()} />}>
               {(fillId) => (

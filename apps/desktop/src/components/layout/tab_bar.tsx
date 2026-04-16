@@ -1,5 +1,3 @@
-import type { OverlayScrollbarsComponentRef } from "overlayscrollbars-solid";
-
 import { createEffect, For, Match, onMount, Show, Switch } from "solid-js";
 
 import {
@@ -11,7 +9,7 @@ import {
   SearchIcon,
   SettingsIcon,
 } from "~/components/icons";
-import ScrollArea from "~/components/scroll_area";
+import ScrollArea, { type ScrollAreaHandle } from "~/components/scroll_area";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -85,9 +83,9 @@ function TabRenameInput(props: { editState: EditState }) {
 }
 
 export default function TabBar() {
-  let osRef: OverlayScrollbarsComponentRef | undefined;
+  let scrollHandle: ScrollAreaHandle | undefined;
 
-  const getViewport = () => osRef?.osInstance()?.elements().viewport;
+  const getViewport = () => scrollHandle?.viewport;
 
   // ── Scroll active tab into view with minimal movement ──
 
@@ -141,11 +139,13 @@ export default function TabBar() {
       <div class="flex h-9.5 items-center gap-1 px-2">
         {/* ── Tab list (horizontal scroll with visible scrollbar) ── */}
         <ScrollArea
-          ref={(r: OverlayScrollbarsComponentRef) => (osRef = r)}
           class="tab-bar-tabs min-w-0 flex-1"
           axis="x"
+          handleRef={(handle) => {
+            scrollHandle = handle;
+          }}
           horizontalWheel
-          options={{ scrollbars: { visibility: "hidden" } }}
+          scrollbarVisibility="hidden"
         >
           <div class="flex items-center py-1">
             <For each={filesState.tabs}>

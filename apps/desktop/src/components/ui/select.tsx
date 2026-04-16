@@ -170,11 +170,7 @@ export default function Select(props: SelectProps) {
             props.contentClass,
           )}
         >
-          <ScrollArea
-            axis="y"
-            style={{ "max-height": "15rem" }}
-            options={{ scrollbars: { visibility: "hidden" } }}
-          >
+          <ScrollArea axis="y" scrollbarVisibility="hidden" style={{ "max-height": "15rem" }}>
             <KSelect.Listbox class="outline-none" />
           </ScrollArea>
         </KSelect.Content>

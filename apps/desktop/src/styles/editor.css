@@ -193,7 +193,8 @@ prosekit-table-handle-drop-indicator {
  * `width` switches between `100%` (word-wrap on) and `max-content`
  * (word-wrap off, content expands → horizontal scroll).
  */
-[data-editor-scroll] [data-overlayscrollbars-contents] {
+[data-editor-scroll] [data-overlayscrollbars-contents],
+[data-editor-scroll] [data-scroll-area-content] {
   display: flex;
   flex-direction: column;
   min-height: 100%;
