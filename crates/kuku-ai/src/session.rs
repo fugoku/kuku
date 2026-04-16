@@ -601,8 +601,16 @@ fn selected_text_context(editor_context: &EditorContext) -> Option<&str> {
 
 fn selected_text_block(selected_text: &str, active_file: Option<&str>) -> String {
     let active_file = active_file.unwrap_or_default();
+    let guidance = if active_file.is_empty() {
+        "This selected text is a focus excerpt, not a full document.".to_string()
+    } else {
+        format!(
+            "This selected text is a focus excerpt from the active file, not the full document. If you need to modify {}, read the full active file before proposing edits and preserve all unrelated content outside the target section.",
+            active_file
+        )
+    };
     let mut output = format!(
-        "[Internal context: The user selected text in the active editor. Treat it as user-provided context for this turn.]\n\n--- BEGIN SELECTED TEXT activeFile=\"{}\" sizeBytes=\"{}\" ---\n",
+        "[Internal context: The user selected text in the active editor. {guidance}]\n\n--- BEGIN SELECTED TEXT activeFile=\"{}\" sizeBytes=\"{}\" ---\n",
         escape_prompt_attr(active_file),
         selected_text.len()
     );
@@ -1099,6 +1107,10 @@ mod tests {
         );
 
         assert!(content.contains("selected text in the active editor"));
+        assert!(content.contains("focus excerpt"));
+        assert!(content.contains("not the full document"));
+        assert!(content.contains("read the full active file before proposing edits"));
+        assert!(content.contains("preserve all unrelated content"));
         assert!(content.contains("--- BEGIN SELECTED TEXT activeFile=\"notes/Base.md\""));
         assert!(content.contains("selected paragraph"));
         assert!(content.contains("--- END SELECTED TEXT ---"));
