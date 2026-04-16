@@ -7,8 +7,8 @@
 // Phases:
 //   1 — Formatting icon grid + Clipboard
 //   2 — Turn Into submenu (block type transforms)
-//   3 — AI Skills Pattern B (Explain / Summarize → Chat panel)
-//   4 — AI Skills Pattern A (Improve / Proofread / Translate → Chat with prompts)
+//   3 — AI Skills Pattern B (Explain / Summarize → Chat panel via Inline mode)
+//   4 — AI Skills Pattern A (Improve / Proofread / Translate → Inline edit prompts)
 //   5 — Edit with AI (free-form inline prompt via `onRequestAiEdit` callback)
 
 import { createSignal, For, type JSX } from "solid-js";
@@ -44,7 +44,7 @@ import {
   type EditorSlashItemState,
 } from "~/plugins/builtin/core_editor/slash_items";
 import { getAllCommands } from "~/plugins/commands";
-import { sendMessage, setSelectedMode } from "~/plugins/builtin/ai_chat/chat_store";
+import { sendMessage, switchMode } from "~/plugins/builtin/ai_chat/chat_store";
 import { openRightPanelView } from "~/stores/layout";
 
 // ── Types ──
@@ -64,32 +64,30 @@ type EditorCmd = ((...args: unknown[]) => void) & { canExec?(...args: unknown[])
 
 // ── AI Skill Prompt Templates ──
 
-const AI_SKILL_PROMPTS: Record<string, (text: string) => string> = {
+const AI_SKILL_PROMPTS: Record<string, () => string> = {
   // Pattern A — replace-oriented: instruct AI to output ONLY the revised text
-  improve: (text) =>
-    `Improve the writing quality of the following text. ` +
+  improve: () =>
+    `Improve the writing quality of the selected text. ` +
     `Keep the same meaning and tone, but make it clearer and more polished. ` +
-    `Output ONLY the improved text without any explanation.\n\n${text}`,
+    `Output ONLY the improved text without any explanation.`,
 
-  proofread: (text) =>
-    `Proofread the following text. Fix grammar, spelling, and punctuation errors only. ` +
+  proofread: () =>
+    `Proofread the selected text. Fix grammar, spelling, and punctuation errors only. ` +
     `Do not change the meaning or style. ` +
-    `Output ONLY the corrected text without any explanation.\n\n${text}`,
+    `Output ONLY the corrected text without any explanation.`,
 
-  translate: (text) =>
-    `Translate the following text. ` +
+  translate: () =>
+    `Translate the selected text. ` +
     `If the text is in Korean, translate it to English. ` +
     `If the text is in English, translate it to Korean. ` +
-    `Output ONLY the translation without any explanation.\n\n${text}`,
+    `Output ONLY the translation without any explanation.`,
 
   // Pattern B — conversational: answer appears in the chat panel
-  explain: (text) =>
-    `Explain the following text in detail. ` +
-    `Break it down so it is easy to understand.\n\n${text}`,
+  explain: () =>
+    `Explain the selected text in detail. ` + `Break it down so it is easy to understand.`,
 
-  summarize: (text) =>
-    `Summarize the following text concisely. ` +
-    `Capture the key points in a few sentences.\n\n${text}`,
+  summarize: () =>
+    `Summarize the selected text concisely. ` + `Capture the key points in a few sentences.`,
 };
 
 // ── Helpers ──
@@ -279,18 +277,14 @@ export default function EditorContextMenu(props: EditorContextMenuProps) {
   // ── AI Skill Actions (Phase 3 + 4) ──
 
   /**
-   * Send an AI skill request to the chat panel.
+   * Send an AI skill request to the chat panel in Inline mode.
    *
-   * 1. Gets the selected text from the editor.
-   * 2. Builds a prompt from the skill template.
+   * 1. Confirms the editor has selected text.
+   * 2. Builds an instruction from the skill template.
    * 3. Opens the AI Chat panel.
-   * 4. Sets chat mode to "ask" and sends the prompt.
+   * 4. Switches to Inline mode and sends the instruction.
    *
-   * Pattern A skills (improve, proofread, translate) instruct the AI to
-   * output only the replacement text — the user can copy-paste the result.
-   *
-   * Pattern B skills (explain, summarize) produce a conversational answer
-   * that appears naturally in the chat panel.
+   * Selected text and active file context are attached by the chat store.
    */
   async function handleAiSkill(skill: string): Promise<void> {
     if (!isAiChatAvailable()) return;
@@ -301,17 +295,17 @@ export default function EditorContextMenu(props: EditorContextMenuProps) {
     const buildPrompt = AI_SKILL_PROMPTS[skill];
     if (!buildPrompt) return;
 
-    const prompt = buildPrompt(selected);
+    const prompt = buildPrompt();
 
-    // Open the AI chat panel and ensure "ask" mode
+    // Open the AI chat panel and ensure Inline mode.
     openRightPanelView("ai-chat.panel");
-    setSelectedMode("ask");
+    await switchMode("inline");
 
     // Small delay to let the panel mount before sending
     await new Promise((r) => setTimeout(r, 80));
 
     try {
-      await sendMessage(prompt, { includeSelectedText: false });
+      await sendMessage(prompt, { includeSelectedText: true });
     } catch {
       // If sending fails the chat panel will show the error state.
     }

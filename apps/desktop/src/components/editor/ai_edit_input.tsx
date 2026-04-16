@@ -1,13 +1,15 @@
 // ── AI Edit Input ──
 //
-// Phase 5: Floating inline prompt input for "Edit with AI".
+// Floating inline prompt input for "Edit with AI".
 //
 // When the user triggers "Edit with AI" (via context menu or ⌘⌃E),
 // this component renders a small floating text input anchored near
 // the current editor selection. The user types a free-form instruction
 // (e.g. "make it more concise", "translate to Korean", "add examples"),
-// and on Enter the instruction + selected text are composed into a
-// prompt and sent to the AI Chat panel.
+// and on Enter the instruction is sent to the AI Chat panel in Inline mode.
+//
+// The selected text and active file context are attached by the chat store.
+// Do not manually embed selected text into the prompt here.
 //
 // Positioning uses ProseMirror's `coordsAtPos()` to find the screen
 // coordinates of the selection head, then offsets the input below
@@ -18,7 +20,7 @@ import { createSignal, onCleanup, onMount, Show } from "solid-js";
 import { SparklesIcon } from "~/components/icons";
 import { computeFloatingOverlayPosition } from "~/components/editor/floating_overlay_position";
 import { getActiveEditorInstance } from "~/components/editor/system/editor_engine";
-import { sendMessage, setSelectedMode } from "~/plugins/builtin/ai_chat/chat_store";
+import { sendMessage, switchMode } from "~/plugins/builtin/ai_chat/chat_store";
 import { openRightPanelView } from "~/stores/layout";
 
 // ── Types ──
@@ -34,22 +36,6 @@ interface AnchorPosition {
   left: number;
   width: number;
   flip: boolean;
-}
-
-// ── Helpers ──
-
-/**
- * Get the plain text of the current editor selection.
- * Returns null when no text is selected.
- */
-function getSelectedText(): string | null {
-  const editor = getActiveEditorInstance();
-  if (!editor?.view) return null;
-
-  const { from, to, empty } = editor.view.state.selection;
-  if (empty) return null;
-
-  return editor.view.state.doc.textBetween(from, to, "\n");
 }
 
 /**
@@ -132,27 +118,17 @@ export default function AiEditInput(props: AiEditInputProps) {
     const text = instruction().trim();
     if (!text || sending()) return;
 
-    const selected = getSelectedText();
-
-    // Build the prompt — include selected text when available
-    const prompt = selected
-      ? `[Edit instruction]: ${text}\n\n` +
-        `[Selected text to edit]:\n${selected}\n\n` +
-        `Apply the instruction to the selected text. ` +
-        `Output ONLY the edited result without any explanation.`
-      : text;
-
     setSending(true);
 
-    // Open chat panel and send
+    // Open chat panel and send the instruction through Inline mode.
     openRightPanelView("ai-chat.panel");
-    setSelectedMode("ask");
+    await switchMode("inline");
 
     // Small delay to let the panel mount
     await new Promise((r) => setTimeout(r, 80));
 
     try {
-      await sendMessage(prompt, { includeSelectedText: false });
+      await sendMessage(text, { includeSelectedText: true });
     } catch {
       // Chat panel will display the error
     } finally {

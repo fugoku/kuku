@@ -2,8 +2,8 @@ use std::path::{Path, PathBuf};
 
 use async_trait::async_trait;
 use kuku_ai::{
-    AiNativeTool, AiState, MutationOp, MutationPlan, NativeToolResult, ToolAccess, ToolCallContext,
-    ToolDescriptor, ToolError, ToolSource,
+    AiNativeTool, AiState, ChatMode, MutationOp, MutationPlan, NativeToolResult, ToolAccess,
+    ToolCallContext, ToolDescriptor, ToolError, ToolSource,
 };
 use tauri::{AppHandle, Manager};
 
@@ -218,9 +218,11 @@ impl AiNativeTool for EditFileTool {
         ctx: &ToolCallContext<'_>,
         args: serde_json::Value,
     ) -> Result<NativeToolResult, ToolError> {
-        let path = path_arg(&args)
-            .or_else(|| normalize_non_empty_path(ctx.editor_context.active_file.as_deref()))
-            .ok_or_else(|| ToolError::InvalidArguments("No path specified".into()))?;
+        let path = resolve_edit_target_path(
+            ctx.mode.clone(),
+            path_arg(&args),
+            ctx.editor_context.active_file.as_deref(),
+        )?;
         let content = content_arg(&args)
             .ok_or_else(|| ToolError::InvalidArguments("Missing content".into()))?;
 
@@ -456,6 +458,38 @@ fn normalize_non_empty_path(value: Option<&str>) -> Option<String> {
         .filter(|path| !path.is_empty())
 }
 
+fn resolve_edit_target_path(
+    mode: ChatMode,
+    requested_path: Option<String>,
+    active_file: Option<&str>,
+) -> Result<String, ToolError> {
+    let active_path = normalize_non_empty_path(active_file);
+
+    match mode {
+        ChatMode::Inline => {
+            let active_path = active_path.ok_or_else(|| {
+                ToolError::InvalidArguments(
+                    "Inline mode can only edit the active file, but no active file is available."
+                        .into(),
+                )
+            })?;
+
+            if let Some(requested_path) = requested_path {
+                if requested_path != active_path {
+                    return Err(ToolError::InvalidArguments(format!(
+                        "Inline mode can only edit the active file: {active_path}"
+                    )));
+                }
+            }
+
+            Ok(active_path)
+        }
+        _ => requested_path
+            .or(active_path)
+            .ok_or_else(|| ToolError::InvalidArguments("No path specified".into())),
+    }
+}
+
 fn kind_arg(args: &serde_json::Value) -> Result<PathKind, ToolError> {
     Ok(optional_kind_arg(args)?.unwrap_or(PathKind::File))
 }
@@ -637,10 +671,14 @@ async fn build_move_plan(
 mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    use kuku_ai::ChatMode;
     use serde_json::json;
     use tauri::async_runtime;
 
-    use super::{PathKind, build_move_plan, kind_arg, move_paths_arg, normalize_vault_path};
+    use super::{
+        PathKind, build_move_plan, kind_arg, move_paths_arg, normalize_vault_path,
+        resolve_edit_target_path,
+    };
 
     #[test]
     fn normalize_vault_path_maps_root_aliases_to_empty() {
@@ -729,6 +767,37 @@ mod tests {
         ));
 
         let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn resolve_edit_target_path_uses_active_file_in_inline_mode() {
+        let path =
+            resolve_edit_target_path(ChatMode::Inline, None, Some("notes/today.md")).unwrap();
+
+        assert_eq!(path, "notes/today.md");
+    }
+
+    #[test]
+    fn resolve_edit_target_path_rejects_non_active_file_in_inline_mode() {
+        let error = resolve_edit_target_path(
+            ChatMode::Inline,
+            Some("notes/other.md".to_string()),
+            Some("notes/today.md"),
+        )
+        .unwrap_err();
+
+        assert!(
+            matches!(error, super::ToolError::InvalidArguments(message) if message.contains("notes/today.md"))
+        );
+    }
+
+    #[test]
+    fn resolve_edit_target_path_requires_active_file_in_inline_mode() {
+        let error = resolve_edit_target_path(ChatMode::Inline, None, None).unwrap_err();
+
+        assert!(
+            matches!(error, super::ToolError::InvalidArguments(message) if message.contains("no active file"))
+        );
     }
 
     fn temp_dir() -> std::path::PathBuf {
