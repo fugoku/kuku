@@ -181,6 +181,8 @@ export default function AnchorEditInput(props: AnchorEditInputProps) {
   }
 
   function handleKeyDown(e: KeyboardEvent, fieldKey: string): void {
+    e.stopPropagation();
+
     // ── Suggest-aware keyboard handling ──
     const field = props.target.fields.find((f) => f.key === fieldKey);
     const suggestActive =
@@ -216,6 +218,11 @@ export default function AnchorEditInput(props: AnchorEditInputProps) {
     }
 
     // ── Default keyboard handling ──
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      return;
+    }
+
     if (e.key === "Escape") {
       e.preventDefault();
       props.onPinnedChange?.(false);
@@ -245,6 +252,9 @@ export default function AnchorEditInput(props: AnchorEditInputProps) {
           top: `${pos().top}px`,
           left: `${pos().left}px`,
           width: `${pos().width}px`,
+        }}
+        onKeyDown={(e) => {
+          e.stopPropagation();
         }}
         onFocusIn={handleFocusIn}
         onFocusOut={handleFocusOut}
@@ -309,6 +319,7 @@ export default function AnchorEditInput(props: AnchorEditInputProps) {
                                     suggestItemRefs[idx()] = el;
                                   }}
                                   type="button"
+                                  tabIndex={-1}
                                   class="flex w-full cursor-pointer items-center gap-2 px-2 py-1 text-left transition-colors outline-none"
                                   classList={{
                                     "bg-ghost-hover": selected(),

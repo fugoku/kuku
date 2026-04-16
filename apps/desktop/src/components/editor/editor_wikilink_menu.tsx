@@ -108,6 +108,7 @@ export default function EditorWikilinkMenu(props: EditorWikilinkMenuProps) {
                       itemRefs[index()] = el;
                     }}
                     type="button"
+                    tabIndex={-1}
                     class="flex w-full cursor-pointer items-center gap-2.5 px-3 py-1.5 text-left transition-colors outline-none"
                     classList={{
                       "bg-ghost-hover": selected(),

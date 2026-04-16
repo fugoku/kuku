@@ -162,9 +162,15 @@ export default function AiEditInput(props: AiEditInputProps) {
   }
 
   function handleKeyDown(e: KeyboardEvent): void {
+    e.stopPropagation();
+
+    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+      e.preventDefault();
+      return;
+    }
+
     if (e.key === "Escape") {
       e.preventDefault();
-      e.stopPropagation();
       props.onClose();
       // Restore editor focus
       requestAnimationFrame(() => {
@@ -201,6 +207,9 @@ export default function AiEditInput(props: AiEditInputProps) {
               top: `${anchor().top}px`,
               left: `${anchor().left}px`,
               width: `${anchor().width}px`,
+            }}
+            onKeyDown={(e) => {
+              e.stopPropagation();
             }}
           >
             <span class="flex shrink-0 items-center text-accent">
