@@ -1,10 +1,12 @@
 import { createEffect, on, onCleanup, onMount, Show, type JSX } from "solid-js";
-import { OverlayScrollbars } from "overlayscrollbars";
+import type { OverlayScrollbars } from "overlayscrollbars";
+import type { OverlayScrollbarsComponentRef } from "overlayscrollbars-solid";
 
 import { chatState, loadConfig, saveConfig } from "./chat_store";
 import { ChatHeader } from "./components/chat_header";
 import { ChatInput } from "./components/chat_input";
 import { ChatMessages } from "./components/chat_messages";
+import ScrollArea from "~/components/scroll_area";
 import { KukuIcon, SettingsIcon } from "~/components/icons";
 import { openSettings } from "~/stores/files";
 import { authState, getAuthService } from "~/plugins/builtin/core_auth/auth_service";
@@ -130,8 +132,10 @@ function RemotePermissionPrompt(): JSX.Element {
 // ── Main Chat Panel ──
 
 function ChatPanel(): JSX.Element {
-  let scrollHost: HTMLDivElement | undefined;
-  let osInstance: OverlayScrollbars | undefined;
+  let scrollAreaRef: OverlayScrollbarsComponentRef | undefined;
+  let viewportEl: HTMLElement | undefined;
+  let pendingScrollBehavior: ScrollBehavior | null = null;
+  let pendingScrollFrame = 0;
   let userScrolledAway = false;
 
   const isApiKeyMissing = () =>
@@ -155,35 +159,24 @@ function ChatPanel(): JSX.Element {
     }
   });
 
-  // ── OverlayScrollbars ──
-
-  onMount(() => {
-    if (!scrollHost) return;
-
-    // eslint-disable-next-line new-cap -- OverlayScrollbars is a factory, not a constructor
-    osInstance = OverlayScrollbars(scrollHost, {
-      scrollbars: {
-        theme: "os-theme-kuku",
-        autoHide: "scroll",
-        autoHideDelay: 800,
-      },
-      overflow: { x: "hidden" },
-    });
-
-    // Listen for manual scrolls so we don't fight the user.
-    const viewport = osInstance.elements().viewport;
-    viewport.addEventListener("scroll", handleScroll, { passive: true });
-    onCleanup(() => viewport.removeEventListener("scroll", handleScroll));
-  });
-
   onCleanup(() => {
-    osInstance?.destroy();
+    if (pendingScrollFrame) {
+      cancelAnimationFrame(pendingScrollFrame);
+    }
+    viewportEl?.removeEventListener("scroll", handleScroll);
   });
 
   // ── Scroll helpers ──
 
   function getViewport(): HTMLElement | undefined {
-    return osInstance?.elements().viewport;
+    return viewportEl ?? scrollAreaRef?.osInstance()?.elements().viewport;
+  }
+
+  function bindViewport(nextViewport: HTMLElement | undefined): void {
+    if (viewportEl === nextViewport) return;
+    viewportEl?.removeEventListener("scroll", handleScroll);
+    viewportEl = nextViewport;
+    viewportEl?.addEventListener("scroll", handleScroll, { passive: true });
   }
 
   function isNearBottom(): boolean {
@@ -193,18 +186,60 @@ function ChatPanel(): JSX.Element {
     return viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < threshold;
   }
 
-  function scrollToBottom(smooth = true): void {
+  function scrollToBottom(behavior: ScrollBehavior = "auto"): void {
     const viewport = getViewport();
     if (!viewport) return;
     viewport.scrollTo({
       top: viewport.scrollHeight,
-      behavior: smooth ? "smooth" : "instant",
+      behavior,
+    });
+    userScrolledAway = false;
+  }
+
+  function flushPendingScroll(): void {
+    if (!pendingScrollBehavior) return;
+    const behavior = pendingScrollBehavior;
+    pendingScrollBehavior = null;
+    scrollToBottom(behavior);
+  }
+
+  function cancelPendingScroll(): void {
+    pendingScrollBehavior = null;
+    if (!pendingScrollFrame) return;
+    cancelAnimationFrame(pendingScrollFrame);
+    pendingScrollFrame = 0;
+  }
+
+  function scheduleScrollToBottom(behavior: ScrollBehavior = "auto"): void {
+    if (userScrolledAway) return;
+    pendingScrollBehavior = behavior;
+    if (pendingScrollFrame) return;
+
+    pendingScrollFrame = requestAnimationFrame(() => {
+      scrollAreaRef?.osInstance()?.update();
+      pendingScrollFrame = requestAnimationFrame(() => {
+        pendingScrollFrame = 0;
+        flushPendingScroll();
+      });
     });
   }
 
   function handleScroll(): void {
     userScrolledAway = !isNearBottom();
+    if (userScrolledAway) {
+      cancelPendingScroll();
+    }
   }
+
+  const scrollAreaEvents = {
+    initialized: (instance: OverlayScrollbars) => {
+      bindViewport(instance.elements().viewport);
+      flushPendingScroll();
+    },
+    updated: (instance: OverlayScrollbars) => {
+      bindViewport(instance.elements().viewport);
+    },
+  };
 
   // ── Auto-scroll on new / updated messages ──
 
@@ -219,7 +254,7 @@ function ChatPanel(): JSX.Element {
     void (last?.kind === "text" ? last.content.length : last?.kind);
 
     if (!userScrolledAway) {
-      requestAnimationFrame(() => scrollToBottom());
+      scheduleScrollToBottom("auto");
     }
   });
 
@@ -229,7 +264,7 @@ function ChatPanel(): JSX.Element {
       () => chatState.activeSessionId,
       () => {
         userScrolledAway = false;
-        requestAnimationFrame(() => scrollToBottom(false));
+        scheduleScrollToBottom("auto");
       },
     ),
   );
@@ -242,9 +277,16 @@ function ChatPanel(): JSX.Element {
 
       <Show when={!(isApiKeyMissing() || needsRemoteLogin())} fallback={<AccessPrompt />}>
         <Show when={!needsRemotePermission()} fallback={<RemotePermissionPrompt />}>
-          <div ref={scrollHost} class="min-h-0 flex-1">
+          <ScrollArea
+            axis="y"
+            class="min-h-0 flex-1"
+            ref={(ref) => {
+              scrollAreaRef = ref;
+            }}
+            events={scrollAreaEvents}
+          >
             <ChatMessages />
-          </div>
+          </ScrollArea>
 
           <ChatInput />
         </Show>

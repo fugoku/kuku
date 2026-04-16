@@ -14,7 +14,6 @@ import type {
 
 import { createMemo, type JSX } from "solid-js";
 
-import ScrollArea from "~/components/scroll_area";
 import { createProcessor } from "~/lib/markdown";
 import { getMarkdownService } from "~/plugins/markdown_service";
 
@@ -173,23 +172,23 @@ function renderFallback(node: RenderableContent): JSX.Element {
 
 function MarkdownCodeBlock(props: { value: string; language?: string }): JSX.Element {
   return (
-    <ScrollArea axis="x" class="rounded-xs bg-bg-primary/70">
+    <div class="overflow-x-auto rounded-xs bg-bg-primary/70">
       <pre class="p-3">
         <code data-language={props.language}>{props.value}</code>
       </pre>
-    </ScrollArea>
+    </div>
   );
 }
 
 function MarkdownTable(props: { node: Table }): JSX.Element {
   const [head, ...body] = props.node.children;
   return (
-    <ScrollArea axis="x">
+    <div class="overflow-x-auto">
       <table>
         {head && <thead>{renderTableRow(head, true)}</thead>}
         {body.length > 0 && <tbody>{body.map((row) => renderTableRow(row, false))}</tbody>}
       </table>
-    </ScrollArea>
+    </div>
   );
 }
 
@@ -265,7 +264,7 @@ function renderMarkdown(source: string): JSX.Element {
 
 // ── Wrapper typography styles ───────────────────────────────────────────
 //
-// Code-block overflow and table overflow are handled by <ScrollArea> in
+// Code-block overflow and table overflow are handled by native overflow containers in
 // their respective components above. Only typography / colour rules remain.
 
 const MARKDOWN_STYLES = [
@@ -300,7 +299,7 @@ const MARKDOWN_STYLES = [
 
 function MarkdownMessage(props: { content: string }): JSX.Element {
   const rendered = createMemo(() => renderMarkdown(props.content));
-  return <div class={MARKDOWN_STYLES}>{rendered()}</div>;
+  return <div class={`min-w-0 ${MARKDOWN_STYLES}`}>{rendered()}</div>;
 }
 
 export { MarkdownMessage };

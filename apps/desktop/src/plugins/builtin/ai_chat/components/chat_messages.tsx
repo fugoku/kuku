@@ -96,7 +96,7 @@ function TextBubble(props: {
 
   return (
     <div
-      class="rounded-xs border px-3 py-1.5 text-sm/relaxed"
+      class="min-w-0 rounded-xs border px-3 py-1.5 text-sm/relaxed"
       classList={{
         "border-accent/20 bg-accent-dim text-text-primary": props.role === "user",
         "border-transparent bg-bg-secondary/30 text-text-primary": props.role === "assistant",
@@ -185,7 +185,7 @@ function ToolRunGroup(props: {
   const visibleApproval = () => (props.showApproval ? approval() : undefined);
 
   return (
-    <div class="flex flex-col gap-1">
+    <div class="flex min-w-0 flex-col gap-1">
       <ToolProgress tools={props.tools} linkedApproval={approval()} onHintClick={props.onToggle} />
 
       {/* ApprovalWidget — shown when toggled open */}
@@ -230,12 +230,12 @@ function ChatMessages(): JSX.Element {
   };
 
   return (
-    <div class="flex min-h-full flex-1 flex-col p-3">
+    <div class="flex min-h-full min-w-0 flex-col p-3">
       <Show
         when={hasMessages()}
         fallback={<ChatWelcome mode={chatState.selectedMode} onSubmit={handleWelcomeSubmit} />}
       >
-        <div class="flex flex-col gap-2.5">
+        <div class="flex min-w-0 flex-col gap-2.5">
           <For each={groups()}>
             {(group) => {
               // ── Tool run ──

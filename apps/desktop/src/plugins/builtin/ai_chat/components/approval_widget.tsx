@@ -1,7 +1,5 @@
 import { Show, createSignal, type JSX } from "solid-js";
 
-import ScrollArea from "~/components/scroll_area";
-
 import { canOpenApprovalDiff, closeApprovalDiff, openApprovalDiff } from "../approval_diff";
 import { resolveApproval } from "../chat_store";
 import type { ChatApprovalMessage } from "../types";
@@ -36,7 +34,7 @@ function ApprovalWidget(props: {
 
   return (
     <div
-      class="rounded-xs border p-3 text-xs"
+      class="min-w-0 rounded-xs border p-3 text-xs"
       classList={{
         "border-accent/50 bg-accent-dim/40": isPending(),
         "border-border bg-bg-secondary": !isPending(),
@@ -73,11 +71,11 @@ function ApprovalWidget(props: {
 
       {/* mutation JSON */}
       <Show when={showDetail()}>
-        <ScrollArea axis="both" class="mt-2 max-h-64 rounded-xs bg-bg-primary/70">
+        <div class="mt-2 max-h-64 overflow-auto rounded-xs bg-bg-primary/70">
           <pre class="p-2 text-[0.6875rem] wrap-break-word whitespace-pre-wrap text-text-primary">
             {JSON.stringify(props.item.mutation, null, 2)}
           </pre>
-        </ScrollArea>
+        </div>
       </Show>
 
       <Show when={props.item.error}>
