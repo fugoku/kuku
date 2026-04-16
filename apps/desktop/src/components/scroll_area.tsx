@@ -151,7 +151,6 @@ function clampUnit(value: number): number {
 
 function syncScrollbarAxis(
   scrollbar: { scrollbar: HTMLElement; handle: HTMLElement },
-  axis: "x" | "y",
   scrollOffset: number,
   scrollSize: number,
   clientSize: number,
@@ -163,20 +162,11 @@ function syncScrollbarAxis(
   scrollbar.scrollbar.style.setProperty("--os-scroll-percent", `${scrollPercent}`);
   scrollbar.scrollbar.style.setProperty("--os-viewport-percent", `${viewportPercent}`);
   scrollbar.scrollbar.style.setProperty("--os-scroll-direction", "0");
-
-  if (axis === "x") {
-    scrollbar.handle.style.left = `${scrollPercent * 100}%`;
-    scrollbar.handle.style.width = `${viewportPercent * 100}%`;
-    scrollbar.handle.style.transform = `translateX(${scrollPercent * -100}%)`;
-    scrollbar.handle.style.removeProperty("top");
-    scrollbar.handle.style.removeProperty("height");
-  } else {
-    scrollbar.handle.style.top = `${scrollPercent * 100}%`;
-    scrollbar.handle.style.height = `${viewportPercent * 100}%`;
-    scrollbar.handle.style.transform = `translateY(${scrollPercent * -100}%)`;
-    scrollbar.handle.style.removeProperty("left");
-    scrollbar.handle.style.removeProperty("width");
-  }
+  scrollbar.handle.style.removeProperty("top");
+  scrollbar.handle.style.removeProperty("left");
+  scrollbar.handle.style.removeProperty("height");
+  scrollbar.handle.style.removeProperty("width");
+  scrollbar.handle.style.removeProperty("transform");
 }
 
 function syncScrollbarVisuals(instance: OverlayScrollbars): void {
@@ -184,14 +174,12 @@ function syncScrollbarVisuals(instance: OverlayScrollbars): void {
 
   syncScrollbarAxis(
     scrollbarVertical,
-    "y",
     scrollOffsetElement.scrollTop,
     scrollOffsetElement.scrollHeight,
     scrollOffsetElement.clientHeight,
   );
   syncScrollbarAxis(
     scrollbarHorizontal,
-    "x",
     scrollOffsetElement.scrollLeft,
     scrollOffsetElement.scrollWidth,
     scrollOffsetElement.clientWidth,

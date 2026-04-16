@@ -173,8 +173,8 @@ function renderFallback(node: RenderableContent): JSX.Element {
 
 function MarkdownCodeBlock(props: { value: string; language?: string }): JSX.Element {
   return (
-    <div class="min-w-0 rounded-xs bg-bg-primary/70">
-      <ScrollArea axis="x" scrollbarAutoHide="leave" class="max-w-full">
+    <div class="w-full max-w-full min-w-0 rounded-xs bg-bg-primary/70">
+      <ScrollArea axis="x" scrollbarAutoHide="leave" class="w-full max-w-full min-w-0">
         <pre class="m-0 min-w-max p-3">
           <code data-language={props.language}>{props.value}</code>
         </pre>
@@ -186,8 +186,8 @@ function MarkdownCodeBlock(props: { value: string; language?: string }): JSX.Ele
 function MarkdownTable(props: { node: Table }): JSX.Element {
   const [head, ...body] = props.node.children;
   return (
-    <div class="min-w-0">
-      <ScrollArea axis="x" scrollbarAutoHide="leave" class="max-w-full">
+    <div class="w-full max-w-full min-w-0">
+      <ScrollArea axis="x" scrollbarAutoHide="leave" class="w-full max-w-full min-w-0">
         <table class="min-w-max">
           {head && <thead>{renderTableRow(head, true)}</thead>}
           {body.length > 0 && <tbody>{body.map((row) => renderTableRow(row, false))}</tbody>}
@@ -304,7 +304,7 @@ const MARKDOWN_STYLES = [
 
 function MarkdownMessage(props: { content: string }): JSX.Element {
   const rendered = createMemo(() => renderMarkdown(props.content));
-  return <div class={`min-w-0 ${MARKDOWN_STYLES}`}>{rendered()}</div>;
+  return <div class={`w-full max-w-full min-w-0 ${MARKDOWN_STYLES}`}>{rendered()}</div>;
 }
 
 export { MarkdownMessage };
