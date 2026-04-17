@@ -825,6 +825,15 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
             currentChecksum,
           );
 
+          // Disposed during the in-flight write: the file is already committed
+          // on disk, but the editor / tab caches no longer matter. Bail out
+          // before touching `editor.view` (destroyed in onCleanup) or writing
+          // to a stale tab's cache.
+          if (disposed) {
+            queuedSaveContent = null;
+            return;
+          }
+
           if (result.status === "Written") {
             checksum = result.checksum;
             saveCachedChecksum(props.tabId, result.checksum);

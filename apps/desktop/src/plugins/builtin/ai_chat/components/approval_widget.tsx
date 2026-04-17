@@ -30,6 +30,10 @@ function ApprovalWidget(props: {
   const statusTone = () => getApprovalStatusTone(props.item);
   const isPending = () => props.item.status === "pending";
   const [showDetail, setShowDetail] = createSignal(false);
+  // Guards against double-click → duplicate `ai_resolve_approval` invokes
+  // before backend status flips to non-pending. The buttons unmount once
+  // `isPending()` becomes false, so no need to reset this signal.
+  const [resolving, setResolving] = createSignal(false);
   const toolIdentity = () => formatToolIdentity(props.item.toolId, props.item.toolName);
   const toolInfo = () => getToolInfo(props.item.toolId ?? props.item.toolName);
   const showIdentity = () => toolIdentity() !== toolInfo().label;
@@ -106,8 +110,11 @@ function ApprovalWidget(props: {
           </Show>
           <button
             type="button"
-            class="rounded-xs border border-success-border bg-success-bg px-3 py-1.5 text-[0.6875rem] text-success transition-colors hover:opacity-80"
+            disabled={resolving()}
+            class="rounded-xs border border-success-border bg-success-bg px-3 py-1.5 text-[0.6875rem] text-success transition-colors hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
             onClick={() => {
+              if (resolving()) return;
+              setResolving(true);
               const { mutation, toolName, toolId, callId } = props.item;
               const { sessionId, onClose } = props;
               void (async () => {
@@ -121,8 +128,11 @@ function ApprovalWidget(props: {
           </button>
           <button
             type="button"
-            class="rounded-xs border border-error-border bg-error-bg px-3 py-1.5 text-[0.6875rem] text-error transition-colors hover:opacity-80"
+            disabled={resolving()}
+            class="rounded-xs border border-error-border bg-error-bg px-3 py-1.5 text-[0.6875rem] text-error transition-colors hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
             onClick={() => {
+              if (resolving()) return;
+              setResolving(true);
               const { mutation, toolName, toolId, callId } = props.item;
               const { sessionId, onClose } = props;
               void (async () => {
