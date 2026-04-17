@@ -65,7 +65,13 @@ func Auth(authService *authpkg.AuthService, log *slog.Logger, secureCookie bool)
 				}
 				tokens, err = authService.RefreshTokens(r.Context(), refreshToken, clientIP(r), r.UserAgent())
 				if err != nil {
-					log.Debug("refresh token failed", "error", err)
+					// Refresh-token failures are security-relevant: a valid
+					// access token has already failed to parse and now the
+					// refresh token is also invalid. Could be expiry
+					// (benign) or a tampered/replayed token (suspicious).
+					// Warn-level so it's visible without triggering on
+					// every unauthenticated request.
+					log.Warn("refresh token failed", "error", err, "ip", clientIP(r))
 					next.ServeHTTP(w, r)
 					return
 				}
@@ -88,7 +94,11 @@ func Auth(authService *authpkg.AuthService, log *slog.Logger, secureCookie bool)
 				return
 			}
 			if err := authService.ValidateSession(r.Context(), sessionID); err != nil {
-				log.Debug("session validation failed", "error", err)
+				// JWT signature was valid (we already parsed the claims) but
+				// the session is missing/revoked in the database. Either a
+				// race against logout or token reuse after sign-out. Warn
+				// so it's auditable without burying it in debug noise.
+				log.Warn("session validation failed", "error", err, "session_id", sessionID, "ip", clientIP(r))
 				next.ServeHTTP(w, r)
 				return
 			}
