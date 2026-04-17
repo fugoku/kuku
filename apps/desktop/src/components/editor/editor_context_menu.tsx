@@ -66,29 +66,26 @@ type EditorCmd = ((...args: unknown[]) => void) & {
 
 // ── AI Skill Prompt Templates ──
 
+const EDIT_FILE_PREFIX =
+  `Edit the current active file by replacing only the selected text. ` +
+  `Use the edit_file tool on the active file, preserve all unrelated content, ` +
+  `and do not reply with a conversational answer in chat. `;
+
 const AI_SKILL_PROMPTS: Record<string, () => string> = {
-  // Pattern A — replace-oriented: instruct AI to output ONLY the revised text
   improve: () =>
-    `Improve the writing quality of the selected text. ` +
-    `Keep the same meaning and tone, but make it clearer and more polished. ` +
-    `Output ONLY the improved text without any explanation.`,
+    `${EDIT_FILE_PREFIX}Make the selected text clearer and more polished while keeping the same meaning and tone.`,
 
   proofread: () =>
-    `Proofread the selected text. Fix grammar, spelling, and punctuation errors only. ` +
-    `Do not change the meaning or style. ` +
-    `Output ONLY the corrected text without any explanation.`,
+    `${EDIT_FILE_PREFIX}Proofread the selected text. Fix grammar, spelling, and punctuation only. Do not change the meaning or style.`,
 
   translate: () =>
-    `Translate the selected text. ` +
-    `If the text is in Korean, translate it to English. ` +
-    `If the text is in English, translate it to Korean. ` +
-    `Output ONLY the translation without any explanation.`,
+    `${EDIT_FILE_PREFIX}Translate the selected text. If the text is in Korean, translate it to English. If the text is in English, translate it to Korean.`,
 
-  // Pattern B — conversational: answer appears in the chat panel
-  explain: () => `Explain the selected text in detail. Break it down so it is easy to understand.`,
+  explain: () =>
+    `${EDIT_FILE_PREFIX}Rewrite the selected text so the underlying idea is easier to understand. Add brief clarifying detail where needed, but keep the original facts aligned with the source.`,
 
   summarize: () =>
-    `Summarize the selected text concisely. Capture the key points in a few sentences.`,
+    `${EDIT_FILE_PREFIX}Rewrite the selected text as a concise summary that preserves the key points.`,
 };
 
 // ── Helpers ──
@@ -164,6 +161,7 @@ export default function EditorContextMenu(props: EditorContextMenuProps) {
     listKind: null,
     insideBlockquote: false,
   });
+  let pendingAiEditRequest = false;
 
   // ── State Snapshot ──
 
@@ -192,6 +190,13 @@ export default function EditorContextMenu(props: EditorContextMenuProps) {
     if (open) {
       snapshotEditorState();
     } else {
+      if (pendingAiEditRequest) {
+        pendingAiEditRequest = false;
+        requestAnimationFrame(() => {
+          props.onRequestAiEdit?.();
+        });
+        return;
+      }
       queueEditorFocusRestore();
     }
   }
@@ -275,17 +280,19 @@ export default function EditorContextMenu(props: EditorContextMenuProps) {
     });
   }
 
-  // ── AI Skill Actions (Phase 3 + 4) ──
+  // ── AI Skill Actions ──
 
   /**
    * Send an AI skill request to the chat panel in Inline mode.
    *
    * 1. Confirms the editor has selected text.
-   * 2. Builds an instruction from the skill template.
+   * 2. Builds an edit instruction from the skill template.
    * 3. Opens the AI Chat panel.
    * 4. Switches to Inline mode and sends the instruction.
    *
    * Selected text and active file context are attached by the chat store.
+   * The prompt explicitly tells the model to edit the current file instead
+   * of replying conversationally in chat.
    */
   async function handleAiSkill(skill: string): Promise<void> {
     if (!isAiChatAvailable()) return;
@@ -324,7 +331,7 @@ export default function EditorContextMenu(props: EditorContextMenuProps) {
    */
   function handleEditWithAi(): void {
     if (!isAiChatAvailable()) return;
-    props.onRequestAiEdit?.();
+    pendingAiEditRequest = true;
   }
 
   // ── Render ──
