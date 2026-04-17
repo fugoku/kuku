@@ -116,6 +116,22 @@
   --shadow-popover:
     0 12px 32px rgba(0, 0, 0, 0.32), 0 2px 6px rgba(0, 0, 0, 0.22),
     0 0 0 1px rgba(255, 255, 255, 0.04);
+
+  /* ── 14. Graph view (semantic role tokens for Canvas2D) ──
+     `var(...)` is intentionally inlined as literal hex/rgba so
+     `getComputedStyle().getPropertyValue()` returns a value Canvas
+     accepts directly without var() resolution edge-cases. */
+  --color-graph-node-orphan: #6a6a6a; /* mirrors --color-text-muted */
+  --color-graph-node-selected: #7ab0df; /* mirrors --color-info */
+  --color-graph-node-current: #8b5cf6; /* dedicated: "current open file" */
+  --color-graph-node-stroke-strong: #d4d4d4; /* mirrors --color-text-primary */
+  --color-graph-node-stroke-soft: rgba(212, 212, 212, 0.6);
+  --color-graph-node-stroke-faint: rgba(212, 212, 212, 0.3);
+  --color-graph-link-default: rgba(106, 106, 106, 0.25);
+  --color-graph-link-selected: rgba(122, 176, 223, 0.75);
+  --color-graph-link-current: rgba(139, 92, 246, 0.75);
+  /* Cluster label text lightness (HSL%) — dark theme can stay vivid at 62% */
+  --color-graph-cluster-text-l: 62%;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -198,6 +214,19 @@
   --shadow-popover:
     0 12px 32px rgba(56, 58, 66, 0.12), 0 2px 6px rgba(56, 58, 66, 0.06),
     0 0 0 1px rgba(56, 58, 66, 0.04);
+
+  /* ── Graph view (light) ── */
+  --color-graph-node-orphan: #a0a1a7;
+  --color-graph-node-selected: #4078f2;
+  --color-graph-node-current: #7c3aed;
+  --color-graph-node-stroke-strong: #383a42;
+  --color-graph-node-stroke-soft: rgba(56, 58, 66, 0.5);
+  --color-graph-node-stroke-faint: rgba(56, 58, 66, 0.2);
+  --color-graph-link-default: rgba(160, 161, 167, 0.35);
+  --color-graph-link-selected: rgba(64, 120, 242, 0.6);
+  --color-graph-link-current: rgba(124, 58, 237, 0.6);
+  /* Light theme: darker cluster text so labels read on near-white pills */
+  --color-graph-cluster-text-l: 38%;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

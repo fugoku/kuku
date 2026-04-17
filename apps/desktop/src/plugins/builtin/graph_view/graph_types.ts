@@ -239,4 +239,13 @@ export function clusterBgColor(index: number): string {
   return c;
 }
 
+/**
+ * Cluster color tuned for label text readability.
+ * Lightness is theme-driven so light theme uses a darker tone (~38%)
+ * while dark theme keeps the vivid 62%.
+ */
+export function clusterTextColor(index: number, lightness = "62%"): string {
+  return `hsl(${clusterHue(index)}, 72%, ${lightness})`;
+}
+
 export { mergeGraphSettings };

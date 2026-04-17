@@ -45,6 +45,7 @@ import { getGraphStore } from "./graph_store";
 import {
   clusterBgColor,
   clusterColor,
+  clusterTextColor,
   getGraphSummary,
   type FGLink,
   type FGNode,
@@ -276,7 +277,7 @@ export default function GraphCanvas(props: GraphCanvasProps) {
         );
         ctx.fill();
 
-        ctx.fillStyle = clusterColor(clusterIdx);
+        ctx.fillStyle = clusterTextColor(clusterIdx, cssVar("--color-graph-cluster-text-l", "62%"));
         ctx.fillText(label, centX, labelY);
       }
     }
@@ -300,9 +301,9 @@ export default function GraphCanvas(props: GraphCanvasProps) {
 
     const nodeClusterColor = clusterColor(node.clusterIndex);
     let fillColor = nodeClusterColor;
-    if (node.isOrphan) fillColor = "#6b7280";
-    else if (isCurrent) fillColor = "#8b5cf6";
-    else if (isSelected) fillColor = "#3b82f6";
+    if (node.isOrphan) fillColor = cssVar("--color-graph-node-orphan", "#6a6a6a");
+    else if (isCurrent) fillColor = cssVar("--color-graph-node-current", "#8b5cf6");
+    else if (isSelected) fillColor = cssVar("--color-graph-node-selected", "#7ab0df");
 
     if (isSelected || isHovered || isCurrent || isConnected) {
       ctx.beginPath();
@@ -319,13 +320,13 @@ export default function GraphCanvas(props: GraphCanvasProps) {
     ctx.fill();
 
     if (isSelected || isCurrent) {
-      ctx.strokeStyle = "#ffffff";
+      ctx.strokeStyle = cssVar("--color-graph-node-stroke-strong", "#d4d4d4");
       ctx.lineWidth = 1.8;
     } else if (isConnected) {
-      ctx.strokeStyle = "rgba(255,255,255,0.6)";
+      ctx.strokeStyle = cssVar("--color-graph-node-stroke-soft", "rgba(212,212,212,0.6)");
       ctx.lineWidth = 1.2;
     } else {
-      ctx.strokeStyle = "rgba(255,255,255,0.3)";
+      ctx.strokeStyle = cssVar("--color-graph-node-stroke-faint", "rgba(212,212,212,0.3)");
       ctx.lineWidth = 0.8;
     }
     ctx.stroke();
@@ -360,8 +361,11 @@ export default function GraphCanvas(props: GraphCanvasProps) {
       );
       ctx.fill();
 
-      ctx.globalAlpha = 0.45;
-      ctx.fillStyle = clusterColor(node.clusterIndex);
+      ctx.globalAlpha = 0.85;
+      ctx.fillStyle = clusterTextColor(
+        node.clusterIndex,
+        cssVar("--color-graph-cluster-text-l", "62%"),
+      );
       ctx.fillText(label, x, labelY);
       ctx.globalAlpha = 1;
     }
@@ -373,10 +377,14 @@ export default function GraphCanvas(props: GraphCanvasProps) {
     const sourceNode = typeof link.source === "object" ? link.source : null;
 
     const sel = selectedNode();
-    if (sel && (sourceId === sel || targetId === sel)) return "rgba(59, 130, 246, 0.75)";
+    if (sel && (sourceId === sel || targetId === sel)) {
+      return cssVar("--color-graph-link-selected", "rgba(122,176,223,0.75)");
+    }
 
     const cur = currentFilePath();
-    if (cur && (sourceId === cur || targetId === cur)) return "rgba(139, 92, 246, 0.75)";
+    if (cur && (sourceId === cur || targetId === cur)) {
+      return cssVar("--color-graph-link-current", "rgba(139,92,246,0.75)");
+    }
 
     const hov = hoveredNode();
     if (hov && (sourceId === hov.filePath || targetId === hov.filePath) && sourceNode) {
@@ -385,7 +393,7 @@ export default function GraphCanvas(props: GraphCanvasProps) {
 
     if (sourceNode) return clusterColor(sourceNode.clusterIndex, 0.21);
 
-    return "rgba(107, 114, 128, 0.25)";
+    return cssVar("--color-graph-link-default", "rgba(106,106,106,0.25)");
   }
 
   function getLinkWidth(link: FGLink): number {
@@ -826,18 +834,18 @@ export default function GraphCanvas(props: GraphCanvasProps) {
       {/* Zoom & view controls */}
       <Show when={status() === "ready"}>
         <div
-          class="absolute right-3 bottom-3 flex items-center gap-1 rounded-xs border border-border/70 bg-bg-elevated/80 p-1 shadow-soft-2 backdrop-blur-sm"
-          classList={{ "right-2! bottom-2! p-0.5!": isCompact() }}
+          class="absolute right-3 bottom-3 flex items-center gap-0.5 rounded-xs border border-border/70 bg-bg-elevated/85 p-1 shadow-soft-2 backdrop-blur-sm"
+          classList={{ "right-2! bottom-2! gap-0! p-0.5!": isCompact() }}
         >
-          <CtrlBtn title="Zoom in" onClick={zoomIn}>
+          <CtrlBtn title="Zoom in" onClick={zoomIn} compact={isCompact()}>
             <ZoomInIcon />
           </CtrlBtn>
-          <CtrlBtn title="Zoom out" onClick={zoomOut}>
+          <CtrlBtn title="Zoom out" onClick={zoomOut} compact={isCompact()}>
             <ZoomOutIcon />
           </CtrlBtn>
 
           <Show when={!isCompact()}>
-            <div class="mx-0.5 h-4 w-px bg-border/50" />
+            <div class="mx-1 h-4 w-px bg-border" />
             <CtrlBtn
               title="Toggle clusters"
               onClick={() => updateGraphSetting("showClusters", !showClusters())}
@@ -847,7 +855,7 @@ export default function GraphCanvas(props: GraphCanvasProps) {
             </CtrlBtn>
           </Show>
 
-          <CtrlBtn title="Fit all nodes" onClick={fitView}>
+          <CtrlBtn title="Fit all nodes" onClick={fitView} compact={isCompact()}>
             <FitViewIcon />
           </CtrlBtn>
 
@@ -863,6 +871,7 @@ export default function GraphCanvas(props: GraphCanvasProps) {
                 }
               }}
               active={followMode()}
+              compact
             >
               <LocateIcon />
             </CtrlBtn>
@@ -872,9 +881,16 @@ export default function GraphCanvas(props: GraphCanvasProps) {
             <CtrlBtn title="Reset view" onClick={resetView}>
               <ResetViewIcon />
             </CtrlBtn>
+            <div class="mx-1 h-4 w-px bg-border" />
           </Show>
 
-          <span class="px-1.5 text-[0.6rem] text-text-muted tabular-nums">
+          <span
+            class="px-1 text-center font-mono text-[0.6875rem] text-text-muted tabular-nums"
+            classList={{
+              "min-w-11": !isCompact(),
+              "min-w-8 text-[0.625rem]": isCompact(),
+            }}
+          >
             {Math.round(zoomLevel() * 100)}%
           </span>
         </div>
@@ -920,14 +936,19 @@ function CtrlBtn(props: {
   title: string;
   onClick: () => void;
   active?: boolean;
+  compact?: boolean;
   children: JSX.Element;
 }): JSX.Element {
   return (
     <button
       type="button"
       title={props.title}
-      class="flex size-6 cursor-pointer items-center justify-center rounded-xs border-none bg-transparent text-[0.75rem] text-text-muted transition-colors hover:bg-ghost-hover hover:text-text-primary"
-      classList={{ "bg-ghost-hover! text-text-primary!": props.active }}
+      class="flex cursor-pointer items-center justify-center rounded-xs border-none bg-transparent text-[0.75rem] text-text-muted transition-colors duration-100 hover:bg-ghost-hover hover:text-text-primary"
+      classList={{
+        "size-7": !props.compact,
+        "size-6": props.compact,
+        "bg-ghost-active! text-text-accent!": props.active,
+      }}
       onClick={props.onClick}
     >
       {props.children}

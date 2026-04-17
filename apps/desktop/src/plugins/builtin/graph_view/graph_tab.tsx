@@ -68,13 +68,13 @@ export default function GraphTab() {
     if (width === 0 || all.length === 0) return all.length;
 
     const itemGap = 12; // gap-3
-    const moreBadgeWidth = 70;
+    const moreBadgeWidth = 72;
     let used = 0;
 
     for (let i = 0; i < all.length; i++) {
       const label = all[i].split("/").pop() ?? all[i];
-      // Estimate: dot(8) + dot-text gap(6) + text(~6.5px per char)
-      const itemWidth = 14 + label.length * 6.5;
+      // Estimate: dot(10) + dot-text gap(6) + text(~7px per char @ 12px)
+      const itemWidth = 16 + label.length * 7;
       const step = i > 0 ? itemGap + itemWidth : itemWidth;
       const remaining = all.length - (i + 1);
       const moreCost = remaining > 0 ? itemGap + moreBadgeWidth : 0;
@@ -98,23 +98,32 @@ export default function GraphTab() {
   return (
     <div class="flex h-full min-h-0 flex-col overflow-hidden bg-bg-primary">
       {/* ── Header ── */}
-      <div class="flex items-center justify-between border-b border-border/70 bg-bg-secondary/60 px-4 py-3">
-        <div class="space-y-0.5">
+      <div class="flex items-center justify-between gap-4 border-b border-border/70 bg-bg-secondary/60 px-4 py-3">
+        <div class="min-w-0 space-y-0.5">
           <p class="text-sm font-medium text-text-primary">Graph</p>
-          <p class="text-xs text-text-muted">Visualize wikilink connections across the vault.</p>
+          <p class="truncate text-xs text-text-muted">
+            Visualize wikilink connections across the vault.
+          </p>
         </div>
 
-        <div class="flex items-center gap-3 text-[0.6875rem] text-text-muted">
-          <span>{summary().nodeCount} nodes</span>
-          <span>·</span>
-          <span>{summary().linkCount} links</span>
-          <span>·</span>
-          <span>{summary().clusterCount} clusters</span>
+        <div class="flex shrink-0 items-center gap-3 font-mono text-[0.6875rem] text-text-muted tabular-nums">
+          <span>
+            <span class="text-text-secondary">{summary().nodeCount}</span> nodes
+          </span>
+          <span aria-hidden="true" class="h-2.5 w-px bg-border" />
+          <span>
+            <span class="text-text-secondary">{summary().linkCount}</span> links
+          </span>
+          <span aria-hidden="true" class="h-2.5 w-px bg-border" />
+          <span>
+            <span class="text-text-secondary">{summary().clusterCount}</span> clusters
+          </span>
 
           <Show when={summary().orphanCount > 0}>
-            <span>·</span>
-            <span class="text-text-muted/70">
-              {summary().orphanCount} orphan{summary().orphanCount > 1 ? "s" : ""}
+            <span aria-hidden="true" class="h-2.5 w-px bg-border" />
+            <span>
+              <span class="text-text-secondary">{summary().orphanCount}</span> orphan
+              {summary().orphanCount > 1 ? "s" : ""}
             </span>
           </Show>
         </div>
@@ -138,9 +147,9 @@ export default function GraphTab() {
         >
           <For each={clusters().slice(0, visibleCount())}>
             {(cluster, i) => (
-              <div class="flex shrink-0 items-center gap-1.5 text-[0.6875rem] text-text-muted">
+              <div class="flex shrink-0 items-center gap-1.5 text-[0.75rem] text-text-secondary">
                 <span
-                  class="inline-block size-2 rounded-full"
+                  class="inline-block size-2.5 shrink-0 rounded-full ring-1 ring-border"
                   style={{ background: clusterColor(i()) }}
                 />
                 <span class="whitespace-nowrap">{cluster.split("/").pop() ?? cluster}</span>
@@ -148,7 +157,9 @@ export default function GraphTab() {
             )}
           </For>
           <Show when={hiddenCount() > 0}>
-            <span class="shrink-0 text-[0.6875rem] text-text-muted">+{hiddenCount()} more</span>
+            <span class="shrink-0 font-mono text-[0.6875rem] text-text-muted tabular-nums">
+              +{hiddenCount()} more
+            </span>
           </Show>
         </div>
       </Show>
