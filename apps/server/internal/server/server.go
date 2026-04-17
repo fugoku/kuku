@@ -73,6 +73,11 @@ func (s *Server) Run() error {
 
 	var root http.Handler = mux
 	root = middleware.Auth(authService, s.log, secureCookie)(root)
+	// Rate limit sits between CORS and Auth: CORS preflights short-circuit
+	// before reaching the limiter, but unauthenticated brute-force against
+	// the public auth endpoints is throttled before the auth check ever
+	// runs.
+	root = middleware.RateLimit(s.log)(root)
 	root = middleware.CORS(s.cfg.AllowedOrigins)(root)
 	root = middleware.Logging(s.log)(root)
 	root = middleware.Recover(s.log)(root)

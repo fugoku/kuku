@@ -11,6 +11,13 @@ import (
 )
 
 type Querier interface {
+	// Atomic lookup-and-invalidate. The previous separate SELECT + UPDATE pair
+	// allowed two concurrent requests with the same code to both pass the
+	// IS NULL guard before either UPDATE landed; this single UPDATE is
+	// serialized by the row lock, and the RETURNING clause means only the
+	// winner gets a non-empty result. A second caller (or a stale/used token)
+	// gets pgx.ErrNoRows.
+	ConsumeOneTimeToken(ctx context.Context, tokenHash string) (AuthOneTimeToken, error)
 	CreateAuthEvent(ctx context.Context, arg CreateAuthEventParams) error
 	CreateFlowState(ctx context.Context, arg CreateFlowStateParams) (AuthFlowState, error)
 	CreateIdentity(ctx context.Context, arg CreateIdentityParams) (AuthIdentity, error)
@@ -23,7 +30,6 @@ type Querier interface {
 	GetCurrentPeriodUsage(ctx context.Context, arg GetCurrentPeriodUsageParams) (GetCurrentPeriodUsageRow, error)
 	GetFlowStateByCode(ctx context.Context, authCode string) (AuthFlowState, error)
 	GetIdentityByProviderID(ctx context.Context, arg GetIdentityByProviderIDParams) (AuthIdentity, error)
-	GetOneTimeTokenByHash(ctx context.Context, tokenHash string) (AuthOneTimeToken, error)
 	GetRefreshTokenByHash(ctx context.Context, tokenHash string) (AuthRefreshToken, error)
 	GetSubscriptionByUserID(ctx context.Context, userID pgtype.UUID) (KukuSubscription, error)
 	GetUsageStatsByUserAndDateRange(ctx context.Context, arg GetUsageStatsByUserAndDateRangeParams) ([]KukuUsageStat, error)
@@ -31,7 +37,6 @@ type Querier interface {
 	GetUserByID(ctx context.Context, id pgtype.UUID) (AuthUser, error)
 	GetValidSession(ctx context.Context, arg GetValidSessionParams) (AuthSession, error)
 	InvalidateOneTimeTokensByEmail(ctx context.Context, arg InvalidateOneTimeTokensByEmailParams) error
-	MarkOneTimeTokenUsed(ctx context.Context, id pgtype.UUID) error
 	RevokeAllUserRefreshTokens(ctx context.Context, userID pgtype.UUID) error
 	RevokeAllUserSessions(ctx context.Context, userID pgtype.UUID) error
 	RevokeRefreshToken(ctx context.Context, id pgtype.UUID) error

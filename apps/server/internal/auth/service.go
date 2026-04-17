@@ -176,17 +176,17 @@ func (s *AuthService) EmailResend(ctx context.Context, flow, ipAddress, userAgen
 }
 
 func (s *AuthService) EmailVerify(ctx context.Context, code, ipAddress, userAgent string) (*TokenPair, error) {
-	token, err := s.queries.GetOneTimeTokenByHash(ctx, hashToken(code))
+	// Atomic consume-and-return: only the first concurrent caller for a given
+	// code wins the row lock and gets a row back; everyone else (including
+	// retries against an already-consumed code) gets pgx.ErrNoRows. This
+	// fuses the prior SELECT + UPDATE pair to close the TOCTOU window.
+	// Expiry is enforced inside the WHERE clause, so a stale code surfaces
+	// the same way as wrong/used — `ErrInvalidCode`.
+	token, err := s.queries.ConsumeOneTimeToken(ctx, hashToken(code))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrInvalidCode
 		}
-		return nil, err
-	}
-	if !token.ExpiresAt.Valid || token.ExpiresAt.Time.Before(time.Now()) {
-		return nil, ErrCodeExpired
-	}
-	if err := s.queries.MarkOneTimeTokenUsed(ctx, token.ID); err != nil {
 		return nil, err
 	}
 
@@ -236,7 +236,8 @@ func (s *AuthService) ExchangeDesktopToken(ctx context.Context, token, state, ip
 		}
 		return nil, err
 	}
-	oneTime, err := s.queries.GetOneTimeTokenByHash(ctx, hashToken(token))
+	// Atomic consume — see EmailVerify for the TOCTOU rationale.
+	oneTime, err := s.queries.ConsumeOneTimeToken(ctx, hashToken(token))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrInvalidCode
@@ -248,9 +249,6 @@ func (s *AuthService) ExchangeDesktopToken(ctx context.Context, token, state, ip
 	}
 	if !oneTime.UserID.Valid {
 		return nil, ErrInvalidCode
-	}
-	if err := s.queries.MarkOneTimeTokenUsed(ctx, oneTime.ID); err != nil {
-		return nil, err
 	}
 	user, err := s.queries.GetUserByID(ctx, oneTime.UserID)
 	if err != nil {

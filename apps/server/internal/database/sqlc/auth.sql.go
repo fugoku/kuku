@@ -11,6 +11,37 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const consumeOneTimeToken = `-- name: ConsumeOneTimeToken :one
+UPDATE auth.one_time_tokens
+SET used_at = now()
+WHERE token_hash = $1
+  AND used_at IS NULL
+  AND expires_at > now()
+RETURNING id, user_id, email, token_type, token_hash, used_at, created_at, expires_at
+`
+
+// Atomic lookup-and-invalidate. The previous separate SELECT + UPDATE pair
+// allowed two concurrent requests with the same code to both pass the
+// IS NULL guard before either UPDATE landed; this single UPDATE is
+// serialized by the row lock, and the RETURNING clause means only the
+// winner gets a non-empty result. A second caller (or a stale/used token)
+// gets pgx.ErrNoRows.
+func (q *Queries) ConsumeOneTimeToken(ctx context.Context, tokenHash string) (AuthOneTimeToken, error) {
+	row := q.db.QueryRow(ctx, consumeOneTimeToken, tokenHash)
+	var i AuthOneTimeToken
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Email,
+		&i.TokenType,
+		&i.TokenHash,
+		&i.UsedAt,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+	)
+	return i, err
+}
+
 const createAuthEvent = `-- name: CreateAuthEvent :exec
 INSERT INTO audit_log.auth_events (actor_id, actor_email, action, payload, ip_address, user_agent)
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -311,29 +342,6 @@ func (q *Queries) GetIdentityByProviderID(ctx context.Context, arg GetIdentityBy
 	return i, err
 }
 
-const getOneTimeTokenByHash = `-- name: GetOneTimeTokenByHash :one
-SELECT id, user_id, email, token_type, token_hash, used_at, created_at, expires_at FROM auth.one_time_tokens
-WHERE token_hash = $1
-  AND used_at IS NULL
-  AND expires_at > now()
-`
-
-func (q *Queries) GetOneTimeTokenByHash(ctx context.Context, tokenHash string) (AuthOneTimeToken, error) {
-	row := q.db.QueryRow(ctx, getOneTimeTokenByHash, tokenHash)
-	var i AuthOneTimeToken
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.Email,
-		&i.TokenType,
-		&i.TokenHash,
-		&i.UsedAt,
-		&i.CreatedAt,
-		&i.ExpiresAt,
-	)
-	return i, err
-}
-
 const getRefreshTokenByHash = `-- name: GetRefreshTokenByHash :one
 SELECT id, token_hash, session_id, user_id, expires_at, revoked_at, created_at, updated_at FROM auth.refresh_tokens
 WHERE token_hash = $1
@@ -446,17 +454,6 @@ type InvalidateOneTimeTokensByEmailParams struct {
 
 func (q *Queries) InvalidateOneTimeTokensByEmail(ctx context.Context, arg InvalidateOneTimeTokensByEmailParams) error {
 	_, err := q.db.Exec(ctx, invalidateOneTimeTokensByEmail, arg.Email, arg.TokenType)
-	return err
-}
-
-const markOneTimeTokenUsed = `-- name: MarkOneTimeTokenUsed :exec
-UPDATE auth.one_time_tokens
-SET used_at = now()
-WHERE id = $1 AND used_at IS NULL
-`
-
-func (q *Queries) MarkOneTimeTokenUsed(ctx context.Context, id pgtype.UUID) error {
-	_, err := q.db.Exec(ctx, markOneTimeTokenUsed, id)
 	return err
 }
 

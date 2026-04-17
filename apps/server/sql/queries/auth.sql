@@ -112,16 +112,19 @@ INSERT INTO auth.one_time_tokens (user_id, email, token_type, token_hash, expire
 VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
--- name: GetOneTimeTokenByHash :one
-SELECT * FROM auth.one_time_tokens
-WHERE token_hash = $1
-  AND used_at IS NULL
-  AND expires_at > now();
-
--- name: MarkOneTimeTokenUsed :exec
+-- name: ConsumeOneTimeToken :one
+-- Atomic lookup-and-invalidate. The previous separate SELECT + UPDATE pair
+-- allowed two concurrent requests with the same code to both pass the
+-- IS NULL guard before either UPDATE landed; this single UPDATE is
+-- serialized by the row lock, and the RETURNING clause means only the
+-- winner gets a non-empty result. A second caller (or a stale/used token)
+-- gets pgx.ErrNoRows.
 UPDATE auth.one_time_tokens
 SET used_at = now()
-WHERE id = $1 AND used_at IS NULL;
+WHERE token_hash = $1
+  AND used_at IS NULL
+  AND expires_at > now()
+RETURNING *;
 
 -- name: InvalidateOneTimeTokensByEmail :exec
 UPDATE auth.one_time_tokens
