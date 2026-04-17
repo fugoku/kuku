@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"google.golang.org/genai"
 	"google.golang.org/protobuf/proto"
@@ -16,6 +17,13 @@ import (
 
 	"github.com/kuku-mom/kuku/apps/server/internal/config"
 )
+
+// completeTimeout caps any single Gemini call. The SDK's default is no
+// timeout (`HTTPClient.Timeout`, `HTTPOptions.Timeout`, and `ctx.Deadline`
+// all unset → unbounded), which would let a wedged upstream pin a worker
+// forever. 120s comfortably covers Flash latency + tool-call rounds while
+// surfacing genuine hangs as a clean error rather than a stuck handler.
+const completeTimeout = 120 * time.Second
 
 var ErrNotConfigured = errors.New("remote ai is not configured")
 
@@ -54,9 +62,13 @@ func NewService(cfg *config.Config) (*Service, error) {
 		// ErrNotConfigured at call time.
 		return &Service{model: cfg.GeminiModel}, nil
 	}
+	timeout := completeTimeout
 	client, err := genai.NewClient(context.Background(), &genai.ClientConfig{
 		APIKey:  apiKey,
 		Backend: genai.BackendGeminiAPI,
+		HTTPOptions: genai.HTTPOptions{
+			Timeout: &timeout,
+		},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create genai client: %w", err)
