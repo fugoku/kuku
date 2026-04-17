@@ -4,6 +4,7 @@ mod app_settings;
 mod auth;
 mod auth_commands;
 mod config;
+mod contract_client;
 mod models;
 mod plugin_fs;
 #[allow(dead_code)]

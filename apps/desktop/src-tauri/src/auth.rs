@@ -22,6 +22,12 @@ pub struct StoredTokens {
     pub expires_at: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CachedProfile {
+    pub email: String,
+    pub fetched_at: String,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 struct LegacyStoredTokens {
     access_token: String,
@@ -94,19 +100,6 @@ fn clear_pending_state() {
     *guard = None;
 }
 
-pub fn store_tokens(
-    access_token: &str,
-    refresh_token: &str,
-    expires_in: i64,
-) -> Result<(), TokenError> {
-    let tokens = StoredTokens {
-        access_token: access_token.to_string(),
-        refresh_token: refresh_token.to_string(),
-        expires_at: format_rfc3339(SystemTime::now() + Duration::from_secs(expires_in as u64)),
-    };
-    write_tokens(&tokens)
-}
-
 pub fn replace_tokens(tokens: StoredTokens) -> Result<(), TokenError> {
     write_tokens(&tokens)
 }
@@ -117,14 +110,6 @@ pub fn read_tokens() -> Result<StoredTokens, TokenError> {
             .map_err(|err| TokenError::Store(format!("invalid secure token JSON: {err}"))),
         None => migrate_legacy_tokens(),
     }
-}
-
-pub fn get_access_token() -> Result<String, TokenError> {
-    let tokens = read_tokens()?;
-    if tokens.access_token.is_empty() {
-        return Err(TokenError::NotFound);
-    }
-    Ok(tokens.access_token)
 }
 
 pub fn has_tokens() -> Result<bool, TokenError> {
@@ -149,6 +134,39 @@ pub fn clear_tokens() -> Result<(), TokenError> {
     let legacy_path = legacy_auth_path()?;
     if legacy_path.exists() {
         fs::remove_file(legacy_path).map_err(|err| TokenError::Store(err.to_string()))?;
+    }
+    // Profile cache is keyed implicitly by the current account; clear it here
+    // so a subsequent login fetches the new account's profile rather than
+    // showing the previous user's email.
+    clear_profile()?;
+    Ok(())
+}
+
+pub fn read_profile() -> Result<Option<CachedProfile>, TokenError> {
+    let path = profile_path()?;
+    if !path.exists() {
+        return Ok(None);
+    }
+    let content = fs::read(path).map_err(|err| TokenError::Store(err.to_string()))?;
+    serde_json::from_slice(&content)
+        .map(Some)
+        .map_err(|err| TokenError::Store(format!("invalid profile cache: {err}")))
+}
+
+pub fn write_profile(profile: &CachedProfile) -> Result<(), TokenError> {
+    let path = profile_path()?;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|err| TokenError::Store(err.to_string()))?;
+    }
+    let content =
+        serde_json::to_vec_pretty(profile).map_err(|err| TokenError::Store(err.to_string()))?;
+    fs::write(path, content).map_err(|err| TokenError::Store(err.to_string()))
+}
+
+pub fn clear_profile() -> Result<(), TokenError> {
+    let path = profile_path()?;
+    if path.exists() {
+        fs::remove_file(path).map_err(|err| TokenError::Store(err.to_string()))?;
     }
     Ok(())
 }
@@ -292,6 +310,10 @@ fn permissions_path() -> Result<PathBuf, TokenError> {
     Ok(kuku_root()?.join("auth-permissions.json"))
 }
 
+fn profile_path() -> Result<PathBuf, TokenError> {
+    Ok(kuku_root()?.join("profile.json"))
+}
+
 fn legacy_auth_path() -> Result<PathBuf, TokenError> {
     Ok(kuku_root()?.join("auth.json"))
 }
@@ -302,7 +324,7 @@ fn kuku_root() -> Result<PathBuf, TokenError> {
     Ok(home.join(".kuku"))
 }
 
-fn format_rfc3339(time: SystemTime) -> String {
+pub(crate) fn format_rfc3339(time: SystemTime) -> String {
     let datetime = time
         .duration_since(SystemTime::UNIX_EPOCH)
         .unwrap_or_default();

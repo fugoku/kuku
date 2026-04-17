@@ -1,75 +1,26 @@
-use base64::Engine;
-use serde::{Deserialize, Deserializer, Serialize, de};
+use serde::Serialize;
 use std::{
     io::{Read, Write},
     net::{TcpListener, TcpStream},
-    sync::{OnceLock, mpsc},
+    sync::mpsc,
     thread,
     time::{Duration, Instant, SystemTime},
 };
 use tauri::{AppHandle, Emitter, command};
 use tauri_plugin_opener::OpenerExt;
 
-use crate::{auth, config};
+use connectrpc::client::CallOptions;
+use kuku_contract::proto::kuku::auth::v1::{
+    DesktopAuthURLRequest, ExchangeDesktopTokenRequest, ProfileRequest, RefreshDesktopTokenRequest,
+};
+
+use crate::{auth, contract_client};
 
 const DEV_CALLBACK_TIMEOUT: Duration = Duration::from_secs(180);
-const AUTH_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
-const AUTH_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
-// Shared HTTP client for all auth RPCs. Holding a single instance preserves
-// the underlying connection pool / TLS sessions across login + refresh calls
-// that previously each paid the cost of a fresh TCP+TLS handshake.
-static AUTH_HTTP_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
-
-fn auth_http_client() -> &'static reqwest::Client {
-    AUTH_HTTP_CLIENT.get_or_init(|| {
-        reqwest::Client::builder()
-            .connect_timeout(AUTH_CONNECT_TIMEOUT)
-            .timeout(AUTH_REQUEST_TIMEOUT)
-            .build()
-            .expect("failed to build auth HTTP client")
-    })
-}
-
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize)]
 pub struct User {
     pub email: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct DesktopAuthURLResponse {
-    auth_url: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ExchangeDesktopTokenResponse {
-    #[serde(alias = "access_token")]
-    access_token: String,
-    #[serde(alias = "refresh_token")]
-    refresh_token: String,
-    #[serde(
-        alias = "expires_in",
-        default,
-        deserialize_with = "deserialize_proto_i64"
-    )]
-    expires_in: i64,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct RefreshDesktopTokenResponse {
-    #[serde(alias = "access_token")]
-    access_token: String,
-    #[serde(alias = "refresh_token")]
-    refresh_token: String,
-    #[serde(
-        alias = "expires_in",
-        default,
-        deserialize_with = "deserialize_proto_i64"
-    )]
-    expires_in: i64,
 }
 
 #[derive(Debug, Serialize)]
@@ -84,29 +35,32 @@ pub fn auth_check_status() -> Result<bool, String> {
 }
 
 #[command]
-pub fn auth_get_user() -> Result<Option<User>, String> {
-    let token = match auth::get_access_token() {
-        Ok(token) => token,
-        Err(auth::TokenError::NotFound) => return Ok(None),
-        Err(error) => return Err(error.to_string()),
-    };
-
-    let payload = token
-        .split('.')
-        .nth(1)
-        .ok_or_else(|| "invalid JWT format".to_string())?;
-    let decoded = base64::engine::general_purpose::URL_SAFE_NO_PAD
-        .decode(payload)
-        .map_err(|error| format!("failed to decode JWT payload: {error}"))?;
-    let claims: serde_json::Value = serde_json::from_slice(&decoded)
-        .map_err(|error| format!("failed to parse JWT claims: {error}"))?;
-    let email = claims
-        .get("email")
-        .and_then(|value| value.as_str())
-        .ok_or_else(|| "email not found in JWT claims".to_string())?
-        .to_string();
-
-    Ok(Some(User { email }))
+pub async fn auth_get_user() -> Result<Option<User>, String> {
+    // Returns the cached profile written by `fetch_and_cache_profile` after
+    // each successful login. Avoids decoding the JWT locally — that would
+    // require trusting the (unverified) token contents for display, and
+    // verifying the HS256 signature client-side is impossible without
+    // shipping the server's signing secret.
+    if let Some(cached) = auth::read_profile().map_err(|error| error.to_string())? {
+        return Ok(Some(User {
+            email: cached.email,
+        }));
+    }
+    // Cache miss but tokens exist (e.g. user upgraded from a build that
+    // stored tokens but had no profile cache yet) — fetch on demand so the
+    // UI doesn't show an empty header for the rest of the session.
+    if !auth::has_tokens().map_err(|error| error.to_string())? {
+        return Ok(None);
+    }
+    if let Err(error) = fetch_and_cache_profile().await {
+        eprintln!("desktop auth profile fetch on demand failed: {error}");
+        return Ok(None);
+    }
+    Ok(auth::read_profile()
+        .map_err(|error| error.to_string())?
+        .map(|cached| User {
+            email: cached.email,
+        }))
 }
 
 #[command]
@@ -179,13 +133,18 @@ async fn complete_auth_deep_link(token: &str, state: &str) -> Result<(), String>
         return Err("invalid state".to_string());
     }
 
-    let response = exchange_desktop_token(token, state).await?;
-    auth::store_tokens(
-        &response.access_token,
-        &response.refresh_token,
-        response.expires_in,
-    )
-    .map_err(|error| format!("failed to store authentication tokens: {error}"))
+    let stored = exchange_desktop_token(token, state).await?;
+    auth::replace_tokens(stored)
+        .map_err(|error| format!("failed to store authentication tokens: {error}"))?;
+
+    // Profile fetch must happen after token storage so the request can use
+    // the freshly-issued access token. A failure here is non-fatal — the
+    // user is still logged in; the UI will just show no email until the
+    // next refresh succeeds.
+    if let Err(error) = fetch_and_cache_profile().await {
+        eprintln!("desktop auth profile fetch failed: {error}");
+    }
+    Ok(())
 }
 
 fn emit_auth_success(app: &AppHandle) {
@@ -308,81 +267,88 @@ fn write_http_response(stream: &mut TcpStream, status: &str, body: &str) -> Resu
 }
 
 async fn request_desktop_auth_url() -> Result<String, String> {
-    let endpoint = format!(
-        "{}/kuku.auth.v1.AuthService/DesktopAuthURL",
-        config::api_url().trim_end_matches('/')
-    );
-    let response = auth_http_client()
-        .post(endpoint)
-        .header("Content-Type", "application/json")
-        .json(&serde_json::json!({}))
-        .send()
+    let response = contract_client::auth_service_client()
+        .desktop_auth_url(DesktopAuthURLRequest::default())
         .await
-        .map_err(|error| format!("failed to request desktop auth URL: {error}"))?;
-
-    if !response.status().is_success() {
-        return Err(format!("server returned {}", response.status()));
-    }
-
-    let body = response
-        .json::<DesktopAuthURLResponse>()
-        .await
-        .map_err(|error| format!("failed to decode desktop auth URL: {error}"))?;
-    Ok(body.auth_url)
+        .map_err(|error| format!("failed to request desktop auth URL: {error}"))?
+        .into_owned();
+    response
+        .auth_url
+        .ok_or_else(|| "desktop auth URL response missing url".to_string())
 }
 
-async fn exchange_desktop_token(
-    token: &str,
-    state: &str,
-) -> Result<ExchangeDesktopTokenResponse, String> {
-    let endpoint = format!(
-        "{}/kuku.auth.v1.AuthService/ExchangeDesktopToken",
-        config::api_url().trim_end_matches('/')
-    );
-    let response = auth_http_client()
-        .post(endpoint)
-        .header("Content-Type", "application/json")
-        .json(&serde_json::json!({ "token": token, "state": state }))
-        .send()
+async fn exchange_desktop_token(token: &str, state: &str) -> Result<auth::StoredTokens, String> {
+    let request = ExchangeDesktopTokenRequest {
+        token: Some(token.to_string()),
+        state: Some(state.to_string()),
+        ..Default::default()
+    };
+    let response = contract_client::auth_service_client()
+        .exchange_desktop_token(request)
         .await
-        .map_err(|error| format!("failed to exchange desktop token: {error}"))?;
+        .map_err(|error| format!("failed to exchange desktop token: {error}"))?
+        .into_owned();
+    Ok(stored_tokens_from(
+        response.access_token,
+        response.refresh_token,
+        response.expires_in,
+    ))
+}
 
-    if !response.status().is_success() {
-        return Err(format!("server returned {}", response.status()));
+async fn fetch_and_cache_profile() -> Result<(), String> {
+    let tokens = auth::read_tokens().map_err(|error| error.to_string())?;
+    if tokens.access_token.is_empty() {
+        return Err("no access token available".to_string());
     }
-
-    response
-        .json::<ExchangeDesktopTokenResponse>()
+    let options = CallOptions::default()
+        .with_header("authorization", format!("Bearer {}", tokens.access_token));
+    let response = contract_client::auth_service_client()
+        .profile_with_options(ProfileRequest::default(), options)
         .await
-        .map_err(|error| format!("failed to decode desktop token response: {error}"))
+        .map_err(|error| format!("failed to request profile: {error}"))?
+        .into_owned();
+    // `MessageField` derefs to a default-instance `User` when unset, so an
+    // unset email falls through the same `is_empty` check as a present-but-
+    // blank one — both indicate a malformed server response.
+    let email = response.user.email.clone().unwrap_or_default();
+    if email.is_empty() {
+        return Err("profile response missing email".to_string());
+    }
+    auth::write_profile(&auth::CachedProfile {
+        email,
+        fetched_at: auth::format_rfc3339(SystemTime::now()),
+    })
+    .map_err(|error| format!("failed to cache profile: {error}"))
 }
 
 async fn refresh_desktop_token(refresh_token: &str) -> Result<auth::StoredTokens, String> {
-    let endpoint = format!(
-        "{}/kuku.auth.v1.AuthService/RefreshDesktopToken",
-        config::api_url().trim_end_matches('/')
-    );
-    let response = auth_http_client()
-        .post(endpoint)
-        .header("Content-Type", "application/json")
-        .json(&serde_json::json!({ "refreshToken": refresh_token }))
-        .send()
+    let request = RefreshDesktopTokenRequest {
+        refresh_token: Some(refresh_token.to_string()),
+        ..Default::default()
+    };
+    let response = contract_client::auth_service_client()
+        .refresh_desktop_token(request)
         .await
-        .map_err(|error| format!("failed to refresh desktop token: {error}"))?;
+        .map_err(|error| format!("failed to refresh desktop token: {error}"))?
+        .into_owned();
+    Ok(stored_tokens_from(
+        response.access_token,
+        response.refresh_token,
+        response.expires_in,
+    ))
+}
 
-    if !response.status().is_success() {
-        return Err(format!("server returned {}", response.status()));
+fn stored_tokens_from(
+    access_token: Option<String>,
+    refresh_token: Option<String>,
+    expires_in: Option<i64>,
+) -> auth::StoredTokens {
+    let expires_in_secs = expires_in.unwrap_or(0).max(0) as u64;
+    auth::StoredTokens {
+        access_token: access_token.unwrap_or_default(),
+        refresh_token: refresh_token.unwrap_or_default(),
+        expires_at: auth::format_rfc3339(SystemTime::now() + Duration::from_secs(expires_in_secs)),
     }
-
-    let body = response
-        .json::<RefreshDesktopTokenResponse>()
-        .await
-        .map_err(|error| format!("failed to decode refreshed desktop token: {error}"))?;
-    Ok(auth::StoredTokens {
-        access_token: body.access_token,
-        refresh_token: body.refresh_token,
-        expires_at: format_rfc3339(SystemTime::now() + Duration::from_secs(body.expires_in as u64)),
-    })
 }
 
 pub async fn authorization_header_for_plugin(plugin_id: &str) -> Result<Option<String>, String> {
@@ -492,53 +458,4 @@ fn percent_decode(input: &str) -> String {
         index += 1;
     }
     String::from_utf8_lossy(&output).into_owned()
-}
-
-fn format_rfc3339(time: SystemTime) -> String {
-    let datetime = time
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap_or_default();
-    let seconds = datetime.as_secs();
-    let days = seconds / 86_400;
-    let seconds_of_day = seconds % 86_400;
-    let (year, month, day) = civil_from_days(days as i64);
-    let hour = seconds_of_day / 3600;
-    let minute = (seconds_of_day % 3600) / 60;
-    let second = seconds_of_day % 60;
-    format!("{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{second:02}Z")
-}
-
-fn civil_from_days(days: i64) -> (i32, u32, u32) {
-    let days = days + 719_468;
-    let era = if days >= 0 { days } else { days - 146_096 } / 146_097;
-    let day_of_era = days - era * 146_097;
-    let year_of_era =
-        (day_of_era - day_of_era / 1460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
-    let year = year_of_era + era * 400;
-    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
-    let month_prime = (5 * day_of_year + 2) / 153;
-    let day = day_of_year - (153 * month_prime + 2) / 5 + 1;
-    let month = month_prime + if month_prime < 10 { 3 } else { -9 };
-    let year = year + if month <= 2 { 1 } else { 0 };
-    (year as i32, month as u32, day as u32)
-}
-
-fn deserialize_proto_i64<'de, D>(deserializer: D) -> Result<i64, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    #[derive(Deserialize)]
-    #[serde(untagged)]
-    enum ProtoI64 {
-        Number(i64),
-        String(String),
-    }
-
-    let value = Option::<ProtoI64>::deserialize(deserializer)?;
-    match value {
-        Some(ProtoI64::Number(value)) => Ok(value),
-        Some(ProtoI64::String(value)) if value.is_empty() => Ok(0),
-        Some(ProtoI64::String(value)) => value.parse::<i64>().map_err(de::Error::custom),
-        None => Ok(0),
-    }
 }
