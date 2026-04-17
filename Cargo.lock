@@ -2326,11 +2326,13 @@ dependencies = [
  "async-stream",
  "async-trait",
  "blake3",
+ "connectrpc",
  "dirs",
  "futures",
+ "http",
+ "kuku-contract",
  "log",
  "parking_lot",
- "reqwest",
  "rig-core",
  "serde",
  "serde_json",
@@ -2341,6 +2343,7 @@ dependencies = [
  "tokio-stream",
  "tokio-util",
  "uuid",
+ "webpki-roots 0.26.11",
 ]
 
 [[package]]

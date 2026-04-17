@@ -1,4 +1,5 @@
 mod commands;
+mod contract;
 mod error;
 mod host;
 mod mutation;

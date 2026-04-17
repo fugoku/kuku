@@ -1,38 +1,33 @@
-use std::time::Duration;
-
 use async_stream::try_stream;
 use async_trait::async_trait;
-use serde::{Deserialize, Deserializer, Serialize, de};
+
+use connectrpc::ErrorCode;
+use connectrpc::client::{CallOptions, HttpClient};
+use kuku_contract::connect::kuku::ai::v1::AiServiceClient;
+use kuku_contract::proto::kuku::ai::v1::{
+    self as aiv1, ChatMessage as ProtoChatMessage, ChatMessageRole, CompleteRequest,
+    ConversationMode, FinishReason as ProtoFinishReason, ModelToolCall as ProtoModelToolCall,
+    ToolDescriptor as ProtoToolDescriptor,
+};
 
 use crate::{
     AiError,
+    contract::build_ai_service_client,
     provider::{CompletionBackend, CompletionEvent, CompletionTurnRequest, CompletionTurnStream},
     tools::ToolDescriptor,
     types::{ChatMessage, FinishReason, ModelToolCall, TokenUsage},
 };
 
-// Remote AI completions are unary — the server holds the connection open
-// until the upstream model finishes. Cap the wait so a wedged upstream can't
-// pin the desktop forever; 180s comfortably covers tool-call rounds while
-// surfacing genuine hangs.
-const REMOTE_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
-const REMOTE_REQUEST_TIMEOUT: Duration = Duration::from_secs(180);
-
 pub struct RemoteBackend {
-    base_url: String,
     model: String,
-    client: reqwest::Client,
+    client: AiServiceClient<HttpClient>,
 }
 
 impl RemoteBackend {
     pub fn new(base_url: &str, model: &str) -> Self {
-        let client = reqwest::Client::builder()
-            .connect_timeout(REMOTE_CONNECT_TIMEOUT)
-            .timeout(REMOTE_REQUEST_TIMEOUT)
-            .build()
-            .expect("failed to build remote AI HTTP client");
+        let client =
+            build_ai_service_client(base_url).expect("failed to build remote AI service client");
         Self {
-            base_url: base_url.trim_end_matches('/').to_string(),
             model: model.to_string(),
             client,
         }
@@ -49,60 +44,52 @@ impl CompletionBackend for RemoteBackend {
             .authorization_header
             .clone()
             .ok_or(AiError::NotConfigured)?;
-        let endpoint = format!("{}/kuku.ai.v1.AIService/Complete", self.base_url);
-        let body = CompleteRequest {
-            mode: mode_name(&request),
-            message: last_user_message(&request),
+
+        let proto_request = CompleteRequest {
+            mode: Some(kuku_contract::buffa::EnumValue::Known(mode_for(&request))),
+            message: Some(last_user_message(&request)),
             context_files: Vec::new(),
-            model: self.model.clone(),
-            messages: request.messages.iter().map(remote_message_from).collect(),
-            tools: request.tools.iter().map(remote_tool_from).collect(),
-            system_prompt: request.system_prompt.clone().unwrap_or_default(),
+            model: Some(self.model.clone()),
+            messages: request.messages.iter().map(proto_message_from).collect(),
+            tools: request
+                .tools
+                .iter()
+                .map(proto_tool_from)
+                .collect::<Result<Vec<_>, _>>()?,
+            system_prompt: request.system_prompt.clone(),
+            ..Default::default()
         };
+
+        let options = CallOptions::default().with_header("authorization", authorization_header);
+
         let response = self
             .client
-            .post(endpoint)
-            .header("Authorization", authorization_header)
-            .header("Content-Type", "application/json")
-            .json(&body)
-            .send()
+            .complete_with_options(proto_request, options)
             .await
-            .map_err(|error| {
-                AiError::ProviderError(format!("Remote AI request failed: {error}"))
-            })?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            if status == reqwest::StatusCode::UNAUTHORIZED {
-                return Err(AiError::Unauthorized);
-            }
-            let text = response.text().await.unwrap_or_default();
-            return Err(AiError::ProviderError(format!(
-                "Remote AI returned {status}: {}",
-                truncate(&text, 512)
-            )));
-        }
-
-        let text = response.text().await.map_err(|error| {
-            AiError::ProviderError(format!("Remote AI response read failed: {error}"))
-        })?;
-        let output = serde_json::from_str::<CompleteResponse>(&text).map_err(|error| {
-            AiError::ProviderError(format!(
-                "Remote AI response decode failed: {error}. Body: {}",
-                truncate(&text, 512)
-            ))
-        })?;
+            .map_err(|error| match error.code {
+                ErrorCode::Unauthenticated => AiError::Unauthorized,
+                _ => AiError::ProviderError(format!(
+                    "Remote AI request failed: {}",
+                    error.message.unwrap_or_else(|| format!("{:?}", error.code))
+                )),
+            })?
+            .into_owned();
 
         let stream = try_stream! {
-            if !output.text.is_empty() {
-                yield CompletionEvent::TextDelta(output.text);
+            let aiv1::CompleteResponse { text, tool_calls, finish_reason, usage, .. } = response;
+            if let Some(text) = text.filter(|t| !t.is_empty()) {
+                yield CompletionEvent::TextDelta(text);
             }
-            if !output.tool_calls.is_empty() {
-                yield CompletionEvent::ToolCalls(output.tool_calls.into_iter().map(model_tool_call_from).collect());
+            if !tool_calls.is_empty() {
+                let calls = tool_calls
+                    .into_iter()
+                    .map(model_tool_call_from)
+                    .collect::<Result<Vec<_>, _>>()?;
+                yield CompletionEvent::ToolCalls(calls);
             }
             yield CompletionEvent::Finished {
-                finish_reason: finish_reason_from(&output.finish_reason),
-                usage: output.usage.map(token_usage_from),
+                finish_reason: finish_reason_from(finish_reason),
+                usage: usage.into_option().map(token_usage_from),
             };
         };
 
@@ -114,104 +101,25 @@ impl CompletionBackend for RemoteBackend {
     }
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct CompleteRequest {
-    mode: &'static str,
-    message: String,
-    context_files: Vec<String>,
-    model: String,
-    messages: Vec<RemoteChatMessage>,
-    tools: Vec<RemoteToolDescriptor>,
-    system_prompt: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct CompleteResponse {
-    #[serde(default)]
-    text: String,
-    #[serde(default)]
-    tool_calls: Vec<RemoteModelToolCall>,
-    #[serde(default)]
-    finish_reason: String,
-    usage: Option<RemoteTokenUsage>,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct RemoteChatMessage {
-    role: &'static str,
-    #[serde(skip_serializing_if = "String::is_empty")]
-    content: String,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    tool_calls: Vec<RemoteModelToolCall>,
-    #[serde(skip_serializing_if = "String::is_empty")]
-    call_id: String,
-    #[serde(skip_serializing_if = "String::is_empty")]
-    tool_name: String,
-    is_error: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    tool_call_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    provider_call_id: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct RemoteToolDescriptor {
-    name: String,
-    description: String,
-    parameters: serde_json::Value,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct RemoteModelToolCall {
-    call_id: String,
-    tool_name: String,
-    #[serde(default)]
-    arguments: serde_json::Value,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    signature: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    tool_call_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    provider_call_id: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct RemoteTokenUsage {
-    #[serde(default, deserialize_with = "deserialize_proto_u64")]
-    input_tokens: u64,
-    #[serde(default, deserialize_with = "deserialize_proto_u64")]
-    output_tokens: u64,
-    #[serde(default, deserialize_with = "deserialize_proto_u64")]
-    total_tokens: u64,
-    #[serde(default, deserialize_with = "deserialize_proto_u64")]
-    cached_input_tokens: u64,
-}
-
-fn mode_name(request: &CompletionTurnRequest) -> &'static str {
+fn mode_for(request: &CompletionTurnRequest) -> ConversationMode {
     if request
         .system_prompt
         .as_deref()
         .is_some_and(|prompt| prompt.contains("Inline"))
     {
-        return "CONVERSATION_MODE_INLINE";
+        return ConversationMode::CONVERSATION_MODE_INLINE;
     }
     if request
         .system_prompt
         .as_deref()
         .is_some_and(|prompt| prompt.contains("Ask mode"))
     {
-        return "CONVERSATION_MODE_ASK";
+        return ConversationMode::CONVERSATION_MODE_ASK;
     }
     if request.tools.is_empty() {
-        return "CONVERSATION_MODE_ASK";
+        return ConversationMode::CONVERSATION_MODE_ASK;
     }
-    "CONVERSATION_MODE_AGENT"
+    ConversationMode::CONVERSATION_MODE_AGENT
 }
 
 fn last_user_message(request: &CompletionTurnRequest) -> String {
@@ -226,41 +134,38 @@ fn last_user_message(request: &CompletionTurnRequest) -> String {
         .unwrap_or_default()
 }
 
-fn remote_message_from(message: &ChatMessage) -> RemoteChatMessage {
+fn proto_message_from(message: &ChatMessage) -> ProtoChatMessage {
+    let role = match message {
+        ChatMessage::System { .. } => ChatMessageRole::CHAT_MESSAGE_ROLE_SYSTEM,
+        ChatMessage::User { .. } => ChatMessageRole::CHAT_MESSAGE_ROLE_USER,
+        ChatMessage::Assistant { .. } => ChatMessageRole::CHAT_MESSAGE_ROLE_ASSISTANT,
+        ChatMessage::ToolResult { .. } => ChatMessageRole::CHAT_MESSAGE_ROLE_TOOL_RESULT,
+    };
+    let mut proto = ProtoChatMessage {
+        role: Some(kuku_contract::buffa::EnumValue::Known(role)),
+        ..Default::default()
+    };
     match message {
-        ChatMessage::System { content } => RemoteChatMessage {
-            role: "CHAT_MESSAGE_ROLE_SYSTEM",
-            content: content.clone(),
-            tool_calls: Vec::new(),
-            call_id: String::new(),
-            tool_name: String::new(),
-            is_error: false,
-            tool_call_id: None,
-            provider_call_id: None,
-        },
-        ChatMessage::User { content, .. } => RemoteChatMessage {
-            role: "CHAT_MESSAGE_ROLE_USER",
-            content: content.clone(),
-            tool_calls: Vec::new(),
-            call_id: String::new(),
-            tool_name: String::new(),
-            is_error: false,
-            tool_call_id: None,
-            provider_call_id: None,
-        },
+        ChatMessage::System { content } | ChatMessage::User { content, .. } => {
+            proto.content = Some(content.clone());
+        }
         ChatMessage::Assistant {
             content,
             tool_calls,
-        } => RemoteChatMessage {
-            role: "CHAT_MESSAGE_ROLE_ASSISTANT",
-            content: content.clone(),
-            tool_calls: tool_calls.iter().map(remote_model_tool_call_from).collect(),
-            call_id: String::new(),
-            tool_name: String::new(),
-            is_error: false,
-            tool_call_id: None,
-            provider_call_id: None,
-        },
+        } => {
+            if !content.is_empty() {
+                proto.content = Some(content.clone());
+            }
+            // Assistant tool calls echo upstream signature/ids unchanged so
+            // the server can stitch the next turn together. Failing here is
+            // never expected (we just produced these locally) so we panic
+            // with the broken value rather than silently dropping a call.
+            proto.tool_calls = tool_calls
+                .iter()
+                .map(proto_model_tool_call_from)
+                .collect::<Result<Vec<_>, _>>()
+                .expect("local tool call must serialize as proto Struct");
+        }
         ChatMessage::ToolResult {
             call_id,
             tool_name,
@@ -268,88 +173,96 @@ fn remote_message_from(message: &ChatMessage) -> RemoteChatMessage {
             is_error,
             tool_call_id,
             provider_call_id,
-        } => RemoteChatMessage {
-            role: "CHAT_MESSAGE_ROLE_TOOL_RESULT",
-            content: output.clone(),
-            tool_calls: Vec::new(),
-            call_id: call_id.clone(),
-            tool_name: tool_name.clone(),
-            is_error: *is_error,
-            tool_call_id: tool_call_id.clone(),
-            provider_call_id: provider_call_id.clone(),
-        },
+        } => {
+            proto.content = Some(output.clone());
+            proto.call_id = Some(call_id.clone());
+            proto.tool_name = Some(tool_name.clone());
+            proto.is_error = Some(*is_error);
+            proto.tool_call_id = tool_call_id.clone();
+            proto.provider_call_id = provider_call_id.clone();
+        }
     }
+    proto
 }
 
-fn remote_tool_from(tool: &ToolDescriptor) -> RemoteToolDescriptor {
-    RemoteToolDescriptor {
-        name: tool.name.clone(),
-        description: tool.description.clone(),
-        parameters: tool.parameters.clone(),
-    }
+fn proto_tool_from(tool: &ToolDescriptor) -> Result<ProtoToolDescriptor, AiError> {
+    Ok(ProtoToolDescriptor {
+        name: Some(tool.name.clone()),
+        description: Some(tool.description.clone()),
+        parameters: kuku_contract::buffa::MessageField::some(json_to_struct(
+            tool.parameters.clone(),
+        )?),
+        ..Default::default()
+    })
 }
 
-fn remote_model_tool_call_from(call: &ModelToolCall) -> RemoteModelToolCall {
-    RemoteModelToolCall {
-        call_id: call.call_id.clone(),
-        tool_name: call.tool_name.clone(),
-        arguments: call.arguments.clone(),
+fn proto_model_tool_call_from(call: &ModelToolCall) -> Result<ProtoModelToolCall, AiError> {
+    Ok(ProtoModelToolCall {
+        call_id: Some(call.call_id.clone()),
+        tool_name: Some(call.tool_name.clone()),
+        arguments: kuku_contract::buffa::MessageField::some(json_to_struct(
+            call.arguments.clone(),
+        )?),
         signature: call.signature.clone(),
         tool_call_id: call.tool_call_id.clone(),
         provider_call_id: call.provider_call_id.clone(),
-    }
+        ..Default::default()
+    })
 }
 
-fn model_tool_call_from(call: RemoteModelToolCall) -> ModelToolCall {
-    ModelToolCall {
-        call_id: call.call_id,
-        tool_name: call.tool_name,
-        arguments: call.arguments,
+fn model_tool_call_from(call: ProtoModelToolCall) -> Result<ModelToolCall, AiError> {
+    let arguments = call
+        .arguments
+        .into_option()
+        .map(struct_to_json)
+        .unwrap_or(serde_json::Value::Null);
+    Ok(ModelToolCall {
+        call_id: call.call_id.unwrap_or_default(),
+        tool_name: call.tool_name.unwrap_or_default(),
+        arguments,
         signature: call.signature,
         tool_call_id: call.tool_call_id,
         provider_call_id: call.provider_call_id,
-    }
+    })
 }
 
-fn finish_reason_from(value: &str) -> FinishReason {
+fn finish_reason_from(
+    value: Option<kuku_contract::buffa::EnumValue<ProtoFinishReason>>,
+) -> FinishReason {
     match value {
-        "FINISH_REASON_TOOL_CALLS" => FinishReason::ToolCalls,
+        Some(kuku_contract::buffa::EnumValue::Known(
+            ProtoFinishReason::FINISH_REASON_TOOL_CALLS,
+        )) => FinishReason::ToolCalls,
         _ => FinishReason::Stop,
     }
 }
 
-fn token_usage_from(usage: RemoteTokenUsage) -> TokenUsage {
+fn token_usage_from(usage: aiv1::TokenUsage) -> TokenUsage {
     TokenUsage {
-        input_tokens: usage.input_tokens,
-        output_tokens: usage.output_tokens,
-        total_tokens: usage.total_tokens,
-        cached_input_tokens: usage.cached_input_tokens,
+        input_tokens: usage.input_tokens.unwrap_or_default(),
+        output_tokens: usage.output_tokens.unwrap_or_default(),
+        total_tokens: usage.total_tokens.unwrap_or_default(),
+        cached_input_tokens: usage.cached_input_tokens.unwrap_or_default(),
     }
 }
 
-fn deserialize_proto_u64<'de, D>(deserializer: D) -> Result<u64, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    #[derive(Deserialize)]
-    #[serde(untagged)]
-    enum ProtoU64 {
-        Number(u64),
-        String(String),
-    }
-
-    let value = Option::<ProtoU64>::deserialize(deserializer)?;
-    match value {
-        Some(ProtoU64::Number(value)) => Ok(value),
-        Some(ProtoU64::String(value)) if value.is_empty() => Ok(0),
-        Some(ProtoU64::String(value)) => value.parse::<u64>().map_err(de::Error::custom),
-        None => Ok(0),
-    }
+// `google.protobuf.Struct` and `serde_json::Value` represent the same JSON
+// shape but are distinct Rust types. The proto Struct has serde Serialize/
+// Deserialize impls that match standard JSON, so a serde round-trip is the
+// simplest correct conversion. Cost is one allocation per tool call —
+// negligible vs the network hop.
+fn json_to_struct(
+    value: serde_json::Value,
+) -> Result<kuku_contract::buffa_types::google::protobuf::Struct, AiError> {
+    serde_json::from_value(value).map_err(|error| {
+        AiError::InvalidArguments(format!(
+            "tool parameters not encodable as proto Struct: {error}"
+        ))
+    })
 }
 
-fn truncate(value: &str, limit: usize) -> String {
-    if value.len() <= limit {
-        return value.to_string();
-    }
-    format!("{}...", &value[..limit])
+fn struct_to_json(
+    value: kuku_contract::buffa_types::google::protobuf::Struct,
+) -> serde_json::Value {
+    serde_json::to_value(value).unwrap_or(serde_json::Value::Null)
 }
