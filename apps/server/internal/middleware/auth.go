@@ -93,6 +93,10 @@ func Auth(authService *authpkg.AuthService, log *slog.Logger, secureCookie bool)
 				next.ServeHTTP(w, r)
 				return
 			}
+			// TODO: every authenticated request hits the DB here.
+			// When traffic justifies it, wrap with an LRU cache (sessionID
+			// → validUntil, ~30s TTL) and evict explicitly from logout /
+			// account-delete handlers.
 			if err := authService.ValidateSession(r.Context(), sessionID); err != nil {
 				// JWT signature was valid (we already parsed the claims) but
 				// the session is missing/revoked in the database. Either a
