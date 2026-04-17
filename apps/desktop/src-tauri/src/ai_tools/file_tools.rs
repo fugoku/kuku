@@ -287,12 +287,12 @@ impl AiNativeTool for DeleteFileTool {
         let (detected_kind, expected_checksum) =
             delete_target_snapshot(ctx, &path, &resolved).await?;
 
-        if let Some(requested_kind) = optional_kind_arg(&args)? {
-            if requested_kind != detected_kind {
-                return Err(ToolError::InvalidArguments(format!(
-                    "Path kind mismatch for {path}: requested {requested_kind}, detected {detected_kind}"
-                )));
-            }
+        if let Some(requested_kind) = optional_kind_arg(&args)?
+            && requested_kind != detected_kind
+        {
+            return Err(ToolError::InvalidArguments(format!(
+                "Path kind mismatch for {path}: requested {requested_kind}, detected {detected_kind}"
+            )));
         }
 
         match detected_kind {
@@ -474,12 +474,12 @@ fn resolve_edit_target_path(
                 )
             })?;
 
-            if let Some(requested_path) = requested_path {
-                if requested_path != active_path {
-                    return Err(ToolError::InvalidArguments(format!(
-                        "Inline mode can only edit the active file: {active_path}"
-                    )));
-                }
+            if let Some(requested_path) = requested_path
+                && requested_path != active_path
+            {
+                return Err(ToolError::InvalidArguments(format!(
+                    "Inline mode can only edit the active file: {active_path}"
+                )));
             }
 
             Ok(active_path)

@@ -1051,8 +1051,10 @@ mod tests {
     fn set_config_queues_rebuild_for_resolution_policy_changes() {
         let previous = IndexerConfig::default();
         let (state, job_rx) = build_state_with_job_rx(previous);
-        let mut next = IndexerConfig::default();
-        next.resolution_policy = "different".to_string();
+        let next = IndexerConfig {
+            resolution_policy: "different".to_string(),
+            ..IndexerConfig::default()
+        };
 
         state.set_config(next).unwrap();
 
@@ -1097,8 +1099,10 @@ mod tests {
 
     #[test]
     fn reconcile_loaded_markdown_skips_when_incremental_updates_are_disabled() {
-        let mut config = IndexerConfig::default();
-        config.incremental_updates = false;
+        let config = IndexerConfig {
+            incremental_updates: false,
+            ..IndexerConfig::default()
+        };
         let (state, job_rx) = build_state_with_job_rx(config);
         let runtime = state.runtime_snapshot().unwrap();
         fs::write(runtime.vault_root.join("note.md"), "# Title\nbody").unwrap();
@@ -1207,9 +1211,11 @@ mod tests {
     #[test]
     fn switch_vault_forces_rebuild_when_index_version_mismatch_resets_db() {
         let state = SearchState::new();
-        let mut config = IndexerConfig::default();
-        config.storage_location = IndexerStorageLocation::VaultLocal;
-        config.reindex_on_vault_open = false;
+        let config = IndexerConfig {
+            storage_location: IndexerStorageLocation::VaultLocal,
+            reindex_on_vault_open: false,
+            ..IndexerConfig::default()
+        };
         state.set_config(config).unwrap();
 
         let root = unique_path("kuku-versioned-vault");

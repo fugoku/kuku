@@ -156,10 +156,10 @@ pub async fn auth_open_login(app: AppHandle) -> Result<(), String> {
         .ok_or_else(|| "desktop auth URL did not include state".to_string())?;
     auth::store_pending_state(&state);
 
-    if cfg!(debug_assertions) {
-        if let Some(callback_url) = start_dev_callback_server(app.clone()) {
-            auth_url = append_query_param(&auth_url, "desktop_callback", &callback_url);
-        }
+    if cfg!(debug_assertions)
+        && let Some(callback_url) = start_dev_callback_server(app.clone())
+    {
+        auth_url = append_query_param(&auth_url, "desktop_callback", &callback_url);
     }
 
     app.opener()

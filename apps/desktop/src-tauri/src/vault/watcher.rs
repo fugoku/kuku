@@ -174,18 +174,18 @@ fn maybe_cleanup_pending(
     root: &Path,
     cache: &mut PathKindCache,
 ) -> Option<FileChangeEvent> {
-    if let Some(p) = pending {
-        if p.at.elapsed() > Duration::from_millis(PENDING_RENAME_TIMEOUT_MS) {
-            let p = pending.take().expect("pending rename exists");
-            remove_cached_path(cache, &p.path, p.is_dir);
-            let rel = to_relative_path(root, &p.path);
-            return Some(FileChangeEvent {
-                kind: "delete".to_string(),
-                path: rel,
-                is_dir: p.is_dir,
-                old_path: None,
-            });
-        }
+    if let Some(p) = pending
+        && p.at.elapsed() > Duration::from_millis(PENDING_RENAME_TIMEOUT_MS)
+    {
+        let p = pending.take().expect("pending rename exists");
+        remove_cached_path(cache, &p.path, p.is_dir);
+        let rel = to_relative_path(root, &p.path);
+        return Some(FileChangeEvent {
+            kind: "delete".to_string(),
+            path: rel,
+            is_dir: p.is_dir,
+            old_path: None,
+        });
     }
 
     None
@@ -437,17 +437,17 @@ fn map_event(
                 if is_ignored(root, new_path) {
                     return None;
                 }
-                if let Some(prev) = pending.take() {
-                    if prev.at.elapsed() <= Duration::from_millis(PENDING_RENAME_TIMEOUT_MS) {
-                        let is_dir = infer_path_kind(new_path, Some(prev.is_dir), cache);
-                        rename_cached_path(cache, &prev.path, new_path, is_dir);
-                        return Some(FileChangeEvent {
-                            kind: "rename".to_string(),
-                            path: to_relative_path(root, new_path),
-                            is_dir,
-                            old_path: Some(to_relative_path(root, &prev.path)),
-                        });
-                    }
+                if let Some(prev) = pending.take()
+                    && prev.at.elapsed() <= Duration::from_millis(PENDING_RENAME_TIMEOUT_MS)
+                {
+                    let is_dir = infer_path_kind(new_path, Some(prev.is_dir), cache);
+                    rename_cached_path(cache, &prev.path, new_path, is_dir);
+                    return Some(FileChangeEvent {
+                        kind: "rename".to_string(),
+                        path: to_relative_path(root, new_path),
+                        is_dir,
+                        old_path: Some(to_relative_path(root, &prev.path)),
+                    });
                 }
                 let is_dir = infer_path_kind(new_path, None, cache);
                 insert_cached_path(cache, new_path, is_dir);

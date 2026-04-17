@@ -194,11 +194,11 @@ pub async fn vault_write_text(
     let root = get_vault_root(&state)?;
     let resolved = resolve_vault_path(&root, &path)?;
     let mutation = state.expected_mutations.record_write(&path, false);
-    if let Some(parent) = resolved.parent() {
-        if let Err(error) = tokio::fs::create_dir_all(parent).await {
-            state.expected_mutations.cancel(mutation);
-            return Err(error.to_string());
-        }
+    if let Some(parent) = resolved.parent()
+        && let Err(error) = tokio::fs::create_dir_all(parent).await
+    {
+        state.expected_mutations.cancel(mutation);
+        return Err(error.to_string());
     }
     if let Err(error) = tokio::fs::write(&resolved, &content).await {
         state.expected_mutations.cancel(mutation);

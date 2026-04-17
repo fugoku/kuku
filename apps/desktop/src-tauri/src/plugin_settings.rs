@@ -298,11 +298,13 @@ fn apply_secure_values(
     settings
 }
 
+type StrippedSettings = (Map<String, Value>, Vec<(String, Option<String>)>);
+
 fn strip_secure_values_for_save(
     mut settings: Map<String, Value>,
     secure_keys: &[String],
     mut secure_meta: Map<String, Value>,
-) -> Result<(Map<String, Value>, Vec<(String, Option<String>)>), String> {
+) -> Result<StrippedSettings, String> {
     settings.remove(SECURE_META_KEY);
 
     let mut secret_values = Vec::with_capacity(secure_keys.len());

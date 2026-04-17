@@ -436,15 +436,14 @@ fn handle_index_file(
 
     let mut plan = ReResolutionPlan::default();
     let maybe_doc = build_document(conn, vault_root, path)?;
-    if let Some(doc) = maybe_doc.as_ref() {
-        if let Some(stored) = load_document_freshness(conn, path)?
-            && stored.content_checksum.as_deref() == Some(doc.content_checksum.as_str())
-        {
-            refresh_document_freshness_only(conn, doc)?;
-            refresh_idle_status(conn, status)?;
-            record_last_job(debug_status, "index-file-skip", Some(path), source);
-            return Ok(());
-        }
+    if let Some(doc) = maybe_doc.as_ref()
+        && let Some(stored) = load_document_freshness(conn, path)?
+        && stored.content_checksum.as_deref() == Some(doc.content_checksum.as_str())
+    {
+        refresh_document_freshness_only(conn, doc)?;
+        refresh_idle_status(conn, status)?;
+        record_last_job(debug_status, "index-file-skip", Some(path), source);
+        return Ok(());
     }
 
     let tx = conn
@@ -478,6 +477,7 @@ fn handle_index_file(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn handle_remove_file(
     conn: &mut Connection,
     path: &str,
@@ -518,6 +518,7 @@ fn handle_remove_file(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn handle_rename_file(
     conn: &mut Connection,
     vault_root: &Path,

@@ -27,7 +27,7 @@ pub struct EmbeddedFileContext {
     pub size_bytes: u64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EditorContext {
     pub active_file: Option<String>,
@@ -37,18 +37,6 @@ pub struct EditorContext {
     #[serde(default)]
     pub open_tabs: Vec<String>,
     pub cursor_line: Option<u32>,
-}
-
-impl Default for EditorContext {
-    fn default() -> Self {
-        Self {
-            active_file: None,
-            selected_text: None,
-            embedded_files: Vec::new(),
-            open_tabs: Vec::new(),
-            cursor_line: None,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

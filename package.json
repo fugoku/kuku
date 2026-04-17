@@ -17,7 +17,12 @@
     "format:check": "pnpm -r --if-present run format:check",
     "format": "pnpm -r --if-present run format",
     "format:check:full": "pnpm -r --if-present run format:check:full",
-    "format:full": "pnpm -r --if-present run format:full"
+    "format:full": "pnpm -r --if-present run format:full",
+    "rust:format:check": "cargo fmt --all --check",
+    "rust:format": "cargo fmt --all",
+    "rust:lint:check": "cargo clippy --workspace --all-targets -- -D warnings",
+    "rust:test": "cargo test --workspace",
+    "check": "pnpm format:check && pnpm lint:check && pnpm rust:format:check && pnpm rust:lint:check && pnpm test && pnpm rust:test"
   },
   "devDependencies": {
     "oxfmt": "^0.43.0",

@@ -55,7 +55,6 @@ impl ToolRegistry {
             self.proxy
                 .read()
                 .values()
-                .cloned()
                 .map(|proxy| proxy.as_tool_descriptor()),
         );
 

@@ -259,11 +259,11 @@ pub fn extract_document(markdown: &str) -> ExtractedDocument {
                 }
                 Tag::CodeBlock(kind) => {
                     let mut raw = String::new();
-                    if let CodeBlockKind::Fenced(lang) = kind {
-                        if !lang.is_empty() {
-                            raw.push_str(lang.as_ref());
-                            raw.push('\n');
-                        }
+                    if let CodeBlockKind::Fenced(lang) = kind
+                        && !lang.is_empty()
+                    {
+                        raw.push_str(lang.as_ref());
+                        raw.push('\n');
                     }
                     buffer = Some(BlockBuffer {
                         kind: BlockKind::Code,
@@ -290,21 +290,21 @@ pub fn extract_document(markdown: &str) -> ExtractedDocument {
                 }
                 _ => {}
             },
-            Event::End(tag) => match tag {
+            Event::End(
                 TagEnd::Paragraph
                 | TagEnd::Heading(_)
                 | TagEnd::CodeBlock
                 | TagEnd::BlockQuote(_)
                 | TagEnd::Item
-                | TagEnd::TableRow => flush_buffer(
-                    &mut buffer,
-                    &mut sections,
-                    &mut heading_stack,
-                    &mut title,
-                    &mut cursor,
-                ),
-                _ => {}
-            },
+                | TagEnd::TableRow,
+            ) => flush_buffer(
+                &mut buffer,
+                &mut sections,
+                &mut heading_stack,
+                &mut title,
+                &mut cursor,
+            ),
+            Event::End(_) => {}
             Event::Text(text) | Event::Code(text) => {
                 if let Some(block) = &mut buffer {
                     block.raw.push_str(text.as_ref());
