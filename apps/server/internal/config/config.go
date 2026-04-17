@@ -154,6 +154,16 @@ func (c *Config) Validate(log *slog.Logger) error {
 		// proxy's, breaking rate limiting and audit logs.
 		log.Warn("TRUSTED_PROXIES is empty — X-Forwarded-For / X-Real-IP will be ignored. Set this if running behind a load balancer or reverse proxy")
 	}
+
+	// CORS wildcard with `Access-Control-Allow-Credentials: true` (which the
+	// CORS middleware sets) is a hard browser-spec violation that effectively
+	// disables CSRF protection. Refuse to start if someone copy-pastes `*`
+	// into a production allowlist.
+	for _, origin := range c.AllowedOrigins {
+		if origin == "*" && c.IsProduction() {
+			return errors.New("ALLOWED_ORIGINS=* is not permitted in production — list explicit origins")
+		}
+	}
 	return nil
 }
 

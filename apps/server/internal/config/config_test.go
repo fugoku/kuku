@@ -92,3 +92,28 @@ func TestValidate_ProductionWarnsWhenTrustedProxiesEmpty(t *testing.T) {
 		t.Fatalf("expected production warn about empty TRUSTED_PROXIES, got %q", buf.String())
 	}
 }
+
+func TestValidate_ProductionRejectsCORSWildcard(t *testing.T) {
+	cfg := &Config{
+		Env:               "production",
+		JWTSecret:         "real",
+		TrustedProxiesRaw: "10.0.0.0/8",
+		AllowedOrigins:    []string{"https://www.kuku.mom", "*"},
+	}
+	log, _ := newTestLogger()
+	if err := cfg.Validate(log); err == nil {
+		t.Fatal("expected error when production allowlist contains *, got nil")
+	}
+}
+
+func TestValidate_DevelopmentAllowsCORSWildcard(t *testing.T) {
+	cfg := &Config{
+		Env:            "development",
+		JWTSecret:      "dev",
+		AllowedOrigins: []string{"*"},
+	}
+	log, _ := newTestLogger()
+	if err := cfg.Validate(log); err != nil {
+		t.Fatalf("expected dev to accept wildcard for ergonomic local setups, got %v", err)
+	}
+}
