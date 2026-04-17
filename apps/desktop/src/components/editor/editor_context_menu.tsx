@@ -60,7 +60,9 @@ interface EditorContextMenuProps {
 }
 
 /** Loosely-typed ProseKit command function (with optional canExec guard). */
-type EditorCmd = ((...args: unknown[]) => void) & { canExec?(...args: unknown[]): boolean };
+type EditorCmd = ((...args: unknown[]) => void) & {
+  canExec?(...args: unknown[]): boolean;
+};
 
 // ── AI Skill Prompt Templates ──
 
@@ -83,11 +85,10 @@ const AI_SKILL_PROMPTS: Record<string, () => string> = {
     `Output ONLY the translation without any explanation.`,
 
   // Pattern B — conversational: answer appears in the chat panel
-  explain: () =>
-    `Explain the selected text in detail. ` + `Break it down so it is easy to understand.`,
+  explain: () => `Explain the selected text in detail. Break it down so it is easy to understand.`,
 
   summarize: () =>
-    `Summarize the selected text concisely. ` + `Capture the key points in a few sentences.`,
+    `Summarize the selected text concisely. Capture the key points in a few sentences.`,
 };
 
 // ── Helpers ──
