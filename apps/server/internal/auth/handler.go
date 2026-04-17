@@ -56,7 +56,7 @@ func (h *AuthHandler) ExchangeDesktopToken(ctx context.Context, req *connect.Req
 	if token == "" || state == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("token and state are required"))
 	}
-	pair, err := h.authService.ExchangeDesktopToken(ctx, token, state, clientIPFromHeader(req.Header()), req.Header().Get("User-Agent"))
+	pair, err := h.authService.ExchangeDesktopToken(ctx, token, state, clientIP(ctx), req.Header().Get("User-Agent"))
 	if err != nil {
 		return nil, authServiceError(err)
 	}
@@ -72,7 +72,7 @@ func (h *AuthHandler) RefreshDesktopToken(ctx context.Context, req *connect.Requ
 	if refreshToken == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("refresh token is required"))
 	}
-	pair, err := h.authService.RefreshDesktopTokens(ctx, refreshToken, clientIPFromHeader(req.Header()), req.Header().Get("User-Agent"))
+	pair, err := h.authService.RefreshDesktopTokens(ctx, refreshToken, clientIP(ctx), req.Header().Get("User-Agent"))
 	if err != nil {
 		return nil, authServiceError(err)
 	}
@@ -104,7 +104,7 @@ func (h *AuthHandler) EmailAuth(ctx context.Context, req *connect.Request[authv1
 	if email == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("email is required"))
 	}
-	flow, err := h.authService.EmailAuth(ctx, email, clientIPFromHeader(req.Header()), req.Header().Get("User-Agent"))
+	flow, err := h.authService.EmailAuth(ctx, email, clientIP(ctx), req.Header().Get("User-Agent"))
 	if err != nil {
 		return nil, authServiceError(err)
 	}
@@ -118,7 +118,7 @@ func (h *AuthHandler) EmailVerify(ctx context.Context, req *connect.Request[auth
 	if len(code) != 6 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("code must be 6 digits"))
 	}
-	pair, err := h.authService.EmailVerify(ctx, code, clientIPFromHeader(req.Header()), req.Header().Get("User-Agent"))
+	pair, err := h.authService.EmailVerify(ctx, code, clientIP(ctx), req.Header().Get("User-Agent"))
 	if err != nil {
 		return nil, authServiceError(err)
 	}
@@ -133,7 +133,7 @@ func (h *AuthHandler) EmailResend(ctx context.Context, req *connect.Request[auth
 	if flow == "" {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("no pending email authentication"))
 	}
-	newFlow, err := h.authService.EmailResend(ctx, flow, clientIPFromHeader(req.Header()), req.Header().Get("User-Agent"))
+	newFlow, err := h.authService.EmailResend(ctx, flow, clientIP(ctx), req.Header().Get("User-Agent"))
 	if err != nil {
 		return nil, authServiceError(err)
 	}
@@ -147,7 +147,7 @@ func (h *AuthHandler) SignOut(ctx context.Context, req *connect.Request[authv1.S
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("not authenticated"))
 	}
-	if err := h.authService.SignOut(ctx, userID, sessionID, clientIPFromHeader(req.Header()), req.Header().Get("User-Agent")); err != nil {
+	if err := h.authService.SignOut(ctx, userID, sessionID, clientIP(ctx), req.Header().Get("User-Agent")); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	resp := connect.NewResponse(&authv1.SignOutResponse{})
@@ -176,7 +176,7 @@ func (h *AuthHandler) ProfileUpdate(ctx context.Context, req *connect.Request[au
 	if name == "" || len(name) > 100 {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("name must be between 1 and 100 characters"))
 	}
-	user, err := h.authService.UpdateProfile(ctx, userID, name, clientIPFromHeader(req.Header()), req.Header().Get("User-Agent"))
+	user, err := h.authService.UpdateProfile(ctx, userID, name, clientIP(ctx), req.Header().Get("User-Agent"))
 	if err != nil {
 		return nil, authServiceError(err)
 	}
@@ -188,7 +188,7 @@ func (h *AuthHandler) AccountDelete(ctx context.Context, req *connect.Request[au
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("not authenticated"))
 	}
-	if err := h.authService.DeleteAccount(ctx, userID, clientIPFromHeader(req.Header()), req.Header().Get("User-Agent")); err != nil {
+	if err := h.authService.DeleteAccount(ctx, userID, clientIP(ctx), req.Header().Get("User-Agent")); err != nil {
 		return nil, authServiceError(err)
 	}
 	resp := connect.NewResponse(&authv1.AccountDeleteResponse{})

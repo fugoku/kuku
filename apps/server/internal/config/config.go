@@ -2,7 +2,9 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
+	"net/netip"
 	"os"
 	"strconv"
 	"strings"
@@ -43,6 +45,14 @@ type Config struct {
 	SessionInactivity time.Duration
 
 	AllowedOrigins []string
+
+	// TrustedProxiesRaw is the comma-separated list from the
+	// `TRUSTED_PROXIES` env var (CIDR or single IP). Validate() parses it
+	// into TrustedProxies. Leave empty when running with no proxy in front
+	// of the server — `X-Forwarded-For` / `X-Real-IP` will then be ignored
+	// to prevent client-side IP spoofing.
+	TrustedProxiesRaw string
+	TrustedProxies    []netip.Prefix
 
 	EmailProvider    string
 	EmailFromAddress string
@@ -89,6 +99,8 @@ func Load() *Config {
 
 		AllowedOrigins: parseCSV(getEnv("ALLOWED_ORIGINS", "http://localhost:4321,http://localhost:3000")),
 
+		TrustedProxiesRaw: getEnv("TRUSTED_PROXIES", ""),
+
 		EmailProvider:    getEnv("EMAIL_PROVIDER", "smtp"),
 		EmailFromAddress: getEnv("EMAIL_FROM_ADDRESS", "noreply@kuku.mom"),
 		EmailFromName:    getEnv("EMAIL_FROM_NAME", "kuku"),
@@ -121,6 +133,8 @@ func loadEnv() {
 // Validate fails fast on misconfigurations that would leave the server in a
 // dangerous state. In production, missing/default secrets are fatal; in
 // development they downgrade to a warning so local workflows still run.
+//
+// On success, parsed/derived fields like TrustedProxies are populated.
 func (c *Config) Validate(log *slog.Logger) error {
 	if c.JWTSecret == "" || c.JWTSecret == devJWTSecret {
 		if c.IsProduction() {
@@ -128,7 +142,46 @@ func (c *Config) Validate(log *slog.Logger) error {
 		}
 		log.Warn("JWT_SECRET is using the development default — set a strong random value before deploying")
 	}
+
+	prefixes, err := parseTrustedProxies(c.TrustedProxiesRaw)
+	if err != nil {
+		return fmt.Errorf("TRUSTED_PROXIES parse failed: %w", err)
+	}
+	c.TrustedProxies = prefixes
+	if len(prefixes) == 0 && c.IsProduction() {
+		// Not fatal — the server may be exposed directly. But behind any
+		// LB / reverse proxy this means the client IP we record is the
+		// proxy's, breaking rate limiting and audit logs.
+		log.Warn("TRUSTED_PROXIES is empty — X-Forwarded-For / X-Real-IP will be ignored. Set this if running behind a load balancer or reverse proxy")
+	}
 	return nil
+}
+
+// parseTrustedProxies turns the CSV input into prefixes. Accepts either CIDR
+// (`10.0.0.0/8`) or single IP (`1.2.3.4`, treated as /32 or /128). Empty
+// entries skipped. Any malformed entry is fatal so a typo doesn't silently
+// open up the spoofing window the trust list is supposed to close.
+func parseTrustedProxies(raw string) ([]netip.Prefix, error) {
+	if strings.TrimSpace(raw) == "" {
+		return nil, nil
+	}
+	out := make([]netip.Prefix, 0)
+	for _, entry := range parseCSV(raw) {
+		if pref, err := netip.ParsePrefix(entry); err == nil {
+			out = append(out, pref)
+			continue
+		}
+		addr, err := netip.ParseAddr(entry)
+		if err != nil {
+			return nil, fmt.Errorf("invalid entry %q: must be CIDR or IP", entry)
+		}
+		bits := 32
+		if addr.Is6() {
+			bits = 128
+		}
+		out = append(out, netip.PrefixFrom(addr, bits))
+	}
+	return out, nil
 }
 
 func (c *Config) IsProduction() bool {

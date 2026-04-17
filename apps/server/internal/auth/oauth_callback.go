@@ -34,7 +34,7 @@ func (h *OAuthCallbackHandler) handle(w http.ResponseWriter, r *http.Request, pr
 		h.redirectError(w, r, "missing_oauth_params")
 		return
 	}
-	pair, err := h.auth.OAuthCallback(r.Context(), provider, code, state, clientIPFromRequest(r), r.UserAgent())
+	pair, err := h.auth.OAuthCallback(r.Context(), provider, code, state, clientIP(r.Context()), r.UserAgent())
 	if err != nil {
 		h.log.Error("oauth callback failed", "provider", provider, "error", err)
 		h.redirectError(w, r, "oauth_failed")

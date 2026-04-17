@@ -1,10 +1,8 @@
 package auth
 
 import (
+	"context"
 	"errors"
-	"net"
-	"net/http"
-	"strings"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/proto"
@@ -14,6 +12,7 @@ import (
 
 	"github.com/kuku-mom/kuku/apps/server/internal/database"
 	"github.com/kuku-mom/kuku/apps/server/internal/database/sqlc"
+	"github.com/kuku-mom/kuku/apps/server/internal/requestctx"
 )
 
 func newBusinessError(code connect.Code, errorCode errorv1.ErrorCode, message string) *connect.Error {
@@ -35,24 +34,10 @@ func sqlcUserToProto(user sqlc.AuthUser) *userv1.User {
 	}
 }
 
-func clientIPFromHeader(header http.Header) string {
-	if value := header.Get("X-Forwarded-For"); value != "" {
-		parts := strings.Split(value, ",")
-		return strings.TrimSpace(parts[0])
-	}
-	if value := header.Get("X-Real-IP"); value != "" {
-		return value
-	}
-	return ""
-}
-
-func clientIPFromRequest(r *http.Request) string {
-	if value := clientIPFromHeader(r.Header); value != "" {
-		return value
-	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return host
+// clientIP returns the trusted client IP attached by `middleware.ClientIP`.
+// Centralized in `requestctx` so handlers + audit logs + rate limiter all
+// see the same trusted-proxy resolution and we avoid an auth↔middleware
+// import cycle.
+func clientIP(ctx context.Context) string {
+	return requestctx.ClientIP(ctx)
 }

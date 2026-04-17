@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"log/slog"
-	"net"
 	"net/http"
 	"strings"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/kuku-mom/kuku/packages/contract/gen/go/kuku/auth/v1/authv1connect"
 
 	authpkg "github.com/kuku-mom/kuku/apps/server/internal/auth"
+	"github.com/kuku-mom/kuku/apps/server/internal/requestctx"
 )
 
 // publicPaths are routes the auth middleware allows to proceed without an
@@ -192,17 +192,10 @@ func getRefreshToken(r *http.Request) string {
 	return ""
 }
 
+// clientIP reads the resolved client IP that `ClientIP` middleware stashed
+// in the request context. Centralizing this here means refresh-token logging
+// and rate limiting agree on the same trusted-proxy resolution rules
+// instead of each re-deriving it from raw headers.
 func clientIP(r *http.Request) string {
-	if value := r.Header.Get("X-Forwarded-For"); value != "" {
-		parts := strings.Split(value, ",")
-		return strings.TrimSpace(parts[0])
-	}
-	if value := r.Header.Get("X-Real-IP"); value != "" {
-		return value
-	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return host
+	return requestctx.ClientIP(r.Context())
 }

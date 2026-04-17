@@ -80,6 +80,11 @@ func (s *Server) Run() error {
 	root = middleware.RateLimit(s.log)(root)
 	root = middleware.CORS(s.cfg.AllowedOrigins)(root)
 	root = middleware.Logging(s.log)(root)
+	// ClientIP runs before everything that needs an audit-able client IP
+	// (Logging, RateLimit, Auth refresh logging). With this in front of
+	// Logging, every line we emit references the trusted-proxy-resolved IP
+	// instead of the raw RemoteAddr / first-XFF spoof target.
+	root = middleware.ClientIP(s.cfg.TrustedProxies)(root)
 	root = middleware.Recover(s.log)(root)
 
 	s.httpServer = &http.Server{

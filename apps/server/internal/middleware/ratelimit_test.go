@@ -53,10 +53,11 @@ func TestRateLimit_BlocksAfterBurst(t *testing.T) {
 		}
 	})
 
-	mw := RateLimit(newSilentLogger())
-	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	// Chain through ClientIP middleware so the limiter sees the resolved IP,
+	// matching the real server-chain order in `internal/server/server.go`.
+	handler := ClientIP(nil)(RateLimit(newSilentLogger())(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-	}))
+	})))
 
 	send := func() *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodPost, path, bytes.NewReader([]byte("{}")))
@@ -98,10 +99,9 @@ func TestRateLimit_DistinctIPsHaveSeparateBuckets(t *testing.T) {
 		}
 	})
 
-	mw := RateLimit(newSilentLogger())
-	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := ClientIP(nil)(RateLimit(newSilentLogger())(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-	}))
+	})))
 
 	send := func(ip string) int {
 		req := httptest.NewRequest(http.MethodPost, path, nil)
