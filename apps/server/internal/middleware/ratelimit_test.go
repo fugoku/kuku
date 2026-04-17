@@ -7,9 +7,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
-	"golang.org/x/time/rate"
+	"github.com/throttled/throttled/v2"
 )
 
 func newSilentLogger() *slog.Logger {
@@ -36,14 +35,18 @@ func TestRateLimit_NotConfiguredPathsPassThrough(t *testing.T) {
 }
 
 func TestRateLimit_BlocksAfterBurst(t *testing.T) {
-	// Override one entry with a tight limit so the test is fast and
+	// Override one entry with a tight quota so the test is fast and
 	// deterministic. Restoring on exit keeps the package-level map clean
 	// for any later tests in the same binary.
+	//
+	// GCRA semantics: PerHour(1) refills 1 token every 60 minutes; MaxBurst
+	// of 1 lets a fresh IP make 2 calls back-to-back (1 immediate + 1
+	// burst) before throttling.
 	const path = "/kuku.auth.v1.AuthService/EmailAuth"
 	original, hadOriginal := endpointRateLimits[path]
-	endpointRateLimits[path] = rateLimitConfig{
-		rps:   rate.Every(time.Hour), // effectively no refill during the test
-		burst: 2,
+	endpointRateLimits[path] = throttled.RateQuota{
+		MaxRate:  throttled.PerHour(1),
+		MaxBurst: 1,
 	}
 	t.Cleanup(func() {
 		if hadOriginal {
@@ -53,8 +56,9 @@ func TestRateLimit_BlocksAfterBurst(t *testing.T) {
 		}
 	})
 
-	// Chain through ClientIP middleware so the limiter sees the resolved IP,
-	// matching the real server-chain order in `internal/server/server.go`.
+	// Chain through ClientIP middleware so the limiter sees the resolved
+	// IP, matching the real server-chain order in
+	// `internal/server/server.go`.
 	handler := ClientIP(nil)(RateLimit(newSilentLogger())(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})))
@@ -87,9 +91,9 @@ func TestRateLimit_BlocksAfterBurst(t *testing.T) {
 func TestRateLimit_DistinctIPsHaveSeparateBuckets(t *testing.T) {
 	const path = "/kuku.auth.v1.AuthService/EmailAuth"
 	original, hadOriginal := endpointRateLimits[path]
-	endpointRateLimits[path] = rateLimitConfig{
-		rps:   rate.Every(time.Hour),
-		burst: 1,
+	endpointRateLimits[path] = throttled.RateQuota{
+		MaxRate:  throttled.PerHour(1),
+		MaxBurst: 0,
 	}
 	t.Cleanup(func() {
 		if hadOriginal {
@@ -119,23 +123,5 @@ func TestRateLimit_DistinctIPsHaveSeparateBuckets(t *testing.T) {
 	}
 	if got := send("203.0.113.6"); got != http.StatusOK {
 		t.Fatalf("second ip first call must not inherit first ip's bucket: got %d", got)
-	}
-}
-
-func TestRateLimiterRegistry_CleanupEvictsOldEntries(t *testing.T) {
-	registry := newRateLimiterRegistry()
-	cfg := rateLimitConfig{rps: rate.Every(time.Second), burst: 1}
-	_ = registry.get("a", cfg)
-	_ = registry.get("b", cfg)
-	// Backdate one entry past the cleanup threshold.
-	registry.entries["a"].lastSeen = time.Now().Add(-2 * time.Hour)
-
-	registry.cleanup(time.Hour)
-
-	if _, ok := registry.entries["a"]; ok {
-		t.Fatal("expected stale entry to be evicted")
-	}
-	if _, ok := registry.entries["b"]; !ok {
-		t.Fatal("expected fresh entry to survive cleanup")
 	}
 }
