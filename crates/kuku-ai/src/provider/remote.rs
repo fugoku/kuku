@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use async_stream::try_stream;
 use async_trait::async_trait;
 use serde::{Deserialize, Deserializer, Serialize, de};
@@ -9,6 +11,13 @@ use crate::{
     types::{ChatMessage, FinishReason, ModelToolCall, TokenUsage},
 };
 
+// Remote AI completions are unary — the server holds the connection open
+// until the upstream model finishes. Cap the wait so a wedged upstream can't
+// pin the desktop forever; 180s comfortably covers tool-call rounds while
+// surfacing genuine hangs.
+const REMOTE_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+const REMOTE_REQUEST_TIMEOUT: Duration = Duration::from_secs(180);
+
 pub struct RemoteBackend {
     base_url: String,
     model: String,
@@ -17,10 +26,15 @@ pub struct RemoteBackend {
 
 impl RemoteBackend {
     pub fn new(base_url: &str, model: &str) -> Self {
+        let client = reqwest::Client::builder()
+            .connect_timeout(REMOTE_CONNECT_TIMEOUT)
+            .timeout(REMOTE_REQUEST_TIMEOUT)
+            .build()
+            .expect("failed to build remote AI HTTP client");
         Self {
             base_url: base_url.trim_end_matches('/').to_string(),
             model: model.to_string(),
-            client: reqwest::Client::new(),
+            client,
         }
     }
 }

@@ -3,7 +3,7 @@ use serde::{Deserialize, Deserializer, Serialize, de};
 use std::{
     io::{Read, Write},
     net::{TcpListener, TcpStream},
-    sync::mpsc,
+    sync::{OnceLock, mpsc},
     thread,
     time::{Duration, Instant, SystemTime},
 };
@@ -13,6 +13,23 @@ use tauri_plugin_opener::OpenerExt;
 use crate::{auth, config};
 
 const DEV_CALLBACK_TIMEOUT: Duration = Duration::from_secs(180);
+const AUTH_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+const AUTH_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+
+// Shared HTTP client for all auth RPCs. Holding a single instance preserves
+// the underlying connection pool / TLS sessions across login + refresh calls
+// that previously each paid the cost of a fresh TCP+TLS handshake.
+static AUTH_HTTP_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+
+fn auth_http_client() -> &'static reqwest::Client {
+    AUTH_HTTP_CLIENT.get_or_init(|| {
+        reqwest::Client::builder()
+            .connect_timeout(AUTH_CONNECT_TIMEOUT)
+            .timeout(AUTH_REQUEST_TIMEOUT)
+            .build()
+            .expect("failed to build auth HTTP client")
+    })
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct User {
@@ -295,7 +312,7 @@ async fn request_desktop_auth_url() -> Result<String, String> {
         "{}/kuku.auth.v1.AuthService/DesktopAuthURL",
         config::api_url().trim_end_matches('/')
     );
-    let response = reqwest::Client::new()
+    let response = auth_http_client()
         .post(endpoint)
         .header("Content-Type", "application/json")
         .json(&serde_json::json!({}))
@@ -322,7 +339,7 @@ async fn exchange_desktop_token(
         "{}/kuku.auth.v1.AuthService/ExchangeDesktopToken",
         config::api_url().trim_end_matches('/')
     );
-    let response = reqwest::Client::new()
+    let response = auth_http_client()
         .post(endpoint)
         .header("Content-Type", "application/json")
         .json(&serde_json::json!({ "token": token, "state": state }))
@@ -345,7 +362,7 @@ async fn refresh_desktop_token(refresh_token: &str) -> Result<auth::StoredTokens
         "{}/kuku.auth.v1.AuthService/RefreshDesktopToken",
         config::api_url().trim_end_matches('/')
     );
-    let response = reqwest::Client::new()
+    let response = auth_http_client()
         .post(endpoint)
         .header("Content-Type", "application/json")
         .json(&serde_json::json!({ "refreshToken": refresh_token }))
