@@ -43,26 +43,17 @@ export function DropdownMenuTrigger(props: JSX.ButtonHTMLAttributes<HTMLButtonEl
 }
 
 function DropdownMenuSurface(props: JSX.HTMLAttributes<HTMLDivElement>) {
-  const [local, outerProps] = splitProps(props, ["children", "class", "style"]);
-
-  const shadowFilter =
-    "drop-shadow(0 10px 28px rgba(0, 0, 0, 0.22)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.08))";
-
-  const style = () =>
-    typeof local.style === "string"
-      ? `${local.style}; filter: ${shadowFilter};`
-      : { ...local.style, filter: shadowFilter };
+  const [local, outerProps] = splitProps(props, ["children", "class"]);
 
   return (
     <div
       {...outerProps}
-      style={style()}
       class={[
         "z-1000 min-w-44 origin-[var(--kb-menu-content-transform-origin)] outline-none",
         local.class ?? "",
       ].join(" ")}
     >
-      <div class="overflow-hidden rounded-xs border border-border bg-bg-secondary p-1">
+      <div class="overflow-hidden rounded-xs border border-border bg-bg-elevated p-1 shadow-popover">
         {local.children}
       </div>
     </div>

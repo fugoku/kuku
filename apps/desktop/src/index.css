@@ -24,9 +24,9 @@
 @theme {
   /* ── 1. Surface ── */
   --color-bg-primary: #1a1a1a;
-  --color-bg-secondary: #222222;
-  --color-bg-tertiary: #2a2a2a;
-  --color-bg-elevated: #2e2e2e;
+  --color-bg-secondary: #1f1f1f;
+  --color-bg-tertiary: #262626;
+  --color-bg-elevated: #2a2a2a;
 
   /* ── 2. Element (buttons, inputs, controls) ── */
   --color-element: #2a2a2a;
@@ -36,27 +36,27 @@
   --color-element-disabled: #222222;
 
   /* ── 3. Ghost element (sidebar items, menu items — blends with surface) ── */
-  --color-ghost-hover: rgba(255, 255, 255, 0.06);
+  --color-ghost-hover: rgba(255, 255, 255, 0.05);
   --color-ghost-active: rgba(255, 255, 255, 0.08);
   --color-ghost-selected: rgba(255, 255, 255, 0.1);
 
   /* ── 4. Text ── */
   --color-text-primary: #d4d4d4;
   --color-text-secondary: #969696;
-  --color-text-muted: #5a5a5a;
+  --color-text-muted: #6a6a6a;
   --color-text-placeholder: #4a4a4a;
   --color-text-disabled: #3a3a3a;
   --color-text-accent: #7ab0df;
 
   /* ── 5. Icon ── */
-  --color-icon: #969696;
-  --color-icon-muted: #5a5a5a;
+  --color-icon: #b8b8b8;
+  --color-icon-muted: #707070;
   --color-icon-disabled: #3a3a3a;
   --color-icon-accent: #7ab0df;
 
   /* ── 6. Border ── */
   --color-border: #2a2a2a;
-  --color-border-variant: #222222;
+  --color-border-variant: #232323;
   --color-border-focused: #5a5a5a;
   --color-border-selected: #7ab0df;
 
@@ -88,8 +88,8 @@
   --color-accent-dim: rgba(212, 212, 212, 0.12);
 
   /* ── 10. List ── */
-  --color-list-active: rgba(212, 212, 212, 0.15);
-  --color-list-inactive: rgba(212, 212, 212, 0.08);
+  --color-list-active: rgba(212, 212, 212, 0.13);
+  --color-list-inactive: rgba(212, 212, 212, 0.07);
 
   /* ── 11. Typography ── */
   --font-ui:
@@ -102,13 +102,20 @@
     "Emoji", "Goorm Sans Code", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier,
     monospace;
 
-  /* ── 12. Radius ── */
+  /* ── 12. Radius (Zed-style: tight, near-flat) ── */
   --radius-xs: 2px;
   --radius-sm: 2px;
   --radius-md: 3px;
   --radius-lg: 3px;
   --radius-xl: 4px;
   --radius-2xl: 4px;
+
+  /* ── 13. Shadow (subtle elevation) ── */
+  --shadow-soft-1: 0 1px 2px rgba(0, 0, 0, 0.18);
+  --shadow-soft-2: 0 2px 6px rgba(0, 0, 0, 0.22), 0 1px 2px rgba(0, 0, 0, 0.18);
+  --shadow-popover:
+    0 12px 32px rgba(0, 0, 0, 0.32), 0 2px 6px rgba(0, 0, 0, 0.22),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -117,73 +124,80 @@
 
 [data-theme="light"] {
   /* ── Surface ── */
-  --color-bg-primary: #ffffff;
-  --color-bg-secondary: #f5f5f5;
-  --color-bg-tertiary: #ebebeb;
-  --color-bg-elevated: #e0e0e0;
+  --color-bg-primary: #fafafa;
+  --color-bg-secondary: #f0f0f1;
+  --color-bg-tertiary: #e8e8e9;
+  --color-bg-elevated: #ffffff;
 
   /* ── Element ── */
-  --color-element: #e0e0e0;
-  --color-element-hover: #d6d6d6;
-  --color-element-active: #cccccc;
-  --color-element-selected: #d0d0d0;
-  --color-element-disabled: #f0f0f0;
+  --color-element: #ffffff;
+  --color-element-hover: #f0f0f1;
+  --color-element-active: #e8e8e9;
+  --color-element-selected: #ececed;
+  --color-element-disabled: #f5f5f5;
 
   /* ── Ghost ── */
-  --color-ghost-hover: rgba(0, 0, 0, 0.05);
-  --color-ghost-active: rgba(0, 0, 0, 0.08);
-  --color-ghost-selected: rgba(0, 0, 0, 0.1);
+  --color-ghost-hover: rgba(56, 58, 66, 0.05);
+  --color-ghost-active: rgba(56, 58, 66, 0.08);
+  --color-ghost-selected: rgba(56, 58, 66, 0.1);
 
   /* ── Text ── */
-  --color-text-primary: #1a1a1a;
-  --color-text-secondary: #666666;
-  --color-text-muted: #999999;
-  --color-text-placeholder: #b0b0b0;
-  --color-text-disabled: #cccccc;
-  --color-text-accent: #2b6cb0;
+  --color-text-primary: #383a42;
+  --color-text-secondary: #696c77;
+  --color-text-muted: #a0a1a7;
+  --color-text-placeholder: #b6b7bc;
+  --color-text-disabled: #c8c9cd;
+  --color-text-accent: #4078f2;
 
   /* ── Icon ── */
-  --color-icon: #666666;
-  --color-icon-muted: #999999;
-  --color-icon-disabled: #cccccc;
-  --color-icon-accent: #2b6cb0;
+  --color-icon: #696c77;
+  --color-icon-muted: #a0a1a7;
+  --color-icon-disabled: #c8c9cd;
+  --color-icon-accent: #4078f2;
 
   /* ── Border ── */
-  --color-border: #e0e0e0;
-  --color-border-variant: #ebebeb;
-  --color-border-focused: #999999;
-  --color-border-selected: #2b6cb0;
+  --color-border: #d5d5d7;
+  --color-border-variant: #e0e0e2;
+  --color-border-focused: #a0a1a7;
+  --color-border-selected: #4078f2;
 
   /* ── Status ── */
-  --color-error: #dc3545;
-  --color-error-bg: rgba(220, 53, 69, 0.08);
-  --color-error-border: rgba(220, 53, 69, 0.25);
+  --color-error: #e45649;
+  --color-error-bg: rgba(228, 86, 73, 0.08);
+  --color-error-border: rgba(228, 86, 73, 0.28);
 
-  --color-warning: #d4940a;
-  --color-warning-bg: rgba(212, 148, 10, 0.08);
-  --color-warning-border: rgba(212, 148, 10, 0.25);
+  --color-warning: #c18401;
+  --color-warning-bg: rgba(193, 132, 1, 0.08);
+  --color-warning-border: rgba(193, 132, 1, 0.28);
 
-  --color-success: #28a745;
-  --color-success-bg: rgba(40, 167, 69, 0.08);
-  --color-success-border: rgba(40, 167, 69, 0.25);
+  --color-success: #50a14f;
+  --color-success-bg: rgba(80, 161, 79, 0.08);
+  --color-success-border: rgba(80, 161, 79, 0.28);
 
-  --color-info: #2b6cb0;
-  --color-info-bg: rgba(43, 108, 176, 0.08);
-  --color-info-border: rgba(43, 108, 176, 0.25);
+  --color-info: #4078f2;
+  --color-info-bg: rgba(64, 120, 242, 0.08);
+  --color-info-border: rgba(64, 120, 242, 0.28);
 
   /* ── Diff ── */
-  --color-created: #28a745;
-  --color-modified: #2b6cb0;
-  --color-deleted: #dc3545;
-  --color-conflict: #d4940a;
+  --color-created: #50a14f;
+  --color-modified: #4078f2;
+  --color-deleted: #e45649;
+  --color-conflict: #c18401;
 
   /* ── Accent ── */
-  --color-accent: #1a1a1a;
-  --color-accent-dim: rgba(0, 0, 0, 0.06);
+  --color-accent: #383a42;
+  --color-accent-dim: rgba(64, 120, 242, 0.1);
 
   /* ── List ── */
-  --color-list-active: rgba(0, 0, 0, 0.1);
-  --color-list-inactive: rgba(0, 0, 0, 0.05);
+  --color-list-active: rgba(64, 120, 242, 0.13);
+  --color-list-inactive: rgba(56, 58, 66, 0.05);
+
+  /* ── Shadow (light) ── */
+  --shadow-soft-1: 0 1px 2px rgba(56, 58, 66, 0.06);
+  --shadow-soft-2: 0 2px 6px rgba(56, 58, 66, 0.07), 0 1px 2px rgba(56, 58, 66, 0.04);
+  --shadow-popover:
+    0 12px 32px rgba(56, 58, 66, 0.12), 0 2px 6px rgba(56, 58, 66, 0.06),
+    0 0 0 1px rgba(56, 58, 66, 0.04);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

@@ -49,14 +49,14 @@ export default function SearchOmnibar() {
 
   return (
     <div
-      class="pointer-events-auto absolute inset-0 flex items-start justify-center bg-black/20 px-4 py-[10vh]"
+      class="pointer-events-auto absolute inset-0 flex items-start justify-center bg-black/40 px-4 py-[10vh] backdrop-blur-sm"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
           closeSearchOmnibar();
         }
       }}
     >
-      <div class="w-full max-w-2xl overflow-hidden rounded-xs border border-border bg-bg-primary shadow-2xl">
+      <div class="w-full max-w-2xl overflow-hidden rounded-xs border border-border bg-bg-elevated shadow-popover">
         <div class="border-b border-border">
           <input
             ref={inputRef}

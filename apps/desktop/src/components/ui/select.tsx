@@ -163,8 +163,7 @@ export default function Select(props: SelectProps) {
         <KSelect.Content
           class={twMerge(
             [
-              "z-1000 min-w-[var(--kb-popper-anchor-width)] overflow-hidden rounded-xs border border-border bg-bg-secondary p-1",
-              "shadow-[0_4px_16px_rgba(0,0,0,0.28),0_0_0_1px_rgba(0,0,0,0.06)]",
+              "z-1000 min-w-[var(--kb-popper-anchor-width)] overflow-hidden rounded-xs border border-border bg-bg-elevated p-1 shadow-popover",
               "origin-[var(--kb-select-content-transform-origin)]",
             ].join(" "),
             props.contentClass,
