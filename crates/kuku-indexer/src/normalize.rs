@@ -1,11 +1,12 @@
+use std::sync::LazyLock;
+
 use regex::Regex;
 
-fn whitespace_regex() -> Regex {
-    Regex::new(r"\s+").expect("valid whitespace regex")
-}
+static WHITESPACE_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\s+").expect("valid whitespace regex"));
 
 pub fn normalize_text(input: &str) -> String {
-    whitespace_regex()
+    WHITESPACE_REGEX
         .replace_all(input.trim(), " ")
         .to_lowercase()
 }

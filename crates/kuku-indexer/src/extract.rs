@@ -103,13 +103,31 @@ fn split_frontmatter(markdown: &str) -> (Vec<FrontmatterEntry>, String) {
     let yaml = yaml_lines.join("\n");
     let mut entries = Vec::new();
     if let Ok(value) = serde_yaml::from_str::<serde_yaml::Value>(&yaml) {
-        flatten_yaml("", &value, &mut entries);
+        flatten_yaml("", &value, &mut entries, 0);
     }
 
     (entries, body_lines.join("\n"))
 }
 
-fn flatten_yaml(prefix: &str, value: &serde_yaml::Value, out: &mut Vec<FrontmatterEntry>) {
+const FRONTMATTER_MAX_DEPTH: usize = 32;
+
+fn flatten_yaml(
+    prefix: &str,
+    value: &serde_yaml::Value,
+    out: &mut Vec<FrontmatterEntry>,
+    depth: usize,
+) {
+    if depth >= FRONTMATTER_MAX_DEPTH {
+        out.push(FrontmatterEntry {
+            key: prefix.to_string(),
+            value: serde_yaml::to_string(value)
+                .unwrap_or_default()
+                .trim()
+                .to_string(),
+        });
+        return;
+    }
+
     match value {
         serde_yaml::Value::Mapping(map) => {
             for (key, child) in map {
@@ -119,12 +137,12 @@ fn flatten_yaml(prefix: &str, value: &serde_yaml::Value, out: &mut Vec<Frontmatt
                 } else {
                     format!("{prefix}.{key}")
                 };
-                flatten_yaml(&next_prefix, child, out);
+                flatten_yaml(&next_prefix, child, out, depth + 1);
             }
         }
         serde_yaml::Value::Sequence(seq) => {
             for (idx, child) in seq.iter().enumerate() {
-                flatten_yaml(&format!("{prefix}[{idx}]"), child, out);
+                flatten_yaml(&format!("{prefix}[{idx}]"), child, out, depth + 1);
             }
         }
         _ => {
@@ -365,6 +383,21 @@ mod tests {
                 .iter()
                 .any(|entry| entry.key == "tags[0]" && entry.value == "rust")
         );
+    }
+
+    #[test]
+    fn flatten_yaml_caps_recursion_depth() {
+        let mut nested = String::from("---\n");
+        let depth = FRONTMATTER_MAX_DEPTH + 20;
+        for idx in 0..depth {
+            nested.push_str(&"  ".repeat(idx));
+            nested.push_str(&format!("k{idx}:\n"));
+        }
+        nested.push_str(&"  ".repeat(depth));
+        nested.push_str("leaf: value\n---\n# Body");
+
+        let document = extract_document(&nested);
+        assert!(!document.frontmatter.is_empty());
     }
 
     #[test]
