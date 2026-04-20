@@ -27,6 +27,45 @@ pub enum VaultDeleteMode {
     Permanent,
 }
 
+fn is_case_only_rename(from: &Path, to: &Path) -> bool {
+    if from == to {
+        return false;
+    }
+    match (from.to_str(), to.to_str()) {
+        (Some(from_str), Some(to_str)) => from_str.eq_ignore_ascii_case(to_str),
+        _ => false,
+    }
+}
+
+async fn rename_via_intermediate(from: &Path, to: &Path) -> Result<(), String> {
+    let parent = to
+        .parent()
+        .ok_or_else(|| "Destination has no parent".to_string())?;
+    let base_name = to
+        .file_name()
+        .and_then(|segment| segment.to_str())
+        .ok_or_else(|| "Destination file name is not valid UTF-8".to_string())?;
+
+    // Leading dot keeps the intermediate hidden and filtered by the vault
+    // watcher's `should_ignore_path`, so clients don't see the stepping-stone.
+    let intermediate = parent.join(format!(
+        ".kuku-case-rename-{}-{}",
+        std::process::id(),
+        base_name
+    ));
+
+    tokio::fs::rename(from, &intermediate)
+        .await
+        .map_err(|error| error.to_string())?;
+    if let Err(error) = tokio::fs::rename(&intermediate, to).await {
+        // Best-effort rollback so a failure doesn't leave the entry under
+        // the hidden intermediate name.
+        let _ = tokio::fs::rename(&intermediate, from).await;
+        return Err(error.to_string());
+    }
+    Ok(())
+}
+
 fn next_available_path(path: &Path) -> Result<PathBuf, String> {
     match path.try_exists() {
         Ok(false) => return Ok(path.to_path_buf()),
@@ -498,9 +537,20 @@ pub async fn vault_rename(
             .map_err(|e| e.to_string())?;
     }
     let mutation = state.expected_mutations.record_rename(&from, &to, is_dir);
-    if let Err(error) = tokio::fs::rename(&from_resolved, &to_resolved).await {
+    let rename_result = if is_case_only_rename(&from_resolved, &to_resolved) {
+        // APFS (macOS default) is case-insensitive and case-preserving: a
+        // direct `rename("Foo.md", "foo.md")` resolves both paths to the same
+        // entry and leaves the on-disk name unchanged. Bouncing through a
+        // dotfile intermediate forces the filesystem to commit the new case.
+        rename_via_intermediate(&from_resolved, &to_resolved).await
+    } else {
+        tokio::fs::rename(&from_resolved, &to_resolved)
+            .await
+            .map_err(|e| e.to_string())
+    };
+    if let Err(error) = rename_result {
         state.expected_mutations.cancel(mutation);
-        return Err(error.to_string());
+        return Err(error);
     }
     if let Err(error) = search.notify_renamed_with_source(&from, &to, is_dir, "app-rename") {
         state.expected_mutations.cancel(mutation);

@@ -270,7 +270,7 @@ async function createAndOpenNewFile(): Promise<void> {
 
   while (
     existsInTree(vaultState.files, filePath) ||
-    filesState.tabs.some((tab) => tab.filePath === filePath)
+    filesState.tabs.some((tab) => tab.filePath?.toLowerCase() === filePath.toLowerCase())
   ) {
     name = `Untitled ${counter}`;
     fileName = `${name}.md`;
@@ -340,12 +340,20 @@ function revealPath(filePath: string): void {
   );
 }
 
+// Vault paths are compared case-insensitively so collision checks on
+// case-insensitive filesystems (macOS APFS default, Windows NTFS default)
+// match OS behaviour. Without this, creating `Untitled.md` next to an
+// existing `untitled.md` silently overwrites the original file's contents.
 function existsInTree(entries: FileEntry[], targetPath: string): boolean {
-  for (const entry of entries) {
-    if (entry.path === targetPath) return true;
-    if (entry.children && existsInTree(entry.children, targetPath)) return true;
-  }
-  return false;
+  const target = targetPath.toLowerCase();
+  const visit = (nodes: FileEntry[]): boolean => {
+    for (const entry of nodes) {
+      if (entry.path.toLowerCase() === target) return true;
+      if (entry.children && visit(entry.children)) return true;
+    }
+    return false;
+  };
+  return visit(entries);
 }
 
 function remapEditStateForMovedPath(
@@ -457,7 +465,15 @@ async function confirmEdit(): Promise<void> {
     return;
   }
 
-  if (edit.kind === "rename" && existsInTree(vaultState.files, destinationPath)) {
+  // Case-only rename (e.g. `Foo.md` → `foo.md`) looks like a collision to the
+  // case-insensitive `existsInTree`, but the "conflict" is the source itself —
+  // on case-insensitive filesystems the OS resolves them to the same entry, so
+  // the rename is effectively an in-place case change and must be allowed.
+  if (
+    edit.kind === "rename" &&
+    destinationPath.toLowerCase() !== edit.targetPath.toLowerCase() &&
+    existsInTree(vaultState.files, destinationPath)
+  ) {
     cancelEdit();
     return;
   }
