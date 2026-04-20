@@ -46,8 +46,9 @@ impl AiState {
     }
 
     pub fn set_config(&self, config: AiConfig) -> Result<(), AiError> {
-        *self.inner.config.write() = config.clone();
-        *self.inner.provider.write() = build_backend(&config)?;
+        let backend = build_backend(&config)?;
+        *self.inner.config.write() = config;
+        *self.inner.provider.write() = backend;
         Ok(())
     }
 
@@ -163,9 +164,8 @@ fn build_backend(config: &AiConfig) -> Result<Option<Arc<dyn CompletionBackend>>
                 } else {
                     "https://api.kuku.mom"
                 });
-            Ok(Some(
-                Arc::new(RemoteBackend::new(base_url, &config.model)) as Arc<dyn CompletionBackend>
-            ))
+            Ok(Some(Arc::new(RemoteBackend::new(base_url, &config.model)?)
+                as Arc<dyn CompletionBackend>))
         }
     }
 }

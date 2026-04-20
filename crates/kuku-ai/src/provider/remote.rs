@@ -24,13 +24,12 @@ pub struct RemoteBackend {
 }
 
 impl RemoteBackend {
-    pub fn new(base_url: &str, model: &str) -> Self {
-        let client =
-            build_ai_service_client(base_url).expect("failed to build remote AI service client");
-        Self {
+    pub fn new(base_url: &str, model: &str) -> Result<Self, AiError> {
+        let client = build_ai_service_client(base_url).map_err(AiError::ProviderInit)?;
+        Ok(Self {
             model: model.to_string(),
             client,
-        }
+        })
     }
 }
 
@@ -50,7 +49,11 @@ impl CompletionBackend for RemoteBackend {
             message: Some(last_user_message(&request)),
             context_files: Vec::new(),
             model: Some(self.model.clone()),
-            messages: request.messages.iter().map(proto_message_from).collect(),
+            messages: request
+                .messages
+                .iter()
+                .map(proto_message_from)
+                .collect::<Result<Vec<_>, _>>()?,
             tools: request
                 .tools
                 .iter()
@@ -134,7 +137,7 @@ fn last_user_message(request: &CompletionTurnRequest) -> String {
         .unwrap_or_default()
 }
 
-fn proto_message_from(message: &ChatMessage) -> ProtoChatMessage {
+fn proto_message_from(message: &ChatMessage) -> Result<ProtoChatMessage, AiError> {
     let role = match message {
         ChatMessage::System { .. } => ChatMessageRole::CHAT_MESSAGE_ROLE_SYSTEM,
         ChatMessage::User { .. } => ChatMessageRole::CHAT_MESSAGE_ROLE_USER,
@@ -156,15 +159,10 @@ fn proto_message_from(message: &ChatMessage) -> ProtoChatMessage {
             if !content.is_empty() {
                 proto.content = Some(content.clone());
             }
-            // Assistant tool calls echo upstream signature/ids unchanged so
-            // the server can stitch the next turn together. Failing here is
-            // never expected (we just produced these locally) so we panic
-            // with the broken value rather than silently dropping a call.
             proto.tool_calls = tool_calls
                 .iter()
                 .map(proto_model_tool_call_from)
-                .collect::<Result<Vec<_>, _>>()
-                .expect("local tool call must serialize as proto Struct");
+                .collect::<Result<Vec<_>, _>>()?;
         }
         ChatMessage::ToolResult {
             call_id,
@@ -182,7 +180,7 @@ fn proto_message_from(message: &ChatMessage) -> ProtoChatMessage {
             proto.provider_call_id = provider_call_id.clone();
         }
     }
-    proto
+    Ok(proto)
 }
 
 fn proto_tool_from(tool: &ToolDescriptor) -> Result<ProtoToolDescriptor, AiError> {
