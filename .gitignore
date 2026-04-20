@@ -8,6 +8,11 @@
 .moon/cache/
 .moon/docker/
 
+# Docker infra — tier-scoped env files hold secrets / tokens
+infra/docker/*/env
+infra/docker/*/env.*
+!infra/docker/*/env.example
+
 # Code Editor
 .idea/
 .vscode/
