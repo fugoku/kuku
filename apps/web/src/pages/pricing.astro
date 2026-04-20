@@ -1,5 +1,8 @@
 ---
 import MarketingPageLayout from '@/layouts/marketing_page_layout.astro';
+import { resolveDownloadHref } from '@/config/links';
+
+const downloadHref = resolveDownloadHref(Astro.url.pathname);
 ---
 
 <MarketingPageLayout
@@ -56,7 +59,7 @@ import MarketingPageLayout from '@/layouts/marketing_page_layout.astro';
             <li data-i18n="pr.free.li3">Local file storage</li>
           </ul>
         </div>
-        <a class="lp-pr-btn lp-pr-btn--outline" href="/#download" data-i18n="pr.free.cta"
+        <a class="lp-pr-btn lp-pr-btn--outline" href={downloadHref} data-i18n="pr.free.cta"
           >Download Free</a
         >
       </article>

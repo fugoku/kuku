@@ -1,8 +1,39 @@
 ---
 import MarketingPageLayout from '@/layouts/marketing_page_layout.astro';
-import { blogPosts } from '@/data/blog_posts';
+import { getCollection } from 'astro:content';
+import { SUPPORTED_LANGS, type SupportedLang } from '@/content.config';
 
-const sorted = [...blogPosts].toSorted((a, b) => (a.date < b.date ? 1 : -1));
+const posts = await getCollection('blog');
+
+// Group by slug so each card renders all language variants stacked.
+const bySlug = new Map<string, typeof posts>();
+for (const post of posts) {
+  const existing = bySlug.get(post.data.slug) ?? [];
+  existing.push(post);
+  bySlug.set(post.data.slug, existing);
+}
+
+type PostVariants = (typeof posts)[number];
+
+const groups: {
+  slug: string;
+  date: string;
+  image: string;
+  variants: Map<SupportedLang, PostVariants>;
+}[] = [];
+for (const [slug, variants] of bySlug) {
+  const byLang = new Map<SupportedLang, PostVariants>();
+  for (const v of variants) byLang.set(v.data.lang, v);
+  const anchor = byLang.get('en') ?? variants[0];
+  groups.push({
+    slug,
+    date: anchor.data.date,
+    image: anchor.data.image,
+    variants: byLang,
+  });
+}
+
+groups.sort((a, b) => (a.date < b.date ? 1 : -1));
 
 const dateFmt = new Intl.DateTimeFormat('en-US', {
   month: 'long',
@@ -24,46 +55,50 @@ const dateFmt = new Intl.DateTimeFormat('en-US', {
 
     <div class="lp-blog__list">
       {
-        sorted.map((post) => (
-          <article class="lp-blog-card">
-            <a
-              class="lp-blog-card__media"
-              href={`/blog/${post.slug}`}
-              tabindex="-1"
-              aria-hidden="true"
-            >
-              <img
-                class="lp-blog-card__img"
-                src={post.image}
-                alt=""
-                width={2560}
-                height={1080}
-                loading="lazy"
-                decoding="async"
-              />
-            </a>
-            <div class="lp-blog-card__body">
-              <time class="lp-blog-card__date" datetime={post.date}>
-                {dateFmt.format(new Date(post.date + 'T12:00:00'))}
-              </time>
-              <h2 class="lp-blog-card__heading">
-                <a
-                  class="lp-blog-card__title-link"
-                  href={`/blog/${post.slug}`}
-                  data-i18n={`blog.${post.slug}.title`}
-                >
-                  {post.title}
-                </a>
-              </h2>
-              <p class="lp-blog-card__excerpt" data-i18n={`blog.${post.slug}.excerpt`}>
-                {post.excerpt}
-              </p>
-              <p class="lp-blog-card__by">
-                <span data-i18n="blog.by">By</span> {post.author}
-              </p>
-            </div>
-          </article>
-        ))
+        groups.map((group) => {
+          const firstVariant = group.variants.get('en') ?? [...group.variants.values()][0];
+          return (
+            <article class="lp-blog-card">
+              <a
+                class="lp-blog-card__media"
+                href={`/blog/${group.slug}`}
+                tabindex="-1"
+                aria-hidden="true"
+              >
+                <img
+                  class="lp-blog-card__img"
+                  src={group.image}
+                  alt=""
+                  width={2560}
+                  height={1080}
+                  loading="lazy"
+                  decoding="async"
+                />
+              </a>
+              <div class="lp-blog-card__body">
+                <time class="lp-blog-card__date" datetime={group.date}>
+                  {dateFmt.format(new Date(group.date + 'T12:00:00'))}
+                </time>
+                {SUPPORTED_LANGS.map((lang) => {
+                  const variant = group.variants.get(lang) ?? firstVariant;
+                  return (
+                    <div data-lang-block={lang}>
+                      <h2 class="lp-blog-card__heading">
+                        <a class="lp-blog-card__title-link" href={`/blog/${group.slug}`}>
+                          {variant.data.title}
+                        </a>
+                      </h2>
+                      <p class="lp-blog-card__excerpt">{variant.data.excerpt}</p>
+                    </div>
+                  );
+                })}
+                <p class="lp-blog-card__by">
+                  <span data-i18n="blog.by">By</span> {firstVariant.data.author}
+                </p>
+              </div>
+            </article>
+          );
+        })
       }
     </div>
   </div>

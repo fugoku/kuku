@@ -1,4 +1,6 @@
 ---
+import { resolveDownloadHref } from '@/config/links';
+
 interface Props {
   pathname: string;
 }
@@ -11,7 +13,7 @@ const nav = [
   { href: '/blog', label: 'Blog', i18n: 'nav.blog' },
 ] as const;
 
-const downloadHashHref = pathname === '/' ? '#download' : '/#download';
+const downloadHashHref = resolveDownloadHref(pathname);
 ---
 
 <header class="lp-nav">
@@ -734,24 +736,9 @@ const downloadHashHref = pathname === '/' ? '#download' : '/#download';
         'blog.sub': 'Updates, thoughts, and announcements.',
         'blog.by': 'By',
         'blog.back': '\u2190 Blog',
-        'blog.kuku-roadmap-journey.title': 'Kuku Roadmap: The Journey Toward Complete Freedom',
-        'blog.kuku-roadmap-journey.excerpt':
-          'How we are thinking about local-first workflows, open building blocks, and a calm editor that stays out of your way\u2014plus what is shipping next.',
-        'blog.kuku-roadmap-journey.body0':
-          'We built kuku because we wanted a Markdown home that feels fast, local, and honest. The roadmap is not a wish list\u2014it is the sequence of bets we are making to keep your notes yours, with optional cloud only when it earns its place.',
-        'blog.kuku-roadmap-journey.body1':
-          'This year we are focused on rock-solid editing, thoughtful AI that respects context, and sync that does not surprise you at the door. We will share milestones as they land, with clear defaults and an escape hatch if you want to stay offline.',
-        'blog.kuku-roadmap-journey.body2':
-          'Thank you for trying early builds. Your feedback is shaping what \u201ccomplete freedom\u201d means in practice\u2014not just a slogan.',
-        'blog.quiet-surface-editor-design.title': 'A Quiet Surface: Designing the kuku Editor',
-        'blog.quiet-surface-editor-design.excerpt':
-          'Typography, spacing, and contrast choices for a One Light workspace that feels calm for long writing sessions and sharp for quick captures.',
-        'blog.quiet-surface-editor-design.body0':
-          'Minimal interfaces are easy to mock up and hard to live with. We iterated on density, focus rings, and panel rhythm until the UI felt invisible during real writing\u2014not only in screenshots.',
-        'blog.quiet-surface-editor-design.body1':
-          'The goal is a single column that reads like paper, with side tools that appear when you need them and stay out of the way when you do not.',
-        'blog.quiet-surface-editor-design.body2':
-          'We will keep tuning with real vaults and long documents. If something feels noisy, we want to hear it.',
+        /* ── Changelog page ── */
+        'cl.title': 'Changelog',
+        'cl.sub': 'Preview builds on the road to 1.0. We ship often and keep notes here.',
         /* animation strings (read by app_mockup.astro script via localStorage key) */
         'mock.anim.slash_heading': 'Parking lot',
         'mock.anim.patch_callout':
@@ -946,24 +933,9 @@ const downloadHashHref = pathname === '/' ? '#download' : '/#download';
         'blog.sub': '업데이트와 팀의 생각, 그리고 공지.',
         'blog.by': '작성:',
         'blog.back': '\u2190 블로그',
-        'blog.kuku-roadmap-journey.title': 'Kuku 로드맵: 완전한 자유를 향한 여정',
-        'blog.kuku-roadmap-journey.excerpt':
-          '로컬 우선 워크플로우와 오픈소스 기반, 그리고 집중을 해치지 않는 에디터를 어떻게 만들고 있는지, 다음 릴리스 계획과 함께 소개합니다.',
-        'blog.kuku-roadmap-journey.body0':
-          'kuku는 빠르고, 로컬에서 믿고 쓸 수 있는 Markdown 워크스페이스를 만들고 싶어서 시작했습니다. 로드맵은 희망사항 목록이 아니라, 노트의 소유권을 사용자에게 남기기 위해 우리가 실제로 실행하는 우선순위입니다.',
-        'blog.kuku-roadmap-journey.body1':
-          '올해는 탄탄한 편집 경험, 맥락을 이해하는 AI, 그리고 예측 가능한 동기화에 집중하고 있습니다. 기능이 준비되는 대로 기본값과 오프라인 선택지까지 분명하게 안내하겠습니다.',
-        'blog.kuku-roadmap-journey.body2':
-          '초기 빌드를 써 주신 모든 분들께 감사합니다. 여러분의 피드백이 “완전한 자유”를 슬로건이 아니라 실제 제품 경험으로 만들어 주고 있습니다.',
-        'blog.quiet-surface-editor-design.title': '조용한 표면: kuku 에디터 디자인',
-        'blog.quiet-surface-editor-design.excerpt':
-          '오래 써도 피로하지 않고, 빠르게 훑을 때도 또렷한 One Light 워크스페이스를 위해 타이포그래피·간격·대비를 어떻게 다듬었는지 정리했습니다.',
-        'blog.quiet-surface-editor-design.body0':
-          '미니멀 UI는 보기엔 쉽지만 실제로 오래 쓰기 어렵습니다. 스크린샷이 아니라 실제 작성 흐름에서 UI가 거슬리지 않도록 밀도, 포커스 링, 패널 리듬을 반복해서 조정했습니다.',
-        'blog.quiet-surface-editor-design.body1':
-          '목표는 종이처럼 읽히는 단일 컬럼과, 필요할 때만 드러나는 사이드 도구입니다.',
-        'blog.quiet-surface-editor-design.body2':
-          '실제 볼트와 긴 문서에서 계속 검증하며 다듬고 있습니다. 사용 중 거슬리는 부분이 있으면 꼭 알려주세요.',
+        /* ── Changelog page ── */
+        'cl.title': '변경 이력',
+        'cl.sub': '1.0으로 가는 길의 프리뷰 빌드. 자주 배포하고 여기에 기록합니다.',
         /* animation strings (read by app_mockup.astro script via localStorage key) */
         'mock.anim.slash_heading': '파킹 로트',
         'mock.anim.patch_callout':
@@ -1160,24 +1132,9 @@ const downloadHashHref = pathname === '/' ? '#download' : '/#download';
         'blog.sub': 'アップデート、チームの考え、お知らせ。',
         'blog.by': '著者：',
         'blog.back': '← ブログ',
-        'blog.kuku-roadmap-journey.title': 'Kukuロードマップ：完全な自由への旅',
-        'blog.kuku-roadmap-journey.excerpt':
-          'ローカルファーストなワークフロー、オープンな基盤、そして作業を邪魔しないエディターをどう形にしているか。次のリリース計画もあわせて紹介します。',
-        'blog.kuku-roadmap-journey.body0':
-          'kukuは、速くてローカルで安心して使えるMarkdown環境を作りたいという思いから始まりました。ロードマップは願望ではなく、ノートの主導権をユーザーに残すための実行順です。',
-        'blog.kuku-roadmap-journey.body1':
-          '今年は、堅牢な編集体験、文脈を理解するAI、そして予測しやすい同期に注力しています。進捗は、標準設定とオフライン運用の選択肢を含めて分かりやすく共有します。',
-        'blog.kuku-roadmap-journey.body2':
-          '早期ビルドを試してくださった皆さん、ありがとうございます。いただいたフィードバックが「完全な自由」をスローガンではなく実体験として形作っています。',
-        'blog.quiet-surface-editor-design.title': '静かな表面：kukuエディターのデザイン',
-        'blog.quiet-surface-editor-design.excerpt':
-          '長時間でも疲れにくく、素早く見返すときも読みやすいOne Lightワークスペースを目指して、タイポグラフィ・余白・コントラストを調整した記録です。',
-        'blog.quiet-surface-editor-design.body0':
-          'ミニマルなUIは見た目を作るのは簡単でも、日常的に使いやすくするのは難しいものです。スクリーンショットだけでなく実際の執筆フローで違和感が出ないよう、密度・フォーカスリング・パネルのリズムを詰めました。',
-        'blog.quiet-surface-editor-design.body1':
-          '目標は、紙のように読める1カラムと、必要なときだけ現れるサイドツールです。',
-        'blog.quiet-surface-editor-design.body2':
-          '実際のボルトや長文で引き続き検証しながら改善しています。気になる点があればぜひ教えてください。',
+        /* ── Changelog page ── */
+        'cl.title': '変更履歴',
+        'cl.sub': '1.0 に向けたプレビュービルド。こまめにリリースし、ここに記録していきます。',
         'mock.anim.slash_heading': 'パーキングロット',
         'mock.anim.patch_callout':
           '✓ アシスタントがQ1 Planningに反映しました — KR4、インデクサーのガードレール、グラフ整合性チェック。',

@@ -1,15 +1,36 @@
 ---
 import MarketingPageLayout from '@/layouts/marketing_page_layout.astro';
-import { blogPosts, getBlogPost } from '@/data/blog_posts';
+import { getCollection, render } from 'astro:content';
+import { SUPPORTED_LANGS, type SupportedLang } from '@/content.config';
 
-export function getStaticPaths() {
-  return blogPosts.map((post) => ({ params: { slug: post.slug } }));
+export async function getStaticPaths() {
+  const posts = await getCollection('blog');
+  const bySlug = new Map<string, typeof posts>();
+  for (const post of posts) {
+    const existing = bySlug.get(post.data.slug) ?? [];
+    existing.push(post);
+    bySlug.set(post.data.slug, existing);
+  }
+  return [...bySlug.entries()].map(([slug, variants]) => ({
+    params: { slug },
+    props: { variants },
+  }));
 }
 
-const { slug } = Astro.params;
-const post = slug ? getBlogPost(slug) : undefined;
-if (!post) {
-  return Astro.redirect('/blog');
+const { variants } = Astro.props;
+const byLang = new Map<SupportedLang, (typeof variants)[number]>();
+for (const v of variants) byLang.set(v.data.lang, v);
+
+const anchor = byLang.get('en') ?? variants[0];
+const rendered: {
+  lang: SupportedLang;
+  variant: typeof anchor;
+  Content: Awaited<ReturnType<typeof render>>['Content'];
+}[] = [];
+for (const lang of SUPPORTED_LANGS) {
+  const variant = byLang.get(lang) ?? anchor;
+  const { Content } = await render(variant);
+  rendered.push({ lang, variant, Content });
 }
 
 const dateFmt = new Intl.DateTimeFormat('en-US', {
@@ -19,20 +40,26 @@ const dateFmt = new Intl.DateTimeFormat('en-US', {
 });
 ---
 
-<MarketingPageLayout title={`${post.title} | kuku`} description={post.excerpt} wide>
+<MarketingPageLayout title={`${anchor.data.title} | kuku`} description={anchor.data.excerpt} wide>
   <article class="lp-blog-post" itemscope itemtype="https://schema.org/BlogPosting">
     <a class="lp-blog-post__back" href="/blog" data-i18n="blog.back">← Blog</a>
 
     <header class="lp-blog-post__head">
-      <time class="lp-blog-post__date" datetime={post.date} itemprop="datePublished">
-        {dateFmt.format(new Date(post.date + 'T12:00:00'))}
+      <time class="lp-blog-post__date" datetime={anchor.data.date} itemprop="datePublished">
+        {dateFmt.format(new Date(anchor.data.date + 'T12:00:00'))}
       </time>
-      <h1 class="lp-blog-post__title" itemprop="headline" data-i18n={`blog.${post.slug}.title`}>
-        {post.title}
-      </h1>
+      {
+        rendered.map(({ lang, variant }) => (
+          <div data-lang-block={lang}>
+            <h1 class="lp-blog-post__title" itemprop="headline">
+              {variant.data.title}
+            </h1>
+          </div>
+        ))
+      }
       <p class="lp-blog-post__by">
         <span itemprop="author" itemscope itemtype="https://schema.org/Person">
-          <span itemprop="name">{post.author}</span>
+          <span itemprop="name">{anchor.data.author}</span>
         </span>
       </p>
     </header>
@@ -40,8 +67,8 @@ const dateFmt = new Intl.DateTimeFormat('en-US', {
     <figure class="lp-blog-post__figure">
       <img
         class="lp-blog-post__img"
-        src={post.image}
-        alt={post.imageAlt}
+        src={anchor.data.image}
+        alt={anchor.data.imageAlt}
         width={2560}
         height={1080}
         loading="eager"
@@ -50,15 +77,13 @@ const dateFmt = new Intl.DateTimeFormat('en-US', {
       />
     </figure>
 
-    <div class="lp-blog-post__prose">
-      {
-        post.body.map((para, i) => (
-          <p itemprop="articleBody" data-i18n={`blog.${post.slug}.body${i}`}>
-            {para}
-          </p>
-        ))
-      }
-    </div>
+    {
+      rendered.map(({ lang, Content }) => (
+        <div class="lp-blog-post__prose" data-lang-block={lang} itemprop="articleBody">
+          <Content />
+        </div>
+      ))
+    }
   </article>
 </MarketingPageLayout>
 
@@ -152,11 +177,11 @@ const dateFmt = new Intl.DateTimeFormat('en-US', {
     color: var(--lp-bp-muted);
   }
 
-  .lp-blog-post__prose p {
+  .lp-blog-post__prose :global(p) {
     margin: 0 0 1rem;
   }
 
-  .lp-blog-post__prose p:last-child {
+  .lp-blog-post__prose :global(p:last-child) {
     margin-bottom: 0;
   }
 

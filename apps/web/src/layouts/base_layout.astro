@@ -15,6 +15,15 @@ const { title, description } = Astro.props;
   <head>
     <script is:inline>
       (() => {
+        const LANG_KEY = 'kuku_lang';
+        const SUPPORTED = ['en', 'ko', 'ja'];
+        const stored = localStorage.getItem(LANG_KEY);
+        const lang = SUPPORTED.includes(stored) ? stored : 'en';
+        document.documentElement.lang = lang;
+      })();
+    </script>
+    <script is:inline>
+      (() => {
         const KEY = 'kuku_web_theme';
         const DARK = '#1a1a1a';
         const LIGHT = '#fafafa';

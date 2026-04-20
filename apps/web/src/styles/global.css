@@ -1282,3 +1282,14 @@ a.lp-brand > img.lp-brand-logo {
   max-height: none;
   object-fit: contain;
 }
+
+/* Language-scoped content blocks — show only the variant matching html[lang]. */
+[data-lang-block] {
+  display: none;
+}
+
+html[lang="en"] [data-lang-block="en"],
+html[lang="ko"] [data-lang-block="ko"],
+html[lang="ja"] [data-lang-block="ja"] {
+  display: revert;
+}
