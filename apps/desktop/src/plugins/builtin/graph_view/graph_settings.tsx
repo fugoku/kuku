@@ -207,7 +207,7 @@ function formatValue(value: number, step: number): string {
 
 function GraphSettingsPanel(): JSX.Element {
   return (
-    <div class="space-y-3 p-4">
+    <div class="@container space-y-3 p-4">
       {/* Header */}
       <div class="flex items-center justify-between">
         <div>
@@ -258,20 +258,28 @@ function RangeRow(props: { field: FieldDesc }): JSX.Element {
   const isChanged = () => value() !== defaultVal;
 
   return (
-    <div class="flex items-center gap-3 px-3 py-2">
-      <span
-        class="w-36 shrink-0 text-[0.6875rem] text-text-muted"
-        classList={{ "text-text-secondary!": isChanged() }}
-      >
-        {props.field.label}
-      </span>
+    <div class="flex flex-col gap-2 px-3 py-2 @sm:flex-row @sm:items-center @sm:gap-3">
+      <div class="flex items-center justify-between gap-2 @sm:contents">
+        <span
+          class="text-[0.6875rem] text-text-muted @sm:w-36 @sm:shrink-0"
+          classList={{ "text-text-secondary!": isChanged() }}
+        >
+          {props.field.label}
+        </span>
+        <span
+          class="font-mono text-[0.625rem] text-text-muted tabular-nums @sm:order-last @sm:w-12 @sm:text-right"
+          classList={{ "text-accent!": isChanged() }}
+        >
+          {formatValue(value(), props.field.step)}
+        </span>
+      </div>
       <input
         type="range"
         min={props.field.min}
         max={props.field.max}
         step={props.field.step}
         value={value()}
-        class="h-1 flex-1 cursor-pointer appearance-none rounded-full bg-ghost-hover accent-accent [&::-webkit-slider-thumb]:size-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent"
+        class="h-1 w-full cursor-pointer appearance-none rounded-full bg-ghost-hover accent-accent @sm:w-auto @sm:flex-1 [&::-webkit-slider-thumb]:size-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent"
         onInput={(e) => {
           const v = parseFloat(e.currentTarget.value);
           if (!Number.isNaN(v)) {
@@ -279,12 +287,6 @@ function RangeRow(props: { field: FieldDesc }): JSX.Element {
           }
         }}
       />
-      <span
-        class="w-12 text-right font-mono text-[0.625rem] text-text-muted tabular-nums"
-        classList={{ "text-accent!": isChanged() }}
-      >
-        {formatValue(value(), props.field.step)}
-      </span>
     </div>
   );
 }
@@ -294,8 +296,7 @@ function ToggleRow(props: { field: FieldDesc }): JSX.Element {
 
   return (
     <div class="flex items-center gap-3 px-3 py-2">
-      <span class="w-36 shrink-0 text-[0.6875rem] text-text-muted">{props.field.label}</span>
-      <div class="flex-1" />
+      <span class="min-w-0 flex-1 text-[0.6875rem] text-text-muted">{props.field.label}</span>
       <Switch
         checked={value()}
         onChange={(v) => {
