@@ -123,7 +123,7 @@ func Auth(authService *authpkg.AuthService, log *slog.Logger, secureCookie bool)
 					// (benign) or a tampered/replayed token (suspicious).
 					// Warn-level so it's visible without triggering on
 					// every unauthenticated request.
-					log.Warn("refresh token failed", "error", err, "ip", clientIP(r))
+					log.Warn("refresh token failed", "error", err, "ip", clientIP(r), "request_id", requestctx.RequestID(r.Context()))
 					unauthenticated()
 					return
 				}
@@ -154,7 +154,7 @@ func Auth(authService *authpkg.AuthService, log *slog.Logger, secureCookie bool)
 				// the session is missing/revoked in the database. Either a
 				// race against logout or token reuse after sign-out. Warn
 				// so it's auditable without burying it in debug noise.
-				log.Warn("session validation failed", "error", err, "session_id", sessionID, "ip", clientIP(r))
+				log.Warn("session validation failed", "error", err, "session_id", sessionID, "ip", clientIP(r), "request_id", requestctx.RequestID(r.Context()))
 				unauthenticated()
 				return
 			}

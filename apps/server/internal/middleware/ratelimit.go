@@ -7,6 +7,7 @@ import (
 	"github.com/throttled/throttled/v2"
 	"github.com/throttled/throttled/v2/store/memstore"
 
+	"github.com/kuku-mom/kuku/apps/server/internal/requestctx"
 	"github.com/kuku-mom/kuku/packages/contract/gen/go/kuku/auth/v1/authv1connect"
 )
 
@@ -87,13 +88,14 @@ func RateLimit(log *slog.Logger) func(http.Handler) http.Handler {
 			// Multiple limiters share one store so the key must include the
 			// path to keep per-endpoint quotas independent on the same IP.
 			limited, _, err := limiter.RateLimitCtx(r.Context(), r.URL.Path+"|"+ip, 1)
+			requestID := requestctx.RequestID(r.Context())
 			if err != nil {
-				log.Error("rate limit check failed", "ip", ip, "path", r.URL.Path, "error", err)
+				log.Error("rate limit check failed", "ip", ip, "path", r.URL.Path, "request_id", requestID, "error", err)
 				next.ServeHTTP(w, r)
 				return
 			}
 			if limited {
-				log.Warn("rate limit exceeded", "ip", ip, "path", r.URL.Path)
+				log.Warn("rate limit exceeded", "ip", ip, "path", r.URL.Path, "request_id", requestID)
 				w.Header().Set("Content-Type", "application/json")
 				w.Header().Set("Retry-After", "60")
 				w.WriteHeader(http.StatusTooManyRequests)

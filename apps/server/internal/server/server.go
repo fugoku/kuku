@@ -86,6 +86,10 @@ func (s *Server) Run(ctx context.Context) error {
 	// instead of the raw RemoteAddr / first-XFF spoof target.
 	root = middleware.ClientIP(s.cfg.TrustedProxies)(root)
 	root = middleware.Recover(s.log)(root)
+	// RequestID sits at the outermost edge so every downstream log line —
+	// including Recover's panic record — can tag the same correlation ID.
+	// Honors a client/LB-supplied `X-Request-ID` header when present.
+	root = middleware.RequestID()(root)
 
 	s.httpServer = &http.Server{
 		Addr:              ":" + s.cfg.Port,
