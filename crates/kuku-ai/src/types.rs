@@ -64,12 +64,17 @@ impl Default for AiConfig {
 }
 
 fn default_server_url() -> String {
-    option_env!("VITE_KUKU_AI_SERVER_URL")
-        .or(option_env!("KUKU_AI_SERVER_URL"))
+    // Rust-side compile-time env. Mirrors the desktop crate's
+    // `config::api_url()` so the auth client and the AI client agree on
+    // which backend to hit. The Vite-prefixed variant used to live here
+    // as a fallback, but that's a TS-build-system namespace leaking
+    // into Rust — stick to `KUKU_API_URL` and leave Vite consumers to
+    // set their own `VITE_KUKU_API_URL`.
+    option_env!("KUKU_API_URL")
         .unwrap_or(if cfg!(debug_assertions) {
             "http://localhost:8080"
         } else {
-            "https://www.kuku.mom"
+            "https://api.kuku.mom"
         })
         .to_string()
 }

@@ -1,7 +1,8 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  readonly VITE_KUKU_AI_SERVER_URL?: string;
+  readonly VITE_KUKU_API_URL?: string;
+  readonly VITE_KUKU_WEB_URL?: string;
 }
 
 interface ImportMeta {

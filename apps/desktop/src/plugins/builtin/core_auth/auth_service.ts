@@ -24,7 +24,15 @@ const [authAuthorizations, setAuthAuthorizations] = createStore<AuthPluginAuthor
 let authServiceRef: AuthService | null = null;
 
 function accountDashboardUrl(): string {
-  return `${import.meta.env.PROD ? "https://www.kuku.mom" : "http://localhost:4321"}/dashboard`;
+  // Env override first so local docker stacks (served at :8081 by default)
+  // or one-off astro dev runs (4321) can both hit the right base without
+  // patching the binary. Falls back to prod for release builds,
+  // docker-compose defaults otherwise — same pattern as
+  // ai_chat/config.ts::DEFAULT_SERVER_URL.
+  const base =
+    import.meta.env.VITE_KUKU_WEB_URL?.trim() ||
+    (import.meta.env.PROD ? "https://www.kuku.mom" : "http://localhost:8081");
+  return `${base}/dashboard`;
 }
 
 function getErrorMessage(error: unknown): string {
