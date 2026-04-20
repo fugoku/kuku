@@ -1,4 +1,5 @@
 import { type UnlistenFn, listen } from "@tauri-apps/api/event";
+import { batch } from "solid-js";
 import { createStore, produce } from "solid-js/store";
 
 import {
@@ -423,15 +424,17 @@ function startRename(path: string, surface: RenameSurface = "browser"): void {
 
   const { editableName, preservedExtension } = splitNameForEditing(entry.name, entry.is_directory);
 
-  setSelectedPath(entry.path);
-  setVaultState("editState", {
-    kind: "rename",
-    surface,
-    targetPath: entry.path,
-    parentPath: getParentPath(entry.path),
-    isDir: entry.is_directory,
-    name: editableName,
-    preservedExtension,
+  batch(() => {
+    setSelectedPath(entry.path);
+    setVaultState("editState", {
+      kind: "rename",
+      surface,
+      targetPath: entry.path,
+      parentPath: getParentPath(entry.path),
+      isDir: entry.is_directory,
+      name: editableName,
+      preservedExtension,
+    });
   });
 }
 
@@ -499,8 +502,10 @@ async function confirmEdit(): Promise<void> {
     }
 
     await vaultRename(edit.targetPath, destinationPath);
-    renameTabsForMovedPath(edit.targetPath, destinationPath, edit.isDir);
-    applyMovedPathToVaultUiState(edit.targetPath, destinationPath, edit.isDir);
+    batch(() => {
+      renameTabsForMovedPath(edit.targetPath, destinationPath, edit.isDir);
+      applyMovedPathToVaultUiState(edit.targetPath, destinationPath, edit.isDir);
+    });
     await loadFiles(root);
   } catch {
     // Intentionally silent: current UX exits edit mode without a dedicated error surface.
@@ -520,13 +525,15 @@ async function deleteEntry(path: string): Promise<void> {
 
   try {
     await vaultDelete(path, settingsState.files.deletedFiles as DeleteMode);
-    closeTabsForDeletedPath(path, entry.is_directory);
-    if (
-      vaultState.editState &&
-      isSameOrDescendantPath(vaultState.editState.targetPath, path, entry.is_directory)
-    ) {
-      cancelEdit();
-    }
+    batch(() => {
+      closeTabsForDeletedPath(path, entry.is_directory);
+      if (
+        vaultState.editState &&
+        isSameOrDescendantPath(vaultState.editState.targetPath, path, entry.is_directory)
+      ) {
+        cancelEdit();
+      }
+    });
     await loadFiles(root);
   } catch {
     // Intentionally silent: current delete UX has no dedicated error surface.
@@ -574,12 +581,14 @@ async function moveEntryToFolder(path: string, destinationFolderPath: string): P
 
   try {
     await vaultRename(move.entry.path, move.destinationPath);
-    renameTabsForMovedPath(move.entry.path, move.destinationPath, move.entry.is_directory);
-    setSelectedPath(move.entry.path);
-    applyMovedPathToVaultUiState(move.entry.path, move.destinationPath, move.entry.is_directory);
-    if (move.nextParentPath) {
-      expandFolder(move.nextParentPath);
-    }
+    batch(() => {
+      renameTabsForMovedPath(move.entry.path, move.destinationPath, move.entry.is_directory);
+      setSelectedPath(move.entry.path);
+      applyMovedPathToVaultUiState(move.entry.path, move.destinationPath, move.entry.is_directory);
+      if (move.nextParentPath) {
+        expandFolder(move.nextParentPath);
+      }
+    });
     await loadFiles(root);
     return true;
   } catch {

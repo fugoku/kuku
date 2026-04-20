@@ -1,5 +1,6 @@
 import { debounce } from "@solid-primitives/scheduled";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { batch } from "solid-js";
 import { createStore } from "solid-js/store";
 
 // ── Constants ──
@@ -214,6 +215,10 @@ function toggleBottomPanel(): void {
 
 // ── Panel resizers ──
 
+// Resize handlers fire on every mousemove during drag. Wrapping the paired
+// panel writes (e.g. adjusting one panel + shrinking its neighbor) in `batch`
+// keeps Solid from running two reactive passes per frame, which shows up as
+// jitter on the split layout.
 function setLeftPanelWidth(width: number): void {
   // Snap-to-close: dragging below half of minimum closes the panel
   if (width < Math.floor(PANEL_MIN.left / 2)) {
@@ -225,25 +230,27 @@ function setLeftPanelWidth(width: number): void {
   const total = window.innerWidth - horizontalChrome();
   const minCenter = centerMinWidth();
 
-  // If expanding left would crush right below its snap threshold, close right
-  if (layoutState.rightPanelOpen) {
-    const rightWouldBe = total - width - minCenter;
-    if (rightWouldBe < Math.floor(PANEL_MIN.right / 2)) {
-      setLayoutState("rightPanelOpen", false);
+  batch(() => {
+    // If expanding left would crush right below its snap threshold, close right
+    if (layoutState.rightPanelOpen) {
+      const rightWouldBe = total - width - minCenter;
+      if (rightWouldBe < Math.floor(PANEL_MIN.right / 2)) {
+        setLayoutState("rightPanelOpen", false);
+      }
     }
-  }
 
-  const rightMin = layoutState.rightPanelOpen ? PANEL_MIN.right : 0;
-  const newLeft = clamp(width, PANEL_MIN.left, total - minCenter - rightMin);
-  setLayoutState("leftPanelWidth", newLeft);
+    const rightMin = layoutState.rightPanelOpen ? PANEL_MIN.right : 0;
+    const newLeft = clamp(width, PANEL_MIN.left, total - minCenter - rightMin);
+    setLayoutState("leftPanelWidth", newLeft);
 
-  // Shrink right panel if it no longer fits
-  if (layoutState.rightPanelOpen) {
-    const availForRight = total - newLeft - minCenter;
-    if (availForRight < layoutState.rightPanelWidth) {
-      setLayoutState("rightPanelWidth", Math.max(availForRight, PANEL_MIN.right));
+    // Shrink right panel if it no longer fits
+    if (layoutState.rightPanelOpen) {
+      const availForRight = total - newLeft - minCenter;
+      if (availForRight < layoutState.rightPanelWidth) {
+        setLayoutState("rightPanelWidth", Math.max(availForRight, PANEL_MIN.right));
+      }
     }
-  }
+  });
   scheduleSave();
 }
 
@@ -258,25 +265,27 @@ function setRightPanelWidth(width: number): void {
   const total = window.innerWidth - horizontalChrome();
   const minCenter = centerMinWidth();
 
-  // If expanding right would crush left below its snap threshold, close left
-  if (layoutState.leftPanelOpen) {
-    const leftWouldBe = total - width - minCenter;
-    if (leftWouldBe < Math.floor(PANEL_MIN.left / 2)) {
-      setLayoutState("leftPanelOpen", false);
+  batch(() => {
+    // If expanding right would crush left below its snap threshold, close left
+    if (layoutState.leftPanelOpen) {
+      const leftWouldBe = total - width - minCenter;
+      if (leftWouldBe < Math.floor(PANEL_MIN.left / 2)) {
+        setLayoutState("leftPanelOpen", false);
+      }
     }
-  }
 
-  const leftMin = layoutState.leftPanelOpen ? PANEL_MIN.left : 0;
-  const newRight = clamp(width, PANEL_MIN.right, total - minCenter - leftMin);
-  setLayoutState("rightPanelWidth", newRight);
+    const leftMin = layoutState.leftPanelOpen ? PANEL_MIN.left : 0;
+    const newRight = clamp(width, PANEL_MIN.right, total - minCenter - leftMin);
+    setLayoutState("rightPanelWidth", newRight);
 
-  // Shrink left panel if it no longer fits
-  if (layoutState.leftPanelOpen) {
-    const availForLeft = total - newRight - minCenter;
-    if (availForLeft < layoutState.leftPanelWidth) {
-      setLayoutState("leftPanelWidth", Math.max(availForLeft, PANEL_MIN.left));
+    // Shrink left panel if it no longer fits
+    if (layoutState.leftPanelOpen) {
+      const availForLeft = total - newRight - minCenter;
+      if (availForLeft < layoutState.leftPanelWidth) {
+        setLayoutState("leftPanelWidth", Math.max(availForLeft, PANEL_MIN.left));
+      }
     }
-  }
+  });
   scheduleSave();
 }
 
@@ -302,49 +311,51 @@ function handleWindowResize(): void {
   const newWidth = window.innerWidth;
   const newHeight = window.innerHeight;
 
-  // Only scale proportionally when shrinking — growing gives extra space to center
-  if (prevWindowWidth > 0 && newWidth < prevWindowWidth) {
-    const ratio = newWidth / prevWindowWidth;
+  batch(() => {
+    // Only scale proportionally when shrinking — growing gives extra space to center
+    if (prevWindowWidth > 0 && newWidth < prevWindowWidth) {
+      const ratio = newWidth / prevWindowWidth;
 
-    if (layoutState.leftPanelOpen) {
-      const scaled = Math.round(layoutState.leftPanelWidth * ratio);
-      setLayoutState("leftPanelWidth", Math.max(scaled, PANEL_MIN.left));
-    }
-    if (layoutState.rightPanelOpen) {
-      const scaled = Math.round(layoutState.rightPanelWidth * ratio);
-      setLayoutState("rightPanelWidth", Math.max(scaled, PANEL_MIN.right));
-    }
+      if (layoutState.leftPanelOpen) {
+        const scaled = Math.round(layoutState.leftPanelWidth * ratio);
+        setLayoutState("leftPanelWidth", Math.max(scaled, PANEL_MIN.left));
+      }
+      if (layoutState.rightPanelOpen) {
+        const scaled = Math.round(layoutState.rightPanelWidth * ratio);
+        setLayoutState("rightPanelWidth", Math.max(scaled, PANEL_MIN.right));
+      }
 
-    // After scaling, ensure panels still fit
-    if (layoutState.leftPanelOpen && layoutState.rightPanelOpen) {
-      const chrome = horizontalChrome();
-      const minCenter = centerMinWidth();
-      const maxForPanels = newWidth - minCenter - chrome;
-      const totalPanels = layoutState.leftPanelWidth + layoutState.rightPanelWidth;
+      // After scaling, ensure panels still fit
+      if (layoutState.leftPanelOpen && layoutState.rightPanelOpen) {
+        const chrome = horizontalChrome();
+        const minCenter = centerMinWidth();
+        const maxForPanels = newWidth - minCenter - chrome;
+        const totalPanels = layoutState.leftPanelWidth + layoutState.rightPanelWidth;
 
-      if (totalPanels > maxForPanels) {
-        const leftRatio = layoutState.leftPanelWidth / totalPanels;
-        setLayoutState(
-          "leftPanelWidth",
-          Math.max(Math.round(maxForPanels * leftRatio), PANEL_MIN.left),
-        );
-        setLayoutState(
-          "rightPanelWidth",
-          Math.max(maxForPanels - layoutState.leftPanelWidth, PANEL_MIN.right),
-        );
+        if (totalPanels > maxForPanels) {
+          const leftRatio = layoutState.leftPanelWidth / totalPanels;
+          setLayoutState(
+            "leftPanelWidth",
+            Math.max(Math.round(maxForPanels * leftRatio), PANEL_MIN.left),
+          );
+          setLayoutState(
+            "rightPanelWidth",
+            Math.max(maxForPanels - layoutState.leftPanelWidth, PANEL_MIN.right),
+          );
+        }
       }
     }
-  }
 
-  if (prevWindowHeight > 0 && newHeight < prevWindowHeight && layoutState.bottomPanelOpen) {
-    const ratio = newHeight / prevWindowHeight;
-    const scaled = Math.round(layoutState.bottomPanelHeight * ratio);
-    const available = newHeight - CHROME_HEIGHT;
-    setLayoutState(
-      "bottomPanelHeight",
-      clamp(scaled, PANEL_MIN.bottom, available - centerMinHeight()),
-    );
-  }
+    if (prevWindowHeight > 0 && newHeight < prevWindowHeight && layoutState.bottomPanelOpen) {
+      const ratio = newHeight / prevWindowHeight;
+      const scaled = Math.round(layoutState.bottomPanelHeight * ratio);
+      const available = newHeight - CHROME_HEIGHT;
+      setLayoutState(
+        "bottomPanelHeight",
+        clamp(scaled, PANEL_MIN.bottom, available - centerMinHeight()),
+      );
+    }
+  });
 
   prevWindowWidth = newWidth;
   prevWindowHeight = newHeight;

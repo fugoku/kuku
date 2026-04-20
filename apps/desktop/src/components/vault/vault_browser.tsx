@@ -483,10 +483,16 @@ export default function VaultBrowser() {
 
   const clearDragState = () => {
     pendingDragStart = null;
-    setDraggingPath(null);
-    setDropIndicatorPath(null);
-    setVaultDragChatDropActive(false);
-    clearVaultDrag();
+    // Fold the three reactive writes + global drag-store clear into a single
+    // reactive pass. Without batching, the vault tree re-evaluates drag
+    // highlights three times on every drag end (mouseup/blur) — visible as
+    // a flicker on WebKit with large trees.
+    batch(() => {
+      setDraggingPath(null);
+      setDropIndicatorPath(null);
+      setVaultDragChatDropActive(false);
+      clearVaultDrag();
+    });
   };
 
   const getVaultDropIndicatorAtPoint = (

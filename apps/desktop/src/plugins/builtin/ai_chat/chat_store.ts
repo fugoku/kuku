@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { batch } from "solid-js";
 import { createStore } from "solid-js/store";
 
 import { openApprovalDiff } from "./approval_diff";
@@ -214,9 +215,11 @@ function upsertAssistantPlaceholder(sessionId: string): string | null {
     content: "",
     streaming: true,
   };
-  setChatState("sessions", sessionId, "messages", (prev) => [...prev, assistantMessage]);
-  setChatState("sessions", sessionId, "inflightAssistantId", id);
-  setSessionStatus(sessionId, "streaming");
+  batch(() => {
+    setChatState("sessions", sessionId, "messages", (prev) => [...prev, assistantMessage]);
+    setChatState("sessions", sessionId, "inflightAssistantId", id);
+    setSessionStatus(sessionId, "streaming");
+  });
   return id;
 }
 
@@ -233,50 +236,59 @@ function closeAssistantSegment(sessionId: string): void {
     return;
   }
 
-  const current = session.messages[index];
-  if (current.kind === "text") {
-    setChatState("sessions", sessionId, "messages", index, {
-      ...current,
-      streaming: false,
-    });
-  }
-  setChatState("sessions", sessionId, "inflightAssistantId", null);
+  batch(() => {
+    const current = session.messages[index];
+    if (current.kind === "text") {
+      setChatState("sessions", sessionId, "messages", index, {
+        ...current,
+        streaming: false,
+      });
+    }
+    setChatState("sessions", sessionId, "inflightAssistantId", null);
+  });
 }
 
 function appendDelta(sessionId: string, delta: string): void {
   const session = chatState.sessions[sessionId];
   if (!session) return;
 
-  const id = upsertAssistantPlaceholder(sessionId);
-  if (!id) return;
+  // Streaming hot path — each token fires `appendDelta`. Without `batch`
+  // the message-append and status-flip run as separate reactive passes
+  // on WebKit, which shows up as jittery incremental rendering.
+  batch(() => {
+    const id = upsertAssistantPlaceholder(sessionId);
+    if (!id) return;
 
-  const index = session.messages.findIndex((message) => message.id === id);
-  if (index === -1) return;
+    const index = session.messages.findIndex((message) => message.id === id);
+    if (index === -1) return;
 
-  const current = session.messages[index];
-  if (current.kind !== "text") return;
+    const current = session.messages[index];
+    if (current.kind !== "text") return;
 
-  setChatState("sessions", sessionId, "messages", index, {
-    ...current,
-    content: `${current.content}${delta}`,
-    streaming: true,
+    setChatState("sessions", sessionId, "messages", index, {
+      ...current,
+      content: `${current.content}${delta}`,
+      streaming: true,
+    });
+    setSessionStatus(sessionId, "streaming");
   });
-  setSessionStatus(sessionId, "streaming");
 }
 
 function finishSession(sessionId: string, payload: DonePayload): void {
   const session = chatState.sessions[sessionId];
   if (!session) return;
 
-  closeAssistantSegment(sessionId);
-  setChatState("sessions", sessionId, "finishReason", payload.finishReason);
-  if (payload.finishReason === "error") {
-    setSessionStatus(sessionId, "error");
-    return;
-  }
+  batch(() => {
+    closeAssistantSegment(sessionId);
+    setChatState("sessions", sessionId, "finishReason", payload.finishReason);
+    if (payload.finishReason === "error") {
+      setSessionStatus(sessionId, "error");
+      return;
+    }
 
-  setSessionStatus(sessionId, "idle");
-  setChatState("sessions", sessionId, "error", null);
+    setSessionStatus(sessionId, "idle");
+    setChatState("sessions", sessionId, "error", null);
+  });
 }
 
 function setError(sessionId: string, payload: ErrorPayload): void {

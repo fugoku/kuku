@@ -1,4 +1,4 @@
-import { createEffect, createSignal, onCleanup, onMount, Show, untrack } from "solid-js";
+import { batch, createEffect, createSignal, onCleanup, onMount, Show, untrack } from "solid-js";
 import { union, type Editor } from "prosekit/core";
 import { TextSelection } from "prosekit/pm/state";
 import { ProseKit, useDocChange, useKeymap } from "prosekit/solid";
@@ -943,8 +943,10 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     const targetPath = isDiffMode ? getDiffSourcePath() : props.filePath;
     if (!targetPath) return;
 
-    setSelectedPath(targetPath);
-    revealPath(targetPath);
+    batch(() => {
+      setSelectedPath(targetPath);
+      revealPath(targetPath);
+    });
   });
 
   // Initial document load. Using `onMount` (not `createEffect`) ensures this
