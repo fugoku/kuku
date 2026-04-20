@@ -33,7 +33,7 @@ function FilesSection() {
         label="Default new file location"
         description="Where new files are created by default."
         control={
-          <div class="w-64">
+          <div class="w-full max-w-64">
             <SettingsSelect
               options={NEW_FILE_LOCATION_OPTIONS}
               value={settingsState.files.newFileLocation}
@@ -47,7 +47,7 @@ function FilesSection() {
         label="Deleted files"
         description="Choose whether deletes go to the system trash, Kuku's hidden .trash folder, or are removed permanently."
         control={
-          <div class="w-64">
+          <div class="w-full max-w-64">
             <SettingsSelect
               options={DELETED_FILES_OPTIONS}
               value={settingsState.files.deletedFiles}

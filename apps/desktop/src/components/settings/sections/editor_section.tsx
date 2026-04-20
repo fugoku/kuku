@@ -87,7 +87,7 @@ function EditorSection() {
         label="Tab size"
         description="Number of spaces per tab character."
         control={
-          <div class="w-40">
+          <div class="w-full max-w-40">
             <SettingsSelect
               options={TAB_SIZE_OPTIONS}
               value={String(settingsState.editor.tabSize)}
@@ -101,7 +101,7 @@ function EditorSection() {
         label="Font size"
         description="Base text size used in the editor body."
         control={
-          <div class="w-40">
+          <div class="w-full max-w-40">
             <SettingsSelect
               options={FONT_SIZE_OPTIONS}
               value={String(settingsState.editor.fontSize)}
@@ -115,7 +115,7 @@ function EditorSection() {
         label="Line height"
         description="Line spacing for editor paragraphs and text."
         control={
-          <div class="w-40">
+          <div class="w-full max-w-40">
             <SettingsSelect
               options={LINE_HEIGHT_OPTIONS}
               value={String(settingsState.editor.lineHeight)}
@@ -129,7 +129,7 @@ function EditorSection() {
         label="Editor font"
         description="Font used in the editor. Enter a CSS font-family name."
         control={
-          <div class="w-70">
+          <div class="w-full max-w-70">
             <FontInput
               value={settingsState.editor.fontFamily}
               placeholder="e.g. Goorm Sans"
@@ -142,7 +142,7 @@ function EditorSection() {
         label="Monospace font"
         description="Monospace font used in the editor. Enter a CSS font-family name."
         control={
-          <div class="w-70">
+          <div class="w-full max-w-70">
             <FontInput
               value={settingsState.editor.fontMono}
               placeholder="e.g. Goorm Sans Code"

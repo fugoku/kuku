@@ -217,7 +217,7 @@ function IndexerSettings(): JSX.Element {
             label="Index storage location"
             description="Choose whether the SQLite index lives in app data or inside the current vault. Changing this switches to a different DB and queues a rebuild."
             control={
-              <div class="w-64">
+              <div class="w-full max-w-64">
                 <SettingsSelect
                   options={STORAGE_LOCATION_OPTIONS}
                   value={indexerConfig.storageLocation}

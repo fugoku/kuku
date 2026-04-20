@@ -210,7 +210,7 @@ function SettingsPanel(props: SettingsPanelProps): JSX.Element {
         </Show>
       </div>
 
-      <div class={mergeClass("space-y-3 p-4", props.bodyClass)}>{props.children}</div>
+      <div class={mergeClass("@container space-y-3 p-4", props.bodyClass)}>{props.children}</div>
     </section>
   );
 }
@@ -301,11 +301,13 @@ function SettingsFieldRow(props: SettingsFieldRowProps): JSX.Element {
     <div
       class={mergeClass(
         "rounded-xs border border-border/60 bg-bg-primary/60 px-3 py-2",
-        props.stacked ? "space-y-2" : "flex items-start justify-between gap-4",
+        props.stacked
+          ? "space-y-2"
+          : "flex flex-col gap-2 @sm:flex-row @sm:items-start @sm:justify-between @sm:gap-4",
         props.class,
       )}
     >
-      <div class={props.stacked ? undefined : "min-w-0 flex-1"}>
+      <div class={props.stacked ? undefined : "@sm:min-w-0 @sm:flex-1"}>
         <div class={mergeClass("text-[0.75rem] font-medium text-text-primary", props.labelClass)}>
           {props.label}
         </div>
@@ -322,7 +324,7 @@ function SettingsFieldRow(props: SettingsFieldRowProps): JSX.Element {
           )}
         </Show>
       </div>
-      <div class={mergeClass(props.stacked ? undefined : "shrink-0", props.controlClass)}>
+      <div class={mergeClass(props.stacked ? undefined : "@sm:min-w-0", props.controlClass)}>
         {props.control}
       </div>
     </div>

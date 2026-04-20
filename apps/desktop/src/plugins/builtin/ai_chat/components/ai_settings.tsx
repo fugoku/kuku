@@ -65,7 +65,7 @@ function AiSettings(): JSX.Element {
         label="Provider"
         description="Choose whether requests use a local Gemini key or the Kuku remote server."
         control={
-          <div class="w-56">
+          <div class="w-full max-w-56">
             <SettingsSelect
               options={[
                 { value: "gemini", label: "Gemini BYOK" },
@@ -83,7 +83,7 @@ function AiSettings(): JSX.Element {
           label="Server URL"
           description="Base URL used for the Kuku remote AI provider."
           control={
-            <div class="w-80">
+            <div class="w-full max-w-80">
               <SettingsInput
                 type="url"
                 value={serverUrl()}
@@ -101,7 +101,7 @@ function AiSettings(): JSX.Element {
           label="API Key"
           description="Gemini AI Studio API key used for BYOK mode."
           control={
-            <div data-settings-anchor="api-key" class="relative w-full max-w-96">
+            <div data-settings-anchor="api-key" class="relative w-full">
               <SettingsInput
                 type={showApiKey() ? "text" : "password"}
                 value={apiKey()}
@@ -131,7 +131,7 @@ function AiSettings(): JSX.Element {
         label="Model"
         description="Model identifier used for AI requests."
         control={
-          <div class="w-80">
+          <div class="w-full max-w-80">
             <SettingsInput
               type="text"
               value={model()}

@@ -23,7 +23,7 @@ function AppearanceSection() {
         label="Theme"
         description="Choose between system, dark, and light appearance."
         control={
-          <div class="w-56">
+          <div class="w-full max-w-56">
             <SettingsSelect
               options={THEME_OPTIONS}
               value={settingsState.appearance.theme}
@@ -39,7 +39,7 @@ function AppearanceSection() {
         label="UI font"
         description="Font used for the interface. Enter a CSS font-family name."
         control={
-          <div class="w-70">
+          <div class="w-full max-w-70">
             <FontInput
               value={settingsState.appearance.fontFamily}
               placeholder="e.g. Goorm Sans"
