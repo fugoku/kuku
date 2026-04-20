@@ -226,8 +226,12 @@ pub fn read_directory_recursive<'a>(
             }
         }
 
-        folders.sort_by(|a, b| human_sort::compare(&a.name, &b.name));
-        files.sort_by(|a, b| human_sort::compare(&a.name, &b.name));
+        // Byte-order sort is cheap and panic-free. The frontend re-sorts
+        // naturally via `Intl.Collator` for display — doing a full natural
+        // sort here would be redundant, and `human-sort` overflows on long
+        // numeric runs (e.g. `1231232131221312312.md`).
+        folders.sort_by(|a, b| a.name.cmp(&b.name));
+        files.sort_by(|a, b| a.name.cmp(&b.name));
 
         folders.extend(files);
         Ok(folders)

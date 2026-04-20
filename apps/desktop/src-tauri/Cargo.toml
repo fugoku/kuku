@@ -35,7 +35,6 @@ tokio = { version = "1", features = ["fs", "rt", "time"] }
 blake3 = "1"
 notify = "8.0"
 parking_lot = "0.12"
-human-sort = "0.2.2"
 kuku-indexer = { path = "../../../crates/kuku-indexer" }
 regex = "1"
 async-trait = "0.1"
