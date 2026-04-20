@@ -267,7 +267,7 @@ fn write_http_response(stream: &mut TcpStream, status: &str, body: &str) -> Resu
 }
 
 async fn request_desktop_auth_url() -> Result<String, String> {
-    let response = contract_client::auth_service_client()
+    let response = contract_client::auth_service_client()?
         .desktop_auth_url(DesktopAuthURLRequest::default())
         .await
         .map_err(|error| format!("failed to request desktop auth URL: {error}"))?
@@ -283,7 +283,7 @@ async fn exchange_desktop_token(token: &str, state: &str) -> Result<auth::Stored
         state: Some(state.to_string()),
         ..Default::default()
     };
-    let response = contract_client::auth_service_client()
+    let response = contract_client::auth_service_client()?
         .exchange_desktop_token(request)
         .await
         .map_err(|error| format!("failed to exchange desktop token: {error}"))?
@@ -302,7 +302,7 @@ async fn fetch_and_cache_profile() -> Result<(), String> {
     }
     let options = CallOptions::default()
         .with_header("authorization", format!("Bearer {}", tokens.access_token));
-    let response = contract_client::auth_service_client()
+    let response = contract_client::auth_service_client()?
         .profile_with_options(ProfileRequest::default(), options)
         .await
         .map_err(|error| format!("failed to request profile: {error}"))?
@@ -326,7 +326,7 @@ async fn refresh_desktop_token(refresh_token: &str) -> Result<auth::StoredTokens
         refresh_token: Some(refresh_token.to_string()),
         ..Default::default()
     };
-    let response = contract_client::auth_service_client()
+    let response = contract_client::auth_service_client()?
         .refresh_desktop_token(request)
         .await
         .map_err(|error| format!("failed to refresh desktop token: {error}"))?

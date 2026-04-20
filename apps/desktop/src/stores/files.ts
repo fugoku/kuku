@@ -363,9 +363,56 @@ function renameTabsForMovedPath(from: string, to: string, isDir: boolean): void 
 
 function closeTabsForDeletedPath(path: string, isDir: boolean): void {
   const tabIds = getTabIdsForDeletedPath(filesState.tabs, path, isDir);
-  for (const tabId of tabIds) {
-    closeTab(tabId);
+  if (tabIds.length === 0) return;
+
+  // Bulk removal: one `produce` + one `saveTabsSync`. The naive `tabIds.map(closeTab)`
+  // loop triggers N reactive flushes and N localStorage writes for an N-tab
+  // deletion (e.g. dropping a folder that holds many open files).
+  const removedSet = new Set(tabIds);
+  const currentTabs = filesState.tabs;
+  const closedTabs = currentTabs.filter((tab) => removedSet.has(tab.id));
+  const nextTabs = currentTabs.filter((tab) => !removedSet.has(tab.id));
+
+  // Pick a surviving tab to activate if the current active is being closed.
+  // Prefer the next tab after the active, fall back to the one before, then null.
+  let nextActiveId = filesState.activeTabId;
+  if (nextActiveId && removedSet.has(nextActiveId)) {
+    const activeIndex = currentTabs.findIndex((tab) => tab.id === nextActiveId);
+    nextActiveId = null;
+    for (let i = activeIndex + 1; i < currentTabs.length; i += 1) {
+      if (!removedSet.has(currentTabs[i].id)) {
+        nextActiveId = currentTabs[i].id;
+        break;
+      }
+    }
+    if (!nextActiveId) {
+      for (let i = activeIndex - 1; i >= 0; i -= 1) {
+        if (!removedSet.has(currentTabs[i].id)) {
+          nextActiveId = currentTabs[i].id;
+          break;
+        }
+      }
+    }
   }
+
+  setFilesState(
+    produce((s) => {
+      s.tabs = nextTabs;
+      s.activeTabId = nextActiveId;
+      for (const id of removedSet) {
+        delete s.cachedContent[id];
+        delete s.cachedChecksums[id];
+        delete s.viewportState[id];
+      }
+    }),
+  );
+
+  for (const tab of closedTabs) {
+    if (tab.type === "diff" && tab.filePath && isDiffTabPath(tab.filePath)) {
+      removeDiffEntry(tab.filePath);
+    }
+  }
+  saveTabsSync();
 }
 
 function setActiveTab(tabId: string): void {

@@ -17,25 +17,27 @@ use crate::config;
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
-static AUTH_CLIENT: OnceLock<AuthServiceClient<HttpClient>> = OnceLock::new();
+// The client is initialized lazily on first call. A malformed `KUKU_API_URL`
+// used to panic the entire app here; surfacing the parse error through
+// `Result` lets the caller turn it into a regular command failure that
+// propagates to the UI instead of crashing the process.
+static AUTH_CLIENT: OnceLock<Result<AuthServiceClient<HttpClient>, String>> = OnceLock::new();
 
-pub fn auth_service_client() -> &'static AuthServiceClient<HttpClient> {
-    AUTH_CLIENT.get_or_init(|| {
-        let uri = parse_api_uri();
+pub fn auth_service_client() -> Result<&'static AuthServiceClient<HttpClient>, String> {
+    let cached = AUTH_CLIENT.get_or_init(|| {
+        let raw = config::api_url();
+        let uri: Uri = raw
+            .parse()
+            .map_err(|error| format!("Invalid KUKU_API_URL '{raw}': {error}"))?;
         let transport = build_transport(&uri);
         // Connect protocol + JSON codec — server accepts both, JSON keeps
         // wire-level debugging trivial (curl, server logs read as text).
         let config = ClientConfig::new(uri)
             .json()
             .default_timeout(REQUEST_TIMEOUT);
-        AuthServiceClient::new(transport, config)
-    })
-}
-
-fn parse_api_uri() -> Uri {
-    config::api_url()
-        .parse()
-        .expect("config::api_url must be a valid URI")
+        Ok(AuthServiceClient::new(transport, config))
+    });
+    cached.as_ref().map_err(|error| error.clone())
 }
 
 fn build_transport(uri: &Uri) -> HttpClient {
