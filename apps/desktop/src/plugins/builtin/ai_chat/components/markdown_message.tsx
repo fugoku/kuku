@@ -288,8 +288,11 @@ const MARKDOWN_STYLES = [
   "[&_h1]:text-lg [&_h1]:font-semibold [&_h2]:text-base [&_h2]:font-semibold [&_h3]:font-semibold",
   // Horizontal rule
   "[&_hr]:border-border",
-  // Lists
-  "[&_li]:ml-5 [&_ol]:list-decimal [&_ul]:list-disc",
+  // Lists — padding on the parent reserves space for `list-style-position:
+  // outside` markers. `ml` on the child doesn't, so wide markers (e.g. "10.",
+  // "100.") overflow left past the list. Task list items opt out via their
+  // own `margin-left: 0` inline style.
+  "[&_ol]:list-decimal [&_ol]:pl-8 [&_ul]:list-disc [&_ul]:pl-6",
   // Paragraphs
   "[&_p]:whitespace-pre-wrap",
   // Tables

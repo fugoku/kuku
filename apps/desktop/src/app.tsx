@@ -53,7 +53,15 @@ export default function App() {
     );
     document.documentElement.style.setProperty("--editor-font-size", `${fontSize / 16}rem`);
     document.documentElement.style.setProperty("--editor-tab-size", String(tabSize));
-    document.documentElement.style.setProperty("--editor-list-indent", `${tabSize * 0.5}em`);
+    // Indent scales with tab size, but clamps to a minimum wide enough for
+    // three-digit ordered counters (`100. `). Smaller values let wide counters
+    // overflow past the list's left edge because prosekit positions the
+    // counter via `inset-inline-end: calc(100% - indent)` — counter text
+    // wider than the indent gets pushed outside the <li>.
+    document.documentElement.style.setProperty(
+      "--editor-list-indent",
+      `max(${tabSize * 0.5}em, 2.5em)`,
+    );
     document.documentElement.style.setProperty("--editor-line-height", String(lineHeight));
     document.documentElement.style.setProperty("--editor-overflow-wrap", "break-word");
     document.documentElement.style.setProperty("--editor-white-space", "break-spaces");
