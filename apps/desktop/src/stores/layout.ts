@@ -4,8 +4,8 @@ import { createStore } from "solid-js/store";
 
 // ── Constants ──
 
-const PANEL_MIN = { left: 170, right: 170, bottom: 77 } as const;
-const CENTER_MIN_RATIO = { width: 0.3, height: 0.6 } as const;
+const PANEL_MIN = { left: 200, right: 250, bottom: 80 } as const;
+const CENTER_MIN_RATIO = { width: 0.45, height: 0.6 } as const;
 const CHROME_HEIGHT = 34; // title bar height
 
 /** Center panel must always occupy at least 30% of viewport width. */
