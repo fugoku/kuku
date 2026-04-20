@@ -773,7 +773,11 @@ async fn execute_native_tool(
         }
     };
 
-    if descriptor.access == ToolAccess::ReadOnly || native_result.mutation.is_none() {
+    let Some(mutation) = native_result
+        .mutation
+        .clone()
+        .filter(|_| descriptor.access != ToolAccess::ReadOnly)
+    else {
         debug_ai_log(format!(
             "native tool read-only session={} tool={} output_len={}",
             session.id,
@@ -781,9 +785,7 @@ async fn execute_native_tool(
             native_result.text.len()
         ));
         return Ok((native_result.text, false));
-    }
-
-    let mutation = native_result.mutation.clone().unwrap();
+    };
     let mutation_operations = mutation.operations.clone();
     let approval_rx = session.begin_awaiting_approval(tool_call.call_id.clone())?;
     emit_pending_approval(

@@ -39,6 +39,13 @@ pub fn build_snippet(raw_text: &str, query: &str) -> String {
     snippet
 }
 
+fn snap_to_char_boundary(text: &str, mut byte: usize) -> usize {
+    while byte > 0 && !text.is_char_boundary(byte) {
+        byte -= 1;
+    }
+    byte
+}
+
 pub fn build_snippet_for_range(raw_text: &str, start_byte: usize, end_byte: usize) -> String {
     let trimmed = raw_text.trim();
     if trimmed.is_empty() {
@@ -46,8 +53,11 @@ pub fn build_snippet_for_range(raw_text: &str, start_byte: usize, end_byte: usiz
     }
 
     let raw_chars: Vec<char> = trimmed.chars().collect();
-    let clamped_start = usize::min(start_byte, trimmed.len());
-    let clamped_end = usize::min(usize::max(end_byte, clamped_start), trimmed.len());
+    let clamped_start = snap_to_char_boundary(trimmed, usize::min(start_byte, trimmed.len()));
+    let clamped_end = snap_to_char_boundary(
+        trimmed,
+        usize::min(usize::max(end_byte, clamped_start), trimmed.len()),
+    );
     let start = trimmed[..clamped_start].chars().count();
     let end = trimmed[..clamped_end].chars().count();
     let snippet_start = start.saturating_sub(SNIPPET_RADIUS);
@@ -83,5 +93,12 @@ mod tests {
         let snippet = build_snippet_for_range(raw, start, end);
         assert!(snippet.contains("beta"));
         assert!(snippet.contains("alpha"));
+    }
+
+    #[test]
+    fn range_snippet_handles_non_boundary_bytes() {
+        let raw = "한글abc한글";
+        let snippet = build_snippet_for_range(raw, 1, 5);
+        assert!(!snippet.is_empty());
     }
 }
