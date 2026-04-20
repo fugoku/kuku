@@ -183,17 +183,25 @@ fn collect_directory_entries<'a>(
             .map_err(|e| format!("Failed to read directory {}: {e}", dir.display()))?
         {
             let path = entry.path();
-            let metadata = entry
-                .metadata()
+            let file_type = entry
+                .file_type()
                 .await
                 .map_err(|e| format!("Failed to stat {}: {e}", path.display()))?;
+            // Skip symlinks: `tokio::fs::read` would follow them out of the
+            // vault and contaminate the directory checksum with external
+            // file content. The strict vault resolver blocks IPC access to
+            // symlinks; ignoring them here keeps the checksum coherent with
+            // that view.
+            if file_type.is_symlink() {
+                continue;
+            }
             let relative_path = path
                 .strip_prefix(root)
                 .map_err(|e| format!("Failed to strip prefix {}: {e}", path.display()))?
                 .to_string_lossy()
                 .replace('\\', "/");
 
-            if metadata.is_dir() {
+            if file_type.is_dir() {
                 entries.push(DirectoryEntryChecksum {
                     relative_path: relative_path.clone(),
                     kind: "dir",
@@ -263,6 +271,41 @@ mod tests {
                     .await
                     .expect("directory removed")
             );
+        });
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn compute_directory_checksum_skips_symlinks() {
+        use std::os::unix::fs::symlink;
+
+        let root = temp_path("checksum-dir-symlink");
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("build tokio runtime");
+
+        runtime.block_on(async {
+            guarded_create_dir(&root).await.expect("create directory");
+            tokio::fs::write(root.join("a.md"), "a")
+                .await
+                .expect("write a.md");
+
+            let baseline = compute_directory_checksum(&root)
+                .await
+                .expect("baseline checksum");
+
+            // Dropping a symlink into the directory must not change the
+            // checksum — it's invisible to vault readers, so it must stay
+            // invisible to the integrity signal as well.
+            symlink("/etc/passwd", root.join("leak")).expect("create symlink");
+
+            let after_symlink = compute_directory_checksum(&root)
+                .await
+                .expect("checksum after symlink");
+            assert_eq!(baseline, after_symlink);
         });
 
         let _ = std::fs::remove_dir_all(&root);

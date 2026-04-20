@@ -8,7 +8,7 @@ use crate::models::{ChecksumWriteResult, FileEntry, FileReadResult};
 use crate::search::SearchState;
 use crate::vault::checksum::compute_checksum;
 use crate::vault::{
-    DEFAULT_FILE_EXTENSIONS, get_vault_root, read_directory_recursive, resolve_vault_path,
+    DEFAULT_FILE_EXTENSIONS, get_vault_root, read_directory_recursive, resolve_vault_path_strict,
 };
 use crate::vault::{VaultState, watcher};
 
@@ -52,8 +52,9 @@ fn next_available_path(path: &Path) -> PathBuf {
     unreachable!("path suffix loop must eventually find a free candidate");
 }
 
-fn build_kuku_trash_destination(root: &Path, relative_path: &str) -> Result<PathBuf, String> {
-    let candidate = resolve_vault_path(root, &format!("{KUKU_TRASH_DIR}/{relative_path}"))?;
+async fn build_kuku_trash_destination(root: &Path, relative_path: &str) -> Result<PathBuf, String> {
+    let candidate =
+        resolve_vault_path_strict(root, &format!("{KUKU_TRASH_DIR}/{relative_path}")).await?;
     Ok(next_available_path(&candidate))
 }
 
@@ -175,7 +176,7 @@ pub async fn vault_get_current(state: State<'_, VaultState>) -> Result<Option<St
 #[command]
 pub async fn vault_read_text(state: State<'_, VaultState>, path: String) -> Result<String, String> {
     let root = get_vault_root(&state)?;
-    let resolved = resolve_vault_path(&root, &path)?;
+    let resolved = resolve_vault_path_strict(&root, &path).await?;
     tokio::fs::read_to_string(&resolved)
         .await
         .map_err(|e| e.to_string())
@@ -192,7 +193,7 @@ pub async fn vault_write_text(
     // Unlike checksum-based editor saves, this path intentionally does
     // not short-circuit unchanged content yet.
     let root = get_vault_root(&state)?;
-    let resolved = resolve_vault_path(&root, &path)?;
+    let resolved = resolve_vault_path_strict(&root, &path).await?;
     let mutation = state.expected_mutations.record_write(&path, false);
     if let Some(parent) = resolved.parent()
         && let Err(error) = tokio::fs::create_dir_all(parent).await
@@ -217,7 +218,7 @@ pub async fn vault_read_binary(
     path: String,
 ) -> Result<Vec<u8>, String> {
     let root = get_vault_root(&state)?;
-    let resolved = resolve_vault_path(&root, &path)?;
+    let resolved = resolve_vault_path_strict(&root, &path).await?;
     tokio::fs::read(&resolved).await.map_err(|e| e.to_string())
 }
 
@@ -228,7 +229,7 @@ pub async fn vault_write_binary(
     data: Vec<u8>,
 ) -> Result<(), String> {
     let root = get_vault_root(&state)?;
-    let resolved = resolve_vault_path(&root, &path)?;
+    let resolved = resolve_vault_path_strict(&root, &path).await?;
     if let Some(parent) = resolved.parent() {
         tokio::fs::create_dir_all(parent)
             .await
@@ -248,7 +249,7 @@ pub async fn vault_read_with_checksum(
     // Read-only bootstrap path for editor load. This command does not
     // trigger index reconciliation or other write-side effects.
     let root = get_vault_root(&state)?;
-    let resolved = resolve_vault_path(&root, &path)?;
+    let resolved = resolve_vault_path_strict(&root, &path).await?;
     let content = tokio::fs::read_to_string(&resolved)
         .await
         .map_err(|e| e.to_string())?;
@@ -271,7 +272,7 @@ pub async fn vault_write_with_checksum(
 ) -> Result<ChecksumWriteResult, String> {
     // Editor save path with conflict detection and unchanged-content skip.
     let root = get_vault_root(&state)?;
-    let resolved = resolve_vault_path(&root, &path)?;
+    let resolved = resolve_vault_path_strict(&root, &path).await?;
     let current_content = tokio::fs::read_to_string(&resolved)
         .await
         .map_err(|e| e.to_string())?;
@@ -304,7 +305,7 @@ pub async fn vault_write_with_checksum(
 #[command]
 pub async fn vault_exists(state: State<'_, VaultState>, path: String) -> Result<bool, String> {
     let root = get_vault_root(&state)?;
-    let resolved = resolve_vault_path(&root, &path)?;
+    let resolved = resolve_vault_path_strict(&root, &path).await?;
     tokio::fs::try_exists(&resolved)
         .await
         .map_err(|e| e.to_string())
@@ -316,14 +317,14 @@ pub async fn vault_list_dir(
     path: String,
 ) -> Result<Vec<FileEntry>, String> {
     let root = get_vault_root(&state)?;
-    let resolved = resolve_vault_path(&root, &path)?;
+    let resolved = resolve_vault_path_strict(&root, &path).await?;
     read_directory_recursive(&resolved, &root, DEFAULT_FILE_EXTENSIONS).await
 }
 
 #[command]
 pub async fn vault_mkdir(state: State<'_, VaultState>, path: String) -> Result<(), String> {
     let root = get_vault_root(&state)?;
-    let resolved = resolve_vault_path(&root, &path)?;
+    let resolved = resolve_vault_path_strict(&root, &path).await?;
     tokio::fs::create_dir_all(&resolved)
         .await
         .map_err(|e| e.to_string())
@@ -374,7 +375,7 @@ pub async fn vault_delete(
     mode: VaultDeleteMode,
 ) -> Result<(), String> {
     let root = get_vault_root(&state)?;
-    let resolved = resolve_vault_path(&root, &path)?;
+    let resolved = resolve_vault_path_strict(&root, &path).await?;
     if resolved == root {
         return Err("Cannot delete the vault root".into());
     }
@@ -403,7 +404,7 @@ pub async fn vault_delete(
                     .map_err(|e| e.to_string())?;
             }
             (VaultDeleteMode::KukuTrash, Some(_)) => {
-                let destination = build_kuku_trash_destination(&root, &path)?;
+                let destination = build_kuku_trash_destination(&root, &path).await?;
                 let parent = destination
                     .parent()
                     .ok_or_else(|| "Failed to resolve trash destination parent".to_string())?;
@@ -460,8 +461,8 @@ pub async fn vault_rename(
     to: String,
 ) -> Result<(), String> {
     let root = get_vault_root(&state)?;
-    let from_resolved = resolve_vault_path(&root, &from)?;
-    let to_resolved = resolve_vault_path(&root, &to)?;
+    let from_resolved = resolve_vault_path_strict(&root, &from).await?;
+    let to_resolved = resolve_vault_path_strict(&root, &to).await?;
     let metadata = tokio::fs::metadata(&from_resolved)
         .await
         .map_err(|e| e.to_string())?;
@@ -588,7 +589,8 @@ mod tests {
     fn test_build_kuku_trash_destination_preserves_relative_path() {
         let root = temp_vault();
 
-        let destination = build_kuku_trash_destination(&root, "notes/a.md").unwrap();
+        let destination =
+            async_runtime::block_on(build_kuku_trash_destination(&root, "notes/a.md")).unwrap();
 
         assert_eq!(destination, root.join(".trash/notes/a.md"));
     }
@@ -600,7 +602,8 @@ mod tests {
         fs::create_dir_all(existing.parent().unwrap()).unwrap();
         fs::write(&existing, "old").unwrap();
 
-        let destination = build_kuku_trash_destination(&root, "notes/a.md").unwrap();
+        let destination =
+            async_runtime::block_on(build_kuku_trash_destination(&root, "notes/a.md")).unwrap();
 
         assert_eq!(destination, root.join(".trash/notes/a 1.md"));
     }

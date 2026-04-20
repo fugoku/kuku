@@ -55,6 +55,34 @@ fn resolve_sandboxed_path_from_root(
     Ok(resolved)
 }
 
+/// Reject any symlink component between `sandbox` and `resolved`. `fs::read`
+/// and friends follow symlinks, so a crafted `sandbox/link -> /etc/passwd`
+/// entry (or intermediate `sandbox/dir -> /etc` with reads under it) would
+/// otherwise escape the sandbox despite the lexical resolver. Missing
+/// components (e.g. write target not yet created) are OK.
+fn reject_symlinks_in_sandbox(sandbox: &Path, resolved: &Path) -> Result<(), String> {
+    let relative = resolved
+        .strip_prefix(sandbox)
+        .map_err(|_| format!("Path not within plugin sandbox: {}", resolved.display()))?;
+    let mut current = sandbox.to_path_buf();
+    for component in relative.components() {
+        let Component::Normal(segment) = component else {
+            continue;
+        };
+        current.push(segment);
+        match fs::symlink_metadata(&current) {
+            Ok(metadata) if metadata.file_type().is_symlink() => {
+                return Err(format!(
+                    "Symlinks are not allowed in plugin sandbox: {}",
+                    current.display()
+                ));
+            }
+            Ok(_) | Err(_) => {}
+        }
+    }
+    Ok(())
+}
+
 fn resolve_sandboxed_path(plugin_id: &str, relative_path: &str) -> Result<PathBuf, String> {
     validate_plugin_id(plugin_id)?;
 
@@ -62,8 +90,11 @@ fn resolve_sandboxed_path(plugin_id: &str, relative_path: &str) -> Result<PathBu
     let sandbox = home.join(".kuku").join("plugins").join(plugin_id);
     let resolved = resolve_sandboxed_path_from_root(&sandbox, relative_path)?;
 
-    // Ensure sandbox directory exists
+    // Ensure sandbox directory exists before the symlink scan — otherwise a
+    // first-ever plugin write would fail the NotFound branch implicitly
+    // instead of going through the normal create path.
     fs::create_dir_all(&sandbox).map_err(|e| format!("Failed to create sandbox dir: {e}"))?;
+    reject_symlinks_in_sandbox(&sandbox, &resolved)?;
     Ok(resolved)
 }
 
@@ -235,5 +266,53 @@ mod tests {
         assert!(validate_plugin_id("../evil").is_err());
         assert!(validate_plugin_id("a/b").is_err());
         assert!(validate_plugin_id("a\\b").is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn reject_symlinks_in_sandbox_blocks_leaf_symlink() {
+        use std::os::unix::fs::symlink;
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let sandbox = std::env::temp_dir().join(format!("kuku-plugin-fs-symlink-leaf-{stamp}"));
+        std::fs::create_dir_all(&sandbox).unwrap();
+        symlink("/etc/passwd", sandbox.join("leak")).unwrap();
+
+        let resolved = resolve_sandboxed_path_from_root(&sandbox, "leak").unwrap();
+        let error = reject_symlinks_in_sandbox(&sandbox, &resolved).unwrap_err();
+        assert!(
+            error.contains("Symlinks are not allowed"),
+            "unexpected error: {error}"
+        );
+
+        let _ = std::fs::remove_dir_all(&sandbox);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn reject_symlinks_in_sandbox_blocks_intermediate_symlink() {
+        use std::os::unix::fs::symlink;
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let sandbox = std::env::temp_dir().join(format!("kuku-plugin-fs-symlink-mid-{stamp}"));
+        std::fs::create_dir_all(&sandbox).unwrap();
+        symlink("/etc", sandbox.join("dir")).unwrap();
+
+        let resolved = resolve_sandboxed_path_from_root(&sandbox, "dir/passwd").unwrap();
+        let error = reject_symlinks_in_sandbox(&sandbox, &resolved).unwrap_err();
+        assert!(
+            error.contains("Symlinks are not allowed"),
+            "unexpected error: {error}"
+        );
+
+        let _ = std::fs::remove_dir_all(&sandbox);
     }
 }

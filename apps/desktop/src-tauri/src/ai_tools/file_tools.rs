@@ -10,7 +10,7 @@ use tauri::{AppHandle, Manager};
 use crate::vault::checksum::{compute_checksum, compute_directory_checksum};
 use crate::vault::{
     DEFAULT_FILE_EXTENSIONS, VaultState, get_vault_root, read_directory_recursive,
-    resolve_vault_path,
+    resolve_vault_path_strict,
 };
 
 use super::tool_ids;
@@ -57,7 +57,9 @@ impl AiNativeTool for ReadFileTool {
             .ok_or_else(|| ToolError::InvalidArguments("No path specified".into()))?;
 
         let root = vault_root(ctx.app)?;
-        let resolved = resolve_vault_path(&root, &path).map_err(ToolError::InvalidArguments)?;
+        let resolved = resolve_vault_path_strict(&root, &path)
+            .await
+            .map_err(ToolError::InvalidArguments)?;
         let content = tokio::fs::read_to_string(&resolved)
             .await
             .map_err(|error| ToolError::ExecutionFailed(error.to_string()))?;
@@ -100,7 +102,9 @@ impl AiNativeTool for ListFilesTool {
     ) -> Result<NativeToolResult, ToolError> {
         let path = directory_arg(&args, ctx.editor_context.active_file.as_deref());
         let root = vault_root(ctx.app)?;
-        let resolved = resolve_vault_path(&root, &path).map_err(ToolError::InvalidArguments)?;
+        let resolved = resolve_vault_path_strict(&root, &path)
+            .await
+            .map_err(ToolError::InvalidArguments)?;
         let entries = read_directory_recursive(&resolved, &root, DEFAULT_FILE_EXTENSIONS)
             .await
             .map_err(ToolError::ExecutionFailed)?;
@@ -227,7 +231,9 @@ impl AiNativeTool for EditFileTool {
             .ok_or_else(|| ToolError::InvalidArguments("Missing content".into()))?;
 
         let root = vault_root(ctx.app)?;
-        let resolved = resolve_vault_path(&root, &path).map_err(ToolError::InvalidArguments)?;
+        let resolved = resolve_vault_path_strict(&root, &path)
+            .await
+            .map_err(ToolError::InvalidArguments)?;
         let expected_checksum =
             expected_file_checksum(ctx, &path, &resolved, "read_file", "edit_file").await?;
 
@@ -283,7 +289,9 @@ impl AiNativeTool for DeleteFileTool {
             .ok_or_else(|| ToolError::InvalidArguments("No path specified".into()))?;
 
         let root = vault_root(ctx.app)?;
-        let resolved = resolve_vault_path(&root, &path).map_err(ToolError::InvalidArguments)?;
+        let resolved = resolve_vault_path_strict(&root, &path)
+            .await
+            .map_err(ToolError::InvalidArguments)?;
         let (detected_kind, expected_checksum) =
             delete_target_snapshot(ctx, &path, &resolved).await?;
 
@@ -633,8 +641,12 @@ async fn build_move_plan(
     args: &serde_json::Value,
 ) -> Result<NativeToolResult, ToolError> {
     let (from, to) = move_paths_arg(args)?;
-    let from_resolved = resolve_vault_path(root, &from).map_err(ToolError::InvalidArguments)?;
-    let to_resolved = resolve_vault_path(root, &to).map_err(ToolError::InvalidArguments)?;
+    let from_resolved = resolve_vault_path_strict(root, &from)
+        .await
+        .map_err(ToolError::InvalidArguments)?;
+    let to_resolved = resolve_vault_path_strict(root, &to)
+        .await
+        .map_err(ToolError::InvalidArguments)?;
 
     if from_resolved == root || to_resolved == root {
         return Err(ToolError::InvalidArguments(

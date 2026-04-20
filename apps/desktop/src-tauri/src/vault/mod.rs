@@ -79,6 +79,52 @@ pub fn resolve_vault_path(vault_root: &Path, relative_path: &str) -> Result<Path
     Ok(resolved)
 }
 
+/// Walk from `vault_root` to `resolved`, rejecting any component that is a
+/// symlink. Catches both leaf-symlink attacks (`$vault/link -> /etc/passwd`)
+/// and intermediate-symlink attacks (`$vault/subdir -> /etc`, then
+/// `$vault/subdir/file` appears to resolve inside vault but FS ops follow
+/// the symlink to `/etc/file`). Missing components (e.g. write target that
+/// doesn't exist yet) are treated as OK — only an existing symlink entry
+/// is a problem.
+pub async fn assert_no_symlink_within_vault(
+    vault_root: &Path,
+    resolved: &Path,
+) -> Result<(), String> {
+    let relative = resolved
+        .strip_prefix(vault_root)
+        .map_err(|_| format!("Path not within vault: {}", resolved.display()))?;
+    let mut current = vault_root.to_path_buf();
+    for component in relative.components() {
+        let Component::Normal(segment) = component else {
+            continue;
+        };
+        current.push(segment);
+        match tokio::fs::symlink_metadata(&current).await {
+            Ok(metadata) if metadata.file_type().is_symlink() => {
+                return Err(format!(
+                    "Symlinks are not allowed in the vault: {}",
+                    current.display()
+                ));
+            }
+            Ok(_) => {}
+            Err(_) => {}
+        }
+    }
+    Ok(())
+}
+
+/// Resolves a vault-relative path and rejects any symlink in the chain.
+/// Call this instead of `resolve_vault_path` anywhere a FS operation will
+/// follow on the returned path (read, write, rename, delete, checksum).
+pub async fn resolve_vault_path_strict(
+    vault_root: &Path,
+    relative_path: &str,
+) -> Result<PathBuf, String> {
+    let resolved = resolve_vault_path(vault_root, relative_path)?;
+    assert_no_symlink_within_vault(vault_root, &resolved).await?;
+    Ok(resolved)
+}
+
 pub fn should_ignore_path(path: &Path) -> bool {
     let mut last_segment: Option<String> = None;
     for component in path.components() {
@@ -146,12 +192,19 @@ pub fn read_directory_recursive<'a>(
                 continue;
             }
 
+            let file_type = match entry.file_type().await {
+                Ok(file_type) => file_type,
+                Err(_) => continue,
+            };
+            // Symlinks would expose paths that resolve outside the vault
+            // during subsequent reads. Skip them here so listings mirror
+            // what the strict vault resolvers will actually permit.
+            if file_type.is_symlink() {
+                continue;
+            }
+
             let name = entry.file_name().to_string_lossy().to_string();
-            let is_directory = entry
-                .file_type()
-                .await
-                .map(|ft| ft.is_dir())
-                .unwrap_or(false);
+            let is_directory = file_type.is_dir();
 
             if is_directory {
                 let children = read_directory_recursive(&path, root, extensions)
@@ -249,5 +302,89 @@ mod tests {
         assert!(super::matches_extensions("a.md", exts));
         assert!(super::matches_extensions("b.markdown", exts));
         assert!(!super::matches_extensions("c.txt", exts));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn resolve_vault_path_strict_rejects_leaf_symlink() {
+        use std::os::unix::fs::symlink;
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("kuku-vault-strict-leaf-{stamp}"));
+        std::fs::create_dir_all(&root).unwrap();
+        symlink("/etc/passwd", root.join("leak")).unwrap();
+
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let error = runtime
+            .block_on(resolve_vault_path_strict(&root, "leak"))
+            .unwrap_err();
+        assert!(
+            error.contains("Symlinks are not allowed"),
+            "unexpected error: {error}"
+        );
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn resolve_vault_path_strict_rejects_intermediate_symlink() {
+        use std::os::unix::fs::symlink;
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("kuku-vault-strict-mid-{stamp}"));
+        std::fs::create_dir_all(&root).unwrap();
+        symlink("/etc", root.join("subdir")).unwrap();
+
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let error = runtime
+            .block_on(resolve_vault_path_strict(&root, "subdir/passwd"))
+            .unwrap_err();
+        assert!(
+            error.contains("Symlinks are not allowed"),
+            "unexpected error: {error}"
+        );
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn resolve_vault_path_strict_allows_missing_target() {
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        // A write to a not-yet-created path should still succeed — the
+        // symlink check only flags an existing symlink entry.
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("kuku-vault-strict-missing-{stamp}"));
+        std::fs::create_dir_all(&root).unwrap();
+
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let resolved = runtime
+            .block_on(resolve_vault_path_strict(&root, "notes/new.md"))
+            .unwrap();
+        assert!(resolved.ends_with("notes/new.md"));
+
+        let _ = std::fs::remove_dir_all(&root);
     }
 }

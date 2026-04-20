@@ -13,7 +13,7 @@ use crate::vault::checksum::{
     guarded_delete, guarded_delete_dir, guarded_rename, guarded_write,
 };
 use crate::vault::mutation_sync::{AppMutation, AppMutationSync, RecordedAppMutation};
-use crate::vault::{VaultState, get_vault_root, resolve_vault_path};
+use crate::vault::{VaultState, get_vault_root, resolve_vault_path_strict};
 
 pub struct DesktopAiHost {
     app: AppHandle<Wry>,
@@ -36,13 +36,17 @@ impl AiHostBindings for DesktopAiHost {
         for op in &plan.operations {
             match op {
                 MutationOp::CreateFile { path, .. } => {
-                    let resolved = resolve_vault_path(&root, path).map_err(AiError::State)?;
+                    let resolved = resolve_vault_path_strict(&root, path)
+                        .await
+                        .map_err(AiError::State)?;
                     if tokio::fs::try_exists(&resolved).await? {
                         conflicts.push(conflict(path, "File already exists"));
                     }
                 }
                 MutationOp::CreateDirectory { path } => {
-                    let resolved = resolve_vault_path(&root, path).map_err(AiError::State)?;
+                    let resolved = resolve_vault_path_strict(&root, path)
+                        .await
+                        .map_err(AiError::State)?;
                     if tokio::fs::try_exists(&resolved).await? {
                         conflicts.push(conflict(path, "Directory already exists"));
                     }
@@ -52,7 +56,9 @@ impl AiHostBindings for DesktopAiHost {
                     expected_checksum,
                     ..
                 } => {
-                    let resolved = resolve_vault_path(&root, path).map_err(AiError::State)?;
+                    let resolved = resolve_vault_path_strict(&root, path)
+                        .await
+                        .map_err(AiError::State)?;
                     match tokio::fs::read_to_string(&resolved).await {
                         Ok(current) => {
                             let actual = compute_checksum(&current);
@@ -69,7 +75,9 @@ impl AiHostBindings for DesktopAiHost {
                     path,
                     expected_checksum,
                 } => {
-                    let resolved = resolve_vault_path(&root, path).map_err(AiError::State)?;
+                    let resolved = resolve_vault_path_strict(&root, path)
+                        .await
+                        .map_err(AiError::State)?;
                     match tokio::fs::read_to_string(&resolved).await {
                         Ok(current) => {
                             let actual = compute_checksum(&current);
@@ -86,7 +94,9 @@ impl AiHostBindings for DesktopAiHost {
                     path,
                     expected_checksum,
                 } => {
-                    let resolved = resolve_vault_path(&root, path).map_err(AiError::State)?;
+                    let resolved = resolve_vault_path_strict(&root, path)
+                        .await
+                        .map_err(AiError::State)?;
                     match tokio::fs::metadata(&resolved).await {
                         Ok(metadata) => {
                             if !metadata.is_dir() {
@@ -118,8 +128,12 @@ impl AiHostBindings for DesktopAiHost {
                     }
                 }
                 MutationOp::RenameFile { from, to } => {
-                    let from_resolved = resolve_vault_path(&root, from).map_err(AiError::State)?;
-                    let to_resolved = resolve_vault_path(&root, to).map_err(AiError::State)?;
+                    let from_resolved = resolve_vault_path_strict(&root, from)
+                        .await
+                        .map_err(AiError::State)?;
+                    let to_resolved = resolve_vault_path_strict(&root, to)
+                        .await
+                        .map_err(AiError::State)?;
 
                     if !tokio::fs::try_exists(&from_resolved).await? {
                         conflicts.push(conflict(from, "Source file does not exist"));
@@ -152,11 +166,15 @@ impl AiHostBindings for DesktopAiHost {
             let recorded = mutation_sync.record(mutation);
             let result = match op {
                 MutationOp::CreateFile { path, content } => {
-                    let resolved = resolve_vault_path(&root, path).map_err(AiError::State)?;
+                    let resolved = resolve_vault_path_strict(&root, path)
+                        .await
+                        .map_err(AiError::State)?;
                     guarded_create(&resolved, content).await
                 }
                 MutationOp::CreateDirectory { path } => {
-                    let resolved = resolve_vault_path(&root, path).map_err(AiError::State)?;
+                    let resolved = resolve_vault_path_strict(&root, path)
+                        .await
+                        .map_err(AiError::State)?;
                     guarded_create_dir(&resolved).await
                 }
                 MutationOp::ReplaceFile {
@@ -165,26 +183,36 @@ impl AiHostBindings for DesktopAiHost {
                     expected_checksum,
                     ..
                 } => {
-                    let resolved = resolve_vault_path(&root, path).map_err(AiError::State)?;
+                    let resolved = resolve_vault_path_strict(&root, path)
+                        .await
+                        .map_err(AiError::State)?;
                     guarded_write(&resolved, content, expected_checksum).await
                 }
                 MutationOp::DeleteFile {
                     path,
                     expected_checksum,
                 } => {
-                    let resolved = resolve_vault_path(&root, path).map_err(AiError::State)?;
+                    let resolved = resolve_vault_path_strict(&root, path)
+                        .await
+                        .map_err(AiError::State)?;
                     guarded_delete(&resolved, expected_checksum).await
                 }
                 MutationOp::DeleteDirectory {
                     path,
                     expected_checksum,
                 } => {
-                    let resolved = resolve_vault_path(&root, path).map_err(AiError::State)?;
+                    let resolved = resolve_vault_path_strict(&root, path)
+                        .await
+                        .map_err(AiError::State)?;
                     guarded_delete_dir(&resolved, expected_checksum).await
                 }
                 MutationOp::RenameFile { from, to } => {
-                    let from_resolved = resolve_vault_path(&root, from).map_err(AiError::State)?;
-                    let to_resolved = resolve_vault_path(&root, to).map_err(AiError::State)?;
+                    let from_resolved = resolve_vault_path_strict(&root, from)
+                        .await
+                        .map_err(AiError::State)?;
+                    let to_resolved = resolve_vault_path_strict(&root, to)
+                        .await
+                        .map_err(AiError::State)?;
                     guarded_rename(&from_resolved, &to_resolved).await
                 }
             };
@@ -279,7 +307,7 @@ async fn mutation_for_applied_op(root: &Path, op: &MutationOp) -> Result<AppMuta
             is_dir: true,
         }),
         MutationOp::RenameFile { from, to } => {
-            let from_resolved = resolve_vault_path(root, from)?;
+            let from_resolved = resolve_vault_path_strict(root, from).await?;
             let is_dir = tokio::fs::metadata(&from_resolved)
                 .await
                 .map(|metadata| metadata.is_dir())
