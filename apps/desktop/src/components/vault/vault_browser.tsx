@@ -1,4 +1,4 @@
-import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { batch, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 
 import { openSearchOmnibar } from "~/plugins/builtin/search/omnibar_state";
 import { addFileAttachment } from "~/plugins/builtin/ai_chat/chat_store";
@@ -225,14 +225,18 @@ function FileTreeNode(props: FileTreeNodeProps) {
 
   const handleClick = () => {
     if (props.shouldSuppressClick()) return;
-    setSelectedPath(props.entry.path);
-    if (props.entry.is_directory) {
-      toggleFolder(props.entry.path);
-      return;
-    }
-
-    revealPath(props.entry.path);
-    openTab(props.entry.name, props.entry.path, "editor");
+    // Coalesce the three store writes so Solid runs a single reactive pass
+    // instead of three — without `batch` each `setStore` flushes immediately,
+    // re-evaluating the vault tree rows thrice on every file click.
+    batch(() => {
+      setSelectedPath(props.entry.path);
+      if (props.entry.is_directory) {
+        toggleFolder(props.entry.path);
+        return;
+      }
+      revealPath(props.entry.path);
+      openTab(props.entry.name, props.entry.path, "editor");
+    });
   };
 
   const handleRename = () => {
