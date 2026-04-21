@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"iter"
 	"strings"
 	"time"
 
@@ -47,13 +48,6 @@ type CompleteInput struct {
 	SystemPrompt string
 }
 
-type CompleteOutput struct {
-	Text         string
-	Usage        *aiv1.TokenUsage
-	ToolCalls    []*aiv1.ModelToolCall
-	FinishReason aiv1.FinishReason
-}
-
 func NewService(cfg *config.Config) (*Service, error) {
 	apiKey := strings.TrimSpace(cfg.GeminiAPIKey)
 	if apiKey == "" {
@@ -79,54 +73,117 @@ func NewService(cfg *config.Config) (*Service, error) {
 	}, nil
 }
 
-func (s *Service) Complete(ctx context.Context, input CompleteInput) (*CompleteOutput, error) {
-	if s.client == nil {
-		return nil, ErrNotConfigured
-	}
+// CompleteStream drives one Gemini turn and yields proto CompleteResponse
+// events in the order the handler should forward them to the client:
+// text deltas as the upstream stream produces them, a single buffered
+// ToolCallsEvent (if any calls were made), then a terminal FinishedEvent
+// carrying the derived finish_reason and the last-observed usage metadata.
+//
+// Tool calls are deliberately batched: the desktop runtime consumes
+// CompletionEvent::ToolCalls as a Vec, and Gemini emits whole function
+// calls (not argument fragments) by default, so there is no per-token
+// benefit to emitting them individually.
+func (s *Service) CompleteStream(ctx context.Context, input CompleteInput) iter.Seq2[*aiv1.CompleteResponse, error] {
+	return func(yield func(*aiv1.CompleteResponse, error) bool) {
+		if s.client == nil {
+			yield(nil, ErrNotConfigured)
+			return
+		}
 
-	model := strings.TrimSpace(input.Model)
-	if model == "" {
-		model = s.model
-	}
-	if model == "" {
-		model = "gemini-3.1-flash-lite-preview"
-	}
-	model = strings.TrimPrefix(model, "models/")
+		model := strings.TrimSpace(input.Model)
+		if model == "" {
+			model = s.model
+		}
+		if model == "" {
+			model = "gemini-3.1-flash-lite-preview"
+		}
+		model = strings.TrimPrefix(model, "models/")
 
-	contents, err := buildContents(input)
-	if err != nil {
-		return nil, err
-	}
-	cfg, err := buildConfig(input)
-	if err != nil {
-		return nil, err
-	}
+		contents, err := buildContents(input)
+		if err != nil {
+			yield(nil, err)
+			return
+		}
+		cfg, err := buildConfig(input)
+		if err != nil {
+			yield(nil, err)
+			return
+		}
 
-	response, err := s.client.Models.GenerateContent(ctx, model, contents, cfg)
-	if err != nil {
-		return nil, fmt.Errorf("genai generate content: %w", err)
-	}
+		var (
+			toolCalls    []*aiv1.ModelToolCall
+			lastUsage    *genai.GenerateContentResponseUsageMetadata
+			sawAnyOutput bool
+		)
 
-	text := response.Text()
-	toolCalls, err := extractToolCalls(response)
-	if err != nil {
-		return nil, err
-	}
-	if text == "" && len(toolCalls) == 0 {
-		return nil, errors.New("gemini response did not include text or tool calls")
-	}
+		for chunk, err := range s.client.Models.GenerateContentStream(ctx, model, contents, cfg) {
+			if err != nil {
+				yield(nil, fmt.Errorf("genai stream: %w", err))
+				return
+			}
+			if chunk == nil {
+				continue
+			}
 
-	finishReason := aiv1.FinishReason_FINISH_REASON_STOP
-	if len(toolCalls) > 0 {
-		finishReason = aiv1.FinishReason_FINISH_REASON_TOOL_CALLS
-	}
+			// Text part — forward immediately.
+			if text := chunk.Text(); text != "" {
+				sawAnyOutput = true
+				if !yield(&aiv1.CompleteResponse{
+					Event: &aiv1.CompleteResponse_TextDelta{
+						TextDelta: &aiv1.TextDeltaEvent{Text: proto.String(text)},
+					},
+				}, nil) {
+					return
+				}
+			}
 
-	return &CompleteOutput{
-		Text:         text,
-		Usage:        extractUsage(response.UsageMetadata),
-		ToolCalls:    toolCalls,
-		FinishReason: finishReason,
-	}, nil
+			// Function call parts — buffer until the stream ends.
+			chunkCalls, err := extractToolCalls(chunk)
+			if err != nil {
+				yield(nil, err)
+				return
+			}
+			if len(chunkCalls) > 0 {
+				sawAnyOutput = true
+				toolCalls = append(toolCalls, chunkCalls...)
+			}
+
+			// UsageMetadata may arrive on any chunk (typically the last);
+			// keep the latest observation so FinishedEvent carries a
+			// complete picture.
+			if chunk.UsageMetadata != nil {
+				lastUsage = chunk.UsageMetadata
+			}
+		}
+
+		if !sawAnyOutput {
+			yield(nil, errors.New("gemini response did not include text or tool calls"))
+			return
+		}
+
+		if len(toolCalls) > 0 {
+			if !yield(&aiv1.CompleteResponse{
+				Event: &aiv1.CompleteResponse_ToolCalls{
+					ToolCalls: &aiv1.ToolCallsEvent{ToolCalls: toolCalls},
+				},
+			}, nil) {
+				return
+			}
+		}
+
+		finishReason := aiv1.FinishReason_FINISH_REASON_STOP
+		if len(toolCalls) > 0 {
+			finishReason = aiv1.FinishReason_FINISH_REASON_TOOL_CALLS
+		}
+		yield(&aiv1.CompleteResponse{
+			Event: &aiv1.CompleteResponse_Finished{
+				Finished: &aiv1.FinishedEvent{
+					FinishReason: finishReason.Enum(),
+					Usage:        extractUsage(lastUsage),
+				},
+			},
+		}, nil)
+	}
 }
 
 // buildContents flattens the proto chat history into genai's `[]*Content`
