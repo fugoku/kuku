@@ -134,7 +134,11 @@ export default function App() {
       console.error("[Window] Failed to register window listeners", error);
     });
     void restoreLastVault();
-    void checkForUpdates();
+    // Dev builds ship with a placeholder updater endpoint (`example.invalid`)
+    // so the plugin can initialize; skipping the check avoids a red "Update
+    // failed" pill on every run. Use `window.__kukuUpdater.simulate()` or
+    // `checkForUpdates()` from the console when iterating on the UI.
+    if (import.meta.env.PROD) void checkForUpdates();
   }
 
   async function restoreLastVault(): Promise<void> {

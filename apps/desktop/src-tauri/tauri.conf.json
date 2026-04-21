@@ -16,8 +16,8 @@
       }
     },
     "updater": {
-      "pubkey": "NEED TO SET REAL PUBKEY",
-      "endpoints": ["NEED TO SET REAL ENDPOINT"]
+      "pubkey": "NEED_TO_SET_REAL_PUBKEY",
+      "endpoints": ["https://example.invalid/NEEDTOREPLACE.json"]
     }
   },
   "app": {
