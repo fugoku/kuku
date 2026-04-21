@@ -21,11 +21,14 @@ option go_package = "github.com/kuku-mom/kuku/packages/contract/gen/go/kuku/ai/v
 // AIService - server-backed AI service
 // ---------------------------------------------------------------------------
 service AIService {
-  // Completes a single AI turn.
+  // Streams a single AI turn. Emits text deltas as they arrive, followed by
+  // buffered tool calls (if any), then a terminal Finished event. The stream
+  // closes at the end of the turn; on FINISH_REASON_TOOL_CALLS the caller
+  // executes the tools and issues a follow-up Complete call with the tool
+  // results appended to `messages`. The server never holds a connection
+  // across tool-call rounds.
   // - Requires authentication.
-  // - This is intentionally unary for the first remote provider cut; the
-  //   desktop runtime wraps the response into its existing local stream events.
-  rpc Complete(CompleteRequest) returns (CompleteResponse);
+  rpc Complete(CompleteRequest) returns (stream CompleteResponse);
 }
 
 // ConversationMode controls the completion behavior.
@@ -69,15 +72,45 @@ message CompleteRequest {
   string system_prompt = 7;
 }
 
-// CompleteResponse is the generated text and optional usage metadata.
+// CompleteResponse is one increment of a Complete turn; the stream emits
+// many of these per call. Exactly one FinishedEvent variant is the terminal
+// event.
+//
+// Event order on a tool-using turn:
+//   text_delta*  →  tool_calls?  →  finished(TOOL_CALLS)
+// Event order on a plain-text turn:
+//   text_delta*  →  finished(STOP)
+//
+// Tool calls are buffered server-side until the upstream stream ends, then
+// emitted as a single ToolCallsEvent right before Finished. This matches
+// what the desktop runtime consumes today (CompletionEvent::ToolCalls takes
+// a Vec<ModelToolCall>).
 message CompleteResponse {
+  oneof event {
+    TextDeltaEvent text_delta = 1;
+    ToolCallsEvent tool_calls = 2;
+    FinishedEvent finished = 3;
+  }
+}
+
+// TextDeltaEvent is a chunk of assistant text. Emit as soon as received.
+message TextDeltaEvent {
   string text = 1;
+}
+
+// ToolCallsEvent is the buffered set of tool calls produced during the turn.
+message ToolCallsEvent {
+  repeated ModelToolCall tool_calls = 1;
+}
+
+// FinishedEvent terminates the stream. `finish_reason` is derived server-
+// side (TOOL_CALLS if any tool calls were produced, otherwise STOP) — the
+// upstream provider's native finish enum is not forwarded. `usage` is the
+// last-observed usage metadata across the upstream stream.
+message FinishedEvent {
+  FinishReason finish_reason = 1;
 
   TokenUsage usage = 2;
-
-  repeated ModelToolCall tool_calls = 3;
-
-  FinishReason finish_reason = 4;
 }
 
 // TokenUsage reports provider token usage when the upstream model exposes it.

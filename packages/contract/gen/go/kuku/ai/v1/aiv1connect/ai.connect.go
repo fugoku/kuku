@@ -49,11 +49,14 @@ const (
 
 // AIServiceClient is a client for the kuku.ai.v1.AIService service.
 type AIServiceClient interface {
-	// Completes a single AI turn.
-	//   - Requires authentication.
-	//   - This is intentionally unary for the first remote provider cut; the
-	//     desktop runtime wraps the response into its existing local stream events.
-	Complete(context.Context, *connect.Request[v1.CompleteRequest]) (*connect.Response[v1.CompleteResponse], error)
+	// Streams a single AI turn. Emits text deltas as they arrive, followed by
+	// buffered tool calls (if any), then a terminal Finished event. The stream
+	// closes at the end of the turn; on FINISH_REASON_TOOL_CALLS the caller
+	// executes the tools and issues a follow-up Complete call with the tool
+	// results appended to `messages`. The server never holds a connection
+	// across tool-call rounds.
+	// - Requires authentication.
+	Complete(context.Context, *connect.Request[v1.CompleteRequest]) (*connect.ServerStreamForClient[v1.CompleteResponse], error)
 }
 
 // NewAIServiceClient constructs a client for the kuku.ai.v1.AIService service. By default, it uses
@@ -82,17 +85,20 @@ type aIServiceClient struct {
 }
 
 // Complete calls kuku.ai.v1.AIService.Complete.
-func (c *aIServiceClient) Complete(ctx context.Context, req *connect.Request[v1.CompleteRequest]) (*connect.Response[v1.CompleteResponse], error) {
-	return c.complete.CallUnary(ctx, req)
+func (c *aIServiceClient) Complete(ctx context.Context, req *connect.Request[v1.CompleteRequest]) (*connect.ServerStreamForClient[v1.CompleteResponse], error) {
+	return c.complete.CallServerStream(ctx, req)
 }
 
 // AIServiceHandler is an implementation of the kuku.ai.v1.AIService service.
 type AIServiceHandler interface {
-	// Completes a single AI turn.
-	//   - Requires authentication.
-	//   - This is intentionally unary for the first remote provider cut; the
-	//     desktop runtime wraps the response into its existing local stream events.
-	Complete(context.Context, *connect.Request[v1.CompleteRequest]) (*connect.Response[v1.CompleteResponse], error)
+	// Streams a single AI turn. Emits text deltas as they arrive, followed by
+	// buffered tool calls (if any), then a terminal Finished event. The stream
+	// closes at the end of the turn; on FINISH_REASON_TOOL_CALLS the caller
+	// executes the tools and issues a follow-up Complete call with the tool
+	// results appended to `messages`. The server never holds a connection
+	// across tool-call rounds.
+	// - Requires authentication.
+	Complete(context.Context, *connect.Request[v1.CompleteRequest], *connect.ServerStream[v1.CompleteResponse]) error
 }
 
 // NewAIServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -102,7 +108,7 @@ type AIServiceHandler interface {
 // and JSON codecs. They also support gzip compression.
 func NewAIServiceHandler(svc AIServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
 	aIServiceMethods := v1.File_kuku_ai_v1_ai_proto.Services().ByName("AIService").Methods()
-	aIServiceCompleteHandler := connect.NewUnaryHandler(
+	aIServiceCompleteHandler := connect.NewServerStreamHandler(
 		AIServiceCompleteProcedure,
 		svc.Complete,
 		connect.WithSchema(aIServiceMethods.ByName("Complete")),
@@ -121,6 +127,6 @@ func NewAIServiceHandler(svc AIServiceHandler, opts ...connect.HandlerOption) (s
 // UnimplementedAIServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedAIServiceHandler struct{}
 
-func (UnimplementedAIServiceHandler) Complete(context.Context, *connect.Request[v1.CompleteRequest]) (*connect.Response[v1.CompleteResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kuku.ai.v1.AIService.Complete is not implemented"))
+func (UnimplementedAIServiceHandler) Complete(context.Context, *connect.Request[v1.CompleteRequest], *connect.ServerStream[v1.CompleteResponse]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("kuku.ai.v1.AIService.Complete is not implemented"))
 }

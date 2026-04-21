@@ -22,7 +22,7 @@ import type { JsonObject, Message } from "@bufbuild/protobuf";
  * Describes the file kuku/ai/v1/ai.proto.
  */
 export const file_kuku_ai_v1_ai: GenFile = /*@__PURE__*/
-  fileDesc("ChNrdWt1L2FpL3YxL2FpLnByb3RvEgprdWt1LmFpLnYxIuoBCg9Db21wbGV0ZVJlcXVlc3QSKgoEbW9kZRgBIAEoDjIcLmt1a3UuYWkudjEuQ29udmVyc2F0aW9uTW9kZRIYCgdtZXNzYWdlGAIgASgJQge6SARyAhABEhUKDWNvbnRleHRfZmlsZXMYAyADKAkSDQoFbW9kZWwYBCABKAkSKQoIbWVzc2FnZXMYBSADKAsyFy5rdWt1LmFpLnYxLkNoYXRNZXNzYWdlEikKBXRvb2xzGAYgAygLMhoua3VrdS5haS52MS5Ub29sRGVzY3JpcHRvchIVCg1zeXN0ZW1fcHJvbXB0GAcgASgJIqcBChBDb21wbGV0ZVJlc3BvbnNlEgwKBHRleHQYASABKAkSJQoFdXNhZ2UYAiABKAsyFi5rdWt1LmFpLnYxLlRva2VuVXNhZ2USLQoKdG9vbF9jYWxscxgDIAMoCzIZLmt1a3UuYWkudjEuTW9kZWxUb29sQ2FsbBIvCg1maW5pc2hfcmVhc29uGAQgASgOMhgua3VrdS5haS52MS5GaW5pc2hSZWFzb24ibAoKVG9rZW5Vc2FnZRIUCgxpbnB1dF90b2tlbnMYASABKAQSFQoNb3V0cHV0X3Rva2VucxgCIAEoBBIUCgx0b3RhbF90b2tlbnMYAyABKAQSGwoTY2FjaGVkX2lucHV0X3Rva2VucxgEIAEoBCLeAQoLQ2hhdE1lc3NhZ2USKQoEcm9sZRgBIAEoDjIbLmt1a3UuYWkudjEuQ2hhdE1lc3NhZ2VSb2xlEg8KB2NvbnRlbnQYAiABKAkSLQoKdG9vbF9jYWxscxgDIAMoCzIZLmt1a3UuYWkudjEuTW9kZWxUb29sQ2FsbBIPCgdjYWxsX2lkGAQgASgJEhEKCXRvb2xfbmFtZRgFIAEoCRIQCghpc19lcnJvchgGIAEoCBIUCgx0b29sX2NhbGxfaWQYByABKAkSGAoQcHJvdmlkZXJfY2FsbF9pZBgIIAEoCSJpCg5Ub29sRGVzY3JpcHRvchIVCgRuYW1lGAEgASgJQge6SARyAhABEhMKC2Rlc2NyaXB0aW9uGAIgASgJEisKCnBhcmFtZXRlcnMYAyABKAsyFy5nb29nbGUucHJvdG9idWYuU3RydWN0IrQBCg1Nb2RlbFRvb2xDYWxsEhgKB2NhbGxfaWQYASABKAlCB7pIBHICEAESGgoJdG9vbF9uYW1lGAIgASgJQge6SARyAhABEioKCWFyZ3VtZW50cxgDIAEoCzIXLmdvb2dsZS5wcm90b2J1Zi5TdHJ1Y3QSEQoJc2lnbmF0dXJlGAQgASgMEhQKDHRvb2xfY2FsbF9pZBgFIAEoCRIYChBwcm92aWRlcl9jYWxsX2lkGAYgASgJKosBChBDb252ZXJzYXRpb25Nb2RlEiEKHUNPTlZFUlNBVElPTl9NT0RFX1VOU1BFQ0lGSUVEEAASGwoXQ09OVkVSU0FUSU9OX01PREVfQUdFTlQQARIZChVDT05WRVJTQVRJT05fTU9ERV9BU0sQAhIcChhDT05WRVJTQVRJT05fTU9ERV9JTkxJTkUQAyqyAQoPQ2hhdE1lc3NhZ2VSb2xlEiEKHUNIQVRfTUVTU0FHRV9ST0xFX1VOU1BFQ0lGSUVEEAASHAoYQ0hBVF9NRVNTQUdFX1JPTEVfU1lTVEVNEAESGgoWQ0hBVF9NRVNTQUdFX1JPTEVfVVNFUhACEh8KG0NIQVRfTUVTU0FHRV9ST0xFX0FTU0lTVEFOVBADEiEKHUNIQVRfTUVTU0FHRV9ST0xFX1RPT0xfUkVTVUxUEAQqYwoMRmluaXNoUmVhc29uEh0KGUZJTklTSF9SRUFTT05fVU5TUEVDSUZJRUQQABIWChJGSU5JU0hfUkVBU09OX1NUT1AQARIcChhGSU5JU0hfUkVBU09OX1RPT0xfQ0FMTFMQAjJSCglBSVNlcnZpY2USRQoIQ29tcGxldGUSGy5rdWt1LmFpLnYxLkNvbXBsZXRlUmVxdWVzdBocLmt1a3UuYWkudjEuQ29tcGxldGVSZXNwb25zZUJDWkFnaXRodWIuY29tL2t1a3UtbW9tL2t1a3UvcGFja2FnZXMvY29udHJhY3QvZ2VuL2dvL2t1a3UvYWkvdjE7YWl2MWIIZWRpdGlvbnNw6Ac", [file_buf_validate_validate, file_google_protobuf_struct]);
+  fileDesc("ChNrdWt1L2FpL3YxL2FpLnByb3RvEgprdWt1LmFpLnYxIuoBCg9Db21wbGV0ZVJlcXVlc3QSKgoEbW9kZRgBIAEoDjIcLmt1a3UuYWkudjEuQ29udmVyc2F0aW9uTW9kZRIYCgdtZXNzYWdlGAIgASgJQge6SARyAhABEhUKDWNvbnRleHRfZmlsZXMYAyADKAkSDQoFbW9kZWwYBCABKAkSKQoIbWVzc2FnZXMYBSADKAsyFy5rdWt1LmFpLnYxLkNoYXRNZXNzYWdlEikKBXRvb2xzGAYgAygLMhoua3VrdS5haS52MS5Ub29sRGVzY3JpcHRvchIVCg1zeXN0ZW1fcHJvbXB0GAcgASgJIq4BChBDb21wbGV0ZVJlc3BvbnNlEjAKCnRleHRfZGVsdGEYASABKAsyGi5rdWt1LmFpLnYxLlRleHREZWx0YUV2ZW50SAASMAoKdG9vbF9jYWxscxgCIAEoCzIaLmt1a3UuYWkudjEuVG9vbENhbGxzRXZlbnRIABItCghmaW5pc2hlZBgDIAEoCzIZLmt1a3UuYWkudjEuRmluaXNoZWRFdmVudEgAQgcKBWV2ZW50Ih4KDlRleHREZWx0YUV2ZW50EgwKBHRleHQYASABKAkiPwoOVG9vbENhbGxzRXZlbnQSLQoKdG9vbF9jYWxscxgBIAMoCzIZLmt1a3UuYWkudjEuTW9kZWxUb29sQ2FsbCJnCg1GaW5pc2hlZEV2ZW50Ei8KDWZpbmlzaF9yZWFzb24YASABKA4yGC5rdWt1LmFpLnYxLkZpbmlzaFJlYXNvbhIlCgV1c2FnZRgCIAEoCzIWLmt1a3UuYWkudjEuVG9rZW5Vc2FnZSJsCgpUb2tlblVzYWdlEhQKDGlucHV0X3Rva2VucxgBIAEoBBIVCg1vdXRwdXRfdG9rZW5zGAIgASgEEhQKDHRvdGFsX3Rva2VucxgDIAEoBBIbChNjYWNoZWRfaW5wdXRfdG9rZW5zGAQgASgEIt4BCgtDaGF0TWVzc2FnZRIpCgRyb2xlGAEgASgOMhsua3VrdS5haS52MS5DaGF0TWVzc2FnZVJvbGUSDwoHY29udGVudBgCIAEoCRItCgp0b29sX2NhbGxzGAMgAygLMhkua3VrdS5haS52MS5Nb2RlbFRvb2xDYWxsEg8KB2NhbGxfaWQYBCABKAkSEQoJdG9vbF9uYW1lGAUgASgJEhAKCGlzX2Vycm9yGAYgASgIEhQKDHRvb2xfY2FsbF9pZBgHIAEoCRIYChBwcm92aWRlcl9jYWxsX2lkGAggASgJImkKDlRvb2xEZXNjcmlwdG9yEhUKBG5hbWUYASABKAlCB7pIBHICEAESEwoLZGVzY3JpcHRpb24YAiABKAkSKwoKcGFyYW1ldGVycxgDIAEoCzIXLmdvb2dsZS5wcm90b2J1Zi5TdHJ1Y3QitAEKDU1vZGVsVG9vbENhbGwSGAoHY2FsbF9pZBgBIAEoCUIHukgEcgIQARIaCgl0b29sX25hbWUYAiABKAlCB7pIBHICEAESKgoJYXJndW1lbnRzGAMgASgLMhcuZ29vZ2xlLnByb3RvYnVmLlN0cnVjdBIRCglzaWduYXR1cmUYBCABKAwSFAoMdG9vbF9jYWxsX2lkGAUgASgJEhgKEHByb3ZpZGVyX2NhbGxfaWQYBiABKAkqiwEKEENvbnZlcnNhdGlvbk1vZGUSIQodQ09OVkVSU0FUSU9OX01PREVfVU5TUEVDSUZJRUQQABIbChdDT05WRVJTQVRJT05fTU9ERV9BR0VOVBABEhkKFUNPTlZFUlNBVElPTl9NT0RFX0FTSxACEhwKGENPTlZFUlNBVElPTl9NT0RFX0lOTElORRADKrIBCg9DaGF0TWVzc2FnZVJvbGUSIQodQ0hBVF9NRVNTQUdFX1JPTEVfVU5TUEVDSUZJRUQQABIcChhDSEFUX01FU1NBR0VfUk9MRV9TWVNURU0QARIaChZDSEFUX01FU1NBR0VfUk9MRV9VU0VSEAISHwobQ0hBVF9NRVNTQUdFX1JPTEVfQVNTSVNUQU5UEAMSIQodQ0hBVF9NRVNTQUdFX1JPTEVfVE9PTF9SRVNVTFQQBCpjCgxGaW5pc2hSZWFzb24SHQoZRklOSVNIX1JFQVNPTl9VTlNQRUNJRklFRBAAEhYKEkZJTklTSF9SRUFTT05fU1RPUBABEhwKGEZJTklTSF9SRUFTT05fVE9PTF9DQUxMUxACMlQKCUFJU2VydmljZRJHCghDb21wbGV0ZRIbLmt1a3UuYWkudjEuQ29tcGxldGVSZXF1ZXN0Ghwua3VrdS5haS52MS5Db21wbGV0ZVJlc3BvbnNlMAFCQ1pBZ2l0aHViLmNvbS9rdWt1LW1vbS9rdWt1L3BhY2thZ2VzL2NvbnRyYWN0L2dlbi9nby9rdWt1L2FpL3YxO2FpdjFiCGVkaXRpb25zcOgH", [file_buf_validate_validate, file_google_protobuf_struct]);
 
 /**
  * CompleteRequest is a single-turn completion request.
@@ -74,30 +74,45 @@ export const CompleteRequestSchema: GenMessage<CompleteRequest> = /*@__PURE__*/
   messageDesc(file_kuku_ai_v1_ai, 0);
 
 /**
- * CompleteResponse is the generated text and optional usage metadata.
+ * CompleteResponse is one increment of a Complete turn; the stream emits
+ * many of these per call. Exactly one FinishedEvent variant is the terminal
+ * event.
+ *
+ * Event order on a tool-using turn:
+ *   text_delta*  →  tool_calls?  →  finished(TOOL_CALLS)
+ * Event order on a plain-text turn:
+ *   text_delta*  →  finished(STOP)
+ *
+ * Tool calls are buffered server-side until the upstream stream ends, then
+ * emitted as a single ToolCallsEvent right before Finished. This matches
+ * what the desktop runtime consumes today (CompletionEvent::ToolCalls takes
+ * a Vec<ModelToolCall>).
  *
  * @generated from message kuku.ai.v1.CompleteResponse
  */
 export type CompleteResponse = Message<"kuku.ai.v1.CompleteResponse"> & {
   /**
-   * @generated from field: string text = 1;
+   * @generated from oneof kuku.ai.v1.CompleteResponse.event
    */
-  text: string;
-
-  /**
-   * @generated from field: kuku.ai.v1.TokenUsage usage = 2;
-   */
-  usage?: TokenUsage;
-
-  /**
-   * @generated from field: repeated kuku.ai.v1.ModelToolCall tool_calls = 3;
-   */
-  toolCalls: ModelToolCall[];
-
-  /**
-   * @generated from field: kuku.ai.v1.FinishReason finish_reason = 4;
-   */
-  finishReason: FinishReason;
+  event: {
+    /**
+     * @generated from field: kuku.ai.v1.TextDeltaEvent text_delta = 1;
+     */
+    value: TextDeltaEvent;
+    case: "textDelta";
+  } | {
+    /**
+     * @generated from field: kuku.ai.v1.ToolCallsEvent tool_calls = 2;
+     */
+    value: ToolCallsEvent;
+    case: "toolCalls";
+  } | {
+    /**
+     * @generated from field: kuku.ai.v1.FinishedEvent finished = 3;
+     */
+    value: FinishedEvent;
+    case: "finished";
+  } | { case: undefined; value?: undefined };
 };
 
 /**
@@ -106,6 +121,71 @@ export type CompleteResponse = Message<"kuku.ai.v1.CompleteResponse"> & {
  */
 export const CompleteResponseSchema: GenMessage<CompleteResponse> = /*@__PURE__*/
   messageDesc(file_kuku_ai_v1_ai, 1);
+
+/**
+ * TextDeltaEvent is a chunk of assistant text. Emit as soon as received.
+ *
+ * @generated from message kuku.ai.v1.TextDeltaEvent
+ */
+export type TextDeltaEvent = Message<"kuku.ai.v1.TextDeltaEvent"> & {
+  /**
+   * @generated from field: string text = 1;
+   */
+  text: string;
+};
+
+/**
+ * Describes the message kuku.ai.v1.TextDeltaEvent.
+ * Use `create(TextDeltaEventSchema)` to create a new message.
+ */
+export const TextDeltaEventSchema: GenMessage<TextDeltaEvent> = /*@__PURE__*/
+  messageDesc(file_kuku_ai_v1_ai, 2);
+
+/**
+ * ToolCallsEvent is the buffered set of tool calls produced during the turn.
+ *
+ * @generated from message kuku.ai.v1.ToolCallsEvent
+ */
+export type ToolCallsEvent = Message<"kuku.ai.v1.ToolCallsEvent"> & {
+  /**
+   * @generated from field: repeated kuku.ai.v1.ModelToolCall tool_calls = 1;
+   */
+  toolCalls: ModelToolCall[];
+};
+
+/**
+ * Describes the message kuku.ai.v1.ToolCallsEvent.
+ * Use `create(ToolCallsEventSchema)` to create a new message.
+ */
+export const ToolCallsEventSchema: GenMessage<ToolCallsEvent> = /*@__PURE__*/
+  messageDesc(file_kuku_ai_v1_ai, 3);
+
+/**
+ * FinishedEvent terminates the stream. `finish_reason` is derived server-
+ * side (TOOL_CALLS if any tool calls were produced, otherwise STOP) — the
+ * upstream provider's native finish enum is not forwarded. `usage` is the
+ * last-observed usage metadata across the upstream stream.
+ *
+ * @generated from message kuku.ai.v1.FinishedEvent
+ */
+export type FinishedEvent = Message<"kuku.ai.v1.FinishedEvent"> & {
+  /**
+   * @generated from field: kuku.ai.v1.FinishReason finish_reason = 1;
+   */
+  finishReason: FinishReason;
+
+  /**
+   * @generated from field: kuku.ai.v1.TokenUsage usage = 2;
+   */
+  usage?: TokenUsage;
+};
+
+/**
+ * Describes the message kuku.ai.v1.FinishedEvent.
+ * Use `create(FinishedEventSchema)` to create a new message.
+ */
+export const FinishedEventSchema: GenMessage<FinishedEvent> = /*@__PURE__*/
+  messageDesc(file_kuku_ai_v1_ai, 4);
 
 /**
  * TokenUsage reports provider token usage when the upstream model exposes it.
@@ -139,7 +219,7 @@ export type TokenUsage = Message<"kuku.ai.v1.TokenUsage"> & {
  * Use `create(TokenUsageSchema)` to create a new message.
  */
 export const TokenUsageSchema: GenMessage<TokenUsage> = /*@__PURE__*/
-  messageDesc(file_kuku_ai_v1_ai, 2);
+  messageDesc(file_kuku_ai_v1_ai, 5);
 
 /**
  * ChatMessage carries the desktop-side conversation history.
@@ -193,7 +273,7 @@ export type ChatMessage = Message<"kuku.ai.v1.ChatMessage"> & {
  * Use `create(ChatMessageSchema)` to create a new message.
  */
 export const ChatMessageSchema: GenMessage<ChatMessage> = /*@__PURE__*/
-  messageDesc(file_kuku_ai_v1_ai, 3);
+  messageDesc(file_kuku_ai_v1_ai, 6);
 
 /**
  * ToolDescriptor exposes a desktop tool to the server-side model.
@@ -222,7 +302,7 @@ export type ToolDescriptor = Message<"kuku.ai.v1.ToolDescriptor"> & {
  * Use `create(ToolDescriptorSchema)` to create a new message.
  */
 export const ToolDescriptorSchema: GenMessage<ToolDescriptor> = /*@__PURE__*/
-  messageDesc(file_kuku_ai_v1_ai, 4);
+  messageDesc(file_kuku_ai_v1_ai, 7);
 
 /**
  * ModelToolCall is a model-requested function call that must be executed by
@@ -273,7 +353,7 @@ export type ModelToolCall = Message<"kuku.ai.v1.ModelToolCall"> & {
  * Use `create(ModelToolCallSchema)` to create a new message.
  */
 export const ModelToolCallSchema: GenMessage<ModelToolCall> = /*@__PURE__*/
-  messageDesc(file_kuku_ai_v1_ai, 5);
+  messageDesc(file_kuku_ai_v1_ai, 8);
 
 /**
  * ConversationMode controls the completion behavior.
@@ -383,15 +463,18 @@ export const FinishReasonSchema: GenEnum<FinishReason> = /*@__PURE__*/
  */
 export const AIService: GenService<{
   /**
-   * Completes a single AI turn.
+   * Streams a single AI turn. Emits text deltas as they arrive, followed by
+   * buffered tool calls (if any), then a terminal Finished event. The stream
+   * closes at the end of the turn; on FINISH_REASON_TOOL_CALLS the caller
+   * executes the tools and issues a follow-up Complete call with the tool
+   * results appended to `messages`. The server never holds a connection
+   * across tool-call rounds.
    * - Requires authentication.
-   * - This is intentionally unary for the first remote provider cut; the
-   *   desktop runtime wraps the response into its existing local stream events.
    *
    * @generated from rpc kuku.ai.v1.AIService.Complete
    */
   complete: {
-    methodKind: "unary";
+    methodKind: "server_streaming";
     input: typeof CompleteRequestSchema;
     output: typeof CompleteResponseSchema;
   },

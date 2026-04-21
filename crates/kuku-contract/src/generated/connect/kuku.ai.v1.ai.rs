@@ -16,10 +16,13 @@ pub const AI_SERVICE_SERVICE_NAME: &str = "kuku.ai.v1.AIService";
 /// for zero-copy access patterns and when `to_owned_message()` is needed.
 #[allow(clippy::type_complexity)]
 pub trait AiService: Send + Sync + 'static {
-    /// Completes a single AI turn.
+    /// Streams a single AI turn. Emits text deltas as they arrive, followed by
+    /// buffered tool calls (if any), then a terminal Finished event. The stream
+    /// closes at the end of the turn; on FINISH_REASON_TOOL_CALLS the caller
+    /// executes the tools and issues a follow-up Complete call with the tool
+    /// results appended to `messages`. The server never holds a connection
+    /// across tool-call rounds.
     /// - Requires authentication.
-    /// - This is intentionally unary for the first remote provider cut; the
-    /// desktop runtime wraps the response into its existing local stream events.
     fn complete(
         &self,
         ctx: ::connectrpc::Context,
@@ -28,7 +31,19 @@ pub trait AiService: Send + Sync + 'static {
         >,
     ) -> impl ::std::future::Future<
         Output = Result<
-            (crate::proto::kuku::ai::v1::CompleteResponse, ::connectrpc::Context),
+            (
+                ::std::pin::Pin<
+                    Box<
+                        dyn ::futures::Stream<
+                            Item = Result<
+                                crate::proto::kuku::ai::v1::CompleteResponse,
+                                ::connectrpc::ConnectError,
+                            >,
+                        > + Send,
+                    >,
+                >,
+                ::connectrpc::Context,
+            ),
             ::connectrpc::ConnectError,
         >,
     > + Send;
@@ -61,16 +76,16 @@ impl<S: AiService> AiServiceExt for S {
         router: ::connectrpc::Router,
     ) -> ::connectrpc::Router {
         router
-            .route_view(
+            .route_view_server_stream(
                 AI_SERVICE_SERVICE_NAME,
                 "Complete",
-                {
+                ::connectrpc::view_streaming_handler_fn({
                     let svc = ::std::sync::Arc::clone(&self);
-                    ::connectrpc::view_handler_fn(move |ctx, req| {
+                    move |ctx, req| {
                         let svc = ::std::sync::Arc::clone(&svc);
                         async move { svc.complete(ctx, req).await }
-                    })
-                },
+                    }
+                }),
             )
     }
 }
@@ -118,7 +133,9 @@ impl<T: AiService> ::connectrpc::Dispatcher for AiServiceServer<T> {
         let method = path.strip_prefix("kuku.ai.v1.AIService/")?;
         match method {
             "Complete" => {
-                Some(::connectrpc::dispatcher::codegen::MethodDescriptor::unary(false))
+                Some(
+                    ::connectrpc::dispatcher::codegen::MethodDescriptor::server_streaming(),
+                )
             }
             _ => None,
         }
@@ -135,20 +152,6 @@ impl<T: AiService> ::connectrpc::Dispatcher for AiServiceServer<T> {
         };
         let _ = (&ctx, &request, &format);
         match method {
-            "Complete" => {
-                let svc = ::std::sync::Arc::clone(&self.inner);
-                Box::pin(async move {
-                    let req = ::connectrpc::dispatcher::codegen::decode_request_view::<
-                        crate::proto::kuku::ai::v1::CompleteRequestView,
-                    >(request, format)?;
-                    let (res, ctx) = svc.complete(ctx, req).await?;
-                    let bytes = ::connectrpc::dispatcher::codegen::encode_response(
-                        &res,
-                        format,
-                    )?;
-                    Ok((bytes, ctx))
-                })
-            }
             _ => ::connectrpc::dispatcher::codegen::unimplemented_unary(path),
         }
     }
@@ -164,6 +167,22 @@ impl<T: AiService> ::connectrpc::Dispatcher for AiServiceServer<T> {
         };
         let _ = (&ctx, &request, &format);
         match method {
+            "Complete" => {
+                let svc = ::std::sync::Arc::clone(&self.inner);
+                Box::pin(async move {
+                    let req = ::connectrpc::dispatcher::codegen::decode_request_view::<
+                        crate::proto::kuku::ai::v1::CompleteRequestView,
+                    >(request, format)?;
+                    let (resp_stream, ctx) = svc.complete(ctx, req).await?;
+                    Ok((
+                        ::connectrpc::dispatcher::codegen::encode_response_stream(
+                            resp_stream,
+                            format,
+                        ),
+                        ctx,
+                    ))
+                })
+            }
             _ => ::connectrpc::dispatcher::codegen::unimplemented_streaming(path),
         }
     }
@@ -274,10 +293,9 @@ where
         &self,
         request: crate::proto::kuku::ai::v1::CompleteRequest,
     ) -> Result<
-        ::connectrpc::client::UnaryResponse<
-            ::buffa::view::OwnedView<
-                crate::proto::kuku::ai::v1::CompleteResponseView<'static>,
-            >,
+        ::connectrpc::client::ServerStream<
+            T::ResponseBody,
+            crate::proto::kuku::ai::v1::CompleteResponseView<'static>,
         >,
         ::connectrpc::ConnectError,
     > {
@@ -290,14 +308,13 @@ where
         request: crate::proto::kuku::ai::v1::CompleteRequest,
         options: ::connectrpc::client::CallOptions,
     ) -> Result<
-        ::connectrpc::client::UnaryResponse<
-            ::buffa::view::OwnedView<
-                crate::proto::kuku::ai::v1::CompleteResponseView<'static>,
-            >,
+        ::connectrpc::client::ServerStream<
+            T::ResponseBody,
+            crate::proto::kuku::ai::v1::CompleteResponseView<'static>,
         >,
         ::connectrpc::ConnectError,
     > {
-        ::connectrpc::client::call_unary(
+        ::connectrpc::client::call_server_stream(
                 &self.transport,
                 &self.config,
                 AI_SERVICE_SERVICE_NAME,

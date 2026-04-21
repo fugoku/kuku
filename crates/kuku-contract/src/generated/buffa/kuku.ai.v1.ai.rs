@@ -941,36 +941,25 @@ unsafe impl ::buffa::DefaultViewInstance for CompleteRequestView<'static> {
 unsafe impl<'a> ::buffa::HasDefaultViewInstance for CompleteRequestView<'a> {
     type Static = CompleteRequestView<'static>;
 }
-/// CompleteResponse is the generated text and optional usage metadata.
+/// CompleteResponse is one increment of a Complete turn; the stream emits
+/// many of these per call. Exactly one FinishedEvent variant is the terminal
+/// event.
+///
+/// Event order on a tool-using turn:
+///   text_delta*  →  tool_calls?  →  finished(TOOL_CALLS)
+/// Event order on a plain-text turn:
+///   text_delta*  →  finished(STOP)
+///
+/// Tool calls are buffered server-side until the upstream stream ends, then
+/// emitted as a single ToolCallsEvent right before Finished. This matches
+/// what the desktop runtime consumes today (CompletionEvent::ToolCalls takes
+/// a Vec\<ModelToolCall\>).
 #[derive(Clone, PartialEq, Default)]
-#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[derive(::serde::Serialize)]
 #[serde(default)]
 pub struct CompleteResponse {
-    /// Field 1: `text`
-    #[serde(rename = "text", skip_serializing_if = "Option::is_none")]
-    pub text: Option<::buffa::alloc::string::String>,
-    /// Field 2: `usage`
-    #[serde(
-        rename = "usage",
-        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
-    )]
-    pub usage: ::buffa::MessageField<TokenUsage>,
-    /// Field 3: `tool_calls`
-    #[serde(
-        rename = "toolCalls",
-        alias = "tool_calls",
-        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
-        deserialize_with = "::buffa::json_helpers::null_as_default"
-    )]
-    pub tool_calls: ::buffa::alloc::vec::Vec<ModelToolCall>,
-    /// Field 4: `finish_reason`
-    #[serde(
-        rename = "finishReason",
-        alias = "finish_reason",
-        with = "::buffa::json_helpers::opt_enum",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub finish_reason: Option<::buffa::EnumValue<FinishReason>>,
+    #[serde(flatten)]
+    pub event: Option<complete_response::Event>,
     #[serde(skip)]
     #[doc(hidden)]
     pub __buffa_unknown_fields: ::buffa::UnknownFields,
@@ -980,12 +969,7 @@ pub struct CompleteResponse {
 }
 impl ::core::fmt::Debug for CompleteResponse {
     fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-        f.debug_struct("CompleteResponse")
-            .field("text", &self.text)
-            .field("usage", &self.usage)
-            .field("tool_calls", &self.tool_calls)
-            .field("finish_reason", &self.finish_reason)
-            .finish()
+        f.debug_struct("CompleteResponse").field("event", &self.event).finish()
     }
 }
 impl CompleteResponse {
@@ -1011,23 +995,27 @@ impl ::buffa::Message for CompleteResponse {
         #[allow(unused_imports)]
         use ::buffa::Enumeration as _;
         let mut size = 0u32;
-        if let Some(ref v) = self.text {
-            size += 1u32 + ::buffa::types::string_encoded_len(v) as u32;
-        }
-        if self.usage.is_set() {
-            let inner_size = self.usage.compute_size();
-            size
-                += 1u32 + ::buffa::encoding::varint_len(inner_size as u64) as u32
-                    + inner_size;
-        }
-        if let Some(ref v) = self.finish_reason {
-            size += 1u32 + ::buffa::types::int32_encoded_len(v.to_i32()) as u32;
-        }
-        for v in &self.tool_calls {
-            let inner_size = v.compute_size();
-            size
-                += 1u32 + ::buffa::encoding::varint_len(inner_size as u64) as u32
-                    + inner_size;
+        if let ::core::option::Option::Some(ref v) = self.event {
+            match v {
+                complete_response::Event::TextDelta(x) => {
+                    let inner = x.compute_size();
+                    size
+                        += 1u32 + ::buffa::encoding::varint_len(inner as u64) as u32
+                            + inner;
+                }
+                complete_response::Event::ToolCalls(x) => {
+                    let inner = x.compute_size();
+                    size
+                        += 1u32 + ::buffa::encoding::varint_len(inner as u64) as u32
+                            + inner;
+                }
+                complete_response::Event::Finished(x) => {
+                    let inner = x.compute_size();
+                    size
+                        += 1u32 + ::buffa::encoding::varint_len(inner as u64) as u32
+                            + inner;
+                }
+            }
         }
         size += self.__buffa_unknown_fields.encoded_len() as u32;
         self.__buffa_cached_size.set(size);
@@ -1036,36 +1024,36 @@ impl ::buffa::Message for CompleteResponse {
     fn write_to(&self, buf: &mut impl ::buffa::bytes::BufMut) {
         #[allow(unused_imports)]
         use ::buffa::Enumeration as _;
-        if let Some(ref v) = self.text {
-            ::buffa::encoding::Tag::new(
-                    1u32,
-                    ::buffa::encoding::WireType::LengthDelimited,
-                )
-                .encode(buf);
-            ::buffa::types::encode_string(v, buf);
-        }
-        if self.usage.is_set() {
-            ::buffa::encoding::Tag::new(
-                    2u32,
-                    ::buffa::encoding::WireType::LengthDelimited,
-                )
-                .encode(buf);
-            ::buffa::encoding::encode_varint(self.usage.cached_size() as u64, buf);
-            self.usage.write_to(buf);
-        }
-        if let Some(ref v) = self.finish_reason {
-            ::buffa::encoding::Tag::new(4u32, ::buffa::encoding::WireType::Varint)
-                .encode(buf);
-            ::buffa::types::encode_int32(v.to_i32(), buf);
-        }
-        for v in &self.tool_calls {
-            ::buffa::encoding::Tag::new(
-                    3u32,
-                    ::buffa::encoding::WireType::LengthDelimited,
-                )
-                .encode(buf);
-            ::buffa::encoding::encode_varint(v.cached_size() as u64, buf);
-            v.write_to(buf);
+        if let ::core::option::Option::Some(ref v) = self.event {
+            match v {
+                complete_response::Event::TextDelta(x) => {
+                    ::buffa::encoding::Tag::new(
+                            1u32,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )
+                        .encode(buf);
+                    ::buffa::encoding::encode_varint(x.cached_size() as u64, buf);
+                    x.write_to(buf);
+                }
+                complete_response::Event::ToolCalls(x) => {
+                    ::buffa::encoding::Tag::new(
+                            2u32,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )
+                        .encode(buf);
+                    ::buffa::encoding::encode_varint(x.cached_size() as u64, buf);
+                    x.write_to(buf);
+                }
+                complete_response::Event::Finished(x) => {
+                    ::buffa::encoding::Tag::new(
+                            3u32,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )
+                        .encode(buf);
+                    ::buffa::encoding::encode_varint(x.cached_size() as u64, buf);
+                    x.write_to(buf);
+                }
+            }
         }
         self.__buffa_unknown_fields.write_to(buf);
     }
@@ -1088,10 +1076,24 @@ impl ::buffa::Message for CompleteResponse {
                         actual: tag.wire_type() as u8,
                     });
                 }
-                ::buffa::types::merge_string(
-                    self.text.get_or_insert_with(::buffa::alloc::string::String::new),
-                    buf,
-                )?;
+                if let ::core::option::Option::Some(
+                    complete_response::Event::TextDelta(ref mut existing),
+                ) = self.event
+                {
+                    ::buffa::Message::merge_length_delimited(
+                        &mut **existing,
+                        buf,
+                        depth,
+                    )?;
+                } else {
+                    let mut val = ::core::default::Default::default();
+                    ::buffa::Message::merge_length_delimited(&mut val, buf, depth)?;
+                    self.event = ::core::option::Option::Some(
+                        complete_response::Event::TextDelta(
+                            ::buffa::alloc::boxed::Box::new(val),
+                        ),
+                    );
+                }
             }
             2u32 => {
                 if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
@@ -1101,23 +1103,24 @@ impl ::buffa::Message for CompleteResponse {
                         actual: tag.wire_type() as u8,
                     });
                 }
-                ::buffa::Message::merge_length_delimited(
-                    self.usage.get_or_insert_default(),
-                    buf,
-                    depth,
-                )?;
-            }
-            4u32 => {
-                if tag.wire_type() != ::buffa::encoding::WireType::Varint {
-                    return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
-                        field_number: 4u32,
-                        expected: 0u8,
-                        actual: tag.wire_type() as u8,
-                    });
+                if let ::core::option::Option::Some(
+                    complete_response::Event::ToolCalls(ref mut existing),
+                ) = self.event
+                {
+                    ::buffa::Message::merge_length_delimited(
+                        &mut **existing,
+                        buf,
+                        depth,
+                    )?;
+                } else {
+                    let mut val = ::core::default::Default::default();
+                    ::buffa::Message::merge_length_delimited(&mut val, buf, depth)?;
+                    self.event = ::core::option::Option::Some(
+                        complete_response::Event::ToolCalls(
+                            ::buffa::alloc::boxed::Box::new(val),
+                        ),
+                    );
                 }
-                self.finish_reason = ::core::option::Option::Some(
-                    ::buffa::EnumValue::from(::buffa::types::decode_int32(buf)?),
-                );
             }
             3u32 => {
                 if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
@@ -1127,9 +1130,24 @@ impl ::buffa::Message for CompleteResponse {
                         actual: tag.wire_type() as u8,
                     });
                 }
-                let mut elem = ::core::default::Default::default();
-                ::buffa::Message::merge_length_delimited(&mut elem, buf, depth)?;
-                self.tool_calls.push(elem);
+                if let ::core::option::Option::Some(
+                    complete_response::Event::Finished(ref mut existing),
+                ) = self.event
+                {
+                    ::buffa::Message::merge_length_delimited(
+                        &mut **existing,
+                        buf,
+                        depth,
+                    )?;
+                } else {
+                    let mut val = ::core::default::Default::default();
+                    ::buffa::Message::merge_length_delimited(&mut val, buf, depth)?;
+                    self.event = ::core::option::Option::Some(
+                        complete_response::Event::Finished(
+                            ::buffa::alloc::boxed::Box::new(val),
+                        ),
+                    );
+                }
             }
             _ => {
                 self.__buffa_unknown_fields
@@ -1142,10 +1160,7 @@ impl ::buffa::Message for CompleteResponse {
         self.__buffa_cached_size.get()
     }
     fn clear(&mut self) {
-        self.text = ::core::option::Option::None;
-        self.usage = ::buffa::MessageField::none();
-        self.finish_reason = ::core::option::Option::None;
-        self.tool_calls.clear();
+        self.event = ::core::option::Option::None;
         self.__buffa_unknown_fields.clear();
         self.__buffa_cached_size.set(0);
     }
@@ -1157,6 +1172,107 @@ impl ::buffa::ExtensionSet for CompleteResponse {
     }
     fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
         &mut self.__buffa_unknown_fields
+    }
+}
+impl<'de> serde::Deserialize<'de> for CompleteResponse {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct _V;
+        impl<'de> serde::de::Visitor<'de> for _V {
+            type Value = CompleteResponse;
+            fn expecting(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                f.write_str("struct CompleteResponse")
+            }
+            #[allow(clippy::field_reassign_with_default)]
+            fn visit_map<A: serde::de::MapAccess<'de>>(
+                self,
+                mut map: A,
+            ) -> Result<CompleteResponse, A::Error> {
+                let mut __oneof_event: Option<complete_response::Event> = None;
+                while let Some(key) = map.next_key::<::buffa::alloc::string::String>()? {
+                    match key.as_str() {
+                        "textDelta" | "text_delta" => {
+                            let v: Option<TextDeltaEvent> = map
+                                .next_value_seed(
+                                    ::buffa::json_helpers::NullableDeserializeSeed(
+                                        ::buffa::json_helpers::DefaultDeserializeSeed::<
+                                            TextDeltaEvent,
+                                        >::new(),
+                                    ),
+                                )?;
+                            if let Some(v) = v {
+                                if __oneof_event.is_some() {
+                                    return Err(
+                                        serde::de::Error::custom(
+                                            "multiple oneof fields set for 'event'",
+                                        ),
+                                    );
+                                }
+                                __oneof_event = Some(
+                                    complete_response::Event::TextDelta(
+                                        ::buffa::alloc::boxed::Box::new(v),
+                                    ),
+                                );
+                            }
+                        }
+                        "toolCalls" | "tool_calls" => {
+                            let v: Option<ToolCallsEvent> = map
+                                .next_value_seed(
+                                    ::buffa::json_helpers::NullableDeserializeSeed(
+                                        ::buffa::json_helpers::DefaultDeserializeSeed::<
+                                            ToolCallsEvent,
+                                        >::new(),
+                                    ),
+                                )?;
+                            if let Some(v) = v {
+                                if __oneof_event.is_some() {
+                                    return Err(
+                                        serde::de::Error::custom(
+                                            "multiple oneof fields set for 'event'",
+                                        ),
+                                    );
+                                }
+                                __oneof_event = Some(
+                                    complete_response::Event::ToolCalls(
+                                        ::buffa::alloc::boxed::Box::new(v),
+                                    ),
+                                );
+                            }
+                        }
+                        "finished" => {
+                            let v: Option<FinishedEvent> = map
+                                .next_value_seed(
+                                    ::buffa::json_helpers::NullableDeserializeSeed(
+                                        ::buffa::json_helpers::DefaultDeserializeSeed::<
+                                            FinishedEvent,
+                                        >::new(),
+                                    ),
+                                )?;
+                            if let Some(v) = v {
+                                if __oneof_event.is_some() {
+                                    return Err(
+                                        serde::de::Error::custom(
+                                            "multiple oneof fields set for 'event'",
+                                        ),
+                                    );
+                                }
+                                __oneof_event = Some(
+                                    complete_response::Event::Finished(
+                                        ::buffa::alloc::boxed::Box::new(v),
+                                    ),
+                                );
+                            }
+                        }
+                        _ => {
+                            map.next_value::<serde::de::IgnoredAny>()?;
+                        }
+                    }
+                }
+                let mut __r = <CompleteResponse as ::core::default::Default>::default();
+                __r.event = __oneof_event;
+                Ok(__r)
+            }
+        }
+        d.deserialize_map(_V)
     }
 }
 impl ::buffa::json_helpers::ProtoElemJson for CompleteResponse {
@@ -1179,17 +1295,22 @@ pub const __COMPLETE_RESPONSE_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = :
     from_json: ::buffa::type_registry::any_from_json::<CompleteResponse>,
     is_wkt: false,
 };
-/// CompleteResponse is the generated text and optional usage metadata.
+/// CompleteResponse is one increment of a Complete turn; the stream emits
+/// many of these per call. Exactly one FinishedEvent variant is the terminal
+/// event.
+///
+/// Event order on a tool-using turn:
+///   text_delta*  →  tool_calls?  →  finished(TOOL_CALLS)
+/// Event order on a plain-text turn:
+///   text_delta*  →  finished(STOP)
+///
+/// Tool calls are buffered server-side until the upstream stream ends, then
+/// emitted as a single ToolCallsEvent right before Finished. This matches
+/// what the desktop runtime consumes today (CompletionEvent::ToolCalls takes
+/// a Vec\<ModelToolCall\>).
 #[derive(Clone, Debug, Default)]
 pub struct CompleteResponseView<'a> {
-    /// Field 1: `text`
-    pub text: ::core::option::Option<&'a str>,
-    /// Field 2: `usage`
-    pub usage: ::buffa::MessageFieldView<TokenUsageView<'a>>,
-    /// Field 3: `tool_calls`
-    pub tool_calls: ::buffa::RepeatedView<'a, ModelToolCallView<'a>>,
-    /// Field 4: `finish_reason`
-    pub finish_reason: ::core::option::Option<::buffa::EnumValue<FinishReason>>,
+    pub event: ::core::option::Option<complete_response::EventView<'a>>,
     pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
 }
 impl<'a> CompleteResponseView<'a> {
@@ -1238,7 +1359,24 @@ impl<'a> CompleteResponseView<'a> {
                             actual: tag.wire_type() as u8,
                         });
                     }
-                    view.text = Some(::buffa::types::borrow_str(&mut cur)?);
+                    if depth == 0 {
+                        return Err(::buffa::DecodeError::RecursionLimitExceeded);
+                    }
+                    let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                    if let Some(
+                        complete_response::EventView::TextDelta(ref mut existing),
+                    ) = view.event
+                    {
+                        existing._merge_into_view(sub, depth - 1)?;
+                    } else {
+                        view.event = Some(
+                            complete_response::EventView::TextDelta(
+                                ::buffa::alloc::boxed::Box::new(
+                                    TextDeltaEventView::_decode_depth(sub, depth - 1)?,
+                                ),
+                            ),
+                        );
+                    }
                 }
                 2u32 => {
                     if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
@@ -1252,26 +1390,20 @@ impl<'a> CompleteResponseView<'a> {
                         return Err(::buffa::DecodeError::RecursionLimitExceeded);
                     }
                     let sub = ::buffa::types::borrow_bytes(&mut cur)?;
-                    match view.usage.as_mut() {
-                        Some(existing) => existing._merge_into_view(sub, depth - 1)?,
-                        None => {
-                            view.usage = ::buffa::MessageFieldView::set(
-                                TokenUsageView::_decode_depth(sub, depth - 1)?,
-                            );
-                        }
+                    if let Some(
+                        complete_response::EventView::ToolCalls(ref mut existing),
+                    ) = view.event
+                    {
+                        existing._merge_into_view(sub, depth - 1)?;
+                    } else {
+                        view.event = Some(
+                            complete_response::EventView::ToolCalls(
+                                ::buffa::alloc::boxed::Box::new(
+                                    ToolCallsEventView::_decode_depth(sub, depth - 1)?,
+                                ),
+                            ),
+                        );
                     }
-                }
-                4u32 => {
-                    if tag.wire_type() != ::buffa::encoding::WireType::Varint {
-                        return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
-                            field_number: 4u32,
-                            expected: 0u8,
-                            actual: tag.wire_type() as u8,
-                        });
-                    }
-                    view.finish_reason = Some(
-                        ::buffa::EnumValue::from(::buffa::types::decode_int32(&mut cur)?),
-                    );
                 }
                 3u32 => {
                     if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
@@ -1285,8 +1417,20 @@ impl<'a> CompleteResponseView<'a> {
                         return Err(::buffa::DecodeError::RecursionLimitExceeded);
                     }
                     let sub = ::buffa::types::borrow_bytes(&mut cur)?;
-                    view.tool_calls
-                        .push(ModelToolCallView::_decode_depth(sub, depth - 1)?);
+                    if let Some(
+                        complete_response::EventView::Finished(ref mut existing),
+                    ) = view.event
+                    {
+                        existing._merge_into_view(sub, depth - 1)?;
+                    } else {
+                        view.event = Some(
+                            complete_response::EventView::Finished(
+                                ::buffa::alloc::boxed::Box::new(
+                                    FinishedEventView::_decode_depth(sub, depth - 1)?,
+                                ),
+                            ),
+                        );
+                    }
                 }
                 _ => {
                     ::buffa::encoding::skip_field_depth(tag, &mut cur, depth)?;
@@ -1315,15 +1459,26 @@ impl<'a> ::buffa::MessageView<'a> for CompleteResponseView<'a> {
         #[allow(unused_imports)]
         use ::buffa::alloc::string::ToString as _;
         CompleteResponse {
-            text: self.text.map(|s| s.to_string()),
-            usage: match self.usage.as_option() {
-                Some(v) => {
-                    ::buffa::MessageField::<TokenUsage>::some(v.to_owned_message())
-                }
-                None => ::buffa::MessageField::none(),
-            },
-            tool_calls: self.tool_calls.iter().map(|v| v.to_owned_message()).collect(),
-            finish_reason: self.finish_reason,
+            event: self
+                .event
+                .as_ref()
+                .map(|v| match v {
+                    complete_response::EventView::TextDelta(v) => {
+                        complete_response::Event::TextDelta(
+                            ::buffa::alloc::boxed::Box::new(v.to_owned_message()),
+                        )
+                    }
+                    complete_response::EventView::ToolCalls(v) => {
+                        complete_response::Event::ToolCalls(
+                            ::buffa::alloc::boxed::Box::new(v.to_owned_message()),
+                        )
+                    }
+                    complete_response::EventView::Finished(v) => {
+                        complete_response::Event::Finished(
+                            ::buffa::alloc::boxed::Box::new(v.to_owned_message()),
+                        )
+                    }
+                }),
             __buffa_unknown_fields: self
                 .__buffa_unknown_fields
                 .to_owned()
@@ -1341,6 +1496,863 @@ unsafe impl ::buffa::DefaultViewInstance for CompleteResponseView<'static> {
 }
 unsafe impl<'a> ::buffa::HasDefaultViewInstance for CompleteResponseView<'a> {
     type Static = CompleteResponseView<'static>;
+}
+pub mod complete_response {
+    #[allow(unused_imports)]
+    use super::*;
+    #[derive(Clone, PartialEq, Debug)]
+    pub enum Event {
+        TextDelta(::buffa::alloc::boxed::Box<super::TextDeltaEvent>),
+        ToolCalls(::buffa::alloc::boxed::Box<super::ToolCallsEvent>),
+        Finished(::buffa::alloc::boxed::Box<super::FinishedEvent>),
+    }
+    impl ::buffa::Oneof for Event {}
+    impl From<super::TextDeltaEvent> for Event {
+        fn from(v: super::TextDeltaEvent) -> Self {
+            Self::TextDelta(::buffa::alloc::boxed::Box::new(v))
+        }
+    }
+    impl From<super::TextDeltaEvent> for ::core::option::Option<Event> {
+        fn from(v: super::TextDeltaEvent) -> Self {
+            Self::Some(Event::from(v))
+        }
+    }
+    impl From<super::ToolCallsEvent> for Event {
+        fn from(v: super::ToolCallsEvent) -> Self {
+            Self::ToolCalls(::buffa::alloc::boxed::Box::new(v))
+        }
+    }
+    impl From<super::ToolCallsEvent> for ::core::option::Option<Event> {
+        fn from(v: super::ToolCallsEvent) -> Self {
+            Self::Some(Event::from(v))
+        }
+    }
+    impl From<super::FinishedEvent> for Event {
+        fn from(v: super::FinishedEvent) -> Self {
+            Self::Finished(::buffa::alloc::boxed::Box::new(v))
+        }
+    }
+    impl From<super::FinishedEvent> for ::core::option::Option<Event> {
+        fn from(v: super::FinishedEvent) -> Self {
+            Self::Some(Event::from(v))
+        }
+    }
+    impl serde::Serialize for Event {
+        fn serialize<S: serde::Serializer>(
+            &self,
+            s: S,
+        ) -> ::core::result::Result<S::Ok, S::Error> {
+            use serde::ser::SerializeMap;
+            let mut map = s.serialize_map(Some(1))?;
+            match self {
+                Event::TextDelta(v) => {
+                    map.serialize_entry("textDelta", v)?;
+                }
+                Event::ToolCalls(v) => {
+                    map.serialize_entry("toolCalls", v)?;
+                }
+                Event::Finished(v) => {
+                    map.serialize_entry("finished", v)?;
+                }
+            }
+            map.end()
+        }
+    }
+    #[derive(Clone, Debug)]
+    pub enum EventView<'a> {
+        TextDelta(::buffa::alloc::boxed::Box<super::TextDeltaEventView<'a>>),
+        ToolCalls(::buffa::alloc::boxed::Box<super::ToolCallsEventView<'a>>),
+        Finished(::buffa::alloc::boxed::Box<super::FinishedEventView<'a>>),
+    }
+}
+/// TextDeltaEvent is a chunk of assistant text. Emit as soon as received.
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct TextDeltaEvent {
+    /// Field 1: `text`
+    #[serde(rename = "text", skip_serializing_if = "Option::is_none")]
+    pub text: Option<::buffa::alloc::string::String>,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+    #[doc(hidden)]
+    #[serde(skip)]
+    pub __buffa_cached_size: ::buffa::__private::CachedSize,
+}
+impl ::core::fmt::Debug for TextDeltaEvent {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("TextDeltaEvent").field("text", &self.text).finish()
+    }
+}
+impl TextDeltaEvent {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/kuku.ai.v1.TextDeltaEvent";
+}
+unsafe impl ::buffa::DefaultInstance for TextDeltaEvent {
+    fn default_instance() -> &'static Self {
+        static VALUE: ::buffa::__private::OnceBox<TextDeltaEvent> = ::buffa::__private::OnceBox::new();
+        VALUE.get_or_init(|| ::buffa::alloc::boxed::Box::new(Self::default()))
+    }
+}
+impl ::buffa::Message for TextDeltaEvent {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// The result is a `u32`; the protobuf specification requires all
+    /// messages to fit within 2 GiB (2,147,483,647 bytes), so a
+    /// compliant message will never overflow this type.
+    fn compute_size(&self) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u32;
+        if let Some(ref v) = self.text {
+            size += 1u32 + ::buffa::types::string_encoded_len(v) as u32;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u32;
+        self.__buffa_cached_size.set(size);
+        size
+    }
+    fn write_to(&self, buf: &mut impl ::buffa::bytes::BufMut) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        if let Some(ref v) = self.text {
+            ::buffa::encoding::Tag::new(
+                    1u32,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )
+                .encode(buf);
+            ::buffa::types::encode_string(v, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        depth: u32,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports)]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                    return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                        field_number: 1u32,
+                        expected: 2u8,
+                        actual: tag.wire_type() as u8,
+                    });
+                }
+                ::buffa::types::merge_string(
+                    self.text.get_or_insert_with(::buffa::alloc::string::String::new),
+                    buf,
+                )?;
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, depth)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn cached_size(&self) -> u32 {
+        self.__buffa_cached_size.get()
+    }
+    fn clear(&mut self) {
+        self.text = ::core::option::Option::None;
+        self.__buffa_unknown_fields.clear();
+        self.__buffa_cached_size.set(0);
+    }
+}
+impl ::buffa::ExtensionSet for TextDeltaEvent {
+    const PROTO_FQN: &'static str = "kuku.ai.v1.TextDeltaEvent";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for TextDeltaEvent {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __TEXT_DELTA_EVENT_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/kuku.ai.v1.TextDeltaEvent",
+    to_json: ::buffa::type_registry::any_to_json::<TextDeltaEvent>,
+    from_json: ::buffa::type_registry::any_from_json::<TextDeltaEvent>,
+    is_wkt: false,
+};
+/// TextDeltaEvent is a chunk of assistant text. Emit as soon as received.
+#[derive(Clone, Debug, Default)]
+pub struct TextDeltaEventView<'a> {
+    /// Field 1: `text`
+    pub text: ::core::option::Option<&'a str>,
+    pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+}
+impl<'a> TextDeltaEventView<'a> {
+    /// Decode from `buf`, enforcing a recursion depth limit for nested messages.
+    ///
+    /// Called by [`::buffa::MessageView::decode_view`] with [`::buffa::RECURSION_LIMIT`]
+    /// and by generated sub-message decode arms with `depth - 1`.
+    ///
+    /// **Not part of the public API.** Named with a leading underscore to
+    /// signal that it is for generated-code use only.
+    #[doc(hidden)]
+    pub fn _decode_depth(
+        buf: &'a [u8],
+        depth: u32,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        let mut view = Self::default();
+        view._merge_into_view(buf, depth)?;
+        ::core::result::Result::Ok(view)
+    }
+    /// Merge fields from `buf` into this view (proto merge semantics).
+    ///
+    /// Repeated fields append; singular fields last-wins; singular
+    /// MESSAGE fields merge recursively. Used by sub-message decode
+    /// arms when the same field appears multiple times on the wire.
+    ///
+    /// **Not part of the public API.**
+    #[doc(hidden)]
+    pub fn _merge_into_view(
+        &mut self,
+        buf: &'a [u8],
+        depth: u32,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        let _ = depth;
+        #[allow(unused_variables)]
+        let view = self;
+        let mut cur: &'a [u8] = buf;
+        while !cur.is_empty() {
+            let before_tag = cur;
+            let tag = ::buffa::encoding::Tag::decode(&mut cur)?;
+            match tag.field_number() {
+                1u32 => {
+                    if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                        return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                            field_number: 1u32,
+                            expected: 2u8,
+                            actual: tag.wire_type() as u8,
+                        });
+                    }
+                    view.text = Some(::buffa::types::borrow_str(&mut cur)?);
+                }
+                _ => {
+                    ::buffa::encoding::skip_field_depth(tag, &mut cur, depth)?;
+                    let span_len = before_tag.len() - cur.len();
+                    view.__buffa_unknown_fields.push_raw(&before_tag[..span_len]);
+                }
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+}
+impl<'a> ::buffa::MessageView<'a> for TextDeltaEventView<'a> {
+    type Owned = TextDeltaEvent;
+    fn decode_view(buf: &'a [u8]) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        Self::_decode_depth(buf, ::buffa::RECURSION_LIMIT)
+    }
+    fn decode_view_with_limit(
+        buf: &'a [u8],
+        depth: u32,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        Self::_decode_depth(buf, depth)
+    }
+    /// Convert this view to the owned message type.
+    #[allow(clippy::redundant_closure, clippy::useless_conversion)]
+    fn to_owned_message(&self) -> TextDeltaEvent {
+        #[allow(unused_imports)]
+        use ::buffa::alloc::string::ToString as _;
+        TextDeltaEvent {
+            text: self.text.map(|s| s.to_string()),
+            __buffa_unknown_fields: self
+                .__buffa_unknown_fields
+                .to_owned()
+                .unwrap_or_default()
+                .into(),
+            ..::core::default::Default::default()
+        }
+    }
+}
+unsafe impl ::buffa::DefaultViewInstance for TextDeltaEventView<'static> {
+    fn default_view_instance() -> &'static Self {
+        static VALUE: ::buffa::__private::OnceBox<TextDeltaEventView<'static>> = ::buffa::__private::OnceBox::new();
+        VALUE.get_or_init(|| ::buffa::alloc::boxed::Box::new(Self::default()))
+    }
+}
+unsafe impl<'a> ::buffa::HasDefaultViewInstance for TextDeltaEventView<'a> {
+    type Static = TextDeltaEventView<'static>;
+}
+/// ToolCallsEvent is the buffered set of tool calls produced during the turn.
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct ToolCallsEvent {
+    /// Field 1: `tool_calls`
+    #[serde(
+        rename = "toolCalls",
+        alias = "tool_calls",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
+        deserialize_with = "::buffa::json_helpers::null_as_default"
+    )]
+    pub tool_calls: ::buffa::alloc::vec::Vec<ModelToolCall>,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+    #[doc(hidden)]
+    #[serde(skip)]
+    pub __buffa_cached_size: ::buffa::__private::CachedSize,
+}
+impl ::core::fmt::Debug for ToolCallsEvent {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("ToolCallsEvent").field("tool_calls", &self.tool_calls).finish()
+    }
+}
+impl ToolCallsEvent {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/kuku.ai.v1.ToolCallsEvent";
+}
+unsafe impl ::buffa::DefaultInstance for ToolCallsEvent {
+    fn default_instance() -> &'static Self {
+        static VALUE: ::buffa::__private::OnceBox<ToolCallsEvent> = ::buffa::__private::OnceBox::new();
+        VALUE.get_or_init(|| ::buffa::alloc::boxed::Box::new(Self::default()))
+    }
+}
+impl ::buffa::Message for ToolCallsEvent {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// The result is a `u32`; the protobuf specification requires all
+    /// messages to fit within 2 GiB (2,147,483,647 bytes), so a
+    /// compliant message will never overflow this type.
+    fn compute_size(&self) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u32;
+        for v in &self.tool_calls {
+            let inner_size = v.compute_size();
+            size
+                += 1u32 + ::buffa::encoding::varint_len(inner_size as u64) as u32
+                    + inner_size;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u32;
+        self.__buffa_cached_size.set(size);
+        size
+    }
+    fn write_to(&self, buf: &mut impl ::buffa::bytes::BufMut) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        for v in &self.tool_calls {
+            ::buffa::encoding::Tag::new(
+                    1u32,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )
+                .encode(buf);
+            ::buffa::encoding::encode_varint(v.cached_size() as u64, buf);
+            v.write_to(buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        depth: u32,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports)]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                    return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                        field_number: 1u32,
+                        expected: 2u8,
+                        actual: tag.wire_type() as u8,
+                    });
+                }
+                let mut elem = ::core::default::Default::default();
+                ::buffa::Message::merge_length_delimited(&mut elem, buf, depth)?;
+                self.tool_calls.push(elem);
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, depth)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn cached_size(&self) -> u32 {
+        self.__buffa_cached_size.get()
+    }
+    fn clear(&mut self) {
+        self.tool_calls.clear();
+        self.__buffa_unknown_fields.clear();
+        self.__buffa_cached_size.set(0);
+    }
+}
+impl ::buffa::ExtensionSet for ToolCallsEvent {
+    const PROTO_FQN: &'static str = "kuku.ai.v1.ToolCallsEvent";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for ToolCallsEvent {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __TOOL_CALLS_EVENT_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/kuku.ai.v1.ToolCallsEvent",
+    to_json: ::buffa::type_registry::any_to_json::<ToolCallsEvent>,
+    from_json: ::buffa::type_registry::any_from_json::<ToolCallsEvent>,
+    is_wkt: false,
+};
+/// ToolCallsEvent is the buffered set of tool calls produced during the turn.
+#[derive(Clone, Debug, Default)]
+pub struct ToolCallsEventView<'a> {
+    /// Field 1: `tool_calls`
+    pub tool_calls: ::buffa::RepeatedView<'a, ModelToolCallView<'a>>,
+    pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+}
+impl<'a> ToolCallsEventView<'a> {
+    /// Decode from `buf`, enforcing a recursion depth limit for nested messages.
+    ///
+    /// Called by [`::buffa::MessageView::decode_view`] with [`::buffa::RECURSION_LIMIT`]
+    /// and by generated sub-message decode arms with `depth - 1`.
+    ///
+    /// **Not part of the public API.** Named with a leading underscore to
+    /// signal that it is for generated-code use only.
+    #[doc(hidden)]
+    pub fn _decode_depth(
+        buf: &'a [u8],
+        depth: u32,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        let mut view = Self::default();
+        view._merge_into_view(buf, depth)?;
+        ::core::result::Result::Ok(view)
+    }
+    /// Merge fields from `buf` into this view (proto merge semantics).
+    ///
+    /// Repeated fields append; singular fields last-wins; singular
+    /// MESSAGE fields merge recursively. Used by sub-message decode
+    /// arms when the same field appears multiple times on the wire.
+    ///
+    /// **Not part of the public API.**
+    #[doc(hidden)]
+    pub fn _merge_into_view(
+        &mut self,
+        buf: &'a [u8],
+        depth: u32,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        let _ = depth;
+        #[allow(unused_variables)]
+        let view = self;
+        let mut cur: &'a [u8] = buf;
+        while !cur.is_empty() {
+            let before_tag = cur;
+            let tag = ::buffa::encoding::Tag::decode(&mut cur)?;
+            match tag.field_number() {
+                1u32 => {
+                    if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                        return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                            field_number: 1u32,
+                            expected: 2u8,
+                            actual: tag.wire_type() as u8,
+                        });
+                    }
+                    if depth == 0 {
+                        return Err(::buffa::DecodeError::RecursionLimitExceeded);
+                    }
+                    let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                    view.tool_calls
+                        .push(ModelToolCallView::_decode_depth(sub, depth - 1)?);
+                }
+                _ => {
+                    ::buffa::encoding::skip_field_depth(tag, &mut cur, depth)?;
+                    let span_len = before_tag.len() - cur.len();
+                    view.__buffa_unknown_fields.push_raw(&before_tag[..span_len]);
+                }
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+}
+impl<'a> ::buffa::MessageView<'a> for ToolCallsEventView<'a> {
+    type Owned = ToolCallsEvent;
+    fn decode_view(buf: &'a [u8]) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        Self::_decode_depth(buf, ::buffa::RECURSION_LIMIT)
+    }
+    fn decode_view_with_limit(
+        buf: &'a [u8],
+        depth: u32,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        Self::_decode_depth(buf, depth)
+    }
+    /// Convert this view to the owned message type.
+    #[allow(clippy::redundant_closure, clippy::useless_conversion)]
+    fn to_owned_message(&self) -> ToolCallsEvent {
+        #[allow(unused_imports)]
+        use ::buffa::alloc::string::ToString as _;
+        ToolCallsEvent {
+            tool_calls: self.tool_calls.iter().map(|v| v.to_owned_message()).collect(),
+            __buffa_unknown_fields: self
+                .__buffa_unknown_fields
+                .to_owned()
+                .unwrap_or_default()
+                .into(),
+            ..::core::default::Default::default()
+        }
+    }
+}
+unsafe impl ::buffa::DefaultViewInstance for ToolCallsEventView<'static> {
+    fn default_view_instance() -> &'static Self {
+        static VALUE: ::buffa::__private::OnceBox<ToolCallsEventView<'static>> = ::buffa::__private::OnceBox::new();
+        VALUE.get_or_init(|| ::buffa::alloc::boxed::Box::new(Self::default()))
+    }
+}
+unsafe impl<'a> ::buffa::HasDefaultViewInstance for ToolCallsEventView<'a> {
+    type Static = ToolCallsEventView<'static>;
+}
+/// FinishedEvent terminates the stream. `finish_reason` is derived server-
+/// side (TOOL_CALLS if any tool calls were produced, otherwise STOP) — the
+/// upstream provider's native finish enum is not forwarded. `usage` is the
+/// last-observed usage metadata across the upstream stream.
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct FinishedEvent {
+    /// Field 1: `finish_reason`
+    #[serde(
+        rename = "finishReason",
+        alias = "finish_reason",
+        with = "::buffa::json_helpers::opt_enum",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub finish_reason: Option<::buffa::EnumValue<FinishReason>>,
+    /// Field 2: `usage`
+    #[serde(
+        rename = "usage",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub usage: ::buffa::MessageField<TokenUsage>,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+    #[doc(hidden)]
+    #[serde(skip)]
+    pub __buffa_cached_size: ::buffa::__private::CachedSize,
+}
+impl ::core::fmt::Debug for FinishedEvent {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("FinishedEvent")
+            .field("finish_reason", &self.finish_reason)
+            .field("usage", &self.usage)
+            .finish()
+    }
+}
+impl FinishedEvent {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/kuku.ai.v1.FinishedEvent";
+}
+unsafe impl ::buffa::DefaultInstance for FinishedEvent {
+    fn default_instance() -> &'static Self {
+        static VALUE: ::buffa::__private::OnceBox<FinishedEvent> = ::buffa::__private::OnceBox::new();
+        VALUE.get_or_init(|| ::buffa::alloc::boxed::Box::new(Self::default()))
+    }
+}
+impl ::buffa::Message for FinishedEvent {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// The result is a `u32`; the protobuf specification requires all
+    /// messages to fit within 2 GiB (2,147,483,647 bytes), so a
+    /// compliant message will never overflow this type.
+    fn compute_size(&self) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u32;
+        if let Some(ref v) = self.finish_reason {
+            size += 1u32 + ::buffa::types::int32_encoded_len(v.to_i32()) as u32;
+        }
+        if self.usage.is_set() {
+            let inner_size = self.usage.compute_size();
+            size
+                += 1u32 + ::buffa::encoding::varint_len(inner_size as u64) as u32
+                    + inner_size;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u32;
+        self.__buffa_cached_size.set(size);
+        size
+    }
+    fn write_to(&self, buf: &mut impl ::buffa::bytes::BufMut) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        if let Some(ref v) = self.finish_reason {
+            ::buffa::encoding::Tag::new(1u32, ::buffa::encoding::WireType::Varint)
+                .encode(buf);
+            ::buffa::types::encode_int32(v.to_i32(), buf);
+        }
+        if self.usage.is_set() {
+            ::buffa::encoding::Tag::new(
+                    2u32,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )
+                .encode(buf);
+            ::buffa::encoding::encode_varint(self.usage.cached_size() as u64, buf);
+            self.usage.write_to(buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        depth: u32,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports)]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                if tag.wire_type() != ::buffa::encoding::WireType::Varint {
+                    return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                        field_number: 1u32,
+                        expected: 0u8,
+                        actual: tag.wire_type() as u8,
+                    });
+                }
+                self.finish_reason = ::core::option::Option::Some(
+                    ::buffa::EnumValue::from(::buffa::types::decode_int32(buf)?),
+                );
+            }
+            2u32 => {
+                if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                    return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                        field_number: 2u32,
+                        expected: 2u8,
+                        actual: tag.wire_type() as u8,
+                    });
+                }
+                ::buffa::Message::merge_length_delimited(
+                    self.usage.get_or_insert_default(),
+                    buf,
+                    depth,
+                )?;
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, depth)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn cached_size(&self) -> u32 {
+        self.__buffa_cached_size.get()
+    }
+    fn clear(&mut self) {
+        self.finish_reason = ::core::option::Option::None;
+        self.usage = ::buffa::MessageField::none();
+        self.__buffa_unknown_fields.clear();
+        self.__buffa_cached_size.set(0);
+    }
+}
+impl ::buffa::ExtensionSet for FinishedEvent {
+    const PROTO_FQN: &'static str = "kuku.ai.v1.FinishedEvent";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for FinishedEvent {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __FINISHED_EVENT_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/kuku.ai.v1.FinishedEvent",
+    to_json: ::buffa::type_registry::any_to_json::<FinishedEvent>,
+    from_json: ::buffa::type_registry::any_from_json::<FinishedEvent>,
+    is_wkt: false,
+};
+/// FinishedEvent terminates the stream. `finish_reason` is derived server-
+/// side (TOOL_CALLS if any tool calls were produced, otherwise STOP) — the
+/// upstream provider's native finish enum is not forwarded. `usage` is the
+/// last-observed usage metadata across the upstream stream.
+#[derive(Clone, Debug, Default)]
+pub struct FinishedEventView<'a> {
+    /// Field 1: `finish_reason`
+    pub finish_reason: ::core::option::Option<::buffa::EnumValue<FinishReason>>,
+    /// Field 2: `usage`
+    pub usage: ::buffa::MessageFieldView<TokenUsageView<'a>>,
+    pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+}
+impl<'a> FinishedEventView<'a> {
+    /// Decode from `buf`, enforcing a recursion depth limit for nested messages.
+    ///
+    /// Called by [`::buffa::MessageView::decode_view`] with [`::buffa::RECURSION_LIMIT`]
+    /// and by generated sub-message decode arms with `depth - 1`.
+    ///
+    /// **Not part of the public API.** Named with a leading underscore to
+    /// signal that it is for generated-code use only.
+    #[doc(hidden)]
+    pub fn _decode_depth(
+        buf: &'a [u8],
+        depth: u32,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        let mut view = Self::default();
+        view._merge_into_view(buf, depth)?;
+        ::core::result::Result::Ok(view)
+    }
+    /// Merge fields from `buf` into this view (proto merge semantics).
+    ///
+    /// Repeated fields append; singular fields last-wins; singular
+    /// MESSAGE fields merge recursively. Used by sub-message decode
+    /// arms when the same field appears multiple times on the wire.
+    ///
+    /// **Not part of the public API.**
+    #[doc(hidden)]
+    pub fn _merge_into_view(
+        &mut self,
+        buf: &'a [u8],
+        depth: u32,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        let _ = depth;
+        #[allow(unused_variables)]
+        let view = self;
+        let mut cur: &'a [u8] = buf;
+        while !cur.is_empty() {
+            let before_tag = cur;
+            let tag = ::buffa::encoding::Tag::decode(&mut cur)?;
+            match tag.field_number() {
+                1u32 => {
+                    if tag.wire_type() != ::buffa::encoding::WireType::Varint {
+                        return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                            field_number: 1u32,
+                            expected: 0u8,
+                            actual: tag.wire_type() as u8,
+                        });
+                    }
+                    view.finish_reason = Some(
+                        ::buffa::EnumValue::from(::buffa::types::decode_int32(&mut cur)?),
+                    );
+                }
+                2u32 => {
+                    if tag.wire_type() != ::buffa::encoding::WireType::LengthDelimited {
+                        return ::core::result::Result::Err(::buffa::DecodeError::WireTypeMismatch {
+                            field_number: 2u32,
+                            expected: 2u8,
+                            actual: tag.wire_type() as u8,
+                        });
+                    }
+                    if depth == 0 {
+                        return Err(::buffa::DecodeError::RecursionLimitExceeded);
+                    }
+                    let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                    match view.usage.as_mut() {
+                        Some(existing) => existing._merge_into_view(sub, depth - 1)?,
+                        None => {
+                            view.usage = ::buffa::MessageFieldView::set(
+                                TokenUsageView::_decode_depth(sub, depth - 1)?,
+                            );
+                        }
+                    }
+                }
+                _ => {
+                    ::buffa::encoding::skip_field_depth(tag, &mut cur, depth)?;
+                    let span_len = before_tag.len() - cur.len();
+                    view.__buffa_unknown_fields.push_raw(&before_tag[..span_len]);
+                }
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+}
+impl<'a> ::buffa::MessageView<'a> for FinishedEventView<'a> {
+    type Owned = FinishedEvent;
+    fn decode_view(buf: &'a [u8]) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        Self::_decode_depth(buf, ::buffa::RECURSION_LIMIT)
+    }
+    fn decode_view_with_limit(
+        buf: &'a [u8],
+        depth: u32,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        Self::_decode_depth(buf, depth)
+    }
+    /// Convert this view to the owned message type.
+    #[allow(clippy::redundant_closure, clippy::useless_conversion)]
+    fn to_owned_message(&self) -> FinishedEvent {
+        #[allow(unused_imports)]
+        use ::buffa::alloc::string::ToString as _;
+        FinishedEvent {
+            finish_reason: self.finish_reason,
+            usage: match self.usage.as_option() {
+                Some(v) => {
+                    ::buffa::MessageField::<TokenUsage>::some(v.to_owned_message())
+                }
+                None => ::buffa::MessageField::none(),
+            },
+            __buffa_unknown_fields: self
+                .__buffa_unknown_fields
+                .to_owned()
+                .unwrap_or_default()
+                .into(),
+            ..::core::default::Default::default()
+        }
+    }
+}
+unsafe impl ::buffa::DefaultViewInstance for FinishedEventView<'static> {
+    fn default_view_instance() -> &'static Self {
+        static VALUE: ::buffa::__private::OnceBox<FinishedEventView<'static>> = ::buffa::__private::OnceBox::new();
+        VALUE.get_or_init(|| ::buffa::alloc::boxed::Box::new(Self::default()))
+    }
+}
+unsafe impl<'a> ::buffa::HasDefaultViewInstance for FinishedEventView<'a> {
+    type Static = FinishedEventView<'static>;
 }
 /// TokenUsage reports provider token usage when the upstream model exposes it.
 #[derive(Clone, PartialEq, Default)]
@@ -3148,6 +4160,9 @@ unsafe impl<'a> ::buffa::HasDefaultViewInstance for ModelToolCallView<'a> {
 pub fn register_types(reg: &mut ::buffa::type_registry::TypeRegistry) {
     reg.register_json_any(__COMPLETE_REQUEST_JSON_ANY);
     reg.register_json_any(__COMPLETE_RESPONSE_JSON_ANY);
+    reg.register_json_any(__TEXT_DELTA_EVENT_JSON_ANY);
+    reg.register_json_any(__TOOL_CALLS_EVENT_JSON_ANY);
+    reg.register_json_any(__FINISHED_EVENT_JSON_ANY);
     reg.register_json_any(__TOKEN_USAGE_JSON_ANY);
     reg.register_json_any(__CHAT_MESSAGE_JSON_ANY);
     reg.register_json_any(__TOOL_DESCRIPTOR_JSON_ANY);
