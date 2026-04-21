@@ -90,6 +90,7 @@ const milestones: Milestone[] = [
     <p class="lp-lead" data-i18n="rm.lead">
       Milestones and what is next — quiet visuals, same One Light sensibility as the product.
     </p>
+    <p class="lp-rm-translated" data-i18n="rm.translated"></p>
 
     <div class="lp-rm-list" id="lp-rm-list" aria-label="Product roadmap">
       {
@@ -207,6 +208,17 @@ const milestones: Milestone[] = [
 <style>
   .lp-roadmap {
     padding-bottom: 1rem;
+  }
+
+  .lp-rm-translated {
+    margin: -1rem 0 2rem;
+    font-size: 0.875rem;
+    font-style: italic;
+    color: var(--ol-text3);
+  }
+
+  .lp-rm-translated:empty {
+    display: none;
   }
 
   .lp-rm-list {
