@@ -12,6 +12,7 @@ import { bootstrapPlugins, destroyPlugins } from "~/plugins/bootstrap";
 import { Slot } from "~/plugins/slots";
 import { initSettings, settingsState } from "~/stores/settings";
 import { initTheme } from "~/stores/theme";
+import { checkForUpdates } from "~/stores/updater";
 import { destroyCloseHandler, initCloseHandler } from "~/stores/files";
 import { closeVault, openVault, syncConfiguredVaultSelection, vaultState } from "~/stores/vault";
 import {
@@ -133,6 +134,7 @@ export default function App() {
       console.error("[Window] Failed to register window listeners", error);
     });
     void restoreLastVault();
+    void checkForUpdates();
   }
 
   async function restoreLastVault(): Promise<void> {

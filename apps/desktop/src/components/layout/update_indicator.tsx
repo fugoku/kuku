@@ -1,6 +1,6 @@
 import { Match, Show, Switch } from "solid-js";
 
-import { setDownloading, setReady, updaterState } from "~/stores/updater";
+import { checkForUpdates, downloadAndInstall, restart, updaterState } from "~/stores/updater";
 
 // ── Styling tokens shared across states ──
 
@@ -20,30 +20,16 @@ const PILL_BASE =
  * Hidden when idle / checking to avoid chrome flicker on every launch.
  * `error` surfaces a red pill that the user can click to retry.
  */
-async function mockDownload(): Promise<void> {
-  for (let p = 0; p <= 100; p += 10) {
-    setDownloading(p);
-    await new Promise((resolve) => setTimeout(resolve, 140));
-  }
-  setReady();
-}
-
 function handleInstall(): void {
-  // TODO(updater-wire): call @tauri-apps/plugin-updater download() here.
-  // For now, drive the mocked progress path so the full flow is visible.
-  void mockDownload();
+  void downloadAndInstall();
 }
 
 function handleRestart(): void {
-  // TODO(updater-wire): call relaunch() from @tauri-apps/plugin-process.
-  // eslint-disable-next-line no-console
-  console.info("[updater] restart requested (stub)");
+  void restart();
 }
 
 function handleRetry(): void {
-  // TODO(updater-wire): re-trigger check() here.
-  // eslint-disable-next-line no-console
-  console.info("[updater] retry requested (stub)");
+  void checkForUpdates();
 }
 
 export default function UpdateIndicator() {

@@ -1,3 +1,5 @@
+import { relaunch } from "@tauri-apps/plugin-process";
+import { check, type Update } from "@tauri-apps/plugin-updater";
 import { createStore } from "solid-js/store";
 
 // ── Types ──
@@ -35,7 +37,16 @@ const DEFAULTS: UpdaterState = {
 
 const [updaterState, setUpdaterState] = createStore<UpdaterState>({ ...DEFAULTS });
 
-// ── Public actions (stubbed; real Tauri wiring lands after UI review) ──
+// Holds the pending `Update` handle between `available` and `downloading` so
+// the user's click doesn't have to re-run `check()`.
+let pendingUpdate: Update | null = null;
+
+// Byte counters for the active download — Tauri emits chunk deltas, not a
+// running total, so we accumulate ourselves.
+let downloadedBytes = 0;
+let totalBytes = 0;
+
+// ── Internal setters ──
 
 function setStatus(status: UpdaterStatus): void {
   setUpdaterState("status", status);
@@ -58,13 +69,82 @@ function setError(message: string): void {
 }
 
 function reset(): void {
+  pendingUpdate = null;
+  downloadedBytes = 0;
+  totalBytes = 0;
   setUpdaterState({ ...DEFAULTS });
 }
 
+// ── Public actions ──
+
 /**
- * Dev-only helper. Walks the happy path end-to-end so the UI can be eyeballed
- * without a real update server. Call from the browser console:
- *   window.__kukuUpdater.simulate()
+ * Ask the update server whether a newer version exists.
+ * Silent: surfaces only `available` (or `error`) — no toast, no dialog.
+ */
+async function checkForUpdates(): Promise<void> {
+  if (updaterState.status === "downloading" || updaterState.status === "ready") return;
+  setStatus("checking");
+  try {
+    const update = await check();
+    if (update) {
+      pendingUpdate = update;
+      setAvailable(update.version);
+    } else {
+      reset();
+    }
+  } catch (error) {
+    setError(error instanceof Error ? error.message : String(error));
+  }
+}
+
+/**
+ * Download and install the pending update. Drives `downloading` → `ready`.
+ * Safe only when `status === "available"`.
+ */
+async function downloadAndInstall(): Promise<void> {
+  const update = pendingUpdate;
+  if (!update) {
+    setError("No update available");
+    return;
+  }
+
+  downloadedBytes = 0;
+  totalBytes = 0;
+  setDownloading(0);
+
+  try {
+    await update.downloadAndInstall((event) => {
+      switch (event.event) {
+        case "Started":
+          totalBytes = event.data.contentLength ?? 0;
+          downloadedBytes = 0;
+          setDownloading(0);
+          break;
+        case "Progress":
+          downloadedBytes += event.data.chunkLength;
+          setDownloading(totalBytes > 0 ? (downloadedBytes / totalBytes) * 100 : 0);
+          break;
+        case "Finished":
+          setDownloading(100);
+          break;
+      }
+    });
+    setReady();
+  } catch (error) {
+    setError(error instanceof Error ? error.message : String(error));
+  }
+}
+
+/** Relaunch to finish applying the update. */
+async function restart(): Promise<void> {
+  await relaunch();
+}
+
+// ── Dev helper ──
+
+/**
+ * Dev-only happy-path simulation — drives the store without hitting the
+ * update server. Call from the browser console: `window.__kukuUpdater.simulate()`.
  */
 async function simulate(): Promise<void> {
   reset();
@@ -83,16 +163,13 @@ function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Expose handles on `window` in dev so the indicator can be driven by hand.
 if (import.meta.env.DEV) {
   // @ts-expect-error — intentional dev-only global
   window.__kukuUpdater = {
     state: updaterState,
-    setStatus,
-    setAvailable,
-    setDownloading,
-    setReady,
-    setError,
+    checkForUpdates,
+    downloadAndInstall,
+    restart,
     reset,
     simulate,
   };
@@ -100,13 +177,4 @@ if (import.meta.env.DEV) {
 
 // ── Exports ──
 
-export {
-  reset,
-  setAvailable,
-  setDownloading,
-  setError,
-  setReady,
-  setStatus,
-  simulate,
-  updaterState,
-};
+export { checkForUpdates, downloadAndInstall, reset, restart, setError, simulate, updaterState };

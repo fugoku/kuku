@@ -14,6 +14,10 @@
       "desktop": {
         "schemes": ["kuku", "com.kuku.app"]
       }
+    },
+    "updater": {
+      "pubkey": "NEED TO SET REAL PUBKEY",
+      "endpoints": ["NEED TO SET REAL ENDPOINT"]
     }
   },
   "app": {
@@ -40,6 +44,7 @@
     ]
   },
   "bundle": {
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/release/32x32.png",
       "icons/release/128x128.png",
