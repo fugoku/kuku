@@ -151,6 +151,33 @@ func TestExtractToolCallsRoundTripsSignature(t *testing.T) {
 	}
 }
 
+func TestTerminalFinishReason(t *testing.T) {
+	response := &genai.GenerateContentResponse{
+		Candidates: []*genai.Candidate{
+			nil,
+			{FinishReason: genai.FinishReasonUnspecified},
+			{FinishReason: genai.FinishReasonStop},
+		},
+	}
+
+	got, ok := terminalFinishReason(response)
+	if !ok {
+		t.Fatal("terminalFinishReason() = not found, want found")
+	}
+	if got != genai.FinishReasonStop {
+		t.Fatalf("terminalFinishReason() = %q, want %q", got, genai.FinishReasonStop)
+	}
+}
+
+func TestTerminalFinishReasonMissing(t *testing.T) {
+	got, ok := terminalFinishReason(&genai.GenerateContentResponse{
+		Candidates: []*genai.Candidate{{FinishReason: genai.FinishReasonUnspecified}},
+	})
+	if ok {
+		t.Fatalf("terminalFinishReason() found %q, want none", got)
+	}
+}
+
 // TestBuildContentsFastPathWithContextFiles covers the no-history call site
 // (initial turn) where ContextFiles get inlined into the user prompt. This
 // shape is what the desktop sends on the very first message of a session.

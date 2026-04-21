@@ -56,13 +56,9 @@ func NewService(cfg *config.Config) (*Service, error) {
 		// ErrNotConfigured at call time.
 		return &Service{model: cfg.GeminiModel}, nil
 	}
-	timeout := completeTimeout
 	client, err := genai.NewClient(context.Background(), &genai.ClientConfig{
 		APIKey:  apiKey,
 		Backend: genai.BackendGeminiAPI,
-		HTTPOptions: genai.HTTPOptions{
-			Timeout: &timeout,
-		},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create genai client: %w", err)
@@ -89,6 +85,14 @@ func (s *Service) CompleteStream(ctx context.Context, input CompleteInput) iter.
 			yield(nil, ErrNotConfigured)
 			return
 		}
+		// Work around google.golang.org/genai v1.54.0 streaming bug:
+		// sendStreamRequest wraps the request context with WithTimeout(...)
+		// and `defer cancel()`s before the returned iterator is consumed,
+		// which truncates the SSE stream with `context canceled`.
+		// Keep the timeout on our side instead so the cancel lifetime spans
+		// the full streaming loop.
+		ctx, cancel := context.WithTimeout(ctx, completeTimeout)
+		defer cancel()
 
 		model := strings.TrimSpace(input.Model)
 		if model == "" {
@@ -111,9 +115,10 @@ func (s *Service) CompleteStream(ctx context.Context, input CompleteInput) iter.
 		}
 
 		var (
-			toolCalls    []*aiv1.ModelToolCall
-			lastUsage    *genai.GenerateContentResponseUsageMetadata
-			sawAnyOutput bool
+			toolCalls         []*aiv1.ModelToolCall
+			lastUsage         *genai.GenerateContentResponseUsageMetadata
+			sawAnyOutput      bool
+			sawTerminalFinish bool
 		)
 
 		for chunk, err := range s.client.Models.GenerateContentStream(ctx, model, contents, cfg) {
@@ -124,9 +129,14 @@ func (s *Service) CompleteStream(ctx context.Context, input CompleteInput) iter.
 			if chunk == nil {
 				continue
 			}
+			text := chunk.Text()
+			_, hasUpstreamFinish := terminalFinishReason(chunk)
+			if hasUpstreamFinish {
+				sawTerminalFinish = true
+			}
 
 			// Text part — forward immediately.
-			if text := chunk.Text(); text != "" {
+			if text != "" {
 				sawAnyOutput = true
 				if !yield(&aiv1.CompleteResponse{
 					Event: &aiv1.CompleteResponse_TextDelta{
@@ -158,6 +168,15 @@ func (s *Service) CompleteStream(ctx context.Context, input CompleteInput) iter.
 
 		if !sawAnyOutput {
 			yield(nil, errors.New("gemini response did not include text or tool calls"))
+			return
+		}
+
+		if !sawTerminalFinish {
+			if ctx.Err() != nil {
+				yield(nil, fmt.Errorf("gemini stream ended before terminal finish reason: %w", ctx.Err()))
+				return
+			}
+			yield(nil, errors.New("gemini stream ended before terminal finish reason"))
 			return
 		}
 
@@ -234,6 +253,15 @@ func buildConfig(input CompleteInput) (*genai.GenerateContentConfig, error) {
 	}
 	cfg := &genai.GenerateContentConfig{
 		SystemInstruction: genai.NewContentFromText(system, genai.RoleUser),
+		// Gemini 3 enables dynamic thinking by default (`thinkingLevel=HIGH`),
+		// which reasons internally before emitting any output tokens — with
+		// Flash Lite that stalls the whole response until the end and arrives
+		// as a single stream chunk, defeating server streaming. LOW keeps a
+		// little reasoning headroom without measurably delaying first token.
+		// See https://ai.google.dev/gemini-api/docs/gemini-3 §Thinking.
+		ThinkingConfig: &genai.ThinkingConfig{
+			ThinkingLevel: genai.ThinkingLevelLow,
+		},
 	}
 
 	declarations := make([]*genai.FunctionDeclaration, 0, len(input.Tools))
@@ -410,4 +438,21 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func terminalFinishReason(response *genai.GenerateContentResponse) (genai.FinishReason, bool) {
+	if response == nil {
+		return genai.FinishReasonUnspecified, false
+	}
+	for _, candidate := range response.Candidates {
+		if candidate == nil || isMissingFinishReason(candidate.FinishReason) {
+			continue
+		}
+		return candidate.FinishReason, true
+	}
+	return genai.FinishReasonUnspecified, false
+}
+
+func isMissingFinishReason(reason genai.FinishReason) bool {
+	return reason == "" || reason == genai.FinishReasonUnspecified
 }

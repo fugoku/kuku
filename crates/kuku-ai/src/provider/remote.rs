@@ -76,6 +76,7 @@ impl CompletionBackend for RemoteBackend {
         // event yields exactly one CompletionEvent, preserving the server's
         // ordering (text deltas → tool calls → finished).
         let stream = try_stream! {
+            let mut saw_finished = false;
             while let Some(view) = server_stream
                 .message()
                 .await
@@ -104,12 +105,19 @@ impl CompletionBackend for RemoteBackend {
                     }
                     ProtoCompleteEvent::Finished(finished) => {
                         let finished = *finished;
+                        saw_finished = true;
                         yield CompletionEvent::Finished {
                             finish_reason: finish_reason_from(finished.finish_reason),
                             usage: finished.usage.into_option().map(token_usage_from),
                         };
                     }
                 }
+            }
+
+            if !saw_finished {
+                Err(AiError::ProviderError(
+                    "remote stream ended without finished event".to_string(),
+                ))?;
             }
         };
 
