@@ -38,15 +38,6 @@ pub enum ApprovalDecision {
 
 const REMOTE_AUTH_REQUESTER_PLUGIN_ID: &str = "ai-chat";
 
-// TEMP DEBUG: remove after tool round continuation is verified in runtime.
-#[cfg(debug_assertions)]
-fn debug_ai_log(message: impl AsRef<str>) {
-    eprintln!("[ai-debug][session] {}", message.as_ref());
-}
-
-#[cfg(not(debug_assertions))]
-fn debug_ai_log(_message: impl AsRef<str>) {}
-
 struct SessionControl {
     status: SessionStatus,
     cancel: Option<CancellationToken>,
@@ -241,12 +232,6 @@ pub async fn run_turn(
     content: String,
     editor_context: EditorContext,
 ) {
-    debug_ai_log(format!(
-        "run start session={} mode={:?} input_len={}",
-        session.id,
-        mode,
-        content.len()
-    ));
     let result = run_turn_inner(&app, &state, session.clone(), mode, content, editor_context).await;
 
     match result {
@@ -256,10 +241,6 @@ pub async fn run_turn(
             } else {
                 finish_reason
             };
-            debug_ai_log(format!(
-                "run complete session={} finish_reason={finish_reason:?} usage={usage:?}",
-                session.id
-            ));
             emit_done(&app, &session.id, finish_reason, usage);
         }
         Err(error) => {
@@ -268,10 +249,6 @@ pub async fn run_turn(
             } else {
                 FinishReason::Error
             };
-            debug_ai_log(format!(
-                "run error session={} finish_reason={finish_reason:?} error={error}",
-                session.id
-            ));
             emit_error(&app, &session.id, &error);
             emit_done(&app, &session.id, finish_reason, None);
         }
@@ -297,11 +274,6 @@ async fn run_turn_inner(
         content,
         editor_context: Some(editor_context),
     });
-    debug_ai_log(format!(
-        "user message appended session={} total_messages={}",
-        session.id,
-        session.messages.read().len()
-    ));
 
     let backend = state.backend()?;
     let config = state.config();
@@ -310,7 +282,7 @@ async fn run_turn_inner(
 
     let mut final_usage = None;
 
-    for round in 0..config.round_limit {
+    for _round in 0..config.round_limit {
         let system_prompt = build_system_prompt(run_mode.clone(), &allowed);
         let authorization_header = match config.provider {
             crate::types::ProviderKind::Remote => Some(
@@ -330,13 +302,6 @@ async fn run_turn_inner(
             tools: allowed.clone(),
             authorization_header,
         };
-        debug_ai_log(format!(
-            "round start session={} round={} history_messages={} allowed_tools={}",
-            session.id,
-            round + 1,
-            request.messages.len(),
-            request.tools.len()
-        ));
 
         // Token may have expired between the proactive 60s-buffer check above
         // and the server actually serving the request (long upstream latency,
@@ -347,11 +312,6 @@ async fn run_turn_inner(
             Err(AiError::Unauthorized)
                 if matches!(config.provider, crate::types::ProviderKind::Remote) =>
             {
-                debug_ai_log(format!(
-                    "round auth refresh session={} round={}",
-                    session.id,
-                    round + 1
-                ));
                 let refreshed_header = state
                     .host()
                     .ok_or(AiError::HostUnavailable)?
@@ -385,30 +345,9 @@ async fn run_turn_inner(
                             emit_stream_chunk(app, &session.id, delta);
                         }
                         CompletionEvent::ToolCalls(calls) => {
-                            let summary = calls
-                                .iter()
-                                .map(|call| {
-                                    format!(
-                                        "{}(internal={}, tool_call_id={:?}, provider_call_id={:?})",
-                                        call.tool_name, call.call_id, call.tool_call_id, call.provider_call_id
-                                    )
-                                })
-                                .collect::<Vec<_>>()
-                                .join(", ");
-                            debug_ai_log(format!(
-                                "round tool calls session={} round={} count={} {summary}",
-                                session.id,
-                                round + 1,
-                                calls.len()
-                            ));
                             tool_calls.extend(calls);
                         }
                         CompletionEvent::Finished { finish_reason, usage } => {
-                            debug_ai_log(format!(
-                                "round finished event session={} round={} finish_reason={finish_reason:?} usage={usage:?}",
-                                session.id,
-                                round + 1
-                            ));
                             round_reason = finish_reason;
                             round_usage = usage;
                         }
@@ -422,44 +361,15 @@ async fn run_turn_inner(
                 content: assistant_text,
                 tool_calls: tool_calls.clone(),
             });
-            debug_ai_log(format!(
-                "assistant message appended session={} round={} text_len={} tool_calls={}",
-                session.id,
-                round + 1,
-                session
-                    .messages
-                    .read()
-                    .last()
-                    .and_then(|message| match message {
-                        ChatMessage::Assistant { content, .. } => Some(content.len()),
-                        _ => None,
-                    })
-                    .unwrap_or_default(),
-                tool_calls.len()
-            ));
         }
 
         final_usage = round_usage;
 
         if tool_calls.is_empty() {
-            debug_ai_log(format!(
-                "round exit session={} round={} no_tool_calls finish_reason={round_reason:?}",
-                session.id,
-                round + 1
-            ));
             return Ok((round_reason, final_usage));
         }
 
         for tool_call in tool_calls {
-            debug_ai_log(format!(
-                "tool dispatch session={} round={} tool={} internal_call_id={} tool_call_id={:?} provider_call_id={:?}",
-                session.id,
-                round + 1,
-                tool_call.tool_name,
-                tool_call.call_id,
-                tool_call.tool_call_id,
-                tool_call.provider_call_id
-            ));
             let result = handle_tool_call(
                 app, state, &session, &cancel, &run_mode, &allowed, &tool_call,
             )
@@ -472,23 +382,7 @@ async fn run_turn_inner(
                 tool_call_id: tool_call.tool_call_id.clone(),
                 provider_call_id: tool_call.provider_call_id.clone(),
             });
-            debug_ai_log(format!(
-                "tool result appended session={} round={} tool={} is_error={} output_len={} tool_call_id={:?} provider_call_id={:?}",
-                session.id,
-                round + 1,
-                tool_call.tool_name,
-                result.1,
-                result.0.len(),
-                tool_call.tool_call_id,
-                tool_call.provider_call_id
-            ));
         }
-
-        debug_ai_log(format!(
-            "tool phase complete session={} round={} continuing_to_next_round",
-            session.id,
-            round + 1
-        ));
     }
 
     Ok((FinishReason::ToolRoundLimit, final_usage))
@@ -513,10 +407,6 @@ async fn handle_tool_call(
         .unwrap_or_else(|| fallback_tool_id(&tool_call.tool_name));
 
     emit_tool_start(app, &session.id, tool_call, &tool_id);
-    debug_ai_log(format!(
-        "tool start session={} tool={} tool_id={} internal_call_id={}",
-        session.id, tool_call.tool_name, tool_id, tool_call.call_id
-    ));
 
     let outcome = match descriptor {
         None => (tool_not_allowed_message(&tool_call.tool_name, mode), true),
@@ -549,10 +439,6 @@ async fn handle_tool_call(
         &outcome.0,
         outcome.1,
     );
-    debug_ai_log(format!(
-        "tool end session={} tool={} internal_call_id={} is_error={}",
-        session.id, tool_call.tool_name, tool_call.call_id, outcome.1
-    ));
     Ok(outcome)
 }
 
@@ -778,12 +664,6 @@ async fn execute_native_tool(
         .clone()
         .filter(|_| descriptor.access != ToolAccess::ReadOnly)
     else {
-        debug_ai_log(format!(
-            "native tool read-only session={} tool={} output_len={}",
-            session.id,
-            tool_call.tool_name,
-            native_result.text.len()
-        ));
         return Ok((native_result.text, false));
     };
     let mutation_operations = mutation.operations.clone();
@@ -805,10 +685,6 @@ async fn execute_native_tool(
         }
         decision = approval_rx => decision.map_err(|_| AiError::ApprovalNotFound)?,
     };
-    debug_ai_log(format!(
-        "approval resolved session={} tool={} decision={decision:?}",
-        session.id, tool_call.tool_name
-    ));
 
     if matches!(decision, ApprovalDecision::Reject) {
         session.set_status(SessionStatus::Streaming);
@@ -829,10 +705,6 @@ async fn execute_native_tool(
     }
     let output = describe_apply_result(&apply_result);
     session.set_status(SessionStatus::Streaming);
-    debug_ai_log(format!(
-        "mutation applied session={} tool={} result={apply_result:?}",
-        session.id, tool_call.tool_name
-    ));
 
     if cancel.is_cancelled() {
         return Err(AiError::Cancelled);
@@ -887,13 +759,6 @@ async fn execute_proxy_tool(
             }
         }
     };
-    debug_ai_log(format!(
-        "proxy tool response session={} tool={} is_error={} output_len={}",
-        session.id,
-        tool_call.tool_name,
-        response.is_error,
-        response.output.len()
-    ));
 
     Ok((response.output, response.is_error))
 }

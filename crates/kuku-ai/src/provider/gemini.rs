@@ -17,15 +17,6 @@ use crate::{
     types::{ChatMessage, FinishReason, ModelToolCall, TokenUsage},
 };
 
-// TEMP DEBUG: remove after tool round continuation is verified in runtime.
-#[cfg(debug_assertions)]
-fn debug_ai_log(message: impl AsRef<str>) {
-    eprintln!("[ai-debug][gemini] {}", message.as_ref());
-}
-
-#[cfg(not(debug_assertions))]
-fn debug_ai_log(_message: impl AsRef<str>) {}
-
 pub struct GeminiBackend {
     client: gemini::Client,
     model_id: String,
@@ -48,17 +39,6 @@ impl CompletionBackend for GeminiBackend {
         &self,
         request: CompletionTurnRequest,
     ) -> Result<CompletionTurnStream, AiError> {
-        debug_ai_log(format!(
-            "stream_turn model={} messages={} tools={} system_prompt={}",
-            if request.model.is_empty() {
-                self.model_id.clone()
-            } else {
-                request.model.clone()
-            },
-            request.messages.len(),
-            request.tools.len(),
-            request.system_prompt.is_some()
-        ));
         let model_name = if request.model.is_empty() {
             self.model_id.clone()
         } else {
@@ -106,14 +86,6 @@ impl CompletionBackend for GeminiBackend {
                         internal_call_id,
                     }) => {
                         saw_tool_calls = true;
-                        debug_ai_log(format!(
-                            "stream tool_call name={} internal_call_id={} tool_call_id={} provider_call_id={:?} has_signature={}",
-                            tool_call.function.name,
-                            internal_call_id,
-                            tool_call.id,
-                            tool_call.call_id,
-                            tool_call.signature.is_some()
-                        ));
                         yield Ok(CompletionEvent::ToolCalls(vec![ModelToolCall {
                             call_id: internal_call_id,
                             tool_name: tool_call.function.name,
@@ -133,11 +105,6 @@ impl CompletionBackend for GeminiBackend {
                     Ok(StreamedAssistantContent::ReasoningDelta { .. }) => {}
                     Ok(StreamedAssistantContent::Final(response)) => {
                         yielded_finished = true;
-                        debug_ai_log(format!(
-                            "stream final saw_tool_calls={} usage={:?}",
-                            saw_tool_calls,
-                            GetTokenUsage::token_usage(&response).map(into_token_usage)
-                        ));
                         yield Ok(CompletionEvent::Finished {
                             finish_reason: if saw_tool_calls {
                                 FinishReason::ToolCalls
@@ -151,9 +118,6 @@ impl CompletionBackend for GeminiBackend {
             }
 
             if !yielded_finished {
-                debug_ai_log(format!(
-                    "stream ended without final event saw_tool_calls={saw_tool_calls}"
-                ));
                 yield Ok(CompletionEvent::Finished {
                     finish_reason: if saw_tool_calls {
                         FinishReason::ToolCalls
@@ -225,10 +189,6 @@ fn into_rig_message(message: ChatMessage) -> Result<Message, AiError> {
             ..
         } => {
             let tool_result_id = tool_call_id.unwrap_or(call_id.clone());
-            debug_ai_log(format!(
-                "convert tool_result internal_call_id={} tool_result_id={} provider_call_id={provider_call_id:?}",
-                call_id, tool_result_id
-            ));
             match provider_call_id {
                 Some(provider_call_id) => Message::tool_result_with_call_id(
                     tool_result_id,
@@ -242,11 +202,6 @@ fn into_rig_message(message: ChatMessage) -> Result<Message, AiError> {
             content,
             tool_calls,
         } => {
-            debug_ai_log(format!(
-                "convert assistant text_len={} tool_calls={}",
-                content.len(),
-                tool_calls.len()
-            ));
             let mut items = Vec::new();
             if !content.is_empty() {
                 items.push(AssistantContent::Text(Text { text: content }));
