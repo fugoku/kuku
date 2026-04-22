@@ -4,6 +4,9 @@
 # keys
 .keys/
 
+# release-artifacts
+release-artifacts/
+
 # Internal docs for temporary files
 .memo/
 

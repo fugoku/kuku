@@ -24,5 +24,6 @@
       "icons/dev/icon.icns",
       "icons/dev/icon.ico"
     ]
-  }
+  },
+  "version": "0.0.0-preview.0"
 }
