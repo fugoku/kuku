@@ -29,23 +29,26 @@ tasks:
     outputs:
       - "gen/"
 
+  format:
+    command: "buf format -w"
+
   format-check:
     command: "buf format --diff --exit-code"
     inputs:
       - "proto/**/*.proto"
       - "buf.yaml"
 
-  format:
-    command: "buf format -w"
+  # buf lint has no fix mode — `lint` and `lint-check` run the same
+  # command so the standard package-level commands stay symmetric across
+  # the workspace.
+  lint:
+    command: "buf lint"
 
   lint-check:
     command: "buf lint"
     inputs:
       - "proto/**/*.proto"
       - "buf.yaml"
-
-  lint:
-    command: "buf lint"
 
   # Compile-check the generated Go so a bad proto change surfaces here
   # rather than at the server's first import.

@@ -21,21 +21,11 @@ env:
   GOCACHE: "$workspaceRoot/.cache/go-build"
 
 tasks:
-  format-check:
-    script: "go tool -modfile=golangci-lint.mod golangci-lint fmt --config .golangci.yaml --diff"
-    inputs:
-      - "**/*.go"
-      - "go.mod"
-      - "go.sum"
-      - ".golangci.yaml"
-      - "golangci-lint.mod"
-      - "golangci-lint.sum"
-
   format:
     script: "go tool -modfile=golangci-lint.mod golangci-lint fmt --config .golangci.yaml"
 
-  lint-check:
-    script: "go tool -modfile=golangci-lint.mod golangci-lint run --config .golangci.yaml"
+  format-check:
+    script: "go tool -modfile=golangci-lint.mod golangci-lint fmt --config .golangci.yaml --diff"
     inputs:
       - "**/*.go"
       - "go.mod"
@@ -48,6 +38,16 @@ tasks:
   # so `check` can't accidentally mutate files.
   lint:
     script: "go tool -modfile=golangci-lint.mod golangci-lint run --config .golangci.yaml --fix"
+
+  lint-check:
+    script: "go tool -modfile=golangci-lint.mod golangci-lint run --config .golangci.yaml"
+    inputs:
+      - "**/*.go"
+      - "go.mod"
+      - "go.sum"
+      - ".golangci.yaml"
+      - "golangci-lint.mod"
+      - "golangci-lint.sum"
 
   test:
     command: "go test ./..."
@@ -109,9 +109,7 @@ tasks:
     outputs:
       - "internal/database/sqlc/**/*.go"
 
-  # Aggregator matching apps/server's current `pnpm check` expectations.
   check:
     deps:
       - "format-check"
       - "lint-check"
-      - "test"

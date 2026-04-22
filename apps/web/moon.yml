@@ -17,14 +17,6 @@ tasks:
   # oxfmt covers TS/JS/JSON but not .astro, so we chain prettier with the
   # astro plugin for those files. prettier.config.mjs pins the plugin +
   # overrides so the two formatters don't fight over shared file types.
-  format-check:
-    script: 'oxfmt --check . && prettier --check "src/**/*.astro"'
-    inputs:
-      - "src/**/*"
-      - "public/**/*"
-      - "*.{ts,tsx,js,mjs,cjs,json,astro}"
-      - "prettier.config.mjs"
-
   format:
     script: 'oxfmt --write . && prettier --write "src/**/*.astro"'
     inputs:
@@ -33,15 +25,19 @@ tasks:
       - "*.{ts,tsx,js,mjs,cjs,json,astro}"
       - "prettier.config.mjs"
 
-  lint-check:
-    command: "oxlint ."
+  format-check:
+    script: 'oxfmt --check . && prettier --check "src/**/*.astro"'
     inputs:
       - "src/**/*"
-      - ".oxlintrc.json"
-      - "/.oxlintrc.json"
+      - "public/**/*"
+      - "*.{ts,tsx,js,mjs,cjs,json,astro}"
+      - "prettier.config.mjs"
 
   lint:
     command: "oxlint --fix ."
+
+  lint-check:
+    command: "oxlint ."
     inputs:
       - "src/**/*"
       - ".oxlintrc.json"
@@ -71,9 +67,9 @@ tasks:
     outputs:
       - "dist"
 
-  # Aggregator: matches the spirit of pnpm's `check` script for this
-  # project. Runs format, lint, imports, and astro type-check in parallel
-  # (moon parallelizes deps that don't share outputs).
+  # No test suite yet — the aggregator is omitted so `moon run :test`
+  # cleanly skips this project instead of failing on a missing task.
+
   check:
     deps:
       - "format-check"

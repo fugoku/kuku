@@ -4,14 +4,26 @@ language: "rust"
 layer: "library"
 
 tasks:
+  format:
+    command: "cargo fmt -p kuku-indexer"
+
   format-check:
     command: "cargo fmt -p kuku-indexer -- --check"
     inputs:
       - "src/**/*.rs"
       - "Cargo.toml"
 
-  format:
-    command: "cargo fmt -p kuku-indexer"
+  # clippy has no safe auto-fix convention, so `lint` and `lint-check`
+  # run the same command. Both names exist so the standard package-level
+  # commands (format / lint / check / test) stay symmetric across the
+  # workspace.
+  lint:
+    command: "cargo clippy -p kuku-indexer --all-targets -- -D warnings"
+    inputs:
+      - "src/**/*.rs"
+      - "Cargo.toml"
+      - "/Cargo.toml"
+      - "/Cargo.lock"
 
   lint-check:
     command: "cargo clippy -p kuku-indexer --all-targets -- -D warnings"
@@ -33,4 +45,3 @@ tasks:
     deps:
       - "format-check"
       - "lint-check"
-      - "test"
