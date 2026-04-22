@@ -34,7 +34,10 @@ func New(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool) *Server {
 
 func (s *Server) Run(ctx context.Context) error {
 	queries := sqlc.New(s.pool)
-	emailSender := auth.NewEmailSender(s.cfg, s.log)
+	emailSender, err := auth.NewEmailSender(s.cfg, s.log)
+	if err != nil {
+		return fmt.Errorf("init email sender: %w", err)
+	}
 	authService := auth.NewAuthService(s.cfg, s.pool, queries, emailSender, s.log)
 	dashboardService := dashboard.NewDashboardService(queries)
 	aiService, err := ai.NewService(s.cfg)

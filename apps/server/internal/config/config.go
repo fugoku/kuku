@@ -61,6 +61,11 @@ type Config struct {
 	SMTPPort         string
 	SMTPUsername     string
 	SMTPPassword     string
+	// AWSRegion is consumed by the SES email provider; AWS credentials
+	// themselves come from the SDK's default chain (env vars, shared
+	// config, or container/EC2 instance role) so they never touch the
+	// process config.
+	AWSRegion string
 
 	GeminiAPIKey string
 	GeminiModel  string
@@ -108,6 +113,7 @@ func Load() *Config {
 		SMTPPort:         getEnv("SMTP_PORT", "1025"),
 		SMTPUsername:     getEnv("SMTP_USERNAME", ""),
 		SMTPPassword:     getEnv("SMTP_PASSWORD", ""),
+		AWSRegion:        getEnv("AWS_REGION", "us-east-1"),
 
 		GeminiAPIKey: getEnv("GEMINI_API_KEY", ""),
 		GeminiModel:  getEnv("GEMINI_MODEL", "gemini-3.1-flash-lite-preview"),
