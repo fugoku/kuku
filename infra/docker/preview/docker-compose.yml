@@ -29,7 +29,11 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kuku} -d ${POSTGRES_DB:-kuku_preview}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-kuku} -d ${POSTGRES_DB:-kuku_preview}",
+        ]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -48,5 +52,23 @@ services:
       - server
     restart: unless-stopped
 
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
 volumes:
   postgres-data:
+
+# Pin the compose network subnet so `TRUSTED_PROXIES` can list it
+# deterministically. Without this the daemon picks an arbitrary
+# 172.x.0.0/16 each time the project is recreated, and the real-IP
+# middleware stops trusting cloudflared's sidecar hop — requests then
+# get logged under the Docker bridge IP instead of the end user.
+networks:
+  default:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16

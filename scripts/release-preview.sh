@@ -10,7 +10,7 @@
 # Preview is deliberately separate from prod:
 #   • bundle identifier `mom.kuku.app.preview` (separate keychain + ~/.kuku.preview)
 #   • deep-link scheme `kuku-preview` / `com.kuku.app.preview`
-#   • updater endpoint `https://preview.kuku-mom.pages.dev/release.json`
+#   • updater endpoint `https://preview.kuku.mom/release.json`
 #   • API target `https://preview-api.kuku.mom`
 #
 # Apple notarization is NOT required for preview — Tauri's minisign flow
@@ -37,7 +37,7 @@ BUNDLE_DIR="$REPO_ROOT/target/release/bundle"
 # project or a different GH repo for preview uploads.
 GH_REPO="${KUKU_GITHUB_REPO:-kuku-mom/kuku}"
 PREVIEW_API_URL="${KUKU_PREVIEW_API_URL:-https://preview-api.kuku.mom}"
-PREVIEW_WEB_URL="${KUKU_PREVIEW_WEB_URL:-https://preview.kuku-mom.pages.dev}"
+PREVIEW_WEB_URL="${KUKU_PREVIEW_WEB_URL:-https://preview.kuku.mom}"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'

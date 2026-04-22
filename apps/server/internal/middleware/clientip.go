@@ -20,12 +20,18 @@ import (
 //     `X-Forwarded-For`, so trusting it without filtering hands attackers
 //     audit-log poisoning and rate-limit bypass for free.
 //
-//   - If `RemoteAddr` IS trusted (e.g. our load balancer), we walk
-//     `X-Forwarded-For` from right to left, skipping IPs that are
-//     themselves in `trusted`. The first non-trusted IP is the real client.
-//     If every entry is trusted (rare), fall back to `RemoteAddr`.
-//     `X-Real-IP` is honored as a single-value alternative when the trusted
-//     proxy uses that convention instead of XFF.
+//   - If `RemoteAddr` IS trusted (our load balancer / cloudflared sidecar),
+//     headers are consulted in the following order:
+//     1. `CF-Connecting-IP` — set by the Cloudflare edge and preserved
+//     through cloudflared. It's a single IP (the original client) and
+//     Cloudflare overwrites any client-supplied value on ingress, so
+//     when the peer is trusted this header is authoritative.
+//     2. `X-Forwarded-For` — walked right to left, skipping entries that
+//     are themselves in `trusted`. The first non-trusted IP is the
+//     real client. If every entry is trusted (rare), fall back to
+//     `RemoteAddr`.
+//     3. `X-Real-IP` — a single-value alternative when the trusted proxy
+//     uses that convention instead of XFF.
 //
 // `trusted` may be nil/empty — that's the common case for direct exposure
 // or local dev. `Config.Validate` warns operators in production if the list
@@ -46,6 +52,16 @@ func resolveClientIP(r *http.Request, trusted []netip.Prefix) string {
 
 	if !addrInPrefixes(remoteAddr, trusted) {
 		return remote
+	}
+
+	// CF-Connecting-IP is Cloudflare's single-value client-IP header. The
+	// edge sets it unconditionally and cloudflared forwards it, so when
+	// the peer is trusted we take it verbatim. Using this ahead of XFF
+	// skips the chain-walking ambiguity entirely on CF-fronted deployments.
+	if cf := strings.TrimSpace(r.Header.Get("CF-Connecting-IP")); cf != "" {
+		if _, err := netip.ParseAddr(cf); err == nil {
+			return cf
+		}
 	}
 
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {

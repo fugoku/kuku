@@ -20,6 +20,11 @@ func mustPrefix(t *testing.T, s string) netip.Prefix {
 
 func resolveWith(t *testing.T, trusted []netip.Prefix, remote, xff, xri string) string {
 	t.Helper()
+	return resolveWithHeaders(t, trusted, remote, xff, xri, "")
+}
+
+func resolveWithHeaders(t *testing.T, trusted []netip.Prefix, remote, xff, xri, cf string) string {
+	t.Helper()
 	mw := ClientIP(trusted)
 	var got string
 	handler := mw(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
@@ -32,6 +37,9 @@ func resolveWith(t *testing.T, trusted []netip.Prefix, remote, xff, xri string) 
 	}
 	if xri != "" {
 		req.Header.Set("X-Real-IP", xri)
+	}
+	if cf != "" {
+		req.Header.Set("CF-Connecting-IP", cf)
 	}
 	handler.ServeHTTP(httptest.NewRecorder(), req)
 	return got
@@ -99,5 +107,33 @@ func TestClientIP_MalformedXFFEntrySkipped(t *testing.T) {
 	got := resolveWith(t, trusted, "10.0.0.5:8080", "not-an-ip, 198.51.100.7", "")
 	if got != "198.51.100.7" {
 		t.Fatalf("expected to skip malformed entry and return 198.51.100.7, got %q", got)
+	}
+}
+
+func TestClientIP_CFConnectingIPTrumpsXFFWhenPeerTrusted(t *testing.T) {
+	// Cloudflare Tunnel topology: cloudflared sits in the local Docker
+	// network, so its RemoteAddr is private. CF-Connecting-IP carries the
+	// real client verbatim and should win over any XFF guesswork.
+	trusted := []netip.Prefix{mustPrefix(t, "172.16.0.0/12")}
+	got := resolveWithHeaders(t, trusted, "172.18.0.3:12345", "9.9.9.9", "", "198.51.100.42")
+	if got != "198.51.100.42" {
+		t.Fatalf("expected CF-Connecting-IP (198.51.100.42), got %q", got)
+	}
+}
+
+func TestClientIP_CFConnectingIPIgnoredWhenPeerUntrusted(t *testing.T) {
+	// A direct internet peer can forge CF-Connecting-IP — ignore it when
+	// the peer itself isn't in the trusted list.
+	got := resolveWithHeaders(t, nil, "203.0.113.5:54321", "", "", "1.2.3.4")
+	if got != "203.0.113.5" {
+		t.Fatalf("expected RemoteAddr (203.0.113.5), got %q", got)
+	}
+}
+
+func TestClientIP_CFConnectingIPMalformedFallsBackToXFF(t *testing.T) {
+	trusted := []netip.Prefix{mustPrefix(t, "172.16.0.0/12")}
+	got := resolveWithHeaders(t, trusted, "172.18.0.3:12345", "198.51.100.7", "", "not-an-ip")
+	if got != "198.51.100.7" {
+		t.Fatalf("expected XFF fallback (198.51.100.7), got %q", got)
 	}
 }
