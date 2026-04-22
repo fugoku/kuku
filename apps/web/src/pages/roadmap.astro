@@ -33,20 +33,20 @@ const milestones: Milestone[] = [
     vizCaption: 'Shipped capabilities',
   },
   {
-    phase: 'progress',
-    phaseLabel: 'In progress',
+    phase: 'shipped',
+    phaseLabel: 'Shipped',
     title: 'The Rebuild',
     subtitle: 'SolidJS + pure ProseMirror',
-    body: 'Complete rewrite from the ground up. Migrating to SolidJS and pure ProseMirror for better performance, no proprietary wrappers, and a clean foundation for the plugin system. This is the right foundation for everything we are building next.',
+    body: 'Complete rewrite from the ground up. Migrated to SolidJS and pure ProseMirror for better performance, no proprietary wrappers, and a clean foundation for the plugin system. This is the right foundation for everything we are building next.',
     viz: 'rebuild',
     vizCaption: 'Editor core',
   },
   {
-    phase: 'planned',
-    phaseLabel: 'Planned',
+    phase: 'progress',
+    phaseLabel: 'In progress',
     title: '1.0 Release',
     subtitle: 'Open source everything',
-    body: 'First open-source release (MIT for client, AGPL for server). Meeting notes with local Whisper, GitHub Sync, Homebrew distribution, and full server code with self-hosting guides. Three ways to use: self-host, bring your own services, or use kuku.mom.',
+    body: 'Fully open source under the MIT license — client, server, and infra code all in one repo. Meeting notes with local Whisper, GitHub Sync, Homebrew distribution, and full server code with self-hosting guides. Three ways to use: self-host, bring your own services, or use kuku.mom.',
     viz: 'release',
     vizCaption: 'Licensing',
   },
@@ -162,9 +162,8 @@ const milestones: Milestone[] = [
                     <div class="lp-rm-lic">
                       <div class="lp-rm-lic__row">
                         <span class="lp-rm-lic__badge">MIT</span>
-                        <span class="lp-rm-lic__badge">AGPL</span>
                       </div>
-                      <p class="lp-rm-mono lp-rm-lic__hint">Homebrew · self-host</p>
+                      <p class="lp-rm-mono lp-rm-lic__hint">Client · Server · Infra</p>
                     </div>
                   )}
                   {m.viz === 'search' && (

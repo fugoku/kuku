@@ -66,11 +66,7 @@ const dateFmt = new Intl.DateTimeFormat('en-US', {
               <time class="lp-cl-entry__date" datetime={group.date}>
                 {dateFmt.format(new Date(group.date + 'T12:00:00'))}
               </time>
-              {group.variants.map((v) => (
-                <span class="lp-cl-entry__label" data-lang-block={v.lang}>
-                  {v.label}
-                </span>
-              ))}
+              <span class="lp-cl-entry__label">{group.variants[0]?.label}</span>
             </div>
             {group.variants.map((v) => (
               <div class="lp-cl-entry__body" data-lang-block={v.lang}>
