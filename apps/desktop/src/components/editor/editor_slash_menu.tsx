@@ -126,7 +126,7 @@ export default function EditorSlashMenu(props: EditorSlashMenuProps) {
                       }}
                       type="button"
                       tabIndex={-1}
-                      class="flex w-full items-start gap-3 border-l-2 border-l-transparent py-2 pr-3 pl-[calc(0.75rem+2px)] text-left transition-colors outline-none"
+                      class="flex w-full items-start gap-3 border-l-2 border-l-transparent py-2 pr-3 pl-3.5 text-left transition-colors outline-none"
                       classList={{
                         "border-l-accent/50 bg-accent-dim/15": active(),
                         "bg-ghost-hover": selected() && !disabled(),

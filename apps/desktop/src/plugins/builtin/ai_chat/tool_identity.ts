@@ -36,7 +36,8 @@ const TOOL_DISPLAY_BY_KIND: Record<
   create_file: {
     label: "Create File",
     activeLabel: "Creating",
-    description: "Creates a new markdown file in your vault at the path you or the assistant agree on.",
+    description:
+      "Creates a new markdown file in your vault at the path you or the assistant agree on.",
   },
   edit_file: {
     label: "Edit File",
@@ -47,7 +48,8 @@ const TOOL_DISPLAY_BY_KIND: Record<
   move_file: {
     label: "Move File",
     activeLabel: "Moving",
-    description: "Renames a file or moves it to another folder so your links and tree stay consistent.",
+    description:
+      "Renames a file or moves it to another folder so your links and tree stay consistent.",
   },
   delete_file: {
     label: "Delete File",
@@ -70,7 +72,8 @@ const TOOL_DISPLAY_BY_KIND: Record<
   get_tags: {
     label: "Get Tags",
     activeLabel: "Reading tags",
-    description: "Returns tags or front-matter metadata attached to notes for filtering and organization.",
+    description:
+      "Returns tags or front-matter metadata attached to notes for filtering and organization.",
   },
   find_links: {
     label: "Find Links",
@@ -81,7 +84,8 @@ const TOOL_DISPLAY_BY_KIND: Record<
   suggest_links: {
     label: "Suggest Links",
     activeLabel: "Analyzing",
-    description: "Suggests new [[wikilinks]] the assistant thinks would strengthen your network of notes.",
+    description:
+      "Suggests new [[wikilinks]] the assistant thinks would strengthen your network of notes.",
   },
   find_related_notes: {
     label: "Find Related Notes",
@@ -98,19 +102,22 @@ const TOOL_DISPLAY_BY_KIND: Record<
   get_vault_stats: {
     label: "Get Vault Stats",
     activeLabel: "Reading stats",
-    description: "High-level counts or summaries (e.g. how many files) to ground answers in your vault size.",
+    description:
+      "High-level counts or summaries (e.g. how many files) to ground answers in your vault size.",
   },
   open_file: {
     label: "Open File",
     activeLabel: "Opening",
-    description: "Tells the app to open a file in the editor so you can see what the assistant is talking about.",
+    description:
+      "Tells the app to open a file in the editor so you can see what the assistant is talking about.",
   },
 };
 
 const FALLBACK_TOOL_INFO = {
   label: "" as const,
   activeLabel: "Running" as const,
-  description: "A server-side capability the assistant can call when your message needs that action.",
+  description:
+    "A server-side capability the assistant can call when your message needs that action.",
 };
 
 function canonicalToolId(toolName: string): string {

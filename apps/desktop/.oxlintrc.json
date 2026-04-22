@@ -31,7 +31,13 @@
               "^tab-bar(-tabs)?$",
               "^kuku-task-checkbox(?:__input|__control)?$",
               "^kuku-markdown-task-list$",
-              "^kuku-markdown-task-item(?:-content)?$"
+              "^kuku-markdown-task-item(?:-content)?$",
+              "^kuku-md-code-fence$",
+              "^kuku-ai-composer-textarea$",
+              "^kuku-chat-(?:fade-dots|thinking-text)$",
+              "^kuku-ai-tools-(?:details|chevron)$",
+              "^kuku-cm-(?:separator|hairline)$",
+              "^kuku-resize-grip(?:--col|--row)?$"
             ]
           }
         ],

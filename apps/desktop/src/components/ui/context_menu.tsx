@@ -66,7 +66,11 @@ export function ContextMenuItem(props: {
       <span class="whitespace-nowrap">{props.label}</span>
       <Show when={props.shortcut}>
         <span
-          class={props.danger ? "text-error/70" : "text-[0.65rem] font-normal text-text-muted/85 tabular-nums"}
+          class={
+            props.danger
+              ? "text-error/70"
+              : "text-[0.65rem] font-normal text-text-muted/85 tabular-nums"
+          }
         >
           {props.shortcut}
         </span>
@@ -80,7 +84,7 @@ export function ContextMenuItem(props: {
  */
 export function ContextMenuSeparator() {
   return (
-    <KMenu.Separator class="kuku-cm-separator !mx-0 my-0 h-px w-full max-w-full shrink-0 border-0 p-0" />
+    <KMenu.Separator class="kuku-cm-separator mx-0! my-0 h-px w-full max-w-full shrink-0 border-0 p-0" />
   );
 }
 
@@ -89,7 +93,7 @@ export function ContextMenuSeparator() {
  */
 export function ContextMenuGroupLabel(props: { children: JSX.Element }) {
   return (
-    <KMenu.GroupLabel class="px-2.5 py-0.5 text-[0.625rem] font-medium leading-none tracking-[0.06em] text-text-muted/75 normal-case">
+    <KMenu.GroupLabel class="px-2.5 py-0.5 text-[0.625rem] leading-none font-medium tracking-[0.06em] text-text-muted/75 normal-case">
       {props.children}
     </KMenu.GroupLabel>
   );
@@ -166,9 +170,7 @@ export function ContextMenuIconButton(props: {
         "transition-[color,background-color] duration-100",
         "data-highlighted:bg-bg-secondary/55",
         "data-disabled:cursor-not-allowed data-disabled:text-text-disabled",
-        props.active
-          ? "bg-bg-secondary/90 text-text-primary"
-          : "text-text-secondary",
+        props.active ? "bg-bg-secondary/90 text-text-primary" : "text-text-secondary",
       ].join(" ")}
       title={props.title}
     >

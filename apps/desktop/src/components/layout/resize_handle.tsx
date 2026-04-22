@@ -56,11 +56,7 @@ export default function ResizeHandle(props: ResizeHandleProps) {
   }
 
   return (
-    <div
-      class={`relative z-10 shrink-0 ${
-        isCol() ? "w-px" : "h-px w-full"
-      }`}
-    >
+    <div class={`relative z-10 shrink-0 ${isCol() ? "w-px" : "h-px w-full"}`}>
       {/* Graph-paper style strip only while pointer-drag is active — avoids heavy accent / black bar */}
       <div
         classList={{
@@ -75,7 +71,7 @@ export default function ResizeHandle(props: ResizeHandleProps) {
         classList={{
           "relative z-10 shrink-0 before:absolute before:z-20 before:content-['']": true,
           "h-full w-px cursor-col-resize before:-inset-x-0.5 before:inset-y-0": isCol(),
-          "h-px w-full cursor-row-resize before:-inset-y-0.5 before:inset-x-0": !isCol(),
+          "h-px w-full cursor-row-resize before:inset-x-0 before:-inset-y-0.5": !isCol(),
           "bg-border hover:bg-border/80": !active(),
           "bg-transparent": active(),
         }}

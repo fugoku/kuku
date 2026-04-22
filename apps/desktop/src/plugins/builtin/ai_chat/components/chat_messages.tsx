@@ -150,7 +150,7 @@ function TextBubble(props: {
               <For each={attachments()}>
                 {(attachment) => (
                   <span
-                    class="inline-flex max-w-full items-center rounded border border-border/50 bg-bg-primary/50 px-1.5 py-0.5 text-[0.65rem] text-text-secondary"
+                    class="inline-flex max-w-full items-center rounded-sm border border-border/50 bg-bg-primary/50 px-1.5 py-0.5 text-[0.65rem] text-text-secondary"
                     title={
                       attachment.kind === "file"
                         ? attachment.path
@@ -162,7 +162,9 @@ function TextBubble(props: {
                         ? `@${attachment.name}`
                         : selectionAttachmentLabel(attachment.activeFile)}
                     </span>
-                    <span class="ml-1 text-text-muted/80">({formatBytes(attachment.sizeBytes)})</span>
+                    <span class="ml-1 text-text-muted/80">
+                      ({formatBytes(attachment.sizeBytes)})
+                    </span>
                   </span>
                 )}
               </For>
@@ -170,11 +172,9 @@ function TextBubble(props: {
           </Show>
           <Show
             when={props.content.length > 0}
-            fallback={
-              <span class="text-text-placeholder">…</span>
-            }
+            fallback={<span class="text-text-placeholder">…</span>}
           >
-            <p class="w-full min-w-0 whitespace-pre-wrap break-words text-text-primary">
+            <p class="w-full min-w-0 wrap-break-word whitespace-pre-wrap text-text-primary">
               {props.content}
             </p>
           </Show>
@@ -198,17 +198,13 @@ function TextBubble(props: {
         when={props.content.length > 0}
         fallback={
           <span class="text-text-muted">
-            {props.streaming ? (
-              <FadeInlineDots />
-            ) : (
-              <span class="text-text-placeholder">…</span>
-            )}
+            {props.streaming ? <FadeInlineDots /> : <span class="text-text-placeholder">…</span>}
           </span>
         }
       >
         <MarkdownMessage content={props.content} />
         <Show when={props.streaming && props.content.length > 0}>
-          <span class="ml-0.5 inline-block h-3.5 w-px align-text-bottom bg-text-muted/60" />
+          <span class="ml-0.5 inline-block h-3.5 w-px bg-text-muted/60 align-text-bottom" />
         </Show>
       </Show>
     </div>
@@ -359,14 +355,12 @@ function ChatMessages(): JSX.Element {
         when={hasMessages()}
         fallback={<ChatWelcome mode={chatState.selectedMode} onSubmit={handleWelcomeSubmit} />}
       >
-        <div class="mx-auto flex w-full min-w-0 max-w-full flex-col">
+        <div class="mx-auto flex w-full max-w-full min-w-0 flex-col">
           <div class="flex min-w-0 flex-col gap-6">
             <For each={displayTurns()}>
               {(row) => {
                 const hasUserAnchor = () =>
-                  row.isNewest &&
-                  row.items[0] != null &&
-                  isUserTextGroup(row.items[0].group);
+                  row.isNewest && row.items[0] != null && isUserTextGroup(row.items[0].group);
 
                 return (
                   <div class="flex min-w-0 flex-col">
@@ -400,7 +394,7 @@ function ChatMessages(): JSX.Element {
                       }
                     >
                       {(() => {
-                        const first = row.items[0]!;
+                        const first = row.items[0];
                         const rest = row.items.slice(1);
                         return (
                           <div class="flex min-w-0 flex-col">

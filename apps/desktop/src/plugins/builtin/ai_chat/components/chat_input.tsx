@@ -1,12 +1,4 @@
-import {
-  createEffect,
-  createMemo,
-  createSignal,
-  For,
-  onCleanup,
-  Show,
-  type JSX,
-} from "solid-js";
+import { createEffect, createMemo, createSignal, For, onCleanup, Show, type JSX } from "solid-js";
 
 import ScrollArea from "~/components/scroll_area";
 import type { WikilinkSuggestItem } from "~/plugins/builtin/wikilink/wikilink_suggest";
@@ -197,7 +189,7 @@ function ChatInput(): JSX.Element {
   return (
     <div class="relative focus-within:outline-none" data-kuku-ai-chat-composer>
       <Show when={fileMention()}>
-        <div class="absolute bottom-full left-2 z-50 mb-1 w-[min(100%,20rem)] overflow-hidden rounded border border-border/70 bg-bg-elevated p-0.5 sm:left-2.5">
+        <div class="absolute bottom-full left-2 z-50 mb-1 w-[min(100%,20rem)] overflow-hidden rounded-sm border border-border/70 bg-bg-elevated p-0.5 sm:left-2.5">
           <ScrollArea
             axis="y"
             scrollbarVisibility="hidden"
@@ -241,7 +233,7 @@ function ChatInput(): JSX.Element {
       </Show>
 
       <div
-        class="px-2 pt-1.5 pb-1.5 sm:px-2.5"
+        class="px-2 py-1.5 sm:px-2.5"
         classList={{ "pointer-events-none opacity-50": isLocked() }}
       >
         <Show when={attachedFiles().length > 0}>
@@ -272,11 +264,9 @@ function ChatInput(): JSX.Element {
           rows={1}
           value={draft()}
           placeholder={
-            chatState.selectedMode === "agent"
-              ? "Plan, @ for files…"
-              : "Ask about your vault…"
+            chatState.selectedMode === "agent" ? "Plan, @ for files…" : "Ask about your vault…"
           }
-          class="kuku-ai-composer-textarea w-full min-h-[4.5rem] resize-none bg-transparent py-1 text-[0.8125rem] leading-normal text-text-primary outline-none selection:bg-ghost-selected placeholder:text-text-muted/70"
+          class="kuku-ai-composer-textarea min-h-18 w-full resize-none bg-transparent py-1 text-[0.8125rem] leading-normal text-text-primary outline-none selection:bg-ghost-selected placeholder:text-text-muted/70"
           disabled={isLocked()}
           onInput={(event) => {
             updateDraft(event.currentTarget.value);
@@ -294,7 +284,7 @@ function ChatInput(): JSX.Element {
                 class="inline-flex min-h-7 items-center gap-1 rounded-sm px-1.5 py-1 text-[0.8125rem] font-medium text-text-secondary transition hover:bg-ghost-hover hover:text-text-primary"
                 onClick={() => setShowModeMenu(!showModeMenu())}
               >
-                <span class="max-w-[6rem] truncate capitalize sm:max-w-none">
+                <span class="max-w-24 truncate capitalize sm:max-w-none">
                   {chatState.selectedMode}
                 </span>
                 <svg
@@ -316,7 +306,7 @@ function ChatInput(): JSX.Element {
                     {(opt) => (
                       <button
                         type="button"
-                        class="flex w-full flex-col items-start gap-0.5 px-2.5 py-2.5 text-left transition hover:bg-ghost-hover"
+                        class="flex w-full flex-col items-start gap-0.5 p-2.5 text-left transition hover:bg-ghost-hover"
                         classList={{
                           "bg-ghost-hover": chatState.selectedMode === opt.value,
                         }}
@@ -325,8 +315,10 @@ function ChatInput(): JSX.Element {
                           setShowModeMenu(false);
                         }}
                       >
-                        <span class="text-[0.8125rem] font-medium text-text-primary">{opt.title}</span>
-                        <span class="text-xs leading-snug text-text-muted">{opt.desc}</span>
+                        <span class="text-[0.8125rem] font-medium text-text-primary">
+                          {opt.title}
+                        </span>
+                        <span class="text-xs/snug text-text-muted">{opt.desc}</span>
                       </button>
                     )}
                   </For>
