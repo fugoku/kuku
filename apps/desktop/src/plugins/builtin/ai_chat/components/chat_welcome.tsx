@@ -50,7 +50,7 @@ function ChatWelcome(props: ChatWelcomeProps): JSX.Element {
       <div class="mx-auto w-full max-w-md px-4 py-6">
         <header class="mb-8 text-center sm:mb-10">
           <h1 class="text-xl font-semibold tracking-tight text-text-primary sm:text-2xl">Hello</h1>
-          <p class="mt-2 text-pretty text-[0.8125rem] leading-relaxed text-text-secondary">
+          <p class="mt-2 text-[0.8125rem] leading-relaxed text-pretty text-text-secondary">
             {props.mode === "agent"
               ? "Your second brain, ready to think with you"
               : "Ask anything about your knowledge base"}
@@ -72,7 +72,7 @@ function ChatWelcome(props: ChatWelcomeProps): JSX.Element {
                       onClick={() => props.onSubmit(item.mode, item.prompt)}
                     >
                       <span class="text-sm font-medium text-text-primary">{item.text}</span>
-                      <span class="text-xs leading-snug text-text-muted">{item.hint}</span>
+                      <span class="text-xs/snug text-text-muted">{item.hint}</span>
                     </button>
                   </li>
                 )}

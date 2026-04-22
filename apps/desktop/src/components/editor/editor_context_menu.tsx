@@ -340,76 +340,76 @@ export default function EditorContextMenu(props: EditorContextMenuProps) {
 
       <ContextMenuContent class="w-52">
         {/* ── Formatting: same white/elevated surface as body — hairlines only ── */}
-        <div class="mb-1 space-y-1.5 pl-1.5 pr-1.5 pt-0.5">
+        <div class="mb-1 space-y-1.5 px-1.5 pt-0.5">
           <div class="flex flex-wrap items-center justify-start gap-0.5">
-          <ContextMenuIconButton
-            onSelect={() => toggleMark("toggleBold")}
-            active={activeMarks().has("bold")}
-            title="Bold (⌘B)"
-          >
-            <BoldIcon size={14} />
-          </ContextMenuIconButton>
+            <ContextMenuIconButton
+              onSelect={() => toggleMark("toggleBold")}
+              active={activeMarks().has("bold")}
+              title="Bold (⌘B)"
+            >
+              <BoldIcon size={14} />
+            </ContextMenuIconButton>
 
-          <ContextMenuIconButton
-            onSelect={() => toggleMark("toggleItalic")}
-            active={activeMarks().has("italic")}
-            title="Italic (⌘I)"
-          >
-            <ItalicIcon size={14} />
-          </ContextMenuIconButton>
+            <ContextMenuIconButton
+              onSelect={() => toggleMark("toggleItalic")}
+              active={activeMarks().has("italic")}
+              title="Italic (⌘I)"
+            >
+              <ItalicIcon size={14} />
+            </ContextMenuIconButton>
 
-          <ContextMenuIconButton
-            onSelect={() => toggleMark("toggleStrike")}
-            active={activeMarks().has("strike")}
-            title="Strikethrough"
-          >
-            <StrikethroughIcon size={14} />
-          </ContextMenuIconButton>
+            <ContextMenuIconButton
+              onSelect={() => toggleMark("toggleStrike")}
+              active={activeMarks().has("strike")}
+              title="Strikethrough"
+            >
+              <StrikethroughIcon size={14} />
+            </ContextMenuIconButton>
 
-          <ContextMenuIconButton
-            onSelect={() => toggleMark("toggleCode")}
-            active={activeMarks().has("code")}
-            title="Inline Code (⌘E)"
-          >
-            <CodeIcon size={14} />
-          </ContextMenuIconButton>
+            <ContextMenuIconButton
+              onSelect={() => toggleMark("toggleCode")}
+              active={activeMarks().has("code")}
+              title="Inline Code (⌘E)"
+            >
+              <CodeIcon size={14} />
+            </ContextMenuIconButton>
 
-          <ContextMenuIconButton
-            onSelect={toggleLink}
-            active={activeMarks().has("link")}
-            disabled={!hasSelection() && !activeMarks().has("link")}
-            title="Link"
-          >
-            <LinkIcon size={14} />
-          </ContextMenuIconButton>
+            <ContextMenuIconButton
+              onSelect={toggleLink}
+              active={activeMarks().has("link")}
+              disabled={!hasSelection() && !activeMarks().has("link")}
+              title="Link"
+            >
+              <LinkIcon size={14} />
+            </ContextMenuIconButton>
           </div>
 
           <div class="kuku-cm-hairline h-px w-full" role="presentation" />
 
           <div class="flex flex-wrap items-center justify-start gap-0.5">
-          <ContextMenuIconButton
-            onSelect={() => toggleHeading(1)}
-            active={headingLevel() === 1}
-            title="Heading 1 (⌘⌥1)"
-          >
-            <Heading1Icon size={14} />
-          </ContextMenuIconButton>
+            <ContextMenuIconButton
+              onSelect={() => toggleHeading(1)}
+              active={headingLevel() === 1}
+              title="Heading 1 (⌘⌥1)"
+            >
+              <Heading1Icon size={14} />
+            </ContextMenuIconButton>
 
-          <ContextMenuIconButton
-            onSelect={() => toggleHeading(2)}
-            active={headingLevel() === 2}
-            title="Heading 2 (⌘⌥2)"
-          >
-            <Heading2Icon size={14} />
-          </ContextMenuIconButton>
+            <ContextMenuIconButton
+              onSelect={() => toggleHeading(2)}
+              active={headingLevel() === 2}
+              title="Heading 2 (⌘⌥2)"
+            >
+              <Heading2Icon size={14} />
+            </ContextMenuIconButton>
 
-          <ContextMenuIconButton
-            onSelect={() => toggleHeading(3)}
-            active={headingLevel() === 3}
-            title="Heading 3 (⌘⌥3)"
-          >
-            <Heading3Icon size={14} />
-          </ContextMenuIconButton>
+            <ContextMenuIconButton
+              onSelect={() => toggleHeading(3)}
+              active={headingLevel() === 3}
+              title="Heading 3 (⌘⌥3)"
+            >
+              <Heading3Icon size={14} />
+            </ContextMenuIconButton>
           </div>
         </div>
 
@@ -456,9 +456,9 @@ export default function EditorContextMenu(props: EditorContextMenuProps) {
         <ContextMenuSeparator />
 
         {/* ── AI skills: plain label row (avoids Kobalte group default vertical padding) ── */}
-        <div class="[margin:0] p-0" role="group" aria-label="AI skills">
+        <div class="m-0 p-0" role="group" aria-label="AI skills">
           <div
-            class="mb-1 flex min-h-0 items-center gap-1.5 px-2.5 py-0.5 text-[0.625rem] font-medium leading-tight text-text-muted/75 select-none"
+            class="mb-1 flex min-h-0 items-center gap-1.5 px-2.5 py-0.5 text-[0.625rem] leading-tight font-medium text-text-muted/75 select-none"
             role="presentation"
           >
             <SparklesIcon size={10} class="shrink-0 text-text-muted/60" />

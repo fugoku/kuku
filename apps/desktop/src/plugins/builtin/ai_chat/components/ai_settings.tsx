@@ -68,6 +68,12 @@ function AiSettings(): JSX.Element {
     );
   });
 
+  const saveButtonLabel = createMemo(() => {
+    if (chatState.config.saving) return "Saving…";
+    if (isUnsaved()) return "Save (required)";
+    return "Save";
+  });
+
   return (
     <SettingsPanel
       title="AI Chat"
@@ -79,7 +85,7 @@ function AiSettings(): JSX.Element {
           class={isUnsaved() ? "ring-2 ring-warning/60 ring-offset-1 ring-offset-bg-primary" : ""}
           onClick={() => void saveConfig(provider(), apiKey(), model(), serverUrl())}
         >
-          {chatState.config.saving ? "Saving…" : isUnsaved() ? "Save (required)" : "Save"}
+          {saveButtonLabel()}
         </SettingsToolbarAction>
       }
     >
@@ -95,12 +101,12 @@ function AiSettings(): JSX.Element {
         class="select-text"
         title="Quick guide"
         description={
-          <ol class="mt-1.5 list-decimal space-y-1.5 pl-4 text-[0.75rem] leading-relaxed text-text-secondary [&_a]:text-text-primary [&_a]:underline [&_a]:underline-offset-2">
+          <ol class="mt-1.5 list-decimal space-y-1.5 pl-4 text-xs/relaxed text-text-secondary [&_a]:text-text-primary [&_a]:underline [&_a]:underline-offset-2">
             <li>
-              <strong class="text-text-primary">Connection:</strong> “Kuku” uses the account
-              you’re signed in with. If you already use a Kuku account, that’s the easy path: sign
-              in once and you’re good — you usually don’t need to tweak this page. “My Gemini API
-              key” is for your own key from Google’s{" "}
+              <strong class="text-text-primary">Connection:</strong> “Kuku” uses the account you’re
+              signed in with. If you already use a Kuku account, that’s the easy path: sign in once
+              and you’re good — you usually don’t need to tweak this page. “My Gemini API key” is
+              for your own key from Google’s{" "}
               <a
                 href="https://aistudio.google.com/apikey"
                 target="_blank"
@@ -112,12 +118,12 @@ function AiSettings(): JSX.Element {
               (free tier is enough to try).
             </li>
             <li>
-              <strong class="text-text-primary">Save</strong> after you change anything. A green
-              or quiet success means you’re good.
+              <strong class="text-text-primary">Save</strong> after you change anything. A green or
+              quiet success means you’re good.
             </li>
             <li>
-              <strong class="text-text-primary">Open chat:</strong> use the right sidebar tab or
-              the command to open the panel, then type in the box at the bottom.
+              <strong class="text-text-primary">Open chat:</strong> use the right sidebar tab or the
+              command to open the panel, then type in the box at the bottom.
             </li>
           </ol>
         }
@@ -169,7 +175,7 @@ function AiSettings(): JSX.Element {
         />
         <SettingsBanner
           tone="info"
-          class="!py-2.5"
+          class="py-2.5!"
           title="While you’re on Kuku"
           description="No API key in this screen — you already authorized the app with your Kuku / Google sign-in. If chat says it’s not allowed, check Account in settings."
         />
@@ -178,7 +184,7 @@ function AiSettings(): JSX.Element {
       <Show when={provider() === "gemini"}>
         <SettingsBanner
           tone="info"
-          class="!py-2.5 select-text"
+          class="py-2.5! select-text"
           title="Using your own key"
           description={
             <ol class="mt-1.5 list-decimal space-y-1.5 pl-4 text-[0.75rem] text-text-secondary">
@@ -258,16 +264,14 @@ function AiSettings(): JSX.Element {
         <Show when={chatState.config.toolsLoading}>
           <p class="text-[0.75rem] text-text-muted">Loading the feature list…</p>
         </Show>
-        <Show
-          when={!chatState.config.toolsLoading && chatState.config.availableTools.length > 0}
-        >
+        <Show when={!chatState.config.toolsLoading && chatState.config.availableTools.length > 0}>
           <p class="text-[0.75rem] text-text-muted">
             {chatState.config.availableTools.length} feature
-            {chatState.config.availableTools.length === 1 ? "" : "s"} ready on the server. You
-            don’t have to read the list to use chat.
+            {chatState.config.availableTools.length === 1 ? "" : "s"} ready on the server. You don’t
+            have to read the list to use chat.
           </p>
           <details class="kuku-ai-tools-details mt-3 overflow-hidden rounded-sm border border-border/90 bg-bg-secondary/50 transition-shadow hover:border-border">
-            <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 pr-2 text-left marker:content-none select-none [&::-webkit-details-marker]:hidden">
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 pr-2 text-left select-none marker:content-none [&::-webkit-details-marker]:hidden">
               <span class="flex min-w-0 items-center gap-2.5">
                 <span class="flex size-6 shrink-0 items-center justify-center rounded-xs border border-border/80 bg-bg-elevated/80 text-icon">
                   <ChevronIcon
@@ -305,7 +309,7 @@ function AiSettings(): JSX.Element {
                               {info().description}
                             </span>
                             <Show when={showIdentity()}>
-                              <span class="block whitespace-pre-wrap font-mono text-[0.6rem] text-text-muted/90">
+                              <span class="block font-mono text-[0.6rem] whitespace-pre-wrap text-text-muted/90">
                                 {identity()}
                               </span>
                             </Show>
@@ -319,9 +323,7 @@ function AiSettings(): JSX.Element {
             </div>
           </details>
         </Show>
-        <Show
-          when={!chatState.config.toolsLoading && chatState.config.availableTools.length === 0}
-        >
+        <Show when={!chatState.config.toolsLoading && chatState.config.availableTools.length === 0}>
           <SettingsBanner
             tone="info"
             description="We couldn’t load the feature list. Check your network, then press Save to try again."

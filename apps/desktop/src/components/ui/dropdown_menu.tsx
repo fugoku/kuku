@@ -110,7 +110,7 @@ export function DropdownMenuItem(props: {
  */
 export function DropdownMenuSeparator() {
   return (
-    <KMenu.Separator class="kuku-cm-separator !mx-0 my-0 h-px w-full max-w-full shrink-0 border-0 p-0" />
+    <KMenu.Separator class="kuku-cm-separator mx-0! my-0 h-px w-full max-w-full shrink-0 border-0 p-0" />
   );
 }
 

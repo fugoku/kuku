@@ -40,7 +40,7 @@ function ApprovalWidget(props: {
 
   return (
     <div
-      class="min-w-0 w-full border-b border-border/40 p-3.5 text-xs"
+      class="w-full min-w-0 border-b border-border/40 p-3.5 text-xs"
       classList={{
         "border-accent/40 bg-accent-dim/40": isPending(),
         "border-border/70 bg-bg-secondary": !isPending(),

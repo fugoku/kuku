@@ -48,46 +48,46 @@ function AccessPrompt(): JSX.Element {
         </div>
 
         <div class="mt-6 flex flex-col items-stretch gap-2.5">
-        <button
-          type="button"
-          class="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-accent/35 bg-accent/12 px-4 text-sm font-medium text-accent transition hover:bg-accent/20 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={chatState.config.saving || authState.loading}
-          onClick={() => void signInWithKuku()}
-        >
-          <KukuIcon size={14} />
-          {authState.loading ? "Opening..." : "Sign in with Kuku"}
-        </button>
+          <button
+            type="button"
+            class="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-accent/35 bg-accent/12 px-4 text-sm font-medium text-accent transition hover:bg-accent/20 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={chatState.config.saving || authState.loading}
+            onClick={() => void signInWithKuku()}
+          >
+            <KukuIcon size={14} />
+            {authState.loading ? "Opening..." : "Sign in with Kuku"}
+          </button>
 
-        <p class="text-[0.7rem] leading-relaxed text-text-muted">
-          Sign in once for Kuku Remote — no local API key on this device.
-        </p>
+          <p class="text-[0.7rem] leading-relaxed text-text-muted">
+            Sign in once for Kuku Remote — no local API key on this device.
+          </p>
 
-        <div class="flex w-full items-center gap-3 py-0.5">
-          <div class="h-px min-w-0 flex-1 bg-border" />
-          <span class="shrink-0 text-[0.65rem] font-medium tracking-widest text-text-muted uppercase">
-            or
-          </span>
-          <div class="h-px min-w-0 flex-1 bg-border" />
-        </div>
+          <div class="flex w-full items-center gap-3 py-0.5">
+            <div class="h-px min-w-0 flex-1 bg-border" />
+            <span class="shrink-0 text-[0.65rem] font-medium tracking-widest text-text-muted uppercase">
+              or
+            </span>
+            <div class="h-px min-w-0 flex-1 bg-border" />
+          </div>
 
-        <button
-          type="button"
-          class="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-border/80 bg-bg-elevated px-4 text-sm font-medium text-text-primary transition hover:bg-ghost-hover active:scale-[0.99]"
-          onClick={() =>
-            openSettings({
-              kind: "plugin",
-              fillId: "ai-chat.settings",
-              anchor: "api-key",
-            })
-          }
-        >
-          <SettingsIcon size={14} />
-          Open Settings
-        </button>
+          <button
+            type="button"
+            class="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-border/80 bg-bg-elevated px-4 text-sm font-medium text-text-primary transition hover:bg-ghost-hover active:scale-[0.99]"
+            onClick={() =>
+              openSettings({
+                kind: "plugin",
+                fillId: "ai-chat.settings",
+                anchor: "api-key",
+              })
+            }
+          >
+            <SettingsIcon size={14} />
+            Open Settings
+          </button>
 
-        <p class="text-[0.7rem] leading-relaxed text-text-muted">
-          Or add a Gemini key in Settings for BYOK on this device.
-        </p>
+          <p class="text-[0.7rem] leading-relaxed text-text-muted">
+            Or add a Gemini key in Settings for BYOK on this device.
+          </p>
         </div>
 
         <Show when={authState.error}>
@@ -110,7 +110,9 @@ function RemotePermissionPrompt(): JSX.Element {
         </div>
 
         <div class="mt-4 space-y-1.5">
-          <h2 class="text-lg font-semibold tracking-tight text-text-primary">Permission required</h2>
+          <h2 class="text-lg font-semibold tracking-tight text-text-primary">
+            Permission required
+          </h2>
           <p class="mx-auto max-w-56 text-[0.8125rem] leading-relaxed text-text-secondary">
             Allow AI Chat in Account → Authorizations to use your Kuku session.
           </p>
@@ -215,11 +217,10 @@ function ChatPanel(): JSX.Element {
     }
     const activeId = chatState.activeSessionId;
     const session = activeId ? (chatState.sessions[activeId] ?? null) : null;
-    const count = session?.messages.length ?? 0;
-    if (!activeId || count === 0) {
+    if (!session || session.messages.length === 0) {
       return;
     }
-    const last = session.messages[count - 1]!;
+    const last = session.messages[session.messages.length - 1];
     if (last.kind === "text" && last.role === "user") {
       revealLatestUserToView();
     } else {
