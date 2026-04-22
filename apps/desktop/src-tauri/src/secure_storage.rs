@@ -2,6 +2,9 @@ use std::path::PathBuf;
 
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 
+#[cfg(debug_assertions)]
+use crate::variant;
+
 pub const INSECURE_DEBUG_SECURE_STORE_ENV: &str = "KUKU_ALLOW_INSECURE_DEBUG_SECURE_STORE";
 
 const KEYRING_VALUE_PREFIX: &str = "kuku-secure:v1:";
@@ -138,8 +141,7 @@ fn debug_store_path(service: &str, account: &str) -> Result<PathBuf, SecureStora
     let home = dirs::home_dir().ok_or_else(|| {
         SecureStorageError::State("cannot resolve the user home directory".into())
     })?;
-    Ok(home
-        .join(".kuku")
+    Ok(variant::data_root(&home)
         .join("debug-secure-store")
         .join(format!("{service}.{account}.json")))
 }

@@ -17,6 +17,7 @@ use crate::models::{
     IndexerConfig, IndexerDebugStatus, IndexerStatus, IndexerStorageLocation,
     ResolveWikilinkResult, SimpleSearchResult,
 };
+use crate::variant;
 
 pub mod commands;
 mod db;
@@ -794,7 +795,7 @@ pub fn search_db_path(
     match storage_location {
         IndexerStorageLocation::AppGlobal => {
             let home = dirs::home_dir().ok_or("Cannot resolve home directory")?;
-            let app_root = home.join(".kuku").join("search");
+            let app_root = variant::data_root(&home).join("search");
             let hash = hash_path(&canonical);
             Ok(app_root.join(format!("{hash}.sqlite3")))
         }

@@ -12,6 +12,7 @@ mod plugin_secrets;
 mod plugin_settings;
 mod search;
 mod secure_storage;
+mod variant;
 mod vault;
 
 use std::sync::Arc;
@@ -35,6 +36,11 @@ pub fn run() {
 
     builder
         .setup(|app| {
+            // Capture the bundle identifier before anything that touches
+            // on-disk paths or the keychain runs — preview/dev/prod must
+            // land in separate storage (~/.kuku[.variant],
+            // mom.kuku.desktop.*[.variant]).
+            variant::init(app.config().identifier.clone());
             kuku_ai::register_host(
                 app.handle(),
                 Arc::new(ai_host::DesktopAiHost::new(app.handle().clone())),
@@ -48,10 +54,7 @@ pub fn run() {
                     // for a different scheme pair in their bundle config.
                     let is_auth_url = matches!(
                         url.scheme(),
-                        "kuku"
-                            | "com.kuku.app"
-                            | "kuku-preview"
-                            | "com.kuku.app.preview"
+                        "kuku" | "com.kuku.app" | "kuku-preview" | "com.kuku.app.preview"
                     ) && url.host_str() == Some("auth");
                     if !is_auth_url {
                         continue;

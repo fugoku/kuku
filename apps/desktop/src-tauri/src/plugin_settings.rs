@@ -5,6 +5,7 @@ use serde_json::{Map, Value};
 use tauri::command;
 
 use crate::plugin_secrets::{self, PluginSecretError};
+use crate::variant;
 
 const SECURE_META_KEY: &str = "__secure";
 const SECURE_META_STORAGE: &str = "keyring";
@@ -12,10 +13,12 @@ const SECURE_META_VERSION: u64 = 1;
 
 // ── Root Directory Init ──
 
-/// Core logic: ensure ~/.kuku and ~/.kuku/plugins exist, return the root path.
+/// Core logic: ensure the variant app-data root and `{root}/plugins`
+/// exist, return the root path. The root is `~/.kuku` for prod and
+/// `~/.kuku.preview` / `~/.kuku.dev` for other variants.
 fn ensure_root_dirs() -> Result<String, String> {
     let home = dirs::home_dir().ok_or("Cannot resolve home directory")?;
-    let root = home.join(".kuku");
+    let root = variant::data_root(&home);
     let plugins_dir = root.join("plugins");
 
     fs::create_dir_all(&plugins_dir).map_err(|e| format!("Failed to create root dirs: {e}"))?;
@@ -33,14 +36,13 @@ pub async fn plugin_ensure_root_dirs() -> Result<String, String> {
 
 // ── Path Resolution ──
 
-/// Returns the settings file path for a given plugin.
-/// `~/.kuku/plugins/{plugin_id}/settings.json`
+/// Returns the settings file path for a given plugin, scoped to the
+/// current variant's data root.
 fn settings_path(plugin_id: &str) -> Result<PathBuf, String> {
     plugin_secrets::validate_plugin_id(plugin_id).map_err(|error| error.to_string())?;
 
     let home = dirs::home_dir().ok_or("Cannot resolve home directory")?;
-    Ok(home
-        .join(".kuku")
+    Ok(variant::data_root(&home)
         .join("plugins")
         .join(plugin_id)
         .join("settings.json"))
@@ -48,7 +50,7 @@ fn settings_path(plugin_id: &str) -> Result<PathBuf, String> {
 
 fn plugins_root_path() -> Result<PathBuf, String> {
     let home = dirs::home_dir().ok_or("Cannot resolve home directory")?;
-    Ok(home.join(".kuku").join("plugins"))
+    Ok(variant::data_root(&home).join("plugins"))
 }
 
 // ── Tauri Commands ──

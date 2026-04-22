@@ -1,6 +1,8 @@
-use crate::secure_storage;
+use crate::{secure_storage, variant};
 
-pub const PLUGIN_SECRET_SERVICE: &str = "mom.kuku.desktop.plugin-secrets";
+pub fn plugin_secret_service() -> String {
+    variant::keychain_service("plugin-secrets")
+}
 
 #[derive(Debug)]
 pub enum PluginSecretError {
@@ -40,7 +42,7 @@ pub fn read_plugin_secret(
     field_name: &str,
 ) -> Result<Option<String>, PluginSecretError> {
     let account = secret_account(plugin_id, field_name)?;
-    let bytes = secure_storage::read_bytes(PLUGIN_SECRET_SERVICE, &account)?;
+    let bytes = secure_storage::read_bytes(&plugin_secret_service(), &account)?;
     match bytes {
         Some(bytes) => String::from_utf8(bytes).map(Some).map_err(|error| {
             PluginSecretError::Store(format!("invalid utf-8 plugin secret: {error}"))
@@ -55,13 +57,13 @@ pub fn write_plugin_secret(
     value: &str,
 ) -> Result<(), PluginSecretError> {
     let account = secret_account(plugin_id, field_name)?;
-    secure_storage::write_bytes(PLUGIN_SECRET_SERVICE, &account, value.as_bytes())?;
+    secure_storage::write_bytes(&plugin_secret_service(), &account, value.as_bytes())?;
     Ok(())
 }
 
 pub fn delete_plugin_secret(plugin_id: &str, field_name: &str) -> Result<(), PluginSecretError> {
     let account = secret_account(plugin_id, field_name)?;
-    secure_storage::delete(PLUGIN_SECRET_SERVICE, &account)?;
+    secure_storage::delete(&plugin_secret_service(), &account)?;
     Ok(())
 }
 

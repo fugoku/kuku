@@ -3,6 +3,8 @@ use std::path::{Component, Path, PathBuf};
 
 use tauri::command;
 
+use crate::variant;
+
 // ── Sandbox Path Resolution ──
 
 /// Resolves a relative path within a plugin's sandboxed data directory.
@@ -11,7 +13,7 @@ use tauri::command;
 /// to prevent path traversal attacks. Each `..` component is checked against
 /// the sandbox boundary — if it would escape, the call is rejected immediately.
 ///
-/// Sandbox root: `~/.kuku/plugins/{plugin_id}/`
+/// Sandbox root: `{variant_data_root}/plugins/{plugin_id}/`
 fn validate_plugin_id(plugin_id: &str) -> Result<(), String> {
     if plugin_id.is_empty() || plugin_id.contains('/') || plugin_id.contains('\\') {
         return Err("Invalid plugin ID".into());
@@ -87,7 +89,7 @@ fn resolve_sandboxed_path(plugin_id: &str, relative_path: &str) -> Result<PathBu
     validate_plugin_id(plugin_id)?;
 
     let home = dirs::home_dir().ok_or("Cannot resolve home directory")?;
-    let sandbox = home.join(".kuku").join("plugins").join(plugin_id);
+    let sandbox = variant::data_root(&home).join("plugins").join(plugin_id);
     let resolved = resolve_sandboxed_path_from_root(&sandbox, relative_path)?;
 
     // Ensure sandbox directory exists before the symlink scan — otherwise a

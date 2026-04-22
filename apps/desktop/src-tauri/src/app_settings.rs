@@ -4,9 +4,11 @@ use std::path::PathBuf;
 use serde_json::Value;
 use tauri::{AppHandle, Runtime, command};
 
+use crate::variant;
+
 fn ensure_root_dir() -> Result<PathBuf, String> {
     let home = dirs::home_dir().ok_or("Cannot resolve home directory")?;
-    let root = home.join(".kuku");
+    let root = variant::data_root(&home);
     fs::create_dir_all(&root).map_err(|e| format!("Failed to create app root: {e}"))?;
     Ok(root)
 }

@@ -7,11 +7,13 @@ use std::time::{Duration, SystemTime};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 
-use crate::secure_storage;
+use crate::{secure_storage, variant};
 
 static PENDING_AUTH_STATE: OnceLock<Mutex<Option<String>>> = OnceLock::new();
 
-const SECURE_SERVICE: &str = "mom.kuku.desktop.auth";
+fn secure_service() -> String {
+    variant::keychain_service("auth")
+}
 const SECURE_ACCOUNT: &str = "tokens";
 const LEGACY_EXPIRES_IN: i64 = 3600;
 const DEFAULT_AUTHORIZED_PLUGIN_IDS: &[&str] = &["ai-chat"];
@@ -100,7 +102,7 @@ pub fn replace_tokens(tokens: StoredTokens) -> Result<(), TokenError> {
 }
 
 pub fn read_tokens() -> Result<StoredTokens, TokenError> {
-    match secure_storage::read_bytes(SECURE_SERVICE, SECURE_ACCOUNT)? {
+    match secure_storage::read_bytes(&secure_service(), SECURE_ACCOUNT)? {
         Some(content) => serde_json::from_slice(&content)
             .map_err(|err| TokenError::Store(format!("invalid secure token JSON: {err}"))),
         None => migrate_legacy_tokens(),
@@ -122,7 +124,7 @@ pub fn token_expires_soon(tokens: &StoredTokens) -> bool {
 }
 
 pub fn clear_tokens() -> Result<(), TokenError> {
-    match secure_storage::delete(SECURE_SERVICE, SECURE_ACCOUNT) {
+    match secure_storage::delete(&secure_service(), SECURE_ACCOUNT) {
         Ok(()) | Err(secure_storage::SecureStorageError::NotFound) => {}
         Err(error) => return Err(error.into()),
     }
@@ -233,7 +235,7 @@ fn pending_state() -> &'static Mutex<Option<String>> {
 fn write_tokens(tokens: &StoredTokens) -> Result<(), TokenError> {
     let content =
         serde_json::to_vec_pretty(tokens).map_err(|err| TokenError::Store(err.to_string()))?;
-    secure_storage::write_bytes(SECURE_SERVICE, SECURE_ACCOUNT, &content).map_err(Into::into)
+    secure_storage::write_bytes(&secure_service(), SECURE_ACCOUNT, &content).map_err(Into::into)
 }
 
 fn migrate_legacy_tokens() -> Result<StoredTokens, TokenError> {
@@ -316,7 +318,7 @@ fn legacy_auth_path() -> Result<PathBuf, TokenError> {
 fn kuku_root() -> Result<PathBuf, TokenError> {
     let home = dirs::home_dir()
         .ok_or_else(|| TokenError::State("cannot resolve the user home directory".to_string()))?;
-    Ok(home.join(".kuku"))
+    Ok(variant::data_root(&home))
 }
 
 pub(crate) fn format_rfc3339(time: SystemTime) -> String {
