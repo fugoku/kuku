@@ -3,6 +3,7 @@ import { For, Show, createEffect, createMemo, createSignal, on, type JSX } from 
 import { chatState, loadConfig, loadTools, saveConfig } from "../chat_store";
 import { formatToolIdentity, getToolInfo } from "../tool_identity";
 import { ChevronIcon, EyeIcon, EyeOffIcon } from "~/components/icons";
+import ScrollArea from "~/components/scroll_area";
 import {
   SettingsBanner,
   SettingsCard,
@@ -258,16 +259,16 @@ function AiSettings(): JSX.Element {
 
       <SettingsCard
         title="What the AI can do"
-        description="Search notes, read or edit files, and reply in the side panel. It will ask before destructive steps when needed."
+        description="Tools the assistant can reach for on your behalf — searching notes, reading or editing files, and more. It will ask before destructive steps when needed."
         tone="subtle"
       >
         <Show when={chatState.config.toolsLoading}>
-          <p class="text-[0.75rem] text-text-muted">Loading the feature list…</p>
+          <p class="text-[0.75rem] text-text-muted">Loading the tool list…</p>
         </Show>
         <Show when={!chatState.config.toolsLoading && chatState.config.availableTools.length > 0}>
           <p class="text-[0.75rem] text-text-muted">
-            {chatState.config.availableTools.length} feature
-            {chatState.config.availableTools.length === 1 ? "" : "s"} ready on the server. You don’t
+            {chatState.config.availableTools.length} tool
+            {chatState.config.availableTools.length === 1 ? "" : "s"} available to the AI. You don’t
             have to read the list to use chat.
           </p>
           <details class="kuku-ai-tools-details mt-3 overflow-hidden rounded-sm border border-border/90 bg-bg-secondary/50 transition-shadow hover:border-border">
@@ -284,7 +285,7 @@ function AiSettings(): JSX.Element {
                     Show the technical tool list
                   </span>
                   <span class="block text-[0.6875rem] text-text-muted">
-                    For debugging or curiosity — same names the server uses
+                    For debugging or curiosity — tool names the AI sees
                   </span>
                 </span>
               </span>
@@ -293,40 +294,42 @@ function AiSettings(): JSX.Element {
               </span>
             </summary>
             <div class="border-t border-border/50 bg-bg-primary/50 px-2.5 py-2">
-              <div class="max-h-48 space-y-0.5 overflow-y-auto pr-0.5 select-text">
-                <For each={chatState.config.availableTools}>
-                  {(tool) => {
-                    const identity = () => formatToolIdentity(tool.toolId, tool.name);
-                    const info = () => getToolInfo(tool.toolId ?? tool.name);
-                    const showIdentity = () => identity() !== info().label;
+              <ScrollArea axis="y" class="max-h-48 select-text">
+                <div class="space-y-0.5 pr-0.5">
+                  <For each={chatState.config.availableTools}>
+                    {(tool) => {
+                      const identity = () => formatToolIdentity(tool.toolId, tool.name);
+                      const info = () => getToolInfo(tool.toolId ?? tool.name);
+                      const showIdentity = () => identity() !== info().label;
 
-                    return (
-                      <SettingsListRow
-                        title={<span class="text-[0.75rem]">{info().label}</span>}
-                        description={
-                          <span class="block space-y-1">
-                            <span class="block text-[0.65rem] leading-snug text-text-secondary">
-                              {info().description}
-                            </span>
-                            <Show when={showIdentity()}>
-                              <span class="block font-mono text-[0.6rem] whitespace-pre-wrap text-text-muted/90">
-                                {identity()}
+                      return (
+                        <SettingsListRow
+                          title={<span class="text-[0.75rem]">{info().label}</span>}
+                          description={
+                            <span class="block space-y-1">
+                              <span class="block text-[0.65rem] leading-snug text-text-secondary">
+                                {info().description}
                               </span>
-                            </Show>
-                          </span>
-                        }
-                      />
-                    );
-                  }}
-                </For>
-              </div>
+                              <Show when={showIdentity()}>
+                                <span class="block font-mono text-[0.6rem] whitespace-pre-wrap text-text-muted/90">
+                                  {identity()}
+                                </span>
+                              </Show>
+                            </span>
+                          }
+                        />
+                      );
+                    }}
+                  </For>
+                </div>
+              </ScrollArea>
             </div>
           </details>
         </Show>
         <Show when={!chatState.config.toolsLoading && chatState.config.availableTools.length === 0}>
           <SettingsBanner
             tone="info"
-            description="We couldn’t load the feature list. Check your network, then press Save to try again."
+            description="We couldn’t load the tool list. Check your network, then press Save to try again."
           />
         </Show>
       </SettingsCard>
