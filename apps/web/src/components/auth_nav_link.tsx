@@ -2,7 +2,11 @@ import { createSignal, onMount } from "solid-js";
 
 import { getProfile } from "@/lib/api/dashboard";
 
-export default function AuthNavLink() {
+interface Props {
+  pathname: string;
+}
+
+export default function AuthNavLink(props: Props) {
   const [isSignedIn, setIsSignedIn] = createSignal(false);
 
   onMount(() => {
@@ -13,14 +17,25 @@ export default function AuthNavLink() {
     try {
       await getProfile();
       setIsSignedIn(true);
+      // Re-run the landing-page i18n script so the swapped `data-i18n` key
+      // (nav.signin → nav.dashboard) picks up the active language.
+      window.dispatchEvent(new Event("kuku:lang-refresh"));
     } catch {
       setIsSignedIn(false);
     }
   }
 
+  const href = () => (isSignedIn() ? "/dashboard" : "/auth/signin");
+  const i18nKey = () => (isSignedIn() ? "nav.dashboard" : "nav.signin");
+  const label = () => (isSignedIn() ? "Dashboard" : "Sign in");
+  const ariaCurrent = () => {
+    const target = isSignedIn() ? "/dashboard" : "/auth";
+    return props.pathname.startsWith(target) ? "page" : undefined;
+  };
+
   return (
-    <a href={isSignedIn() ? "/dashboard" : "/auth/signin"}>
-      {isSignedIn() ? "Dashboard" : "Login"}
+    <a class="lp-nav-signin" href={href()} aria-current={ariaCurrent()} data-i18n={i18nKey()}>
+      {label()}
     </a>
   );
 }

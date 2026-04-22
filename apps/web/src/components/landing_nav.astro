@@ -1,4 +1,5 @@
 ---
+import AuthNavLink from '@/components/auth_nav_link';
 import { resolveDownloadHref } from '@/config/links';
 
 interface Props {
@@ -87,14 +88,7 @@ const downloadHashHref = resolveDownloadHref(pathname);
         </div>
       </details>
 
-      <a
-        class="lp-nav-signin"
-        href="/auth/signin"
-        aria-current={pathname.startsWith('/auth') ? 'page' : undefined}
-        data-i18n="nav.signin"
-      >
-        Sign in
-      </a>
+      <AuthNavLink pathname={pathname} client:load />
 
       <details class="lp-nav-download">
         <summary class="lp-btn-download" aria-label="Download — choose platform">
@@ -351,8 +345,13 @@ const downloadHashHref = resolveDownloadHref(pathname);
     font-weight: 600;
   }
 
-  /* ── Sign in ── */
-  .lp-nav-signin {
+  /* ── Sign in ──
+     `:global(...)` because `.lp-nav-signin` now lives on the Solid
+     AuthNavLink's rendered anchor, which does not receive Astro's
+     scoped `data-astro-cid-*` attribute. Without :global the scoped
+     selector would miss the element and styling falls back to the
+     browser default anchor. */
+  :global(.lp-nav-signin) {
     color: var(--lp-muted);
     font-size: 0.8125rem;
     font-weight: 600;
@@ -365,12 +364,12 @@ const downloadHashHref = resolveDownloadHref(pathname);
       background 0.2s ease;
   }
 
-  .lp-nav-signin:hover {
+  :global(.lp-nav-signin:hover) {
     color: var(--ol-text);
     background: color-mix(in oklab, var(--ol-text) 5.5%, transparent);
   }
 
-  .lp-nav-signin[aria-current='page'] {
+  :global(.lp-nav-signin[aria-current='page']) {
     color: var(--ol-text);
     background: color-mix(in oklab, var(--ol-text) 6.5%, transparent);
   }
@@ -525,7 +524,7 @@ const downloadHashHref = resolveDownloadHref(pathname);
       padding: 0.3rem 0.55rem;
     }
 
-    .lp-nav-signin {
+    :global(.lp-nav-signin) {
       padding: 0.3125rem 0.55rem;
       font-size: 0.75rem;
     }
@@ -556,6 +555,7 @@ const downloadHashHref = resolveDownloadHref(pathname);
         'nav.pricing': 'Pricing',
         'nav.blog': 'Blog',
         'nav.signin': 'Sign in',
+        'nav.dashboard': 'Dashboard',
         'nav.download': 'Download',
         'nav.coming_soon': 'Coming soon',
         'hero.sub1':
@@ -726,6 +726,7 @@ const downloadHashHref = resolveDownloadHref(pathname);
         'nav.pricing': '요금제',
         'nav.blog': '블로그',
         'nav.signin': '로그인',
+        'nav.dashboard': '대시보드',
         'nav.download': '다운로드',
         'nav.coming_soon': '출시 예정',
         'hero.sub1':
@@ -891,6 +892,7 @@ const downloadHashHref = resolveDownloadHref(pathname);
         'nav.pricing': '料金プラン',
         'nav.blog': 'ブログ',
         'nav.signin': 'サインイン',
+        'nav.dashboard': 'ダッシュボード',
         'nav.download': 'ダウンロード',
         'nav.coming_soon': '近日公開',
         'hero.sub1':
@@ -1103,6 +1105,15 @@ const downloadHashHref = resolveDownloadHref(pathname);
     }
 
     ready(function () {
+      const saved = localStorage.getItem(STORAGE_KEY) || 'en';
+      applyLang(saved);
+    });
+
+    /* ── Re-apply translations after runtime DOM swaps ──
+       AuthNavLink toggles its `data-i18n` key once the login check
+       resolves; dispatch this event from there to re-run applyLang so
+       the newly-visible key gets localized. */
+    window.addEventListener('kuku:lang-refresh', function () {
       const saved = localStorage.getItem(STORAGE_KEY) || 'en';
       applyLang(saved);
     });
