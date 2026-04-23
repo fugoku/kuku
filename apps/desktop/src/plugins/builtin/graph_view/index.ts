@@ -177,7 +177,7 @@ const graphViewPlugin: KukuPlugin = {
             properties: {
               limit: {
                 type: "number",
-                description: "Maximum number of orphan notes to return. Default: 20.",
+                description: "Maximum number of unlinked notes to return. Default: 20.",
               },
             },
           },
@@ -187,7 +187,7 @@ const graphViewPlugin: KukuPlugin = {
         proxyTools.register({
           name: "get_vault_stats",
           toolId: `${ctx.pluginId}.get_vault_stats`,
-          description: "Get vault health statistics: note count, link count, orphan count.",
+          description: "Get vault health statistics: note count, link count, unlinked note count.",
           category: "graph",
           parameters: {
             type: "object",

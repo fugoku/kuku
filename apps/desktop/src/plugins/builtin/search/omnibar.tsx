@@ -1,6 +1,7 @@
 import { onMount, Show } from "solid-js";
 
 import ScrollArea from "~/components/scroll_area";
+import { t } from "~/i18n";
 
 import { closeSearchOmnibar, createOmnibarController } from "./omnibar_state";
 import { openSearchHit } from "./navigation";
@@ -61,7 +62,7 @@ export default function SearchOmnibar() {
           <input
             ref={inputRef}
             type="search"
-            placeholder="Search your vault"
+            placeholder={t("search.placeholder")}
             class={INPUT}
             value={controller.query()}
             onInput={(event) => controller.scheduleSearch(event.currentTarget.value)}
@@ -71,16 +72,16 @@ export default function SearchOmnibar() {
 
         <ScrollArea class="max-h-[60vh] p-3">
           <Show when={controller.isLoading()}>
-            <p class="text-sm text-text-muted">Searching…</p>
+            <p class="text-sm text-text-muted">{t("search.loading")}</p>
           </Show>
           <Show when={!controller.isLoading() && controller.error()}>
             {(error) => <p class="text-sm text-error">{error()}</p>}
           </Show>
           <Show when={!controller.isLoading() && !controller.error() && !results()}>
-            <p class="text-sm text-text-muted">Type to search indexed markdown content.</p>
+            <p class="text-sm text-text-muted">{t("search.empty.before_query")}</p>
           </Show>
           <Show when={!controller.isLoading() && results() && items().length === 0}>
-            <p class="text-sm text-text-muted">No matches found.</p>
+            <p class="text-sm text-text-muted">{t("search.empty.no_match")}</p>
           </Show>
           <Show when={items().length > 0}>
             <SearchResultsList

@@ -14,6 +14,7 @@
 import { type JSX, For, Show } from "solid-js";
 import { createStore, reconcile, unwrap } from "solid-js/store";
 
+import { t } from "~/i18n";
 import Switch from "~/components/ui/switch";
 import { loadPluginSettings, savePluginSettings } from "~/plugins/settings_store";
 
@@ -93,7 +94,7 @@ const SECTIONS: SectionDesc[] = [
       { key: "chargeStrength", label: "Repulsion", min: -500, max: -10, step: 10, type: "range" },
       {
         key: "chargeStrengthOrphan",
-        label: "Orphan repulsion",
+        label: "Unlinked note repulsion",
         min: -300,
         max: -10,
         step: 5,
@@ -163,7 +164,14 @@ const SECTIONS: SectionDesc[] = [
       { key: "nodeMinSize", label: "Min size", min: 1, max: 10, step: 0.5, type: "range" },
       { key: "nodeMaxSize", label: "Max size", min: 5, max: 30, step: 0.5, type: "range" },
       { key: "nodeSizeScale", label: "Size per link", min: 0.1, max: 3, step: 0.1, type: "range" },
-      { key: "orphanNodeSize", label: "Orphan size", min: 1, max: 10, step: 0.5, type: "range" },
+      {
+        key: "orphanNodeSize",
+        label: "Unlinked note size",
+        min: 1,
+        max: 10,
+        step: 0.5,
+        type: "range",
+      },
     ],
   },
   {
@@ -211,9 +219,11 @@ function GraphSettingsPanel(): JSX.Element {
       {/* Header */}
       <div class="flex items-center justify-between">
         <div>
-          <h3 class="text-[0.8125rem] font-medium text-text-primary">Graph View</h3>
+          <h3 class="text-[0.8125rem] font-medium text-text-primary">
+            {t("settings.plugin.graph_view.title")}
+          </h3>
           <p class="mt-0.5 text-[0.75rem] text-text-muted">
-            Configure forces, simulation, and visual properties.
+            {t("settings.plugin.graph_view.description")}
           </p>
         </div>
         <button
@@ -221,7 +231,7 @@ function GraphSettingsPanel(): JSX.Element {
           class="rounded-xs border border-border bg-bg-secondary px-2.5 py-1 text-[0.6875rem] text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
           onClick={resetGraphSettings}
         >
-          Reset All
+          {t("settings.plugin.graph_view.reset_all")}
         </button>
       </div>
 

@@ -1,6 +1,7 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, Show, type JSX } from "solid-js";
 
 import ScrollArea from "~/components/scroll_area";
+import { t, tf } from "~/i18n";
 import type { WikilinkSuggestItem } from "~/plugins/builtin/wikilink/wikilink_suggest";
 import { vaultState } from "~/stores/vault";
 
@@ -22,11 +23,25 @@ import {
 } from "../file_embed";
 import type { ChatMode } from "../types";
 
-const MODE_OPTIONS: { value: ChatMode; title: string; desc: string }[] = [
-  { value: "agent", title: "Agent", desc: "Search, edit and create notes" },
-  { value: "ask", title: "Ask", desc: "Answer questions only" },
-  { value: "inline", title: "Inline", desc: "Inline editing assistance" },
-];
+const MODE_OPTIONS: { value: ChatMode; title: Parameters<typeof t>[0]; desc: Parameters<typeof t>[0] }[] =
+  [
+    { value: "agent", title: "chat.mode.agent.title", desc: "chat.mode.agent.desc" },
+    { value: "ask", title: "chat.mode.ask.title", desc: "chat.mode.ask.desc" },
+    { value: "inline", title: "chat.mode.inline.title", desc: "chat.mode.inline.desc" },
+  ];
+
+function modeTitle(mode: ChatMode): string {
+  switch (mode) {
+    case "agent":
+      return t("chat.mode.agent.title");
+    case "ask":
+      return t("chat.mode.ask.title");
+    case "inline":
+      return t("chat.mode.inline.title");
+    default:
+      return mode;
+  }
+}
 
 function ChatInput(): JSX.Element {
   let textareaRef: HTMLTextAreaElement | undefined;
@@ -201,7 +216,9 @@ function ChatInput(): JSX.Element {
             <Show
               when={fileSuggestions().length > 0}
               fallback={
-                <p class="px-2.5 py-2 text-[0.75rem] text-text-muted">No matching markdown files</p>
+                <p class="px-2.5 py-2 text-[0.75rem] text-text-muted">
+                  {t("chat.input.no_matching_files")}
+                </p>
               }
             >
               <For each={fileSuggestions()}>
@@ -222,7 +239,7 @@ function ChatInput(): JSX.Element {
                   >
                     <span class="truncate text-[0.75rem] text-text-primary">{item.name}</span>
                     <span class="truncate text-[0.65rem] text-text-muted">
-                      {item.folder || "Vault root"}
+                      {item.folder || t("chat.input.vault_root")}
                     </span>
                   </button>
                 )}
@@ -248,7 +265,7 @@ function ChatInput(): JSX.Element {
                     type="button"
                     class="text-text-muted/80 hover:text-text-secondary disabled:opacity-40"
                     disabled={isLocked()}
-                    aria-label={`Remove ${file.name}`}
+                    aria-label={tf("chat.input.remove_file", { name: file.name })}
                     onClick={() => removeFileAttachment(file.path)}
                   >
                     ×
@@ -264,7 +281,9 @@ function ChatInput(): JSX.Element {
           rows={1}
           value={draft()}
           placeholder={
-            chatState.selectedMode === "agent" ? "Plan, @ for files…" : "Ask about your vault…"
+            chatState.selectedMode === "agent"
+              ? t("chat.input.placeholder.agent")
+              : t("chat.input.placeholder.ask")
           }
           class="kuku-ai-composer-textarea min-h-18 w-full resize-none bg-transparent py-1 text-[0.8125rem] leading-normal text-text-primary outline-none selection:bg-ghost-selected placeholder:text-text-muted/70"
           disabled={isLocked()}
@@ -285,7 +304,7 @@ function ChatInput(): JSX.Element {
                 onClick={() => setShowModeMenu(!showModeMenu())}
               >
                 <span class="max-w-24 truncate capitalize sm:max-w-none">
-                  {chatState.selectedMode}
+                  {modeTitle(chatState.selectedMode)}
                 </span>
                 <svg
                   class="shrink-0 text-text-muted"
@@ -316,9 +335,9 @@ function ChatInput(): JSX.Element {
                         }}
                       >
                         <span class="text-[0.8125rem] font-medium text-text-primary">
-                          {opt.title}
+                          {t(opt.title)}
                         </span>
-                        <span class="text-xs/snug text-text-muted">{opt.desc}</span>
+                        <span class="text-xs/snug text-text-muted">{t(opt.desc)}</span>
                       </button>
                     )}
                   </For>
@@ -335,7 +354,7 @@ function ChatInput(): JSX.Element {
                   type="button"
                   disabled={isLocked() || !draft().trim()}
                   class="flex size-7 items-center justify-center rounded-sm text-text-secondary transition hover:bg-ghost-hover hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
-                  title="Send"
+                  title={t("chat.input.send")}
                   onClick={() => void submit()}
                 >
                   <svg
@@ -357,7 +376,7 @@ function ChatInput(): JSX.Element {
               <button
                 type="button"
                 class="flex size-7 items-center justify-center rounded-sm text-text-secondary transition hover:bg-ghost-hover hover:text-text-primary"
-                title="Stop"
+                title={t("chat.input.stop")}
                 onClick={() => void cancelSession()}
               >
                 <svg

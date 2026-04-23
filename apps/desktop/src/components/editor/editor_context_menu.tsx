@@ -34,6 +34,7 @@ import {
   SparklesIcon,
   StrikethroughIcon,
 } from "~/components/icons";
+import { t } from "~/i18n";
 import { getActiveEditorInstance } from "~/components/editor/system/editor_engine";
 import {
   getEditorSlashItems,
@@ -237,7 +238,7 @@ export default function EditorContextMenu(props: EditorContextMenuProps) {
 
     if (!hasSelection()) return;
 
-    const href = window.prompt("Enter link URL", "https://")?.trim();
+    const href = window.prompt(t("editor.link.prompt_title"), "https://")?.trim();
     if (!href) {
       queueEditorFocusRestore();
       return;
@@ -345,7 +346,7 @@ export default function EditorContextMenu(props: EditorContextMenuProps) {
             <ContextMenuIconButton
               onSelect={() => toggleMark("toggleBold")}
               active={activeMarks().has("bold")}
-              title="Bold (⌘B)"
+              title={t("editor.tooltip.bold")}
             >
               <BoldIcon size={14} />
             </ContextMenuIconButton>
@@ -353,7 +354,7 @@ export default function EditorContextMenu(props: EditorContextMenuProps) {
             <ContextMenuIconButton
               onSelect={() => toggleMark("toggleItalic")}
               active={activeMarks().has("italic")}
-              title="Italic (⌘I)"
+              title={t("editor.tooltip.italic")}
             >
               <ItalicIcon size={14} />
             </ContextMenuIconButton>
@@ -361,7 +362,7 @@ export default function EditorContextMenu(props: EditorContextMenuProps) {
             <ContextMenuIconButton
               onSelect={() => toggleMark("toggleStrike")}
               active={activeMarks().has("strike")}
-              title="Strikethrough"
+              title={t("editor.tooltip.strikethrough")}
             >
               <StrikethroughIcon size={14} />
             </ContextMenuIconButton>
@@ -369,7 +370,7 @@ export default function EditorContextMenu(props: EditorContextMenuProps) {
             <ContextMenuIconButton
               onSelect={() => toggleMark("toggleCode")}
               active={activeMarks().has("code")}
-              title="Inline Code (⌘E)"
+              title={t("editor.tooltip.inline_code")}
             >
               <CodeIcon size={14} />
             </ContextMenuIconButton>
@@ -378,7 +379,7 @@ export default function EditorContextMenu(props: EditorContextMenuProps) {
               onSelect={toggleLink}
               active={activeMarks().has("link")}
               disabled={!hasSelection() && !activeMarks().has("link")}
-              title="Link"
+              title={t("editor.tooltip.link")}
             >
               <LinkIcon size={14} />
             </ContextMenuIconButton>
@@ -390,7 +391,7 @@ export default function EditorContextMenu(props: EditorContextMenuProps) {
             <ContextMenuIconButton
               onSelect={() => toggleHeading(1)}
               active={headingLevel() === 1}
-              title="Heading 1 (⌘⌥1)"
+              title={t("editor.tooltip.heading1")}
             >
               <Heading1Icon size={14} />
             </ContextMenuIconButton>
@@ -398,7 +399,7 @@ export default function EditorContextMenu(props: EditorContextMenuProps) {
             <ContextMenuIconButton
               onSelect={() => toggleHeading(2)}
               active={headingLevel() === 2}
-              title="Heading 2 (⌘⌥2)"
+              title={t("editor.tooltip.heading2")}
             >
               <Heading2Icon size={14} />
             </ContextMenuIconButton>
@@ -406,7 +407,7 @@ export default function EditorContextMenu(props: EditorContextMenuProps) {
             <ContextMenuIconButton
               onSelect={() => toggleHeading(3)}
               active={headingLevel() === 3}
-              title="Heading 3 (⌘⌥3)"
+              title={t("editor.tooltip.heading3")}
             >
               <Heading3Icon size={14} />
             </ContextMenuIconButton>
@@ -417,7 +418,7 @@ export default function EditorContextMenu(props: EditorContextMenuProps) {
 
         {/* ── Turn Into (Phase 2) ── */}
         <ContextMenuSub>
-          <ContextMenuSubTrigger label="Turn Into" />
+          <ContextMenuSubTrigger label={t("editor.turn_into")} />
           <ContextMenuSubContent>
             <For each={getTurnIntoItems()}>
               {(item, index) => (
@@ -440,52 +441,56 @@ export default function EditorContextMenu(props: EditorContextMenuProps) {
 
         {/* ── Clipboard (Phase 1) ── */}
         <ContextMenuItem
-          label="Cut"
+          label={t("editor.clipboard.cut")}
           shortcut="⌘X"
           onSelect={() => handleClipboard("cut")}
           disabled={!hasSelection()}
         />
         <ContextMenuItem
-          label="Copy"
+          label={t("editor.clipboard.copy")}
           shortcut="⌘C"
           onSelect={() => handleClipboard("copy")}
           disabled={!hasSelection()}
         />
-        <ContextMenuItem label="Paste" shortcut="⌘V" onSelect={() => handleClipboard("paste")} />
+        <ContextMenuItem
+          label={t("editor.clipboard.paste")}
+          shortcut="⌘V"
+          onSelect={() => handleClipboard("paste")}
+        />
 
         <ContextMenuSeparator />
 
         {/* ── AI skills: plain label row (avoids Kobalte group default vertical padding) ── */}
-        <div class="m-0 p-0" role="group" aria-label="AI skills">
+        <div class="m-0 p-0" role="group" aria-label={t("editor.ai.skills")}>
           <div
             class="mb-1 flex min-h-0 items-center gap-1.5 px-2.5 py-0.5 text-[0.625rem] leading-tight font-medium text-text-muted/75 select-none"
             role="presentation"
           >
             <SparklesIcon size={10} class="shrink-0 text-text-muted/60" />
-            <span>AI skills</span>
+            <span>{t("editor.ai.skills")}</span>
           </div>
           <ContextMenuItem
-            label="Improve Writing"
+            label={t("editor.ai.improve_writing")}
             onSelect={() => void handleAiSkill("improve")}
             disabled={!hasSelection() || !isAiChatAvailable()}
           />
           <ContextMenuItem
-            label="Proofread"
+            label={t("editor.ai.proofread")}
             onSelect={() => void handleAiSkill("proofread")}
             disabled={!hasSelection() || !isAiChatAvailable()}
           />
           <ContextMenuItem
-            label="Explain"
+            label={t("editor.ai.explain")}
             onSelect={() => void handleAiSkill("explain")}
             disabled={!hasSelection() || !isAiChatAvailable()}
           />
           <ContextMenuItem
-            label="Summarize"
+            label={t("editor.ai.summarize")}
             onSelect={() => void handleAiSkill("summarize")}
             disabled={!hasSelection() || !isAiChatAvailable()}
           />
           <ContextMenuItem
-            label="Translate"
+            label={t("editor.ai.translate")}
             onSelect={() => void handleAiSkill("translate")}
             disabled={!hasSelection() || !isAiChatAvailable()}
           />
@@ -495,7 +500,7 @@ export default function EditorContextMenu(props: EditorContextMenuProps) {
 
         {/* ── Edit with AI — free-form (Phase 5) ── */}
         <ContextMenuItem
-          label="Edit with AI"
+          label={t("editor.ai.edit_with_ai")}
           shortcut="⌘⌃E"
           onSelect={handleEditWithAi}
           disabled={!isAiChatAvailable()}

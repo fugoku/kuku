@@ -4,45 +4,68 @@ import {
   SettingsPanel,
   SettingsSelect,
 } from "~/components/settings/settings_blocks";
+import { t } from "~/i18n";
 import { setAppearanceSetting, settingsState } from "~/stores/settings";
 
-const THEME_OPTIONS = [
-  { value: "system", label: "System" },
-  { value: "dark", label: "Dark" },
-  { value: "light", label: "Light" },
-];
-
 function AppearanceSection() {
+  const themeOptions = [
+    { value: "system", label: t("settings.appearance.theme.system") },
+    { value: "dark", label: t("settings.appearance.theme.dark") },
+    { value: "light", label: t("settings.appearance.theme.light") },
+  ];
+  const languageOptions = [
+    { value: "system", label: t("settings.appearance.language.system") },
+    { value: "en", label: t("settings.appearance.language.en") },
+    { value: "ko", label: t("settings.appearance.language.ko") },
+    { value: "ja", label: t("settings.appearance.language.ja") },
+  ];
+
   return (
     <SettingsPanel
-      title="Appearance"
-      description="Choose the application theme and interface typography."
+      title={t("settings.appearance.title")}
+      description={t("settings.appearance.description")}
       anchor="appearance"
     >
       <SettingsFieldRow
-        label="Theme"
-        description="Choose between system, dark, and light appearance."
+        label={t("settings.appearance.language.label")}
+        description={t("settings.appearance.language.description")}
         control={
           <div class="w-full max-w-56">
             <SettingsSelect
-              options={THEME_OPTIONS}
-              value={settingsState.appearance.theme}
+              options={languageOptions}
+              value={settingsState.appearance.language}
               onChange={(value) =>
-                setAppearanceSetting("theme", value as "system" | "light" | "dark")
+                setAppearanceSetting("language", value as "system" | "en" | "ko" | "ja")
               }
-              placeholder="Select theme"
+              placeholder={t("settings.appearance.language.placeholder")}
             />
           </div>
         }
       />
       <SettingsFieldRow
-        label="UI font"
-        description="Font used for the interface. Enter a CSS font-family name."
+        label={t("settings.appearance.theme.label")}
+        description={t("settings.appearance.theme.description")}
+        control={
+          <div class="w-full max-w-56">
+            <SettingsSelect
+              options={themeOptions}
+              value={settingsState.appearance.theme}
+              onChange={(value) =>
+                setAppearanceSetting("theme", value as "system" | "light" | "dark")
+              }
+              placeholder={t("settings.appearance.theme.placeholder")}
+            />
+          </div>
+        }
+      />
+      <SettingsFieldRow
+        label={t("settings.appearance.ui_font.label")}
+        description={t("settings.appearance.ui_font.description")}
         control={
           <div class="w-full max-w-70">
             <FontInput
               value={settingsState.appearance.fontFamily}
-              placeholder="e.g. Goorm Sans"
+              placeholder={t("settings.appearance.ui_font.placeholder")}
               onCommit={(value) => setAppearanceSetting("fontFamily", value)}
             />
           </div>

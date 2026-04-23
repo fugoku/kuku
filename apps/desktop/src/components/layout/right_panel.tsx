@@ -2,6 +2,7 @@ import { ErrorBoundary, onCleanup, Show, Suspense } from "solid-js";
 import { Dynamic } from "solid-js/web";
 
 import RightPanelTabBar from "~/components/layout/right_panel_tab_bar";
+import { t } from "~/i18n";
 import { createFocusZone } from "~/plugins/focus_zone";
 import { pluginsReady } from "~/plugins/bootstrap";
 import { PluginErrorUI, PluginSkeleton, getRightPanelFill } from "~/plugins/slots";
@@ -30,7 +31,7 @@ export default function RightPanel() {
           keyed
           fallback={
             <div class="flex h-full items-center justify-center">
-              <p class="text-xs text-text-muted">No active view</p>
+              <p class="text-xs text-text-muted">{t("right_panel.no_active_view")}</p>
             </div>
           }
         >

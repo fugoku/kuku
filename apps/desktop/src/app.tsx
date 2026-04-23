@@ -6,6 +6,7 @@ import TitleBar from "~/components/layout/title_bar";
 import UpdateIndicator from "~/components/layout/update_indicator";
 import VaultBrowser from "~/components/vault/vault_browser";
 
+import { currentLocale, t } from "~/i18n";
 import { FONT_SANS_FALLBACK, FONT_MONO_FALLBACK, buildFontFamily } from "~/lib/font_fallback";
 import { installAccessibilitySuppression } from "~/lib/disable_accessibility";
 import { bootstrapPlugins, destroyPlugins } from "~/plugins/bootstrap";
@@ -34,6 +35,10 @@ export default function App() {
   let cleanupAccessibilitySuppression: (() => void) | null = null;
 
   // Apply appearance settings reactively
+  createEffect(() => {
+    document.documentElement.lang = currentLocale();
+  });
+
   createEffect(() => {
     const { fontFamily } = settingsState.appearance;
     document.documentElement.style.setProperty(
@@ -157,21 +162,25 @@ export default function App() {
               class={ACTION_BTN}
               classList={{ "text-text-secondary!": layoutState.leftPanelOpen }}
               onClick={toggleLeftPanel}
-              title="Toggle Left Panel"
+              title={t("app.action.toggle_left_panel")}
             >
               <PanelLeftIcon active={layoutState.leftPanelOpen} />
             </button>
             <UpdateIndicator />
           </>
         }
-        center={<span class="text-xs text-text-muted">{vaultState.rootName ?? "Vault"}</span>}
+        center={
+          <span class="text-xs text-text-muted">
+            {vaultState.rootName ?? t("app.title.vault_fallback")}
+          </span>
+        }
         right={
           <button
             type="button"
             class={ACTION_BTN}
             classList={{ "text-text-secondary!": layoutState.rightPanelOpen }}
             onClick={toggleRightPanel}
-            title="Toggle Right Panel"
+            title={t("app.action.toggle_right_panel")}
           >
             <PanelRightIcon active={layoutState.rightPanelOpen} />
           </button>
@@ -179,7 +188,7 @@ export default function App() {
       />
       <PanelLayout
         left={<VaultBrowser />}
-        bottom={<p class="p-3 text-xs text-text-muted">Bottom Panel</p>}
+        bottom={<p class="p-3 text-xs text-text-muted">{t("app.bottom_panel.placeholder")}</p>}
       />
       <div class="pointer-events-none fixed inset-0 z-50">
         <Slot name="overlay" />

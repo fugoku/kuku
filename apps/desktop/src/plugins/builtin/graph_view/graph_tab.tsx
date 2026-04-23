@@ -11,6 +11,7 @@
 
 import { createMemo, createSignal, For, onCleanup, Show } from "solid-js";
 
+import { t, tf } from "~/i18n";
 import { getActiveTab, openTab } from "~/stores/files";
 
 import GraphCanvas from "./graph_canvas";
@@ -100,30 +101,25 @@ export default function GraphTab() {
       {/* ── Header ── */}
       <div class="flex items-center justify-between gap-4 border-b border-border/70 bg-bg-secondary/60 px-4 py-3">
         <div class="min-w-0 space-y-0.5">
-          <p class="text-sm font-medium text-text-primary">Graph</p>
+          <p class="text-sm font-medium text-text-primary">{t("graph.title")}</p>
           <p class="truncate text-xs text-text-muted">
-            Visualize wikilink connections across the vault.
+            {t("graph.tab.subtitle")}
           </p>
         </div>
 
         <div class="flex shrink-0 items-center gap-3 font-mono text-[0.6875rem] text-text-muted tabular-nums">
-          <span>
-            <span class="text-text-secondary">{summary().nodeCount}</span> nodes
-          </span>
+          <span>{tf("graph.tab.metric.nodes", { count: summary().nodeCount })}</span>
           <span aria-hidden="true" class="h-2.5 w-px bg-border" />
-          <span>
-            <span class="text-text-secondary">{summary().linkCount}</span> links
-          </span>
+          <span>{tf("graph.tab.metric.links", { count: summary().linkCount })}</span>
           <span aria-hidden="true" class="h-2.5 w-px bg-border" />
-          <span>
-            <span class="text-text-secondary">{summary().clusterCount}</span> clusters
-          </span>
+          <span>{tf("graph.tab.metric.clusters", { count: summary().clusterCount })}</span>
 
           <Show when={summary().orphanCount > 0}>
             <span aria-hidden="true" class="h-2.5 w-px bg-border" />
             <span>
-              <span class="text-text-secondary">{summary().orphanCount}</span> orphan
-              {summary().orphanCount > 1 ? "s" : ""}
+              {summary().orphanCount > 1
+                ? tf("graph.tab.metric.orphan_other", { count: summary().orphanCount })
+                : tf("graph.tab.metric.orphan_one", { count: summary().orphanCount })}
             </span>
           </Show>
         </div>
@@ -158,7 +154,7 @@ export default function GraphTab() {
           </For>
           <Show when={hiddenCount() > 0}>
             <span class="shrink-0 font-mono text-[0.6875rem] text-text-muted tabular-nums">
-              +{hiddenCount()} more
+              {tf("graph.tab.more", { count: hiddenCount() })}
             </span>
           </Show>
         </div>
