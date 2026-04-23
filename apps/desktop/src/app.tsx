@@ -12,6 +12,7 @@ import {
   FONT_SANS_JA_FALLBACK,
   FONT_MONO_FALLBACK,
   buildFontFamily,
+  resolveLocaleSansFontName,
 } from "~/lib/font_fallback";
 import { installAccessibilitySuppression } from "~/lib/disable_accessibility";
 import { bootstrapPlugins, destroyPlugins } from "~/plugins/bootstrap";
@@ -48,9 +49,10 @@ export default function App() {
     const locale = currentLocale();
     const { fontFamily } = settingsState.appearance;
     const sansFallback = locale === "ja" ? FONT_SANS_JA_FALLBACK : FONT_SANS_FALLBACK;
+    const effectiveSansFont = resolveLocaleSansFontName(fontFamily, locale);
     document.documentElement.style.setProperty(
       "--font-ui",
-      buildFontFamily(fontFamily, sansFallback),
+      buildFontFamily(effectiveSansFont, sansFallback),
     );
   });
 
@@ -58,9 +60,10 @@ export default function App() {
     const locale = currentLocale();
     const { fontFamily, fontMono, fontSize, lineHeight, tabSize } = settingsState.editor;
     const sansFallback = locale === "ja" ? FONT_SANS_JA_FALLBACK : FONT_SANS_FALLBACK;
+    const effectiveEditorSansFont = resolveLocaleSansFontName(fontFamily, locale);
     document.documentElement.style.setProperty(
       "--font-editor",
-      buildFontFamily(fontFamily, sansFallback),
+      buildFontFamily(effectiveEditorSansFont, sansFallback),
     );
     document.documentElement.style.setProperty(
       "--font-mono",
