@@ -13,7 +13,6 @@ import { Slot } from "~/plugins/slots";
 import { initSettings, settingsState } from "~/stores/settings";
 import { initTheme } from "~/stores/theme";
 import { checkForUpdates } from "~/stores/updater";
-import { destroyCloseHandler, initCloseHandler } from "~/stores/files";
 import { closeVault, openVault, syncConfiguredVaultSelection, vaultState } from "~/stores/vault";
 import {
   destroyWindowListeners,
@@ -112,7 +111,6 @@ export default function App() {
     cleanupAccessibilitySuppression?.();
     void closeVault();
     destroyPlugins();
-    destroyCloseHandler();
     destroyWindowListeners();
   });
 
@@ -125,10 +123,6 @@ export default function App() {
     }
 
     await bootstrapPlugins();
-    initCloseHandler().catch((error) => {
-      // eslint-disable-next-line no-console
-      console.error("[Window] Failed to register close handler", error);
-    });
     initWindowListeners().catch((error) => {
       // eslint-disable-next-line no-console
       console.error("[Window] Failed to register window listeners", error);
