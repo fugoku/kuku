@@ -300,6 +300,22 @@ function closeTab(tabId: string): void {
   saveTabsSync();
 }
 
+function reorderTabs(fromIndex: number, toIndex: number): void {
+  const len = filesState.tabs.length;
+  if (fromIndex < 0 || fromIndex >= len) return;
+  if (toIndex < 0) toIndex = 0;
+  if (toIndex > len - 1) toIndex = len - 1;
+  if (fromIndex === toIndex) return;
+
+  setFilesState(
+    produce((s) => {
+      const [tab] = s.tabs.splice(fromIndex, 1);
+      s.tabs.splice(toIndex, 0, tab);
+    }),
+  );
+  saveTabsSync();
+}
+
 function clearEditorTabs(): void {
   const editorTabs = filesState.tabs.filter((t) => t.type === "editor" || t.type === "diff");
   for (const tab of editorTabs) {
@@ -558,6 +574,7 @@ export {
   prevTab,
   reconcileEditorTabsWithVault,
   renameTabsForMovedPath,
+  reorderTabs,
   requestEditorFocusForTab,
   resetFilesState,
   saveCachedChecksum,
