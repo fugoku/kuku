@@ -80,11 +80,12 @@ const coreCommandsPlugin: KukuPlugin = {
       category: "Tab",
       defaultKeys: ["$mod+KeyW"],
       global: true,
+      // ⌘W is always swallowed here so the OS "close window" never fires —
+      // with no tabs the execute is a no-op rather than quitting the app.
       execute: () => {
         const tab = getActiveTab();
         if (tab) closeTab(tab.id);
       },
-      canExecute: () => getActiveTab() !== undefined,
     },
     {
       id: "tab.next",

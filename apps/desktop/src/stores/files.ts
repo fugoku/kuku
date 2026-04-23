@@ -1,4 +1,3 @@
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { createStore, produce } from "solid-js/store";
 
 import type { PMNodeJSON } from "~/lib/markdown";
@@ -520,25 +519,6 @@ function prevTab(): void {
   setFilesState("activeTabId", tabs[(idx - 1 + tabs.length) % tabs.length].id);
 }
 
-// ── Window close handler (intercepts ⌘W) ──
-
-let closeUnlisten: (() => void) | undefined;
-
-async function initCloseHandler(): Promise<void> {
-  closeUnlisten = await getCurrentWindow().onCloseRequested((event) => {
-    event.preventDefault();
-    const tab = getActiveTab();
-    if (tab) {
-      closeTab(tab.id);
-    }
-  });
-}
-
-function destroyCloseHandler(): void {
-  closeUnlisten?.();
-  closeUnlisten = undefined;
-}
-
 // ── New-file focus (one-shot) ──
 //
 // `createAndOpenNewFile` sets the active editor tab; the markdown surface mounts
@@ -565,14 +545,12 @@ export {
   closeTab,
   clearEditorTabs,
   consumeEditorFocusIfPendingForTab,
-  destroyCloseHandler,
   getCachedChecksum,
   filesState,
   getCachedContent,
   getActiveTab,
   getActiveEditorFolder,
   getViewportState,
-  initCloseHandler,
   markTabDirty,
   nextTab,
   openSettings,

@@ -17,6 +17,7 @@ mod vault;
 
 use std::sync::Arc;
 
+use tauri::Manager;
 use tauri_plugin_deep_link::DeepLinkExt;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -35,6 +36,18 @@ pub fn run() {
         .plugin(tauri_plugin_process::init());
 
     builder
+        .on_window_event(|window, event| {
+            // Standard macOS: red button hides the window; the app stays in
+            // the Dock. ⌘Q still quits because it fires ExitRequested, not
+            // CloseRequested.
+            #[cfg(target_os = "macos")]
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.hide();
+            }
+            #[cfg(not(target_os = "macos"))]
+            let _ = (window, event);
+        })
         .setup(|app| {
             // Capture the bundle identifier before anything that touches
             // on-disk paths or the keychain runs — preview/dev/prod must
@@ -140,6 +153,18 @@ pub fn run() {
             search::commands::search_get_config,
             search::commands::search_set_config,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            // macOS: when the user clicks the Dock icon after hiding the
+            // window with the red traffic-light, bring it back.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = event {
+                for (_, window) in app_handle.webview_windows() {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }
+            let _ = (app_handle, event);
+        });
 }
