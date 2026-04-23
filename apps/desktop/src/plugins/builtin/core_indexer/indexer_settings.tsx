@@ -13,6 +13,7 @@ import {
 } from "~/components/settings/settings_blocks";
 import Switch from "~/components/ui/switch";
 import { useSettingsRefreshToken } from "~/components/settings/settings_refresh";
+import { t } from "~/i18n";
 
 import { hydrateIndexerConfigFromSettings, indexerConfig, updateIndexerConfig } from "./settings";
 import type { IndexerConfig } from "./types";
@@ -20,20 +21,20 @@ import { indexerStatus, refreshIndexerStatus } from "../core_indexer/status_stor
 import { getSearchService } from "../search/runtime";
 
 const STORAGE_LOCATION_OPTIONS = [
-  { value: "app-global", label: "App data (~/.kuku/search)" },
-  { value: "vault-local", label: "Vault local (.kuku/search.sqlite3)" },
+  { value: "app-global", label: t("settings.plugin.indexer.storage.app_global") },
+  { value: "vault-local", label: t("settings.plugin.indexer.storage.vault_local") },
 ] satisfies { value: IndexerConfig["storageLocation"]; label: string }[];
 
 function formatTimestamp(ts: number | null): string {
-  if (!ts) return "Never";
+  if (!ts) return t("settings.plugin.indexer.metrics.never");
   const date = new Date(ts);
   return date.toLocaleString();
 }
 
 function statusLabel(state: string): string {
-  if (state === "indexing") return "Indexing…";
-  if (state === "error") return "Error";
-  return "Ready";
+  if (state === "indexing") return t("settings.plugin.indexer.status.indexing");
+  if (state === "error") return t("settings.plugin.indexer.status.error");
+  return t("settings.plugin.indexer.status.ready");
 }
 
 function statusTone(state: string): "success" | "info" | "error" {
@@ -155,19 +156,21 @@ function IndexerSettings(): JSX.Element {
 
   return (
     <SettingsPanel
-      title="Indexer"
-      description="Manage search, wikilink graph indexing, and refresh policy."
+      title={t("settings.plugin.indexer.title")}
+      description={t("settings.plugin.indexer.description")}
       action={
         <SettingsToolbarAction
           disabled={isRefreshingStatus() || isRebuildStarting()}
           onClick={() => void handleRefreshStatus()}
         >
-          {isRefreshingStatus() ? "Refreshing..." : "Refresh"}
+          {isRefreshingStatus()
+            ? t("settings.plugin.indexer.action.refreshing")
+            : t("settings.plugin.indexer.action.refresh")}
         </SettingsToolbarAction>
       }
     >
       <SettingsCard
-        title="Index Status"
+        title={t("settings.plugin.indexer.index_status.title")}
         tone="subtle"
         action={
           <SettingsStatusBadge tone={statusTone(indexerStatus.state)}>
@@ -177,17 +180,23 @@ function IndexerSettings(): JSX.Element {
       >
         <div class="space-y-1.5">
           <SettingsMetricRow
-            label="Documents"
+            label={t("settings.plugin.indexer.metrics.documents")}
             value={`${indexerStatus.indexedDocs} / ${indexerStatus.totalDocs}`}
           />
-          <SettingsMetricRow label="Resolved links" value={String(indexerStatus.resolvedLinks)} />
           <SettingsMetricRow
-            label="Unresolved links"
+            label={t("settings.plugin.indexer.metrics.resolved_links")}
+            value={String(indexerStatus.resolvedLinks)}
+          />
+          <SettingsMetricRow
+            label={t("settings.plugin.indexer.metrics.unresolved_links")}
             value={String(indexerStatus.unresolvedLinks)}
           />
-          <SettingsMetricRow label="Ambiguous links" value={String(indexerStatus.ambiguousLinks)} />
           <SettingsMetricRow
-            label="Last indexed"
+            label={t("settings.plugin.indexer.metrics.ambiguous_links")}
+            value={String(indexerStatus.ambiguousLinks)}
+          />
+          <SettingsMetricRow
+            label={t("settings.plugin.indexer.metrics.last_indexed")}
             value={formatTimestamp(indexerStatus.lastIndexedAt)}
           />
         </div>
@@ -196,7 +205,7 @@ function IndexerSettings(): JSX.Element {
           <SettingsProgress
             class="mt-3"
             tone="info"
-            label="Index progress"
+            label={t("settings.plugin.indexer.index_status.progress")}
             value={indexerStatus.indexedDocs}
             max={indexerStatus.totalDocs}
           />
@@ -208,14 +217,14 @@ function IndexerSettings(): JSX.Element {
       </Show>
 
       <SettingsCard
-        title="Wikilink Indexing"
-        description="Resolution policy is fixed to closest-folder."
+        title={t("settings.plugin.indexer.wikilink.title")}
+        description={t("settings.plugin.indexer.wikilink.description")}
         tone="subtle"
       >
         <div class="space-y-3">
           <SettingsFieldRow
-            label="Index storage location"
-            description="Choose whether the SQLite index lives in app data or inside the current vault. Changing this switches to a different DB and queues a rebuild."
+            label={t("settings.plugin.indexer.storage.label")}
+            description={t("settings.plugin.indexer.storage.description")}
             control={
               <div class="w-full max-w-64">
                 <SettingsSelect
@@ -227,15 +236,15 @@ function IndexerSettings(): JSX.Element {
                       value as IndexerConfig["storageLocation"],
                     )
                   }
-                  placeholder="Select location"
-                  label="Index storage location"
+                  placeholder={t("settings.plugin.indexer.storage.placeholder")}
+                  label={t("settings.plugin.indexer.storage.label")}
                 />
               </div>
             }
           />
           <SettingsFieldRow
-            label="Incremental updates"
-            description="Apply file changes as targeted link/index updates instead of full rebuilds."
+            label={t("settings.plugin.indexer.incremental.label")}
+            description={t("settings.plugin.indexer.incremental.description")}
             control={
               <Switch
                 checked={indexerConfig.incrementalUpdates}
@@ -244,8 +253,8 @@ function IndexerSettings(): JSX.Element {
             }
           />
           <SettingsFieldRow
-            label="Reindex on vault open"
-            description="Run a cold-start rebuild when a vault opens."
+            label={t("settings.plugin.indexer.reindex_on_open.label")}
+            description={t("settings.plugin.indexer.reindex_on_open.description")}
             control={
               <Switch
                 checked={indexerConfig.reindexOnVaultOpen}
@@ -258,19 +267,21 @@ function IndexerSettings(): JSX.Element {
 
       <SettingsCard
         tone="muted"
-        description="Rebuild clears and re-indexes search chunks plus wikilink graph data."
+        description={t("settings.plugin.indexer.rebuild.description")}
         action={
           <SettingsToolbarAction
             variant="warning"
             disabled={isIndexing() || isRebuildStarting()}
             onClick={() => void handleRebuild()}
           >
-            {isIndexing() || isRebuildStarting() ? "Indexing…" : "Rebuild Index"}
+            {isIndexing() || isRebuildStarting()
+              ? t("settings.plugin.indexer.rebuild.indexing")
+              : t("settings.plugin.indexer.rebuild.button")}
           </SettingsToolbarAction>
         }
       >
         <div class="text-[0.6875rem] text-text-muted">
-          Use rebuild when search results or wikilink graph data need a clean resync.
+          {t("settings.plugin.indexer.rebuild.help")}
         </div>
       </SettingsCard>
     </SettingsPanel>

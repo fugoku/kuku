@@ -2,6 +2,7 @@ import { For, Show, createEffect, createMemo, type JSX } from "solid-js";
 import { createStore } from "solid-js/store";
 
 import { chatState, getActiveSession, sendMessage, switchMode } from "../chat_store";
+import { t } from "~/i18n";
 import { ChatWelcome } from "./chat_welcome";
 import type {
   ChatApprovalMessage,
@@ -127,8 +128,8 @@ function FadeInlineDots(): JSX.Element {
 
 function ThinkingLine(): JSX.Element {
   return (
-    <div class="flex w-full min-w-0 items-center" role="status" aria-label="Loading">
-      <span class="kuku-chat-thinking-text shrink-0 text-[0.75rem]">Thinking</span>
+    <div class="flex w-full min-w-0 items-center" role="status" aria-label={t("chat.loading")}>
+      <span class="kuku-chat-thinking-text shrink-0 text-[0.75rem]">{t("chat.thinking")}</span>
     </div>
   );
 }
@@ -154,7 +155,7 @@ function TextBubble(props: {
                     title={
                       attachment.kind === "file"
                         ? attachment.path
-                        : (attachment.activeFile ?? "Selected text")
+                        : (attachment.activeFile ?? t("chat.attachment.selected_text"))
                     }
                   >
                     <span class="truncate">
@@ -212,9 +213,9 @@ function TextBubble(props: {
 }
 
 function selectionAttachmentLabel(activeFile: string | null): string {
-  if (!activeFile) return "Selected text";
+  if (!activeFile) return t("chat.attachment.selected_text");
   const name = activeFile.split("/").at(-1) ?? activeFile;
-  return `Selected text from ${name}`;
+  return `${t("chat.attachment.selected_text")} (${name})`;
 }
 
 function formatBytes(bytes: number): string {

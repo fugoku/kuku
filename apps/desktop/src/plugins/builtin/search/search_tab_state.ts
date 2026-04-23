@@ -1,5 +1,6 @@
 import { createSignal, onCleanup } from "solid-js";
 
+import { t } from "~/i18n";
 import { getSearchService } from "./runtime";
 import {
   getRegexCaseSensitive,
@@ -64,7 +65,7 @@ function createSearchTabController(
     }
 
     if (!service) {
-      setError("Search service is unavailable.");
+      setError(t("search.error.unavailable"));
       setResults(null);
       setIsLoading(false);
       return;
@@ -87,7 +88,7 @@ function createSearchTabController(
     } catch (caughtError) {
       if (currentId !== sequenceId) return;
       setResults(null);
-      setError(caughtError instanceof Error ? caughtError.message : "Search failed.");
+      setError(caughtError instanceof Error ? caughtError.message : t("search.error.failed"));
       setIsLoading(false);
     }
   };

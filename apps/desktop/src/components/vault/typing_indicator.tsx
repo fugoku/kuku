@@ -1,5 +1,6 @@
 import { createEffect, createSignal, on, Show } from "solid-js";
 
+import { t } from "~/i18n";
 import { settingsState } from "~/stores/settings";
 import { charCount, isTyping, savedCharCount } from "~/stores/typing";
 
@@ -41,7 +42,7 @@ export default function TypingIndicator() {
               <div class="flex animate-fade-in items-center gap-1.5">
                 <span class="text-xs text-text-muted">✓</span>
                 <span class="text-[0.6875rem] text-text-muted">
-                  auto saved{" "}
+                  {t("typing.auto_saved")}{" "}
                   <span class="font-semibold text-text-secondary tabular-nums">
                     +{savedCharCount()}
                   </span>
@@ -57,7 +58,7 @@ export default function TypingIndicator() {
             >
               {charCount()}
             </span>
-            <span class="text-[0.5625rem] text-text-muted opacity-60">char</span>
+            <span class="text-[0.5625rem] text-text-muted opacity-60">{t("typing.char")}</span>
           </div>
         </Show>
       </div>

@@ -20,6 +20,7 @@ import {
   SettingsIcon,
 } from "~/components/icons";
 import ScrollArea, { type ScrollAreaHandle } from "~/components/scroll_area";
+import { t } from "~/i18n";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -160,7 +161,7 @@ export default function TabBar() {
   const draggingFileName = () => {
     const id = draggingTabId();
     if (!id) return null;
-    return filesState.tabs.find((t) => t.id === id)?.fileName ?? null;
+    return filesState.tabs.find((tab) => tab.id === id)?.fileName ?? null;
   };
 
   const computeDropIndex = (clientX: number): number => {
@@ -264,7 +265,7 @@ export default function TabBar() {
       return;
     }
 
-    const fromIndex = filesState.tabs.findIndex((t) => t.id === draggedId);
+    const fromIndex = filesState.tabs.findIndex((tab) => tab.id === draggedId);
     let target = dropIndex() ?? fromIndex;
     // The drop index is computed on the pre-splice array. When the dragged
     // tab ends up after its original slot we subtract one to account for
@@ -464,7 +465,7 @@ export default function TabBar() {
             type="button"
             class={ACTION_BTN}
             onClick={() => void createAndOpenNewFile()}
-            title="New Tab"
+            title={t("tabbar.action.new_tab")}
           >
             <PlusIcon />
           </button>
@@ -475,36 +476,40 @@ export default function TabBar() {
             onClick={() => {
               void executePluginCommand("graph.cycle");
             }}
-            title="Graph (⌘G)"
+            title={t("tabbar.action.graph_shortcut")}
           >
             <GraphIcon size={14} />
           </button>
 
           <DropdownMenu>
-            <DropdownMenuTrigger class={ACTION_BTN} title="More actions">
+            <DropdownMenuTrigger class={ACTION_BTN} title={t("tabbar.action.more_actions")}>
               <EllipsisVerticalIcon />
             </DropdownMenuTrigger>
             <DropdownMenuContent>
               <DropdownMenuItem
-                label="New Tab"
+                label={t("tabbar.menu.new_tab")}
                 shortcut="⌘N"
                 onSelect={() => void createAndOpenNewFile()}
               />
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                label="Advanced Search"
+                label={t("center.empty.advanced_search")}
                 shortcut="⌘U"
-                onSelect={() => openTab("Advanced Search", null, "search")}
+                onSelect={() => openTab(t("center.empty.advanced_search"), null, "search")}
               />
               <DropdownMenuItem
-                label="Graph View"
+                label={t("center.empty.graph_view")}
                 shortcut="⌘G"
                 onSelect={() => {
                   void executePluginCommand("graph.cycle");
                 }}
               />
               <DropdownMenuSeparator />
-              <DropdownMenuItem label="Settings" shortcut="⌘," onSelect={() => openSettings()} />
+              <DropdownMenuItem
+                label={t("center.empty.settings")}
+                shortcut="⌘,"
+                onSelect={() => openSettings()}
+              />
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

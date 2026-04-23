@@ -1,6 +1,7 @@
 import { ErrorBoundary, Show, Suspense } from "solid-js";
 import { Dynamic } from "solid-js/web";
 
+import { t } from "~/i18n";
 import { PluginErrorUI, PluginSkeleton, slotRegistry } from "~/plugins/slots";
 
 import { SettingsBanner } from "./settings_blocks";
@@ -15,7 +16,7 @@ function PluginSettingsSection(props: { fillId: string; settingsRefreshToken: nu
   return (
     <Show
       when={fill()}
-      fallback={<SettingsBanner tone="info" description="Plugin settings are unavailable." />}
+      fallback={<SettingsBanner tone="info" description={t("settings.plugins.unavailable")} />}
     >
       {(activeFill) => (
         <div data-settings-anchor={`plugin:${props.fillId}`}>

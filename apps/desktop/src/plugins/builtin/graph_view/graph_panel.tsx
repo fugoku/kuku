@@ -9,6 +9,7 @@
 
 import { createMemo } from "solid-js";
 
+import { t } from "~/i18n";
 import { getActiveTab, openTab } from "~/stores/files";
 import { closeRightPanelView } from "~/stores/layout";
 
@@ -40,14 +41,16 @@ export default function GraphPanel() {
   return (
     <div class="flex h-full min-h-0 flex-col overflow-hidden bg-bg-secondary/60">
       <div class="flex shrink-0 items-center justify-between gap-2 border-b border-border/70 bg-bg-primary/50 px-2 py-1.5">
-        <p class="min-w-0 truncate text-[0.75rem] font-medium text-text-primary">Graph</p>
+        <p class="min-w-0 truncate text-[0.75rem] font-medium text-text-primary">
+          {t("graph.title")}
+        </p>
         <button
           type="button"
           class="shrink-0 cursor-pointer rounded-xs border-none bg-transparent px-1 py-0.5 text-[0.6875rem] text-text-muted transition-colors hover:bg-ghost-hover hover:text-text-primary"
-          title="Open in center (⌘G)"
+          title={t("graph.action.open_center_title")}
           onClick={openGraphInCenterTab}
         >
-          Open in tab
+          {t("graph.action.open_in_tab")}
         </button>
       </div>
       {/* ── Canvas ── */}

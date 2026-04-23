@@ -1,6 +1,7 @@
 import { Show } from "solid-js";
 
 import ScrollArea from "~/components/scroll_area";
+import { t, tf } from "~/i18n";
 
 import { indexerStatus } from "../core_indexer/status_store";
 import { openSearchHit } from "./navigation";
@@ -21,7 +22,7 @@ export default function SearchTab() {
         <div class="mt-3 flex items-center gap-3">
           <input
             type="search"
-            placeholder="Search your vault"
+            placeholder={t("search.placeholder")}
             class={INPUT}
             value={controller.query()}
             onInput={(event) => controller.scheduleSearch(event.currentTarget.value)}
@@ -30,10 +31,11 @@ export default function SearchTab() {
 
         <div class="mt-2 flex items-center justify-between text-xs text-text-muted">
           <span>
-            Status: {indexerStatus.state} ({indexerStatus.indexedDocs}/{indexerStatus.totalDocs})
+            {t("search.status.prefix")}: {indexerStatus.state} ({indexerStatus.indexedDocs}/
+            {indexerStatus.totalDocs})
           </span>
           <Show when={controller.results()}>
-            {(results) => <span>{results().total} result(s)</span>}
+            {(results) => <span>{tf("search.results.count", { count: results().total })}</span>}
           </Show>
         </div>
         <Show when={indexerStatus.error}>
@@ -43,16 +45,16 @@ export default function SearchTab() {
 
       <ScrollArea class="min-h-0 flex-1 px-4 py-3">
         <Show when={controller.isLoading()}>
-          <p class="text-sm text-text-muted">Searching…</p>
+          <p class="text-sm text-text-muted">{t("search.loading")}</p>
         </Show>
         <Show when={!controller.isLoading() && controller.error()}>
           {(error) => <p class="text-sm text-error">{error()}</p>}
         </Show>
         <Show when={!controller.isLoading() && !controller.error() && !searchResults()}>
-          <p class="text-sm text-text-muted">Type to search indexed markdown content.</p>
+          <p class="text-sm text-text-muted">{t("search.empty.before_query")}</p>
         </Show>
         <Show when={!controller.isLoading() && searchResults() && items().length === 0}>
-          <p class="text-sm text-text-muted">No matches found.</p>
+          <p class="text-sm text-text-muted">{t("search.empty.no_match")}</p>
         </Show>
         <Show when={items().length > 0}>
           <SearchResultsList hits={items()} onSelect={openSearchHit} />

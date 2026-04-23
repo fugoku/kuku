@@ -6,6 +6,7 @@ import { createStore, reconcile, unwrap } from "solid-js/store";
 
 export type ThemePreference = "system" | "light" | "dark";
 export type EffectiveTheme = "light" | "dark";
+export type UiLanguage = "system" | "en" | "ko" | "ja";
 
 interface GeneralSettings {
   autoSave: boolean;
@@ -15,6 +16,7 @@ interface GeneralSettings {
 
 interface AppearanceSettings {
   theme: ThemePreference;
+  language: UiLanguage;
   /** UI font — CSS font-family name, e.g. "Goorm Sans" */
   fontFamily: string;
 }
@@ -64,6 +66,7 @@ interface SettingsPatch {
 
 interface SettingsCache {
   theme?: ThemePreference;
+  language?: UiLanguage;
   fontUi?: string;
   fontEditor?: string;
   fontMono?: string;
@@ -79,6 +82,7 @@ interface PersistedSettings {
   };
   appearance?: {
     theme?: ThemePreference;
+    language?: UiLanguage;
     font_family?: string;
   };
   editor?: {
@@ -109,6 +113,7 @@ const DEFAULTS: Settings = {
   },
   appearance: {
     theme: "system",
+    language: "system",
     fontFamily: "Goorm Sans",
   },
   editor: {
@@ -137,7 +142,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function getStorage(): Storage | null {
-  return typeof localStorage === "undefined" ? null : localStorage;
+  if (typeof localStorage === "undefined" || localStorage === null) return null;
+  if (
+    typeof localStorage.getItem !== "function" ||
+    typeof localStorage.setItem !== "function" ||
+    typeof localStorage.removeItem !== "function"
+  ) {
+    return null;
+  }
+  return localStorage;
 }
 
 function cloneSettings(settings: Settings): Settings {
@@ -156,6 +169,12 @@ function readStorageJson(key: string): unknown {
 
 function asThemePreference(value: unknown): ThemePreference | undefined {
   return value === "system" || value === "light" || value === "dark" ? value : undefined;
+}
+
+function asUiLanguage(value: unknown): UiLanguage | undefined {
+  return value === "system" || value === "en" || value === "ko" || value === "ja"
+    ? value
+    : undefined;
 }
 
 function asNonEmptyString(value: unknown): string | undefined {
@@ -219,6 +238,9 @@ function cachePatchFromObject(value: unknown): SettingsPatch | null {
   const theme = asThemePreference(value.theme);
   if (theme) appearance.theme = theme;
 
+  const language = asUiLanguage(value.language);
+  if (language) appearance.language = language;
+
   const fontUi = asNonEmptyString(value.fontUi);
   if (fontUi) appearance.fontFamily = fontUi;
 
@@ -263,6 +285,8 @@ function patchFromLegacySettings(value: unknown): SettingsPatch | null {
     const appearance: Partial<AppearanceSettings> = {};
     const theme = asThemePreference(appearanceRaw.theme);
     if (theme) appearance.theme = theme;
+    const language = asUiLanguage(appearanceRaw.language);
+    if (language) appearance.language = language;
     const fontFamily = asNonEmptyString(appearanceRaw.fontFamily);
     if (fontFamily) appearance.fontFamily = fontFamily;
     if (Object.keys(appearance).length > 0) patch.appearance = appearance;
@@ -332,6 +356,8 @@ function patchFromPersistedSettings(value: unknown): SettingsPatch | null {
     const appearance: Partial<AppearanceSettings> = {};
     const theme = asThemePreference(appearanceRaw.theme);
     if (theme) appearance.theme = theme;
+    const language = asUiLanguage(appearanceRaw.language);
+    if (language) appearance.language = language;
     const fontFamily = asNonEmptyString(appearanceRaw.font_family);
     if (fontFamily) appearance.fontFamily = fontFamily;
     if (Object.keys(appearance).length > 0) patch.appearance = appearance;
@@ -382,6 +408,7 @@ function toPersistedSettings(settings: Settings): PersistedSettings {
     },
     appearance: {
       theme: settings.appearance.theme,
+      language: settings.appearance.language,
       font_family: settings.appearance.fontFamily,
     },
     editor: {
@@ -410,6 +437,7 @@ function toPersistedSettings(settings: Settings): PersistedSettings {
 function cacheFromSettings(settings: Settings): SettingsCache {
   return {
     theme: settings.appearance.theme,
+    language: settings.appearance.language,
     fontUi: settings.appearance.fontFamily,
     fontEditor: settings.editor.fontFamily,
     fontMono: settings.editor.fontMono,

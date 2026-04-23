@@ -11,6 +11,7 @@ import {
 } from "~/components/icons";
 import ScrollArea, { type ScrollAreaHandle } from "~/components/scroll_area";
 import type { SlashMenuPosition } from "~/components/editor/slash_menu_position";
+import { t } from "~/i18n";
 import type { EditorSlashItem } from "~/plugins/builtin/core_editor/slash_items";
 
 interface EditorSlashMenuProps {
@@ -97,7 +98,9 @@ export default function EditorSlashMenu(props: EditorSlashMenuProps) {
       >
         <Show
           when={props.items.length > 0}
-          fallback={<div class="p-3 text-[0.8125rem] text-text-muted">No matching commands.</div>}
+          fallback={
+            <div class="p-3 text-[0.8125rem] text-text-muted">{t("editor.slash.empty")}</div>
+          }
         >
           <ScrollArea
             axis="y"

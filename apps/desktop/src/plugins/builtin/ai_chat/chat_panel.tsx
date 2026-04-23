@@ -6,6 +6,7 @@ import { ChatInput } from "./components/chat_input";
 import { ChatMessages } from "./components/chat_messages";
 import ScrollArea, { type ScrollAreaHandle } from "~/components/scroll_area";
 import { KukuIcon, SettingsIcon } from "~/components/icons";
+import { t } from "~/i18n";
 import { openSettings } from "~/stores/files";
 import { vaultDragState } from "~/stores/vault_drag";
 import { authState, getAuthService } from "~/plugins/builtin/core_auth/auth_service";
@@ -41,9 +42,11 @@ function AccessPrompt(): JSX.Element {
           <KukuIcon size={22} />
         </div>
         <div class="mt-4 space-y-1.5">
-          <h2 class="text-lg font-semibold tracking-tight text-text-primary">Set up AI Chat</h2>
+          <h2 class="text-lg font-semibold tracking-tight text-text-primary">
+            {t("chat.panel.setup.title")}
+          </h2>
           <p class="mx-auto max-w-56 text-[0.8125rem] leading-relaxed text-text-secondary">
-            Use a Gemini API key or sign in with your Kuku account.
+            {t("chat.panel.setup.description")}
           </p>
         </div>
 
@@ -55,17 +58,17 @@ function AccessPrompt(): JSX.Element {
             onClick={() => void signInWithKuku()}
           >
             <KukuIcon size={14} />
-            {authState.loading ? "Opening..." : "Sign in with Kuku"}
+            {authState.loading ? t("chat.panel.setup.opening") : t("chat.panel.setup.sign_in")}
           </button>
 
           <p class="text-[0.7rem] leading-relaxed text-text-muted">
-            Sign in once for Kuku Remote — no local API key on this device.
+            {t("chat.panel.setup.remote_hint")}
           </p>
 
           <div class="flex w-full items-center gap-3 py-0.5">
             <div class="h-px min-w-0 flex-1 bg-border" />
             <span class="shrink-0 text-[0.65rem] font-medium tracking-widest text-text-muted uppercase">
-              or
+              {t("chat.panel.setup.or")}
             </span>
             <div class="h-px min-w-0 flex-1 bg-border" />
           </div>
@@ -82,11 +85,11 @@ function AccessPrompt(): JSX.Element {
             }
           >
             <SettingsIcon size={14} />
-            Open Settings
+            {t("chat.panel.setup.open_settings")}
           </button>
 
           <p class="text-[0.7rem] leading-relaxed text-text-muted">
-            Or add a Gemini key in Settings for BYOK on this device.
+            {t("chat.panel.setup.byok_hint")}
           </p>
         </div>
 
@@ -111,10 +114,10 @@ function RemotePermissionPrompt(): JSX.Element {
 
         <div class="mt-4 space-y-1.5">
           <h2 class="text-lg font-semibold tracking-tight text-text-primary">
-            Permission required
+            {t("chat.panel.permission.title")}
           </h2>
           <p class="mx-auto max-w-56 text-[0.8125rem] leading-relaxed text-text-secondary">
-            Allow AI Chat in Account → Authorizations to use your Kuku session.
+            {t("chat.panel.permission.description")}
           </p>
         </div>
 
@@ -130,7 +133,7 @@ function RemotePermissionPrompt(): JSX.Element {
           }
         >
           <SettingsIcon size={14} />
-          Open Settings
+          {t("chat.panel.setup.open_settings")}
         </button>
       </div>
     </div>

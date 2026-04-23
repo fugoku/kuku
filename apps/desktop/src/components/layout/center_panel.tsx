@@ -5,6 +5,7 @@ import MarkdownEditor from "~/components/editor/markdown_editor";
 import { KukuLogo } from "~/components/icons/kuku_logo";
 import SettingsView from "~/components/settings/settings_view";
 import TabBar from "~/components/layout/tab_bar";
+import { t } from "~/i18n";
 import { pluginsReady } from "~/plugins/bootstrap";
 import { createFocusZone } from "~/plugins/focus_zone";
 import { getCenterTabFill, PluginErrorUI, PluginSkeleton } from "~/plugins/slots";
@@ -57,7 +58,7 @@ export default function CenterPanel() {
                 <KukuLogo size={260} class="size-full opacity-20 grayscale" />
               </div>
               <p class="text-sm font-normal tracking-wider text-text-muted opacity-60">
-                Focus. Write. Flow.
+                {t("center.empty.tagline")}
               </p>
               <div class="flex w-full max-w-65 flex-col gap-0.5">
                 <button
@@ -65,7 +66,7 @@ export default function CenterPanel() {
                   class="flex w-full cursor-pointer items-center justify-between rounded-xs border-none bg-transparent px-3 py-2.5 transition-all duration-150 hover:bg-bg-secondary active:scale-[0.98]"
                   onClick={() => void createAndOpenNewFile()}
                 >
-                  <span class="text-[0.8125rem] text-text-muted">New File</span>
+                  <span class="text-[0.8125rem] text-text-muted">{t("center.empty.new_file")}</span>
                   <div class="flex items-center gap-1.5">
                     <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
                       ⌘
@@ -80,7 +81,9 @@ export default function CenterPanel() {
                   class="flex w-full cursor-pointer items-center justify-between rounded-xs border-none bg-transparent px-3 py-2.5 transition-all duration-150 hover:bg-bg-secondary active:scale-[0.98]"
                   onClick={() => toggleLeftPanel()}
                 >
-                  <span class="text-[0.8125rem] text-text-muted">Toggle Sidebar</span>
+                  <span class="text-[0.8125rem] text-text-muted">
+                    {t("center.empty.toggle_sidebar")}
+                  </span>
                   <div class="flex items-center gap-1.5">
                     <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
                       ⌘
@@ -95,7 +98,7 @@ export default function CenterPanel() {
                   class="flex w-full cursor-pointer items-center justify-between rounded-xs border-none bg-transparent px-3 py-2.5 transition-all duration-150 hover:bg-bg-secondary active:scale-[0.98]"
                   onClick={() => openSettings()}
                 >
-                  <span class="text-[0.8125rem] text-text-muted">Settings</span>
+                  <span class="text-[0.8125rem] text-text-muted">{t("center.empty.settings")}</span>
                   <div class="flex items-center gap-1.5">
                     <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
                       ⌘
@@ -110,7 +113,9 @@ export default function CenterPanel() {
                   class="flex w-full cursor-pointer items-center justify-between rounded-xs border-none bg-transparent px-3 py-2.5 transition-all duration-150 hover:bg-bg-secondary active:scale-[0.98]"
                   onClick={() => openSearchOmnibar()}
                 >
-                  <span class="text-[0.8125rem] text-text-muted">Quick Search</span>
+                  <span class="text-[0.8125rem] text-text-muted">
+                    {t("center.empty.quick_search")}
+                  </span>
                   <div class="flex items-center gap-1.5">
                     <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
                       ⌘
@@ -123,9 +128,11 @@ export default function CenterPanel() {
                 <button
                   type="button"
                   class="flex w-full cursor-pointer items-center justify-between rounded-xs border-none bg-transparent px-3 py-2.5 transition-all duration-150 hover:bg-bg-secondary active:scale-[0.98]"
-                  onClick={() => openTab("Advanced Search", null, "search")}
+                  onClick={() => openTab(t("center.empty.advanced_search"), null, "search")}
                 >
-                  <span class="text-[0.8125rem] text-text-muted">Advanced Search</span>
+                  <span class="text-[0.8125rem] text-text-muted">
+                    {t("center.empty.advanced_search")}
+                  </span>
                   <div class="flex items-center gap-1.5">
                     <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
                       ⌘
@@ -140,7 +147,7 @@ export default function CenterPanel() {
                   class="flex w-full cursor-pointer items-center justify-between rounded-xs border-none bg-transparent px-3 py-2.5 transition-all duration-150 hover:bg-bg-secondary active:scale-[0.98]"
                   onClick={() => openRightPanelView("graph-view.panel")}
                 >
-                  <span class="text-[0.8125rem] text-text-muted">Graph View</span>
+                  <span class="text-[0.8125rem] text-text-muted">{t("center.empty.graph_view")}</span>
                   <div class="flex items-center gap-1.5">
                     <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
                       ⌘
@@ -195,7 +202,8 @@ export default function CenterPanel() {
                 fallback={
                   <div class="flex h-full flex-col items-center justify-center p-6 text-center">
                     <p class="text-sm text-text-secondary">
-                      No view registered for tab type "{pluginTabType()}".
+                      {t("center.view.unregistered_prefix")} "{pluginTabType()}"
+                      {t("center.view.unregistered_suffix")}
                     </p>
                   </div>
                 }
