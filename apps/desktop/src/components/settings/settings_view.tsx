@@ -137,9 +137,16 @@ export default function SettingsView() {
     CATEGORIES.filter((c) => c.id !== "plugins" && c.id !== "about" && c.id !== "debug");
   const pluginCategories = () => {
     const order = new Map(getPluginDisplayOrder().map((id, index) => [id, index]));
+    const uniqueFills = new Map<string, SlotFill>();
 
-    return [...slotRegistry.fills.settingsSection]
-      .filter((fill) => fill.isActive())
+    for (const fill of slotRegistry.fills.settingsSection) {
+      if (!fill.isActive()) continue;
+      if (!uniqueFills.has(fill.id)) {
+        uniqueFills.set(fill.id, fill);
+      }
+    }
+
+    return [...uniqueFills.values()]
       .sort((left: SlotFill, right: SlotFill) => {
         const pluginOrder =
           (order.get(left.pluginId) ?? Number.MAX_SAFE_INTEGER) -
