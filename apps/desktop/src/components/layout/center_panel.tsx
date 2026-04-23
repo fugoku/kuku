@@ -51,102 +51,106 @@ export default function CenterPanel() {
       <Show
         when={filesState.tabs.length > 0}
         fallback={
-          <div class="flex min-h-0 flex-1 flex-col items-center justify-center gap-12 p-12">
-            <KukuLogo size={260} class="opacity-20 grayscale" />
-            <p class="-mt-20 text-sm font-normal tracking-wider text-text-muted opacity-60">
-              Focus. Write. Flow.
-            </p>
-            <div class="flex w-full max-w-65 flex-col gap-0.5">
-              <button
-                type="button"
-                class="flex w-full cursor-pointer items-center justify-between rounded-xs border-none bg-transparent px-3 py-2.5 transition-all duration-150 hover:bg-bg-secondary active:scale-[0.98]"
-                onClick={() => void createAndOpenNewFile()}
-              >
-                <span class="text-[0.8125rem] text-text-muted">New File</span>
-                <div class="flex items-center gap-1.5">
-                  <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
-                    ⌘
-                  </kbd>
-                  <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
-                    N
-                  </kbd>
-                </div>
-              </button>
-              <button
-                type="button"
-                class="flex w-full cursor-pointer items-center justify-between rounded-xs border-none bg-transparent px-3 py-2.5 transition-all duration-150 hover:bg-bg-secondary active:scale-[0.98]"
-                onClick={() => toggleLeftPanel()}
-              >
-                <span class="text-[0.8125rem] text-text-muted">Toggle Sidebar</span>
-                <div class="flex items-center gap-1.5">
-                  <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
-                    ⌘
-                  </kbd>
-                  <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
-                    B
-                  </kbd>
-                </div>
-              </button>
-              <button
-                type="button"
-                class="flex w-full cursor-pointer items-center justify-between rounded-xs border-none bg-transparent px-3 py-2.5 transition-all duration-150 hover:bg-bg-secondary active:scale-[0.98]"
-                onClick={() => openSettings()}
-              >
-                <span class="text-[0.8125rem] text-text-muted">Settings</span>
-                <div class="flex items-center gap-1.5">
-                  <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
-                    ⌘
-                  </kbd>
-                  <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
-                    ,
-                  </kbd>
-                </div>
-              </button>
-              <button
-                type="button"
-                class="flex w-full cursor-pointer items-center justify-between rounded-xs border-none bg-transparent px-3 py-2.5 transition-all duration-150 hover:bg-bg-secondary active:scale-[0.98]"
-                onClick={() => openSearchOmnibar()}
-              >
-                <span class="text-[0.8125rem] text-text-muted">Quick Search</span>
-                <div class="flex items-center gap-1.5">
-                  <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
-                    ⌘
-                  </kbd>
-                  <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
-                    P
-                  </kbd>
-                </div>
-              </button>
-              <button
-                type="button"
-                class="flex w-full cursor-pointer items-center justify-between rounded-xs border-none bg-transparent px-3 py-2.5 transition-all duration-150 hover:bg-bg-secondary active:scale-[0.98]"
-                onClick={() => openTab("Advanced Search", null, "search")}
-              >
-                <span class="text-[0.8125rem] text-text-muted">Advanced Search</span>
-                <div class="flex items-center gap-1.5">
-                  <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
-                    ⌘
-                  </kbd>
-                  <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
-                    U
-                  </kbd>
-                </div>
-              </button>
-              <button
-                type="button"
-                class="flex w-full cursor-pointer items-center justify-between rounded-xs border-none bg-transparent px-3 py-2.5 transition-all duration-150 hover:bg-bg-secondary active:scale-[0.98]"
-                onClick={() => openRightPanelView("graph-view.panel")}
-              >
-                <span class="text-[0.8125rem] text-text-muted">Graph View</span>
-                <div class="flex items-center gap-1.5">
-                  <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
-                    ⌘
-                  </kbd>
-                  <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
-                    G
-                  </kbd>
-                </div>
-              </button>
+          <div class="min-h-0 flex-1 overflow-y-hidden">
+            <div class="flex min-h-full flex-col items-center justify-center gap-4 p-4">
+              <div class="flex aspect-square max-h-[min(16.25rem,25vh)] items-center justify-center">
+                <KukuLogo size={260} class="size-full opacity-20 grayscale" />
+              </div>
+              <p class="text-sm font-normal tracking-wider text-text-muted opacity-60">
+                Focus. Write. Flow.
+              </p>
+              <div class="flex w-full max-w-65 flex-col gap-0.5">
+                <button
+                  type="button"
+                  class="flex w-full cursor-pointer items-center justify-between rounded-xs border-none bg-transparent px-3 py-2.5 transition-all duration-150 hover:bg-bg-secondary active:scale-[0.98]"
+                  onClick={() => void createAndOpenNewFile()}
+                >
+                  <span class="text-[0.8125rem] text-text-muted">New File</span>
+                  <div class="flex items-center gap-1.5">
+                    <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
+                      ⌘
+                    </kbd>
+                    <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
+                      N
+                    </kbd>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  class="flex w-full cursor-pointer items-center justify-between rounded-xs border-none bg-transparent px-3 py-2.5 transition-all duration-150 hover:bg-bg-secondary active:scale-[0.98]"
+                  onClick={() => toggleLeftPanel()}
+                >
+                  <span class="text-[0.8125rem] text-text-muted">Toggle Sidebar</span>
+                  <div class="flex items-center gap-1.5">
+                    <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
+                      ⌘
+                    </kbd>
+                    <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
+                      B
+                    </kbd>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  class="flex w-full cursor-pointer items-center justify-between rounded-xs border-none bg-transparent px-3 py-2.5 transition-all duration-150 hover:bg-bg-secondary active:scale-[0.98]"
+                  onClick={() => openSettings()}
+                >
+                  <span class="text-[0.8125rem] text-text-muted">Settings</span>
+                  <div class="flex items-center gap-1.5">
+                    <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
+                      ⌘
+                    </kbd>
+                    <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
+                      ,
+                    </kbd>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  class="flex w-full cursor-pointer items-center justify-between rounded-xs border-none bg-transparent px-3 py-2.5 transition-all duration-150 hover:bg-bg-secondary active:scale-[0.98]"
+                  onClick={() => openSearchOmnibar()}
+                >
+                  <span class="text-[0.8125rem] text-text-muted">Quick Search</span>
+                  <div class="flex items-center gap-1.5">
+                    <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
+                      ⌘
+                    </kbd>
+                    <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
+                      P
+                    </kbd>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  class="flex w-full cursor-pointer items-center justify-between rounded-xs border-none bg-transparent px-3 py-2.5 transition-all duration-150 hover:bg-bg-secondary active:scale-[0.98]"
+                  onClick={() => openTab("Advanced Search", null, "search")}
+                >
+                  <span class="text-[0.8125rem] text-text-muted">Advanced Search</span>
+                  <div class="flex items-center gap-1.5">
+                    <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
+                      ⌘
+                    </kbd>
+                    <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
+                      U
+                    </kbd>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  class="flex w-full cursor-pointer items-center justify-between rounded-xs border-none bg-transparent px-3 py-2.5 transition-all duration-150 hover:bg-bg-secondary active:scale-[0.98]"
+                  onClick={() => openRightPanelView("graph-view.panel")}
+                >
+                  <span class="text-[0.8125rem] text-text-muted">Graph View</span>
+                  <div class="flex items-center gap-1.5">
+                    <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
+                      ⌘
+                    </kbd>
+                    <kbd class="flex size-7 items-center justify-center rounded-xs border border-border bg-bg-tertiary text-xs text-text-muted">
+                      G
+                    </kbd>
+                  </div>
+                </button>
+              </div>
             </div>
           </div>
         }
