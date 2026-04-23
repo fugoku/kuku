@@ -20,6 +20,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 DESKTOP_DIR="$REPO_ROOT/apps/desktop"
 WEB_DIR="$REPO_ROOT/apps/web"
 TAURI_CONF="$DESKTOP_DIR/src-tauri/tauri.conf.json"
+WEB_LINKS="$WEB_DIR/src/config/links.ts"
 # release.json is per-build data (signature + pub_date), so we write it into
 # the freshly built dist/ rather than committing it to source.
 RELEASE_JSON_DEST="$WEB_DIR/dist/release.json"
@@ -82,6 +83,27 @@ with open(path, "w") as f:
     f.write("\n")
 PY
     log_success "tauri.conf.json version → ${version}"
+}
+
+# Bump the marketing site's macOS download URL so the "Download" button
+# points at this release's DMG. Lives in apps/web before the web build,
+# so the published bundle picks it up.
+update_web_download_link() {
+    local version="$1"
+    python3 - "$WEB_LINKS" "$version" <<'PY'
+import re, sys
+path, version = sys.argv[1], sys.argv[2]
+pattern = re.compile(r'(releases/download/)[^/"]+(/Kuku_)[^/"]+(_aarch64\.dmg)')
+with open(path) as f:
+    text = f.read()
+new, count = pattern.subn(rf'\g<1>{version}\g<2>{version}\g<3>', text)
+if count == 0:
+    sys.stderr.write(f"ERROR: download URL placeholder not found in {path}\n")
+    sys.exit(1)
+with open(path, "w") as f:
+    f.write(new)
+PY
+    log_success "links.ts downloadMac → ${version}"
 }
 
 build_desktop() {
@@ -246,6 +268,7 @@ main() {
     echo
 
     update_tauri_version "$new_version"
+    update_web_download_link "$new_version"
     build_desktop
 
     local sig_path="${BUNDLE_DIR}/macos/Kuku.app.tar.gz.sig"
@@ -273,8 +296,8 @@ main() {
     echo "═══════════════════════════════════════════════════"
     echo
     echo "Commit the version bump:"
-    echo "  git add apps/desktop/src-tauri/tauri.conf.json"
-    echo "  git commit -m \"chore(release): bump to ${new_version}\""
+    echo "  git add apps/desktop/src-tauri/tauri.conf.json apps/web/src/config/links.ts"
+    echo "  git commit -m \"release: ${new_version}\""
     echo
     echo "release.json is regenerated per build inside dist/ (not committed)."
     echo "See $RELEASE_DIR/$new_version/README.md for upload + deploy steps."
