@@ -1258,12 +1258,21 @@ function normalizeNavigatorLocale(value: string | undefined | null): Locale {
   return "en";
 }
 
+function resolveSystemLocale(): Locale {
+  if (typeof navigator === "undefined") return "en";
+
+  const preferred = navigator.languages?.[0] ?? navigator.language;
+  return normalizeNavigatorLocale(preferred);
+}
+
 function resolveLocale(language: UiLanguage): Locale {
   if (language === "system") {
-    return normalizeNavigatorLocale(typeof navigator !== "undefined" ? navigator.language : "en");
+    return resolveSystemLocale();
   }
 
-  return language;
+  if (language === "ko") return "ko";
+  if (language === "ja") return "ja";
+  return "en";
 }
 
 export function currentLocale(): Locale {
