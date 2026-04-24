@@ -4,6 +4,7 @@ import { TextSelection } from "prosekit/pm/state";
 import { ProseKit, useDocChange, useKeymap } from "prosekit/solid";
 
 import { createKukuEditor, destroyEditor } from "~/components/editor/system/editor_engine";
+import { installWebKitCompositionWorkaround } from "~/components/editor/system/ime_composition_workaround";
 import EditorContextMenu from "~/components/editor/editor_context_menu";
 import AiEditInput from "~/components/editor/ai_edit_input";
 import AnchorEditInput from "~/components/editor/anchor_edit_input";
@@ -943,6 +944,13 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     onCleanup(() => {
       document.removeEventListener("selectionchange", handleSelectionChange);
     });
+  });
+
+  onMount(() => {
+    // Keep this installed at the editor DOM boundary so it runs before
+    // ProseMirror handles broken WebKit IME composition events.
+    const cleanupCompositionWorkaround = installWebKitCompositionWorkaround(editor.view);
+    onCleanup(cleanupCompositionWorkaround);
   });
 
   onCleanup(() => {
