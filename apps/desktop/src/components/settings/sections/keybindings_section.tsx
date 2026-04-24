@@ -6,6 +6,7 @@ import {
   SettingsListRow,
   SettingsPanel,
 } from "~/components/settings/settings_blocks";
+import { t } from "~/i18n";
 import {
   destroyKeymap,
   getAllCommands,
@@ -18,14 +19,6 @@ import { resetKeybindingOverride, setKeybindingOverride, settingsState } from "~
 const IS_MAC =
   navigator.platform.toLowerCase().includes("mac") ||
   navigator.userAgent.toLowerCase().includes("mac");
-
-const COMMAND_GROUP_LABELS: Record<string, string> = {
-  app: "Application",
-  editor: "Editor",
-  graph: "Graph",
-  panel: "Panel",
-  tab: "Tab",
-};
 
 function parseKeys(keys: string): string[] {
   return keys.split("+").map((part) => {
@@ -76,7 +69,20 @@ function parseKeys(keys: string): string[] {
 
 function getCommandGroup(id: string): string {
   const prefix = id.split(".")[0] ?? "";
-  return COMMAND_GROUP_LABELS[prefix] ?? "Other";
+  switch (prefix) {
+    case "app":
+      return t("settings.keybindings.group.application");
+    case "editor":
+      return t("settings.keybindings.group.editor");
+    case "graph":
+      return t("settings.keybindings.group.graph");
+    case "panel":
+      return t("settings.keybindings.group.panel");
+    case "tab":
+      return t("settings.keybindings.group.tab");
+    default:
+      return t("settings.keybindings.group.other");
+  }
 }
 
 function captureKeybinding(event: KeyboardEvent): string | null {
@@ -128,7 +134,7 @@ function RecordingInput(props: { onCapture: (keys: string) => void; onCancel: ()
       ref={ref}
       type="text"
       class="w-36 rounded-xs border border-border-focused bg-bg-secondary px-2.5 py-0.5 text-[0.6875rem] text-text-muted outline-none placeholder:text-text-placeholder"
-      placeholder="Press shortcut..."
+      placeholder={t("settings.keybindings.record_placeholder")}
       readOnly
       onKeyDown={(event) => {
         event.preventDefault();
@@ -207,13 +213,13 @@ function KeybindingsSection() {
 
   return (
     <SettingsPanel
-      title="Keybindings"
-      description="Search commands and override their shortcuts."
+      title={t("settings.keybindings.title")}
+      description={t("settings.keybindings.description")}
       anchor="keybindings"
     >
       <SettingsInput
         type="search"
-        placeholder="Search keybindings..."
+        placeholder={t("settings.keybindings.search_placeholder")}
         value={search()}
         onInput={(event) => setSearch(event.currentTarget.value)}
       />
@@ -222,7 +228,9 @@ function KeybindingsSection() {
         when={grouped().length > 0}
         fallback={
           <SettingsCard tone="subtle">
-            <div class="text-center text-[0.8125rem] text-text-muted">No keybindings found.</div>
+            <div class="text-center text-[0.8125rem] text-text-muted">
+              {t("settings.keybindings.none")}
+            </div>
           </SettingsCard>
         }
       >
@@ -257,7 +265,7 @@ function KeybindingsSection() {
                                     <button
                                       type="button"
                                       class="flex size-4 cursor-pointer items-center justify-center rounded-xs border-none bg-transparent text-text-disabled hover:text-text-primary"
-                                      title="Reset to default"
+                                      title={t("settings.keybindings.reset_default")}
                                       onClick={(event) =>
                                         handleReset(command.contribution.id, event)
                                       }

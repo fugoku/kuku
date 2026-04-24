@@ -51,6 +51,7 @@ import {
   updateVaultDragPointer,
   vaultDragState,
 } from "~/stores/vault_drag";
+import { t } from "~/i18n";
 
 type GuideType = "line" | "branch" | "corner" | "empty";
 const ROOT_DROP_TARGET = "__root__";
@@ -172,7 +173,9 @@ function InlineNameInput(props: {
         ref={inputRef}
         class="ml-1 min-w-0 flex-1 rounded-xs border border-accent bg-bg-primary px-1 text-[0.8125rem]/4.5 text-text-primary outline-none"
         value={props.editState.name}
-        placeholder={props.editState.isDir ? "Folder name" : "File name"}
+        placeholder={
+          props.editState.isDir ? t("vault.input.folder_name") : t("vault.input.file_name")
+        }
         onInput={(event) => updateEditName(event.currentTarget.value)}
         onKeyDown={handleKeyDown}
         onBlur={() => void confirmEdit()}
@@ -327,8 +330,8 @@ function FileTreeNode(props: FileTreeNodeProps) {
             </ContextMenuTrigger>
 
             <ContextMenuContent>
-              <ContextMenuItem label="Rename" onSelect={handleRename} />
-              <ContextMenuItem label="Delete" danger onSelect={handleDelete} />
+              <ContextMenuItem label={t("vault.context.rename")} onSelect={handleRename} />
+              <ContextMenuItem label={t("vault.context.delete")} danger onSelect={handleDelete} />
             </ContextMenuContent>
           </ContextMenu>
         }
@@ -385,21 +388,21 @@ function EmptyVaultState() {
   const title = () => {
     switch (status().kind) {
       case "missing":
-        return "Vault not found";
+        return t("vault.empty.title.missing");
       case "unavailable":
-        return "Vault unavailable";
+        return t("vault.empty.title.unavailable");
       default:
-        return "No vault configured";
+        return t("vault.empty.title.none");
     }
   };
   const description = () => {
     switch (status().kind) {
       case "missing":
-        return "The saved vault folder could not be found. Select a vault folder to continue.";
+        return t("vault.empty.description.missing");
       case "unavailable":
-        return "The saved vault folder could not be opened. Select a vault folder to continue.";
+        return t("vault.empty.description.unavailable");
       default:
-        return "Select your vault folder to start browsing files.";
+        return t("vault.empty.description.none");
     }
   };
 
@@ -443,7 +446,7 @@ function EmptyVaultState() {
           disabled={isBusy()}
           onClick={() => void handleSelectVault()}
         >
-          {isBusy() ? "Working..." : "Select Vault"}
+          {isBusy() ? t("vault.empty.action.working") : t("vault.empty.action.select_vault")}
         </button>
       </div>
     </div>
@@ -651,7 +654,7 @@ export default function VaultBrowser() {
           when={vaultState.rootPath}
           fallback={
             <span class="text-xs font-semibold tracking-[0.16em] text-text-muted uppercase">
-              Explorer
+              {t("vault.explorer")}
             </span>
           }
         >
@@ -660,7 +663,7 @@ export default function VaultBrowser() {
             <button
               type="button"
               class="rounded-xs p-1 text-text-muted transition-colors hover:bg-accent-dim hover:text-text-secondary"
-              title="Quick Search"
+              title={t("vault.action.quick_search")}
               onClick={() => openSearchOmnibar()}
             >
               <SearchIcon size={16} />
@@ -668,7 +671,7 @@ export default function VaultBrowser() {
             <button
               type="button"
               class="rounded-xs p-1 text-text-muted transition-colors hover:bg-accent-dim hover:text-text-secondary"
-              title="New Folder"
+              title={t("vault.action.new_folder")}
               onClick={startCreateFolder}
             >
               <FolderPlusIcon size={16} />
@@ -676,7 +679,7 @@ export default function VaultBrowser() {
             <button
               type="button"
               class="rounded-xs p-1 text-text-muted transition-colors hover:bg-accent-dim hover:text-text-secondary"
-              title="New File"
+              title={t("vault.action.new_file")}
               onClick={startCreateFile}
             >
               <PlusIcon size={16} />
@@ -701,7 +704,7 @@ export default function VaultBrowser() {
             <Show
               when={showRootEditInput() || vaultState.files.length > 0}
               fallback={
-                <p class="px-2 py-8 text-center text-xs text-text-muted">This vault is empty.</p>
+                <p class="px-2 py-8 text-center text-xs text-text-muted">{t("vault.empty.tree")}</p>
               }
             >
               <Show when={showRootEditInput()}>

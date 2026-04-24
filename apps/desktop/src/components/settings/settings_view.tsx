@@ -19,6 +19,7 @@ import { FilesSection } from "~/components/settings/sections/files_section";
 import { GeneralSection } from "~/components/settings/sections/general_section";
 import { KeybindingsSection } from "~/components/settings/sections/keybindings_section";
 import { PluginsSection } from "~/components/settings/sections/plugins_section";
+import { t } from "~/i18n";
 import { getPluginDisplayOrder } from "~/plugins/registry";
 import { slotRegistry } from "~/plugins/slots";
 import type { SlotFill } from "~/plugins/types";
@@ -34,20 +35,20 @@ import {
 
 interface NavCategory {
   id: string;
-  label: string;
+  label?: string;
 }
 
 // ── Data ──
 
 const CATEGORIES: NavCategory[] = [
-  { id: "general", label: "General" },
-  { id: "appearance", label: "Appearance" },
-  { id: "editor", label: "Editor" },
-  { id: "files", label: "Files & Links" },
-  { id: "keybindings", label: "Keybindings" },
-  { id: "plugins", label: "Plugins" },
-  { id: "about", label: "About" },
-  { id: "debug", label: "Debug" },
+  { id: "general" },
+  { id: "appearance" },
+  { id: "editor" },
+  { id: "files" },
+  { id: "keybindings" },
+  { id: "plugins" },
+  { id: "about" },
+  { id: "debug" },
 ];
 
 const SECTION_MAP: Record<string, Component> = {
@@ -79,9 +80,47 @@ function NavButton(props: {
       }`}
       onClick={props.onClick}
     >
-      {props.cat.label}
+      {props.cat.label ?? categoryLabel(props.cat.id)}
     </button>
   );
+}
+
+function categoryLabel(id: string): string {
+  switch (id) {
+    case "general":
+      return t("settings.nav.general");
+    case "appearance":
+      return t("settings.nav.appearance");
+    case "editor":
+      return t("settings.nav.editor");
+    case "files":
+      return t("settings.nav.files");
+    case "keybindings":
+      return t("settings.nav.keybindings");
+    case "plugins":
+      return t("settings.nav.plugins");
+    case "about":
+      return t("settings.nav.about");
+    case "debug":
+      return t("settings.nav.debug");
+    default:
+      return id;
+  }
+}
+
+function pluginSettingsLabel(fill: SlotFill): string {
+  switch (fill.id) {
+    case "core-auth.settings":
+      return t("settings.plugin.account");
+    case "core-indexer.settings":
+      return t("settings.plugin.indexer");
+    case "ai-chat.settings":
+      return t("settings.plugin.ai_chat");
+    case "graph-view.settings":
+      return t("settings.plugin.graph_view");
+    default:
+      return fill.label;
+  }
 }
 
 // ── Main Component ──
@@ -98,9 +137,16 @@ export default function SettingsView() {
     CATEGORIES.filter((c) => c.id !== "plugins" && c.id !== "about" && c.id !== "debug");
   const pluginCategories = () => {
     const order = new Map(getPluginDisplayOrder().map((id, index) => [id, index]));
+    const uniqueFills = new Map<string, SlotFill>();
 
-    return [...slotRegistry.fills.settingsSection]
-      .filter((fill) => fill.isActive())
+    for (const fill of slotRegistry.fills.settingsSection) {
+      if (!fill.isActive()) continue;
+      if (!uniqueFills.has(fill.id)) {
+        uniqueFills.set(fill.id, fill);
+      }
+    }
+
+    return [...uniqueFills.values()]
       .sort((left: SlotFill, right: SlotFill) => {
         const pluginOrder =
           (order.get(left.pluginId) ?? Number.MAX_SAFE_INTEGER) -
@@ -109,7 +155,7 @@ export default function SettingsView() {
         if (left.order !== right.order) return left.order - right.order;
         return left.label.localeCompare(right.label);
       })
-      .map((fill: SlotFill) => ({ id: `plugin:${fill.id}`, label: fill.label }));
+      .map((fill: SlotFill) => ({ id: `plugin:${fill.id}`, label: pluginSettingsLabel(fill) }));
   };
   const pluginsOverviewCategory = () => CATEGORIES.find((c) => c.id === "plugins") ?? null;
   const trailingCategories = () =>
@@ -126,9 +172,9 @@ export default function SettingsView() {
     activeCategory().startsWith("plugin:") ? activeCategory().slice("plugin:".length) : null;
   const sectionComponent = () => SECTION_MAP[activeCategory()];
   const resetButtonLabel = () => {
-    if (isResetting()) return "Resetting...";
-    if (confirmReset()) return "Are you sure?";
-    return "Reset All Settings";
+    if (isResetting()) return t("settings.reset.resetting");
+    if (confirmReset()) return t("settings.reset.confirm");
+    return t("settings.reset.default");
   };
   const currentSettingsTarget = createMemo<SettingsTarget | null>(() => {
     const tab = getActiveTab();

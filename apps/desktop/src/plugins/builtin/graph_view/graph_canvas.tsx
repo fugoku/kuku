@@ -40,6 +40,7 @@ import {
 } from "solid-js";
 import ForceGraph from "force-graph";
 
+import { t, tf } from "~/i18n";
 import { getEffectiveTheme } from "~/stores/theme";
 
 import { getGraphSettings, updateGraphSetting } from "./graph_settings";
@@ -840,28 +841,26 @@ export default function GraphCanvas(props: GraphCanvasProps) {
             <Show when={!initError() && status() === "loading"}>
               <div class="space-y-2">
                 <div class="mx-auto h-2.5 w-24 animate-pulse rounded-xs bg-ghost-hover" />
-                <p class="text-sm text-text-secondary">Indexing graph data…</p>
+                <p class="text-sm text-text-secondary">{t("graph.status.indexing")}</p>
               </div>
             </Show>
 
             <Show when={!initError() && status() === "error"}>
               <p class="text-sm text-text-secondary">
-                {store()?.state.error ?? "Unknown graph error"}
+                {store()?.state.error ?? t("graph.status.unknown_error")}
               </p>
             </Show>
 
             <Show when={!initError() && status() === "empty"}>
               <div class="space-y-2">
-                <p class="text-sm text-text-secondary">No graph data yet.</p>
-                <p class="text-xs text-text-muted">
-                  Open a vault and let the graph index markdown links.
-                </p>
+                <p class="text-sm text-text-secondary">{t("graph.status.empty")}</p>
+                <p class="text-xs text-text-muted">{t("graph.status.empty_hint")}</p>
               </div>
             </Show>
 
             <div class="mt-4 flex items-center justify-center gap-3 text-[0.6875rem] text-text-muted">
-              <span>{summary().nodeCount} nodes</span>
-              <span>{summary().linkCount} links</span>
+              <span>{tf("graph.tab.metric.nodes", { count: summary().nodeCount })}</span>
+              <span>{tf("graph.tab.metric.links", { count: summary().linkCount })}</span>
             </div>
           </div>
         </div>
@@ -873,17 +872,17 @@ export default function GraphCanvas(props: GraphCanvasProps) {
           class="absolute right-3 bottom-3 flex items-center gap-0.5 rounded-xs border border-border/70 bg-bg-elevated/85 p-1 shadow-soft-2 backdrop-blur-sm"
           classList={{ "right-2! bottom-2! gap-0! p-0.5!": isCompact() }}
         >
-          <CtrlBtn title="Zoom in" onClick={zoomIn} compact={isCompact()}>
+          <CtrlBtn title={t("graph.ctrl.zoom_in")} onClick={zoomIn} compact={isCompact()}>
             <ZoomInIcon />
           </CtrlBtn>
-          <CtrlBtn title="Zoom out" onClick={zoomOut} compact={isCompact()}>
+          <CtrlBtn title={t("graph.ctrl.zoom_out")} onClick={zoomOut} compact={isCompact()}>
             <ZoomOutIcon />
           </CtrlBtn>
 
           <Show when={!isCompact()}>
             <div class="mx-1 h-4 w-px bg-border" />
             <CtrlBtn
-              title="Toggle clusters"
+              title={t("graph.ctrl.toggle_clusters")}
               onClick={() => updateGraphSetting("showClusters", !showClusters())}
               active={showClusters()}
             >
@@ -891,13 +890,13 @@ export default function GraphCanvas(props: GraphCanvasProps) {
             </CtrlBtn>
           </Show>
 
-          <CtrlBtn title="Fit all nodes" onClick={fitView} compact={isCompact()}>
+          <CtrlBtn title={t("graph.ctrl.fit_all")} onClick={fitView} compact={isCompact()}>
             <FitViewIcon />
           </CtrlBtn>
 
           <Show when={isCompact()}>
             <CtrlBtn
-              title={followMode() ? "Stop following current note" : "Follow current note"}
+              title={followMode() ? t("graph.ctrl.stop_following") : t("graph.ctrl.follow_current")}
               onClick={() => {
                 const next = !followMode();
                 setFollowMode(next);
@@ -914,7 +913,7 @@ export default function GraphCanvas(props: GraphCanvasProps) {
           </Show>
 
           <Show when={!isCompact()}>
-            <CtrlBtn title="Reset view" onClick={resetView}>
+            <CtrlBtn title={t("graph.ctrl.reset_view")} onClick={resetView}>
               <ResetViewIcon />
             </CtrlBtn>
             <div class="mx-1 h-4 w-px bg-border" />
@@ -947,7 +946,9 @@ export default function GraphCanvas(props: GraphCanvasProps) {
                 {node().linkCount} connection{node().linkCount !== 1 ? "s" : ""}
               </span>
               <Show when={node().isOrphan}>
-                <span class="rounded-xs bg-ghost-hover px-1.5 py-0.5 text-[0.625rem]">orphan</span>
+                <span class="rounded-xs bg-ghost-hover px-1.5 py-0.5 text-[0.625rem]">
+                  {t("graph.badge.unlinked")}
+                </span>
               </Show>
               <span
                 class="rounded-xs px-1.5 py-0.5 text-[0.625rem]"

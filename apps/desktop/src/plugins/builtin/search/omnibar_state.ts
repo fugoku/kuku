@@ -1,5 +1,6 @@
 import { createSignal, onCleanup } from "solid-js";
 
+import { t } from "~/i18n";
 import { getSearchService } from "./runtime";
 import type { SearchService } from "../core_indexer/service";
 import type { SimpleSearchHit, SimpleSearchResult } from "../core_indexer/types";
@@ -64,7 +65,7 @@ function createOmnibarController(
 
     if (!service) {
       setResults(null);
-      setError("Search service is unavailable.");
+      setError(t("search.error.unavailable"));
       setIsLoading(false);
       setSelectedIndex(-1);
       return;
@@ -83,7 +84,7 @@ function createOmnibarController(
       if (currentId !== sequenceId) return;
       setResults(null);
       setSelectedIndex(-1);
-      setError(caughtError instanceof Error ? caughtError.message : "Search failed.");
+      setError(caughtError instanceof Error ? caughtError.message : t("search.error.failed"));
       setIsLoading(false);
     }
   };

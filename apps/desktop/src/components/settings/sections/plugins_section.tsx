@@ -8,6 +8,7 @@ import {
   SettingsStatusBadge,
   SettingsToolbarAction,
 } from "~/components/settings/settings_blocks";
+import { t } from "~/i18n";
 import { Switch } from "~/components/ui";
 import { getPlugin, getPluginDisplayOrder, registryState } from "~/plugins/registry";
 import type { PluginMeta } from "~/plugins/types";
@@ -49,22 +50,22 @@ function PluginsSection(): JSX.Element {
     const disabled = isDisabled(plugin.id, plugin.canDisable);
 
     if (plugin.id in registryState.failed) {
-      return { label: "Failed", tone: "error" };
+      return { label: t("settings.plugins.status.failed"), tone: "error" };
     }
 
     if (disabled) {
-      return { label: "Disabled next launch", tone: "neutral" };
+      return { label: t("settings.plugins.status.disabled_next_launch"), tone: "neutral" };
     }
 
     if (!plugin.canDisable) {
-      return { label: "Required", tone: "neutral" };
+      return { label: t("settings.plugins.status.required"), tone: "neutral" };
     }
 
     if (registryState.activated.includes(plugin.id)) {
-      return { label: "Active", tone: "success" };
+      return { label: t("settings.plugins.status.active"), tone: "success" };
     }
 
-    return { label: "Inactive", tone: "neutral" };
+    return { label: t("settings.plugins.status.inactive"), tone: "neutral" };
   }
 
   async function restartApp(): Promise<void> {
@@ -81,20 +82,21 @@ function PluginsSection(): JSX.Element {
 
   return (
     <SettingsPanel
-      title="Plugins"
-      description={`Enable or disable plugins and inspect their current load status.
-Changes apply on next app launch.`}
+      title={t("settings.plugins.title")}
+      description={t("settings.plugins.description")}
       anchor="plugins"
       action={
         <SettingsToolbarAction disabled={isRestarting()} onClick={() => void restartApp()}>
-          {isRestarting() ? "Restarting..." : "Restart"}
+          {isRestarting()
+            ? t("settings.plugins.action.restarting")
+            : t("settings.plugins.action.restart")}
         </SettingsToolbarAction>
       }
     >
       <div class="space-y-2">
         <Show
           when={plugins().length > 0}
-          fallback={<SettingsBanner tone="info" description="No plugins registered." />}
+          fallback={<SettingsBanner tone="info" description={t("settings.plugins.empty")} />}
         >
           <For each={plugins()}>
             {(plugin) => {
@@ -122,16 +124,18 @@ Changes apply on next app launch.`}
                   description={
                     <>
                       <span class="text-text-muted">
-                        {plugin.description ?? "No description provided."}
+                        {plugin.description ?? t("settings.plugins.description.none")}
                       </span>
 
                       <Show when={dependencies().length}>
                         <span class="mt-1 block text-[0.5rem] text-text-muted">
-                          Depends on {dependencyNames().join(", ")}
+                          {t("settings.plugins.depends_on")} {dependencyNames().join(", ")}
                         </span>
                       </Show>
                       <Show when={isFailed()}>
-                        <span class="mt-1 block text-error">Error: {failedInfo()?.error}</span>
+                        <span class="mt-1 block text-error">
+                          {t("settings.plugins.error")}: {failedInfo()?.error}
+                        </span>
                       </Show>
                     </>
                   }
