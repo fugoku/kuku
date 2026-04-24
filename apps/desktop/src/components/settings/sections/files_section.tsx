@@ -6,64 +6,63 @@ import {
   SettingsSelect,
   SettingsToolbarAction,
 } from "~/components/settings/settings_blocks";
+import { t } from "~/i18n";
 import { setFilesSetting, settingsState } from "~/stores/settings";
 import { emptyTrashFolder, openTrashFolder, vaultState } from "~/stores/vault";
 
-const NEW_FILE_LOCATION_OPTIONS = [
-  { value: "root", label: "Vault root" },
-  { value: "current", label: "Same folder as current file" },
-];
-
-const DELETED_FILES_OPTIONS = [
-  { value: "trash", label: "Move to system trash" },
-  { value: "kuku-trash", label: "Move to .trash folder" },
-  { value: "permanent", label: "Delete permanently" },
-];
-
 function FilesSection() {
   const [confirmEmptyTrash, setConfirmEmptyTrash] = createSignal(false);
+  const newFileLocationOptions = [
+    { value: "root", label: t("settings.files.location.root") },
+    { value: "current", label: t("settings.files.location.current") },
+  ];
+  const deletedFilesOptions = [
+    { value: "trash", label: t("settings.files.deleted.trash") },
+    { value: "kuku-trash", label: t("settings.files.deleted.kuku_trash") },
+    { value: "permanent", label: t("settings.files.deleted.permanent") },
+  ];
 
   return (
     <SettingsPanel
-      title="Files & Links"
-      description="Configure where new files are created and how deletes are handled."
+      title={t("settings.files.title")}
+      description={t("settings.files.description")}
       anchor="files"
     >
       <SettingsFieldRow
-        label="Default new file location"
-        description="Where new files are created by default."
+        label={t("settings.files.location.label")}
+        description={t("settings.files.location.description")}
         control={
           <div class="w-full max-w-64">
             <SettingsSelect
-              options={NEW_FILE_LOCATION_OPTIONS}
+              options={newFileLocationOptions}
               value={settingsState.files.newFileLocation}
               onChange={(value) => setFilesSetting("newFileLocation", value)}
-              placeholder="Select location"
+              placeholder={t("settings.files.location.placeholder")}
             />
           </div>
         }
       />
       <SettingsFieldRow
-        label="Deleted files"
-        description="Choose whether deletes go to the system trash, Kuku's hidden .trash folder, or are removed permanently."
+        label={t("settings.files.deleted.label")}
+        description={t("settings.files.deleted.description")}
         control={
           <div class="w-full max-w-64">
             <SettingsSelect
-              options={DELETED_FILES_OPTIONS}
+              options={deletedFilesOptions}
               value={settingsState.files.deletedFiles}
               onChange={(value) => setFilesSetting("deletedFiles", value)}
-              placeholder="Select action"
+              placeholder={t("settings.files.deleted.placeholder")}
             />
           </div>
         }
       />
       {settingsState.files.deletedFiles === "kuku-trash" ? (
         <SettingsFieldRow
-          label="Kuku trash"
+          label={t("settings.files.kuku_trash.label")}
           description={
             confirmEmptyTrash()
-              ? "Are you sure? Empty Trash permanently deletes everything currently inside Kuku Trash."
-              : "The .trash folder stays hidden from the file tree. Use these actions to open it in Finder or remove its contents."
+              ? t("settings.files.kuku_trash.confirm_description")
+              : t("settings.files.kuku_trash.description")
           }
           control={
             <div class="flex items-center gap-2">
@@ -71,7 +70,7 @@ function FilesSection() {
                 disabled={!vaultState.rootPath}
                 onClick={() => void openTrashFolder()}
               >
-                Open Trash
+                {t("settings.files.kuku_trash.open")}
               </SettingsToolbarAction>
               {confirmEmptyTrash() ? (
                 <>
@@ -83,10 +82,10 @@ function FilesSection() {
                       void emptyTrashFolder();
                     }}
                   >
-                    Confirm Empty
+                    {t("settings.files.kuku_trash.confirm_empty")}
                   </SettingsToolbarAction>
                   <SettingsToolbarAction onClick={() => setConfirmEmptyTrash(false)}>
-                    Cancel
+                    {t("settings.files.kuku_trash.cancel")}
                   </SettingsToolbarAction>
                 </>
               ) : (
@@ -95,7 +94,7 @@ function FilesSection() {
                   variant="destructive"
                   onClick={() => setConfirmEmptyTrash(true)}
                 >
-                  Empty Trash
+                  {t("settings.files.kuku_trash.empty")}
                 </SettingsToolbarAction>
               )}
             </div>

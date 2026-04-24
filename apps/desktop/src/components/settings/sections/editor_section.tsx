@@ -4,6 +4,7 @@ import {
   SettingsPanel,
   SettingsSelect,
 } from "~/components/settings/settings_blocks";
+import { t } from "~/i18n";
 import { Switch } from "~/components/ui";
 import { setEditorSetting, setGeneralSetting, settingsState } from "~/stores/settings";
 
@@ -49,13 +50,13 @@ const LINE_HEIGHT_OPTIONS = [
 function EditorSection() {
   return (
     <SettingsPanel
-      title="Editor"
-      description="Configure writing behavior, spacing, and typography."
+      title={t("settings.editor.title")}
+      description={t("settings.editor.description")}
       anchor="editor"
     >
       <SettingsFieldRow
-        label="Auto-save"
-        description="Automatically save changes after editing."
+        label={t("settings.editor.auto_save.label")}
+        description={t("settings.editor.auto_save.description")}
         control={
           <Switch
             checked={settingsState.general.autoSave}
@@ -64,8 +65,8 @@ function EditorSection() {
         }
       />
       <SettingsFieldRow
-        label="Typing indicator"
-        description="Show character count in the sidebar while typing."
+        label={t("settings.editor.typing_indicator.label")}
+        description={t("settings.editor.typing_indicator.description")}
         control={
           <Switch
             checked={settingsState.general.typingIndicator}
@@ -74,8 +75,8 @@ function EditorSection() {
         }
       />
       <SettingsFieldRow
-        label="Spell check"
-        description="Use the system spell checker while editing."
+        label={t("settings.editor.spell_check.label")}
+        description={t("settings.editor.spell_check.description")}
         control={
           <Switch
             checked={settingsState.general.spellCheck}
@@ -84,68 +85,68 @@ function EditorSection() {
         }
       />
       <SettingsFieldRow
-        label="Tab size"
-        description="Number of spaces per tab character."
+        label={t("settings.editor.tab_size.label")}
+        description={t("settings.editor.tab_size.description")}
         control={
           <div class="w-full max-w-40">
             <SettingsSelect
               options={TAB_SIZE_OPTIONS}
               value={String(settingsState.editor.tabSize)}
               onChange={(value) => setEditorSetting("tabSize", Number.parseInt(value, 10))}
-              placeholder="Select tab size"
+              placeholder={t("settings.editor.tab_size.placeholder")}
             />
           </div>
         }
       />
       <SettingsFieldRow
-        label="Font size"
-        description="Base text size used in the editor body."
+        label={t("settings.editor.font_size.label")}
+        description={t("settings.editor.font_size.description")}
         control={
           <div class="w-full max-w-40">
             <SettingsSelect
               options={FONT_SIZE_OPTIONS}
               value={String(settingsState.editor.fontSize)}
               onChange={(value) => setEditorSetting("fontSize", Number.parseInt(value, 10))}
-              placeholder="Select font size"
+              placeholder={t("settings.editor.font_size.placeholder")}
             />
           </div>
         }
       />
       <SettingsFieldRow
-        label="Line height"
-        description="Line spacing for editor paragraphs and text."
+        label={t("settings.editor.line_height.label")}
+        description={t("settings.editor.line_height.description")}
         control={
           <div class="w-full max-w-40">
             <SettingsSelect
               options={LINE_HEIGHT_OPTIONS}
               value={String(settingsState.editor.lineHeight)}
               onChange={(value) => setEditorSetting("lineHeight", Number.parseFloat(value))}
-              placeholder="Select line height"
+              placeholder={t("settings.editor.line_height.placeholder")}
             />
           </div>
         }
       />
       <SettingsFieldRow
-        label="Editor font"
-        description="Font used in the editor. Enter a CSS font-family name."
+        label={t("settings.editor.font.label")}
+        description={t("settings.editor.font.description")}
         control={
           <div class="w-full max-w-70">
             <FontInput
               value={settingsState.editor.fontFamily}
-              placeholder="e.g. Goorm Sans"
+              placeholder={t("settings.editor.font.placeholder")}
               onCommit={(value) => setEditorSetting("fontFamily", value)}
             />
           </div>
         }
       />
       <SettingsFieldRow
-        label="Monospace font"
-        description="Monospace font used in the editor. Enter a CSS font-family name."
+        label={t("settings.editor.font_mono.label")}
+        description={t("settings.editor.font_mono.description")}
         control={
           <div class="w-full max-w-70">
             <FontInput
               value={settingsState.editor.fontMono}
-              placeholder="e.g. Goorm Sans Code"
+              placeholder={t("settings.editor.font_mono.placeholder")}
               onCommit={(value) => setEditorSetting("fontMono", value)}
             />
           </div>

@@ -1,5 +1,6 @@
 import { Match, Show, Switch } from "solid-js";
 
+import { t, tf } from "~/i18n";
 import { checkForUpdates, downloadAndInstall, restart, updaterState } from "~/stores/updater";
 
 // ── Styling tokens shared across states ──
@@ -42,10 +43,12 @@ export default function UpdateIndicator() {
               type="button"
               class={`${PILL_BASE} border-border-variant bg-element text-text-secondary hover:bg-element-hover hover:text-text-primary`}
               onClick={handleInstall}
-              title={`Update to ${updaterState.version ?? "latest"}`}
+              title={tf("updater.title.update_to_version", {
+                version: updaterState.version ?? "latest",
+              })}
             >
               <DotIndicator tone="info" />
-              Update
+              {t("updater.action.update")}
             </button>
           </Match>
 
@@ -63,10 +66,10 @@ export default function UpdateIndicator() {
               type="button"
               class={`${PILL_BASE} border-info-border bg-info-bg text-info hover:brightness-110`}
               onClick={handleRestart}
-              title="Relaunch to finish updating"
+              title={t("updater.title.relaunch_to_finish")}
             >
               <DotIndicator tone="info" pulse />
-              Restart to update
+              {t("updater.action.restart_to_update")}
             </button>
           </Match>
 
@@ -75,10 +78,10 @@ export default function UpdateIndicator() {
               type="button"
               class={`${PILL_BASE} border-error-border bg-error-bg text-error hover:brightness-110`}
               onClick={handleRetry}
-              title={updaterState.errorMessage ?? "Update check failed"}
+              title={updaterState.errorMessage ?? t("updater.title.check_failed")}
             >
               <DotIndicator tone="error" />
-              Update failed
+              {t("updater.action.update_failed")}
             </button>
           </Match>
         </Switch>

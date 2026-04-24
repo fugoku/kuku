@@ -9,6 +9,7 @@ import {
   SettingsToolbarAction,
 } from "~/components/settings/settings_blocks";
 import { useSettingsRefreshToken } from "~/components/settings/settings_refresh";
+import { t, tf } from "~/i18n";
 import Switch from "~/components/ui/switch";
 
 import { authAuthorizations, authState, getAuthService } from "./auth_service";
@@ -29,8 +30,8 @@ function AuthSettings(): JSX.Element {
 
   return (
     <SettingsPanel
-      title="Account"
-      description="Control which plugins can use your Kuku server session."
+      title={t("settings.plugin.account.title")}
+      description={t("settings.plugin.account.description")}
       action={
         <Show
           when={authState.authenticated}
@@ -40,25 +41,33 @@ function AuthSettings(): JSX.Element {
               disabled={authState.loading}
               onClick={() => void auth()?.login()}
             >
-              {authState.loading ? "Opening..." : "Sign in"}
+              {authState.loading
+                ? t("settings.plugin.account.action.opening")
+                : t("settings.plugin.account.action.sign_in")}
             </SettingsToolbarAction>
           }
         >
           <SettingsToolbarAction onClick={() => void auth()?.logout()}>
-            Sign out
+            {t("settings.plugin.account.action.sign_out")}
           </SettingsToolbarAction>
         </Show>
       }
     >
       <SettingsCard
         anchor="session"
-        title="Session"
+        title={t("settings.plugin.account.session.title")}
         description={
-          authState.authenticated ? `Signed in as ${authState.user?.email ?? ""}` : "Not signed in"
+          authState.authenticated
+            ? tf("settings.plugin.account.session.signed_in_as", {
+                email: authState.user?.email ?? "",
+              })
+            : t("settings.plugin.account.session.not_signed_in")
         }
         action={
           <SettingsStatusBadge tone={authState.authenticated ? "success" : "neutral"}>
-            {authState.authenticated ? "Signed in" : "Signed out"}
+            {authState.authenticated
+              ? t("settings.plugin.account.session.status.signed_in")
+              : t("settings.plugin.account.session.status.signed_out")}
           </SettingsStatusBadge>
         }
         bodyClass="my-1"
@@ -72,22 +81,22 @@ function AuthSettings(): JSX.Element {
             class="text-[0.75rem] text-text-muted underline underline-offset-2 transition-colors hover:text-text-primary"
             onClick={() => void auth()?.openAccountDashboard()}
           >
-            Manage my account
+            {t("settings.plugin.account.session.manage")}
           </button>
         </Show>
       </SettingsCard>
 
       <SettingsCard
         anchor="authorizations"
-        title="Plugin Access"
-        description="Plugins must be explicitly allowed before they can send requests with your server session."
+        title={t("settings.plugin.account.authorizations.title")}
+        description={t("settings.plugin.account.authorizations.description")}
       >
         <Show
           when={authAuthorizations.length > 0}
           fallback={
             <SettingsBanner
               tone="info"
-              description="No plugin has requested server session access yet."
+              description={t("settings.plugin.account.authorizations.empty")}
             />
           }
         >
@@ -96,7 +105,7 @@ function AuthSettings(): JSX.Element {
               {(item) => (
                 <SettingsListRow
                   title={<span>{item.pluginId}</span>}
-                  description="Allow this plugin to use your Kuku server session."
+                  description={t("settings.plugin.account.authorizations.item_description")}
                   action={
                     <Switch
                       checked={item.authorized}

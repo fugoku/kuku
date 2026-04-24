@@ -9,6 +9,7 @@ import {
 } from "../chat_store";
 import type { ChatSessionState } from "../types";
 import { getSessionStatusMeta, type ChatUiTone } from "../ui_state";
+import { t } from "~/i18n";
 
 const STATUS_TONE_CLASSES: Record<ChatUiTone, string> = {
   neutral: "text-text-muted",
@@ -44,7 +45,7 @@ function ChatHeader(): JSX.Element {
           <button
             type="button"
             class="flex size-8 items-center justify-center rounded-md text-text-muted transition hover:bg-ghost-hover hover:text-text-primary"
-            title="Cancel"
+            title={t("chat.header.cancel")}
             onClick={() => void cancelSession()}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none">
@@ -56,7 +57,7 @@ function ChatHeader(): JSX.Element {
         <button
           type="button"
           class="flex size-8 items-center justify-center rounded-md text-text-muted transition enabled:hover:bg-ghost-hover enabled:hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
-          title="Clear Chat"
+          title={t("chat.header.clear")}
           disabled={chatState.isCreatingSession || isSessionBusy(session())}
           onClick={() => {
             const active = getActiveSession();

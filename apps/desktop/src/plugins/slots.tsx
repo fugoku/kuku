@@ -49,7 +49,9 @@ const [slotRegistry, setSlotRegistry] = createStore<{
  * Returns a disposer that removes the fill.
  */
 function registerFill(fill: SlotFill): Disposer {
-  setSlotRegistry("fills", fill.slot, (prev) => [...prev, fill].sort((a, b) => a.order - b.order));
+  setSlotRegistry("fills", fill.slot, (prev) =>
+    [...prev.filter((entry) => entry.id !== fill.id), fill].sort((a, b) => a.order - b.order),
+  );
 
   return () => {
     setSlotRegistry("fills", fill.slot, (prev) => prev.filter((f) => f.id !== fill.id));

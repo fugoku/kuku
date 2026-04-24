@@ -15,6 +15,7 @@ import {
   SettingsToolbarAction,
 } from "~/components/settings/settings_blocks";
 import { useSettingsRefreshToken } from "~/components/settings/settings_refresh";
+import { t, tf } from "~/i18n";
 import { openSettings } from "~/stores/files";
 
 function openAccountSettings(): void {
@@ -70,15 +71,15 @@ function AiSettings(): JSX.Element {
   });
 
   const saveButtonLabel = createMemo(() => {
-    if (chatState.config.saving) return "Saving…";
-    if (isUnsaved()) return "Save (required)";
-    return "Save";
+    if (chatState.config.saving) return t("settings.plugin.ai_chat.action.saving");
+    if (isUnsaved()) return t("settings.plugin.ai_chat.action.save_required");
+    return t("settings.plugin.ai_chat.action.save");
   });
 
   return (
     <SettingsPanel
-      title="AI Chat"
-      description="Hook up the side-panel assistant: pick a connection, save, then chat from the right side of the app."
+      title={t("settings.plugin.ai_chat.title")}
+      description={t("settings.plugin.ai_chat.description")}
       action={
         <SettingsToolbarAction
           variant="primary"
@@ -93,21 +94,21 @@ function AiSettings(): JSX.Element {
       <Show when={isUnsaved()}>
         <SettingsBanner
           tone="warning"
-          title="Not saved yet"
-          description="Press Save at the top of this page before you leave, or the API key, connection, and other changes here will not be used in chat."
+          title={t("settings.plugin.ai_chat.unsaved.title")}
+          description={t("settings.plugin.ai_chat.unsaved.description")}
         />
       </Show>
       <SettingsBanner
         tone="info"
         class="select-text"
-        title="Quick guide"
+        title={t("settings.plugin.ai_chat.guide.title")}
         description={
           <ol class="mt-1.5 list-decimal space-y-1.5 pl-4 text-xs/relaxed text-text-secondary [&_a]:text-text-primary [&_a]:underline [&_a]:underline-offset-2">
             <li>
-              <strong class="text-text-primary">Connection:</strong> “Kuku” uses the account you’re
-              signed in with. If you already use a Kuku account, that’s the easy path: sign in once
-              and you’re good — you usually don’t need to tweak this page. “My Gemini API key” is
-              for your own key from Google’s{" "}
+              <strong class="text-text-primary">
+                {t("settings.plugin.ai_chat.guide.connection_label")}
+              </strong>{" "}
+              {t("settings.plugin.ai_chat.guide.connection_before_link")}{" "}
               <a
                 href="https://aistudio.google.com/apikey"
                 target="_blank"
@@ -116,15 +117,19 @@ function AiSettings(): JSX.Element {
               >
                 AI Studio
               </a>{" "}
-              (free tier is enough to try).
+              {t("settings.plugin.ai_chat.guide.connection_after_link")}
             </li>
             <li>
-              <strong class="text-text-primary">Save</strong> after you change anything. A green or
-              quiet success means you’re good.
+              <strong class="text-text-primary">
+                {t("settings.plugin.ai_chat.guide.save_label")}
+              </strong>{" "}
+              {t("settings.plugin.ai_chat.guide.save_text")}
             </li>
             <li>
-              <strong class="text-text-primary">Open chat:</strong> use the right sidebar tab or the
-              command to open the panel, then type in the box at the bottom.
+              <strong class="text-text-primary">
+                {t("settings.plugin.ai_chat.guide.open_chat_label")}
+              </strong>{" "}
+              {t("settings.plugin.ai_chat.guide.open_chat_text")}
             </li>
           </ol>
         }
@@ -133,24 +138,24 @@ function AiSettings(): JSX.Element {
       <SettingsBanner
         tone="info"
         class="select-text"
-        title="Have a Kuku account?"
-        description="Log in and choose “Kuku (signed in)” — then chat just works; this screen is only for picking that mode, your key, or saving. Sign-in, session, and AI permissions are all in Account."
+        title={t("settings.plugin.ai_chat.account_banner.title")}
+        description={t("settings.plugin.ai_chat.account_banner.description")}
         action={
           <SettingsToolbarAction variant="primary" onClick={openAccountSettings}>
-            Open Account
+            {t("settings.plugin.ai_chat.account_banner.open_account")}
           </SettingsToolbarAction>
         }
       />
 
       <SettingsFieldRow
-        label="Connection"
-        description="Start with Kuku if you’re logged in. Switch to your own key only if you need it."
+        label={t("settings.plugin.ai_chat.connection.label")}
+        description={t("settings.plugin.ai_chat.connection.description")}
         control={
           <div class="w-full max-w-72">
             <SettingsSelect
               options={[
-                { value: "remote", label: "Kuku (signed in) — easiest" },
-                { value: "gemini", label: "My Gemini API key" },
+                { value: "remote", label: t("settings.plugin.ai_chat.connection.option_remote") },
+                { value: "gemini", label: t("settings.plugin.ai_chat.connection.option_gemini") },
               ]}
               value={provider()}
               onChange={(value) => setProvider(value as "gemini" | "remote")}
@@ -161,8 +166,8 @@ function AiSettings(): JSX.Element {
 
       <Show when={provider() === "remote"}>
         <SettingsFieldRow
-          label="Model"
-          description="Managed for you. You can’t change it here; it updates when the app updates."
+          label={t("settings.plugin.ai_chat.model.label")}
+          description={t("settings.plugin.ai_chat.model.remote_description")}
           control={
             <div class="w-full max-w-sm">
               <SettingsInput
@@ -177,8 +182,8 @@ function AiSettings(): JSX.Element {
         <SettingsBanner
           tone="info"
           class="py-2.5!"
-          title="While you’re on Kuku"
-          description="No API key in this screen — you already authorized the app with your Kuku / Google sign-in. If chat says it’s not allowed, check Account in settings."
+          title={t("settings.plugin.ai_chat.remote_banner.title")}
+          description={t("settings.plugin.ai_chat.remote_banner.description")}
         />
       </Show>
 
@@ -186,27 +191,27 @@ function AiSettings(): JSX.Element {
         <SettingsBanner
           tone="info"
           class="py-2.5! select-text"
-          title="Using your own key"
+          title={t("settings.plugin.ai_chat.gemini_banner.title")}
           description={
             <ol class="mt-1.5 list-decimal space-y-1.5 pl-4 text-[0.75rem] text-text-secondary">
-              <li>Open Google AI Studio (link in Quick guide above).</li>
-              <li>Create a key, copy it once — you won’t see the full value again.</li>
-              <li>Paste it below, then press Save. The key stays in this app on this device.</li>
+              <li>{t("settings.plugin.ai_chat.gemini_banner.step1")}</li>
+              <li>{t("settings.plugin.ai_chat.gemini_banner.step2")}</li>
+              <li>{t("settings.plugin.ai_chat.gemini_banner.step3")}</li>
             </ol>
           }
         />
 
         <SettingsFieldRow
           stacked
-          label="Gemini API key"
-          description="The field is hidden by default. Use the eye to double-check you pasted the whole key."
+          label={t("settings.plugin.ai_chat.api_key.label")}
+          description={t("settings.plugin.ai_chat.api_key.description")}
           control={
             <div data-settings-anchor="api-key" class="w-full max-w-md space-y-1.5">
               <div class="relative w-full">
                 <SettingsInput
                   type={showApiKey() ? "text" : "password"}
                   value={apiKey()}
-                  placeholder="Paste your key here"
+                  placeholder={t("settings.plugin.ai_chat.api_key.placeholder")}
                   class="pr-9"
                   autocomplete="off"
                   spellcheck={false}
@@ -217,7 +222,11 @@ function AiSettings(): JSX.Element {
                   class="absolute inset-y-0 right-0 flex items-center px-2.5 text-text-muted transition-colors hover:text-text-primary"
                   onClick={() => setShowApiKey((prev) => !prev)}
                   tabIndex={-1}
-                  title={showApiKey() ? "Hide key" : "Show key"}
+                  title={
+                    showApiKey()
+                      ? t("settings.plugin.ai_chat.api_key.hide")
+                      : t("settings.plugin.ai_chat.api_key.show")
+                  }
                 >
                   <Show when={showApiKey()} fallback={<EyeIcon size={14} />}>
                     <EyeOffIcon size={14} />
@@ -226,8 +235,9 @@ function AiSettings(): JSX.Element {
               </div>
               <Show when={isUnsaved() && apiKey().trim() !== ""}>
                 <p class="text-[0.6875rem] font-medium text-warning" role="status">
-                  Not saved — press <span class="text-text-primary">Save</span> at the top so chat
-                  can use this key.
+                  {t("settings.plugin.ai_chat.unsaved.inline_prefix")}{" "}
+                  <span class="text-text-primary">{t("settings.plugin.ai_chat.action.save")}</span>{" "}
+                  {t("settings.plugin.ai_chat.unsaved.inline_suffix")}
                 </p>
               </Show>
             </div>
@@ -235,8 +245,8 @@ function AiSettings(): JSX.Element {
         />
 
         <SettingsFieldRow
-          label="Model"
-          description="Same for everyone with a personal key; you can’t pick another model in this build."
+          label={t("settings.plugin.ai_chat.model.label")}
+          description={t("settings.plugin.ai_chat.model.gemini_description")}
           control={
             <div class="w-full max-w-sm">
               <SettingsInput
@@ -258,18 +268,20 @@ function AiSettings(): JSX.Element {
       </Show>
 
       <SettingsCard
-        title="What the AI can do"
-        description="Tools the assistant can reach for on your behalf — searching notes, reading or editing files, and more. It will ask before destructive steps when needed."
+        title={t("settings.plugin.ai_chat.tools.title")}
+        description={t("settings.plugin.ai_chat.tools.description")}
         tone="subtle"
       >
         <Show when={chatState.config.toolsLoading}>
-          <p class="text-[0.75rem] text-text-muted">Loading the tool list…</p>
+          <p class="text-[0.75rem] text-text-muted">{t("settings.plugin.ai_chat.tools.loading")}</p>
         </Show>
         <Show when={!chatState.config.toolsLoading && chatState.config.availableTools.length > 0}>
           <p class="text-[0.75rem] text-text-muted">
-            {chatState.config.availableTools.length} tool
-            {chatState.config.availableTools.length === 1 ? "" : "s"} available to the AI. You don’t
-            have to read the list to use chat.
+            {chatState.config.availableTools.length === 1
+              ? t("settings.plugin.ai_chat.tools.count_one")
+              : tf("settings.plugin.ai_chat.tools.count_other", {
+                  count: chatState.config.availableTools.length,
+                })}
           </p>
           <details class="kuku-ai-tools-details mt-3 overflow-hidden rounded-sm border border-border/90 bg-bg-secondary/50 transition-shadow hover:border-border">
             <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 pr-2 text-left select-none marker:content-none [&::-webkit-details-marker]:hidden">
@@ -282,15 +294,15 @@ function AiSettings(): JSX.Element {
                 </span>
                 <span>
                   <span class="block text-[0.8125rem] font-medium text-text-primary">
-                    Show the technical tool list
+                    {t("settings.plugin.ai_chat.tools.summary_title")}
                   </span>
                   <span class="block text-[0.6875rem] text-text-muted">
-                    For debugging or curiosity — tool names the AI sees
+                    {t("settings.plugin.ai_chat.tools.summary_hint")}
                   </span>
                 </span>
               </span>
               <span class="shrink-0 rounded-xs border border-border/60 bg-bg-tertiary/80 px-2 py-0.5 text-[0.625rem] font-medium tracking-wide text-text-secondary uppercase">
-                tap
+                {t("settings.plugin.ai_chat.tools.tap")}
               </span>
             </summary>
             <div class="border-t border-border/50 bg-bg-primary/50 px-2.5 py-2">
@@ -327,10 +339,7 @@ function AiSettings(): JSX.Element {
           </details>
         </Show>
         <Show when={!chatState.config.toolsLoading && chatState.config.availableTools.length === 0}>
-          <SettingsBanner
-            tone="info"
-            description="We couldn’t load the tool list. Check your network, then press Save to try again."
-          />
+          <SettingsBanner tone="info" description={t("settings.plugin.ai_chat.tools.empty")} />
         </Show>
       </SettingsCard>
     </SettingsPanel>
