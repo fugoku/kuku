@@ -32,6 +32,7 @@ type Querier interface {
 	GetIdentityByProviderID(ctx context.Context, arg GetIdentityByProviderIDParams) (AuthIdentity, error)
 	GetRefreshTokenByHash(ctx context.Context, tokenHash string) (AuthRefreshToken, error)
 	GetSubscriptionByUserID(ctx context.Context, userID uuid.UUID) (KukuSubscription, error)
+	GetSubscriptionByUserIDForUpdate(ctx context.Context, userID uuid.UUID) (KukuSubscription, error)
 	// Explicit column list so the tokens_k cast pins sqlc's generated Go type
 	// (float32) regardless of the storage type. Storage is NUMERIC so SUM
 	// aggregates are exact; the cast here is lossless for display (REAL has
@@ -40,6 +41,8 @@ type Querier interface {
 	GetUserByEmail(ctx context.Context, email string) (AuthUser, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (AuthUser, error)
 	GetValidSession(ctx context.Context, arg GetValidSessionParams) (AuthSession, error)
+	IncrementDailyAIRequests(ctx context.Context, arg IncrementDailyAIRequestsParams) error
+	IncrementDailyAITokens(ctx context.Context, arg IncrementDailyAITokensParams) error
 	InvalidateOneTimeTokensByEmail(ctx context.Context, arg InvalidateOneTimeTokensByEmailParams) error
 	RevokeAllUserRefreshTokens(ctx context.Context, userID uuid.UUID) error
 	RevokeAllUserSessions(ctx context.Context, userID uuid.UUID) error
@@ -49,6 +52,7 @@ type Querier interface {
 	SoftDeleteUser(ctx context.Context, id uuid.UUID) error
 	UpdateIdentityLastSignIn(ctx context.Context, arg UpdateIdentityLastSignInParams) error
 	UpdateSessionRefreshedAt(ctx context.Context, id uuid.UUID) error
+	UpdateSubscriptionPeriod(ctx context.Context, arg UpdateSubscriptionPeriodParams) (KukuSubscription, error)
 	UpdateUserLastSignIn(ctx context.Context, id uuid.UUID) error
 	UpdateUserName(ctx context.Context, arg UpdateUserNameParams) (AuthUser, error)
 }

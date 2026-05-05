@@ -39,7 +39,7 @@ func (s *Server) Run(ctx context.Context) error {
 		return fmt.Errorf("init email sender: %w", err)
 	}
 	authService := auth.NewAuthService(s.cfg, s.pool, queries, emailSender, s.log)
-	dashboardService := dashboard.NewDashboardService(queries)
+	dashboardService := dashboard.NewDashboardService(s.pool, queries)
 	aiService, err := ai.NewService(s.cfg)
 	if err != nil {
 		return fmt.Errorf("init ai service: %w", err)
@@ -49,7 +49,7 @@ func (s *Server) Run(ctx context.Context) error {
 	authHandler := auth.NewAuthHandler(authService, s.log, secureCookie)
 	oauthHandler := auth.NewOAuthCallbackHandler(s.cfg, authService, s.log, secureCookie)
 	dashboardHandler := dashboard.NewDashboardHandler(dashboardService, s.log)
-	aiHandler := ai.NewHandler(aiService, s.log)
+	aiHandler := ai.NewHandler(aiService, dashboardService, s.log)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
