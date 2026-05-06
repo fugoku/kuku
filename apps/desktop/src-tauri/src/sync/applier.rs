@@ -18,12 +18,14 @@ use super::client::{
 };
 use super::crypto::{CommitBodyAad, SymmetricKey, decrypt_commit_body, encrypted_blob_metadata};
 use super::db::{
-    self, FILE_KIND_MARKDOWN, SyncCommitRecord, SyncFileInput, SyncTreeEntryRecord,
-    SyncVaultRecord, file_id_for_normalized_path, get_vault, list_tree_entries, mark_files_synced,
-    persist_tree_cache, update_vault_after_pull, upsert_local_commit, upsert_vault,
+    self, FILE_KIND_MARKDOWN, SyncCommitRecord, SyncConflictRecord, SyncFileInput, SyncFileRecord,
+    SyncTreeEntryRecord, SyncVaultRecord, file_id_for_normalized_path, get_vault,
+    list_tree_entries, mark_files_synced, persist_tree_cache, update_vault_after_pull,
+    upsert_conflict, upsert_local_commit, upsert_vault,
 };
 use super::errors::{SyncError, SyncResult};
 use super::keys::{self, PassphraseKeyEnvelope, WorkspaceKeySource, WrappedWorkspaceKey};
+use super::merge::{MarkdownMergeOutcome, conflict_copy_relative_path, merge_markdown};
 use super::packer::{UnpackedPack, decrypt_pack};
 use super::planner::{CHECKPOINT_PACK_KIND, CONTENT_PACK_KIND};
 use super::scanner::{normalize_vault_relative_path, scan_vault};
@@ -135,6 +137,22 @@ struct ReplaySelection {
     bootstrapped_from_checkpoint: bool,
 }
 
+#[derive(Debug, Clone)]
+struct RemoteMergeState {
+    dirty_files: BTreeMap<String, SyncFileRecord>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct AppliedCommitState {
+    synced_file_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RemoteApplyAction {
+    AppliedRemote,
+    KeptLocalDirty,
+}
+
 impl SyncPullPipeline {
     pub fn new(commit_api: Arc<dyn SyncCommitApi>, transfer_queue: ObjectTransferQueue) -> Self {
         Self {
@@ -166,7 +184,16 @@ impl SyncPullPipeline {
             });
         }
 
-        let mut tree_by_file_id = initial_tree_entries(input.conn, &vault)?;
+        refresh_local_scan(input.conn, input.vault_root, input.now_ms)?;
+        let merge_state = RemoteMergeState {
+            dirty_files: db::list_dirty_files(input.conn)?
+                .into_iter()
+                .map(|file| (file.file_id.clone(), file))
+                .collect(),
+        };
+        let mut tree_by_file_id = self
+            .initial_or_rematerialized_tree_entries(&input, &vault, &commits)
+            .await?;
         let mut applied = Vec::with_capacity(selection.commits.len());
         for header in selection.commits {
             let commit = self
@@ -177,7 +204,8 @@ impl SyncPullPipeline {
                     header,
                 )
                 .await?;
-            apply_decrypted_commit(&mut input, &commit, &mut tree_by_file_id).await?;
+            self.apply_decrypted_commit(&mut input, &merge_state, &commit, &mut tree_by_file_id)
+                .await?;
             applied.push(commit.header.commit_id);
         }
 
@@ -254,6 +282,47 @@ impl SyncPullPipeline {
         })
     }
 
+    async fn initial_or_rematerialized_tree_entries(
+        &self,
+        input: &PullRemoteChangesInput<'_>,
+        vault: &SyncVaultRecord,
+        commits: &[SyncCommitHeader],
+    ) -> SyncResult<BTreeMap<String, SyncTreeEntryRecord>> {
+        let local_head = vault.local_head_commit_id.as_deref().unwrap_or_default();
+        let tree = initial_tree_entries(input.conn, vault)?;
+        if local_head.is_empty() || !tree.is_empty() {
+            return Ok(tree);
+        }
+        self.rematerialize_tree_entries(input, commits, local_head)
+            .await
+    }
+
+    async fn rematerialize_tree_entries(
+        &self,
+        input: &PullRemoteChangesInput<'_>,
+        commits: &[SyncCommitHeader],
+        target_commit_id: &str,
+    ) -> SyncResult<BTreeMap<String, SyncTreeEntryRecord>> {
+        let mut tree_by_file_id = BTreeMap::new();
+        for header in commits {
+            let commit = self
+                .decrypt_commit(
+                    input.workspace_id,
+                    input.device_id,
+                    input.workspace_key,
+                    header.clone(),
+                )
+                .await?;
+            materialize_remote_tree_only(&commit, &mut tree_by_file_id)?;
+            if commit.header.commit_id == target_commit_id {
+                return Ok(tree_by_file_id);
+            }
+        }
+        Err(SyncError::Transport(format!(
+            "local head {target_commit_id} is not present in remote history"
+        )))
+    }
+
     async fn download_one(
         &self,
         workspace_id: &str,
@@ -287,6 +356,207 @@ impl SyncPullPipeline {
             .into_iter()
             .map(|object| (object.object_id.clone(), object))
             .collect())
+    }
+
+    async fn download_tree_entry_content(
+        &self,
+        input: &PullRemoteChangesInput<'_>,
+        commit_id: &str,
+        entry: &SyncTreeEntryRecord,
+    ) -> SyncResult<Option<Vec<u8>>> {
+        let (Some(object_id), Some(entry_id)) = (
+            entry.content_object_id.as_deref(),
+            entry.pack_entry_id.as_deref(),
+        ) else {
+            return Ok(None);
+        };
+        let object = self
+            .download_one(input.workspace_id, input.device_id, object_id)
+            .await?;
+        let pack_kind = pack_kind_for_object_kind(object.kind)?;
+        let unpacked = decrypt_pack(
+            input.workspace_key,
+            input.workspace_id,
+            object_id,
+            pack_kind,
+            commit_id,
+            &object.ciphertext,
+        )?;
+        Ok(unpacked.entries.get(entry_id).cloned())
+    }
+
+    async fn apply_decrypted_commit(
+        &self,
+        input: &mut PullRemoteChangesInput<'_>,
+        merge_state: &RemoteMergeState,
+        commit: &DecryptedCommit,
+        tree_by_file_id: &mut BTreeMap<String, SyncTreeEntryRecord>,
+    ) -> SyncResult<AppliedCommitState> {
+        if commit.header.commit_kind == SyncCommitKind::SYNC_COMMIT_KIND_CHECKPOINT {
+            tree_by_file_id.clear();
+        }
+
+        let mut synced_file_ids = Vec::new();
+        for change in &commit.body.changes {
+            match change {
+                CommitBodyFileOp::UpsertFile {
+                    file_id,
+                    path,
+                    normalized_path,
+                    plaintext_hash,
+                    size_bytes,
+                    content_ref,
+                } => {
+                    validate_remote_file_identity(file_id, path, normalized_path)?;
+                    let remote_plaintext = pack_entry_plaintext(&commit.packs, content_ref)?;
+                    validate_plaintext_metadata(
+                        path,
+                        remote_plaintext,
+                        plaintext_hash,
+                        *size_bytes,
+                    )?;
+                    let base_entry = tree_by_file_id.get(file_id).cloned();
+                    let dirty = merge_state.dirty_files.get(file_id);
+                    let action = if let Some(dirty) = dirty {
+                        self.merge_remote_upsert(
+                            input,
+                            &commit.header,
+                            base_entry.as_ref(),
+                            dirty,
+                            path,
+                            remote_plaintext,
+                        )
+                        .await?
+                    } else {
+                        apply_remote_write(input.vault_root, input.hooks, path, remote_plaintext)
+                            .await?;
+                        RemoteApplyAction::AppliedRemote
+                    };
+                    tree_by_file_id.insert(
+                        file_id.clone(),
+                        SyncTreeEntryRecord {
+                            commit_id: commit.header.commit_id.clone(),
+                            file_id: file_id.clone(),
+                            normalized_path: normalized_path.clone(),
+                            plaintext_hash: Some(plaintext_hash.clone()),
+                            content_object_id: Some(content_ref.object_id.clone()),
+                            pack_entry_id: Some(content_ref.entry_id.clone()),
+                            kind: FILE_KIND_MARKDOWN.into(),
+                        },
+                    );
+                    if action == RemoteApplyAction::AppliedRemote {
+                        synced_file_ids.push(file_id.clone());
+                    }
+                }
+                CommitBodyFileOp::DeleteFile {
+                    file_id,
+                    path,
+                    normalized_path,
+                } => {
+                    validate_remote_file_identity(file_id, path, normalized_path)?;
+                    let dirty = merge_state.dirty_files.get(file_id);
+                    let action = self
+                        .merge_remote_delete(input, &commit.header, dirty, path)
+                        .await?;
+                    tree_by_file_id.remove(file_id);
+                    if action == RemoteApplyAction::AppliedRemote {
+                        synced_file_ids.push(file_id.clone());
+                    }
+                }
+            }
+        }
+
+        persist_applied_commit(input, commit, tree_by_file_id, &synced_file_ids)?;
+        Ok(AppliedCommitState { synced_file_ids })
+    }
+
+    async fn merge_remote_upsert(
+        &self,
+        input: &mut PullRemoteChangesInput<'_>,
+        remote_header: &SyncCommitHeader,
+        base_entry: Option<&SyncTreeEntryRecord>,
+        dirty: &SyncFileRecord,
+        path: &str,
+        remote_plaintext: &[u8],
+    ) -> SyncResult<RemoteApplyAction> {
+        if dirty.deleted {
+            write_conflict_copy(
+                input,
+                path,
+                remote_plaintext,
+                base_entry.map(|entry| entry.commit_id.as_str()),
+                remote_header,
+            )
+            .await?;
+            return Ok(RemoteApplyAction::KeptLocalDirty);
+        }
+
+        let local_plaintext = read_local_file(input.vault_root, &dirty.path).await?;
+        let Some(base_entry) = base_entry else {
+            write_conflict_copy(input, path, remote_plaintext, None, remote_header).await?;
+            return Ok(RemoteApplyAction::KeptLocalDirty);
+        };
+        let Some(base_plaintext) = self
+            .download_tree_entry_content(input, &base_entry.commit_id, base_entry)
+            .await?
+        else {
+            write_conflict_copy(
+                input,
+                path,
+                remote_plaintext,
+                Some(&base_entry.commit_id),
+                remote_header,
+            )
+            .await?;
+            return Ok(RemoteApplyAction::KeptLocalDirty);
+        };
+
+        match merge_markdown(&base_plaintext, &local_plaintext, remote_plaintext)? {
+            MarkdownMergeOutcome::Merged(merged) => {
+                apply_remote_write(input.vault_root, input.hooks, path, &merged).await?;
+                if merged == remote_plaintext {
+                    Ok(RemoteApplyAction::AppliedRemote)
+                } else {
+                    Ok(RemoteApplyAction::KeptLocalDirty)
+                }
+            }
+            MarkdownMergeOutcome::Conflict => {
+                write_conflict_copy(
+                    input,
+                    path,
+                    remote_plaintext,
+                    Some(&base_entry.commit_id),
+                    remote_header,
+                )
+                .await?;
+                Ok(RemoteApplyAction::KeptLocalDirty)
+            }
+        }
+    }
+
+    async fn merge_remote_delete(
+        &self,
+        input: &mut PullRemoteChangesInput<'_>,
+        remote_header: &SyncCommitHeader,
+        dirty: Option<&SyncFileRecord>,
+        path: &str,
+    ) -> SyncResult<RemoteApplyAction> {
+        match dirty {
+            None => {
+                apply_remote_delete(input.vault_root, input.hooks, path).await?;
+                Ok(RemoteApplyAction::AppliedRemote)
+            }
+            Some(dirty) if dirty.deleted => {
+                apply_remote_delete(input.vault_root, input.hooks, path).await?;
+                Ok(RemoteApplyAction::AppliedRemote)
+            }
+            Some(dirty) => {
+                let local_plaintext = read_local_file(input.vault_root, &dirty.path).await?;
+                write_conflict_copy(input, path, &local_plaintext, None, remote_header).await?;
+                apply_remote_delete(input.vault_root, input.hooks, path).await?;
+                Ok(RemoteApplyAction::AppliedRemote)
+            }
+        }
     }
 }
 
@@ -472,15 +742,23 @@ fn initial_tree_entries(
         .collect())
 }
 
-async fn apply_decrypted_commit(
-    input: &mut PullRemoteChangesInput<'_>,
+fn refresh_local_scan(conn: &mut Connection, vault_root: &Path, now_ms: i64) -> SyncResult<()> {
+    let scanned_files = scan_vault(vault_root)?;
+    let scan_inputs = scanned_files
+        .iter()
+        .map(|file| file.file_input())
+        .collect::<Vec<SyncFileInput>>();
+    db::apply_scan(conn, &scan_inputs, now_ms)?;
+    Ok(())
+}
+
+fn materialize_remote_tree_only(
     commit: &DecryptedCommit,
     tree_by_file_id: &mut BTreeMap<String, SyncTreeEntryRecord>,
 ) -> SyncResult<()> {
     if commit.header.commit_kind == SyncCommitKind::SYNC_COMMIT_KIND_CHECKPOINT {
         tree_by_file_id.clear();
     }
-
     for change in &commit.body.changes {
         match change {
             CommitBodyFileOp::UpsertFile {
@@ -494,7 +772,6 @@ async fn apply_decrypted_commit(
                 validate_remote_file_identity(file_id, path, normalized_path)?;
                 let plaintext = pack_entry_plaintext(&commit.packs, content_ref)?;
                 validate_plaintext_metadata(path, plaintext, plaintext_hash, *size_bytes)?;
-                apply_remote_write(input.vault_root, input.hooks, path, plaintext).await?;
                 tree_by_file_id.insert(
                     file_id.clone(),
                     SyncTreeEntryRecord {
@@ -514,19 +791,18 @@ async fn apply_decrypted_commit(
                 normalized_path,
             } => {
                 validate_remote_file_identity(file_id, path, normalized_path)?;
-                apply_remote_delete(input.vault_root, input.hooks, path).await?;
                 tree_by_file_id.remove(file_id);
             }
         }
     }
-
-    persist_applied_commit(input, commit, tree_by_file_id)
+    Ok(())
 }
 
 fn persist_applied_commit(
     input: &mut PullRemoteChangesInput<'_>,
     commit: &DecryptedCommit,
     tree_by_file_id: &BTreeMap<String, SyncTreeEntryRecord>,
+    synced_file_ids: &[String],
 ) -> SyncResult<()> {
     let mut entries = tree_by_file_id.values().cloned().collect::<Vec<_>>();
     entries.sort_by(|left, right| left.normalized_path.cmp(&right.normalized_path));
@@ -550,11 +826,7 @@ fn persist_applied_commit(
         .map(|file| file.file_input())
         .collect::<Vec<SyncFileInput>>();
     db::apply_scan(input.conn, &scan_inputs, input.now_ms)?;
-    mark_files_synced(
-        input.conn,
-        &commit.header.commit_id,
-        &changed_file_ids(&commit.body),
-    )?;
+    mark_files_synced(input.conn, &commit.header.commit_id, synced_file_ids)?;
     upsert_local_commit(
         input.conn,
         &SyncCommitRecord {
@@ -609,6 +881,72 @@ async fn apply_remote_write(
             .map_err(SyncError::Storage)?;
     }
     Ok(())
+}
+
+async fn write_conflict_copy(
+    input: &mut PullRemoteChangesInput<'_>,
+    original_path: &str,
+    plaintext: &[u8],
+    base_commit_id: Option<&str>,
+    remote_header: &SyncCommitHeader,
+) -> SyncResult<String> {
+    let conflict_path = conflict_copy_relative_path(original_path, input.now_ms, |candidate| {
+        input.vault_root.join(candidate).exists()
+    })?;
+    apply_remote_write(input.vault_root, input.hooks, &conflict_path, plaintext).await?;
+    upsert_conflict(
+        &*input.conn,
+        &SyncConflictRecord {
+            conflict_id: conflict_id_for(
+                original_path,
+                &conflict_path,
+                base_commit_id,
+                &remote_header.commit_id,
+                input.now_ms,
+            ),
+            path: original_path.into(),
+            conflict_path: conflict_path.clone(),
+            base_commit_id: base_commit_id.map(ToOwned::to_owned),
+            local_commit_id: None,
+            remote_commit_id: Some(remote_header.commit_id.clone()),
+            status: "open".into(),
+            created_at_ms: input.now_ms,
+        },
+    )?;
+    Ok(conflict_path)
+}
+
+async fn read_local_file(vault_root: &Path, path: &str) -> SyncResult<Vec<u8>> {
+    let resolved = resolve_remote_path(vault_root, path).await?;
+    tokio::fs::read(&resolved).await.map_err(|error| {
+        SyncError::Storage(format!(
+            "failed to read local merge file {}: {error}",
+            resolved.display()
+        ))
+    })
+}
+
+fn conflict_id_for(
+    path: &str,
+    conflict_path: &str,
+    base_commit_id: Option<&str>,
+    remote_commit_id: &str,
+    created_at_ms: i64,
+) -> String {
+    let mut input = Vec::new();
+    input.extend_from_slice(path.as_bytes());
+    input.push(0);
+    input.extend_from_slice(conflict_path.as_bytes());
+    input.push(0);
+    if let Some(base_commit_id) = base_commit_id {
+        input.extend_from_slice(base_commit_id.as_bytes());
+    }
+    input.push(0);
+    input.extend_from_slice(remote_commit_id.as_bytes());
+    input.push(0);
+    input.extend_from_slice(created_at_ms.to_string().as_bytes());
+    let hash = blake3::hash(&input).to_hex().to_string();
+    format!("conflict_{}", &hash[..32])
 }
 
 async fn apply_remote_delete(
@@ -889,10 +1227,21 @@ fn object_kind_for_pack_kind(pack_kind: &str) -> SyncResult<SyncObjectKind> {
     }
 }
 
+fn pack_kind_for_object_kind(kind: SyncObjectKind) -> SyncResult<&'static str> {
+    match kind {
+        SyncObjectKind::SYNC_OBJECT_KIND_CONTENT_PACK => Ok(CONTENT_PACK_KIND),
+        SyncObjectKind::SYNC_OBJECT_KIND_CHECKPOINT_PACK => Ok(CHECKPOINT_PACK_KIND),
+        _ => Err(SyncError::InvalidArgument(
+            "sync object is not a decryptable pack".into(),
+        )),
+    }
+}
+
 fn commit_kind_label(kind: SyncCommitKind) -> SyncResult<&'static str> {
     match kind {
         SyncCommitKind::SYNC_COMMIT_KIND_CHECKPOINT => Ok("checkpoint"),
         SyncCommitKind::SYNC_COMMIT_KIND_INCREMENTAL => Ok("incremental"),
+        SyncCommitKind::SYNC_COMMIT_KIND_MERGE => Ok("merge"),
         _ => Err(SyncError::InvalidArgument(
             "unsupported sync commit kind".into(),
         )),
@@ -1019,6 +1368,176 @@ mod tests {
         assert!(!result.bootstrapped_from_checkpoint);
         assert_eq!(std::fs::read_to_string(root.join("a.md")).unwrap(), "# A");
         assert_eq!(std::fs::read_to_string(root.join("b.md")).unwrap(), "# B");
+
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn pull_merges_different_files_without_conflict() {
+        let root = temp_vault("merge-files");
+        let mut fixture =
+            RemoteFixture::new().add_checkpoint(vec![("a.md", b"# A".to_vec())], true);
+        let mut conn = db::open_memory_sync_db().unwrap();
+        let pipeline = pipeline(&fixture);
+        block_on(pipeline.pull_remote_changes(input(&mut conn, &root, &fixture))).unwrap();
+        write_file(&root.join("a.md"), b"# A local");
+        fixture = fixture.add_incremental(vec![RemoteChange::Upsert("b.md", b"# B".to_vec())]);
+
+        block_on(pipeline.pull_remote_changes(input(&mut conn, &root, &fixture))).unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(root.join("a.md")).unwrap(),
+            "# A local"
+        );
+        assert_eq!(std::fs::read_to_string(root.join("b.md")).unwrap(), "# B");
+        assert!(db::list_open_conflicts(&conn).unwrap().is_empty());
+        assert_dirty_paths(&conn, &["a.md"]);
+
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn pull_merges_same_file_different_lines_without_conflict() {
+        let root = temp_vault("merge-lines");
+        let mut fixture =
+            RemoteFixture::new().add_checkpoint(vec![("a.md", b"a\nb\n".to_vec())], true);
+        let mut conn = db::open_memory_sync_db().unwrap();
+        let pipeline = pipeline(&fixture);
+        block_on(pipeline.pull_remote_changes(input(&mut conn, &root, &fixture))).unwrap();
+        write_file(&root.join("a.md"), b"A\nb\n");
+        fixture = fixture.add_incremental(vec![RemoteChange::Upsert("a.md", b"a\nB\n".to_vec())]);
+
+        block_on(pipeline.pull_remote_changes(input(&mut conn, &root, &fixture))).unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(root.join("a.md")).unwrap(),
+            "A\nB\n"
+        );
+        assert!(db::list_open_conflicts(&conn).unwrap().is_empty());
+        assert_dirty_paths(&conn, &["a.md"]);
+
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn pull_rematerializes_missing_base_tree_for_merge() {
+        let root = temp_vault("missing-base");
+        let mut fixture =
+            RemoteFixture::new().add_checkpoint(vec![("a.md", b"a\nb\n".to_vec())], true);
+        let mut conn = db::open_memory_sync_db().unwrap();
+        let pipeline = pipeline(&fixture);
+        block_on(pipeline.pull_remote_changes(input(&mut conn, &root, &fixture))).unwrap();
+        conn.execute("DELETE FROM sync_tree_entries", []).unwrap();
+        conn.execute("DELETE FROM sync_commit_trees", []).unwrap();
+        write_file(&root.join("a.md"), b"A\nb\n");
+        fixture = fixture.add_incremental(vec![RemoteChange::Upsert("a.md", b"a\nB\n".to_vec())]);
+
+        block_on(pipeline.pull_remote_changes(input(&mut conn, &root, &fixture))).unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(root.join("a.md")).unwrap(),
+            "A\nB\n"
+        );
+        assert!(db::list_open_conflicts(&conn).unwrap().is_empty());
+        assert_dirty_paths(&conn, &["a.md"]);
+
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn pull_creates_conflict_copy_for_same_line_conflict() {
+        let root = temp_vault("same-line");
+        let mut fixture =
+            RemoteFixture::new().add_checkpoint(vec![("a.md", b"a\n".to_vec())], true);
+        let mut conn = db::open_memory_sync_db().unwrap();
+        let pipeline = pipeline(&fixture);
+        block_on(pipeline.pull_remote_changes(input(&mut conn, &root, &fixture))).unwrap();
+        write_file(&root.join("a.md"), b"local\n");
+        fixture = fixture.add_incremental(vec![RemoteChange::Upsert("a.md", b"remote\n".to_vec())]);
+
+        block_on(pipeline.pull_remote_changes(input(&mut conn, &root, &fixture))).unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(root.join("a.md")).unwrap(),
+            "local\n"
+        );
+        assert_eq!(
+            std::fs::read_to_string(root.join("a.conflict-19700101-000000.md")).unwrap(),
+            "remote\n"
+        );
+        let conflicts = db::list_open_conflicts(&conn).unwrap();
+        assert_eq!(conflicts.len(), 1);
+        assert_eq!(conflicts[0].path, "a.md");
+        assert_eq!(conflicts[0].conflict_path, "a.conflict-19700101-000000.md");
+        assert_dirty_paths(&conn, &["a.conflict-19700101-000000.md", "a.md"]);
+
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn pull_creates_conflict_copy_for_local_edit_remote_delete() {
+        let root = temp_vault("edit-delete");
+        let mut fixture =
+            RemoteFixture::new().add_checkpoint(vec![("a.md", b"base\n".to_vec())], true);
+        let mut conn = db::open_memory_sync_db().unwrap();
+        let pipeline = pipeline(&fixture);
+        block_on(pipeline.pull_remote_changes(input(&mut conn, &root, &fixture))).unwrap();
+        write_file(&root.join("a.md"), b"local\n");
+        fixture = fixture.add_incremental(vec![RemoteChange::Delete("a.md")]);
+
+        block_on(pipeline.pull_remote_changes(input(&mut conn, &root, &fixture))).unwrap();
+
+        assert!(!root.join("a.md").exists());
+        assert_eq!(
+            std::fs::read_to_string(root.join("a.conflict-19700101-000000.md")).unwrap(),
+            "local\n"
+        );
+        assert_eq!(db::list_open_conflicts(&conn).unwrap().len(), 1);
+        assert_dirty_paths(&conn, &["a.conflict-19700101-000000.md"]);
+
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn pull_creates_conflict_copy_for_local_delete_remote_edit() {
+        let root = temp_vault("delete-edit");
+        let mut fixture =
+            RemoteFixture::new().add_checkpoint(vec![("a.md", b"base\n".to_vec())], true);
+        let mut conn = db::open_memory_sync_db().unwrap();
+        let pipeline = pipeline(&fixture);
+        block_on(pipeline.pull_remote_changes(input(&mut conn, &root, &fixture))).unwrap();
+        std::fs::remove_file(root.join("a.md")).unwrap();
+        fixture = fixture.add_incremental(vec![RemoteChange::Upsert("a.md", b"remote\n".to_vec())]);
+
+        block_on(pipeline.pull_remote_changes(input(&mut conn, &root, &fixture))).unwrap();
+
+        assert!(!root.join("a.md").exists());
+        assert_eq!(
+            std::fs::read_to_string(root.join("a.conflict-19700101-000000.md")).unwrap(),
+            "remote\n"
+        );
+        assert_eq!(db::list_open_conflicts(&conn).unwrap().len(), 1);
+        assert_dirty_paths(&conn, &["a.conflict-19700101-000000.md", "a.md"]);
+
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn pull_treats_delete_delete_as_noop() {
+        let root = temp_vault("delete-delete");
+        let mut fixture =
+            RemoteFixture::new().add_checkpoint(vec![("a.md", b"base\n".to_vec())], true);
+        let mut conn = db::open_memory_sync_db().unwrap();
+        let pipeline = pipeline(&fixture);
+        block_on(pipeline.pull_remote_changes(input(&mut conn, &root, &fixture))).unwrap();
+        std::fs::remove_file(root.join("a.md")).unwrap();
+        fixture = fixture.add_incremental(vec![RemoteChange::Delete("a.md")]);
+
+        block_on(pipeline.pull_remote_changes(input(&mut conn, &root, &fixture))).unwrap();
+
+        assert!(!root.join("a.md").exists());
+        assert!(db::list_open_conflicts(&conn).unwrap().is_empty());
+        assert!(db::list_dirty_files(&conn).unwrap().is_empty());
 
         std::fs::remove_dir_all(root).unwrap();
     }
@@ -1191,6 +1710,28 @@ mod tests {
         root
     }
 
+    fn write_file(path: &Path, bytes: &[u8]) {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
+        std::fs::write(path, bytes).unwrap();
+    }
+
+    fn assert_dirty_paths(conn: &Connection, expected: &[&str]) {
+        let mut observed = db::list_dirty_files(conn)
+            .unwrap()
+            .into_iter()
+            .map(|file| file.path)
+            .collect::<Vec<_>>();
+        observed.sort();
+        let mut expected = expected
+            .iter()
+            .map(|path| path.to_string())
+            .collect::<Vec<_>>();
+        expected.sort();
+        assert_eq!(observed, expected);
+    }
+
     fn assert_eventually_searches(search: &SearchState, query: &str, expected_doc: &str) {
         for _ in 0..80 {
             let result = search.query_simple(query, 20).unwrap();
@@ -1228,6 +1769,7 @@ mod tests {
     struct RemoteFixtureInner {
         commits: Vec<SyncCommitHeader>,
         objects: BTreeMap<String, RemoteObject>,
+        trees: BTreeMap<String, Vec<SyncTreeEntryRecord>>,
         head: String,
         latest_checkpoint: String,
     }
@@ -1404,6 +1946,7 @@ mod tests {
                 signature: Vec::new(),
                 server_seq,
             });
+            inner.trees.insert(commit_id.clone(), tree_entries);
             inner.head = commit_id.clone();
             if mark_latest_checkpoint {
                 inner.latest_checkpoint = commit_id;
@@ -1419,9 +1962,9 @@ mod tests {
         changes: &[CommitBodyFileOp],
     ) -> Vec<SyncTreeEntryRecord> {
         let mut by_file_id = inner
-            .commits
-            .last()
-            .map(|commit| list_fixture_tree_entries(inner, &commit.commit_id))
+            .trees
+            .get(&inner.head)
+            .cloned()
             .unwrap_or_default()
             .into_iter()
             .map(|entry| (entry.file_id.clone(), entry))
@@ -1456,63 +1999,6 @@ mod tests {
         let mut entries = by_file_id.into_values().collect::<Vec<_>>();
         entries.sort_by(|left, right| left.normalized_path.cmp(&right.normalized_path));
         entries
-    }
-
-    fn list_fixture_tree_entries(
-        inner: &RemoteFixtureInner,
-        commit_id: &str,
-    ) -> Vec<SyncTreeEntryRecord> {
-        let Some(commit) = inner
-            .commits
-            .iter()
-            .find(|commit| commit.commit_id == commit_id)
-        else {
-            return Vec::new();
-        };
-        let Some(body_object) = inner.objects.get(&commit.body_object_id) else {
-            return Vec::new();
-        };
-        let commit_kind_label = commit_kind_label(commit.commit_kind).unwrap();
-        let commit_key = keys::commit_body_key(&[11u8; 32], "workspace_1");
-        let aad = CommitBodyAad::new(
-            "workspace_1",
-            &commit.commit_id,
-            commit_kind_label,
-            commit.parent_commit_ids.clone(),
-            &commit.author_device_id,
-            commit.device_seq,
-            &commit.body_object_id,
-        );
-        let plaintext = decrypt_commit_body(&commit_key, &aad, &body_object.ciphertext).unwrap();
-        let body: CommitBody = serde_json::from_slice(&plaintext).unwrap();
-        materialize_fixture_tree_from_body(commit, &body)
-    }
-
-    fn materialize_fixture_tree_from_body(
-        commit: &SyncCommitHeader,
-        body: &CommitBody,
-    ) -> Vec<SyncTreeEntryRecord> {
-        body.changes
-            .iter()
-            .filter_map(|change| match change {
-                CommitBodyFileOp::UpsertFile {
-                    file_id,
-                    normalized_path,
-                    plaintext_hash,
-                    content_ref,
-                    ..
-                } => Some(SyncTreeEntryRecord {
-                    commit_id: commit.commit_id.clone(),
-                    file_id: file_id.clone(),
-                    normalized_path: normalized_path.clone(),
-                    plaintext_hash: Some(plaintext_hash.clone()),
-                    content_object_id: Some(content_ref.object_id.clone()),
-                    pack_entry_id: Some(content_ref.entry_id.clone()),
-                    kind: FILE_KIND_MARKDOWN.into(),
-                }),
-                CommitBodyFileOp::DeleteFile { .. } => None,
-            })
-            .collect()
     }
 
     struct FakeSyncApi {

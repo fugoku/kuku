@@ -65,6 +65,18 @@ pub struct PushLocalChangesInput<'a> {
     pub now_ms: i64,
 }
 
+pub struct PushMergeCommitInput<'a> {
+    pub conn: &'a mut Connection,
+    pub vault_id: &'a str,
+    pub vault_root: &'a Path,
+    pub workspace_id: &'a str,
+    pub device_id: &'a str,
+    pub workspace_key: &'a SymmetricKey,
+    pub signing_key: &'a SigningKey,
+    pub local_parent_commit_id: &'a str,
+    pub now_ms: i64,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PushLocalChangesResult {
     pub published: bool,
@@ -200,6 +212,7 @@ impl SyncPushPipeline {
             CommitPlanKind::Incremental => {
                 plan_incremental(&scan_result, &scanned_files, &self.planner_config)?
             }
+            CommitPlanKind::Merge => unreachable!("local push does not select merge plan kind"),
         };
         if plan.is_empty() {
             return Ok(PushLocalChangesResult {
@@ -213,6 +226,159 @@ impl SyncPushPipeline {
         }
 
         let parents = parent_ids(&expected_head);
+        let reserved = self
+            .reserve_commit_objects(input.workspace_id, input.device_id, &plan)
+            .await?;
+        let mut referenced_object_ids = reserved
+            .pack_object_ids
+            .values()
+            .cloned()
+            .collect::<Vec<_>>();
+        referenced_object_ids.sort();
+
+        let tree_entries = materialize_tree_entries(input.conn, &expected_head, &plan, &reserved)?;
+        let tree_id = tree_id_for_entries(&tree_entries)?;
+        let changes = commit_body_file_ops(&plan, &reserved)?;
+        let commit_kind = commit_kind_label(plan_kind);
+        let commit_id = commit_id_for(&CommitIdentity {
+            workspace_id: input.workspace_id,
+            author_device_id: input.device_id,
+            device_seq: vault.next_device_seq,
+            commit_kind,
+            expected_head_commit_id: &expected_head,
+            parent_commit_ids: &parents,
+            body_object_id: &reserved.body_object_id,
+            referenced_object_ids: &referenced_object_ids,
+            tree_id: &tree_id,
+            changes: &changes,
+        })?;
+
+        let commit_body = CommitBody {
+            format: "kuku.sync.commit-body".into(),
+            version: 1,
+            commit_id: commit_id.clone(),
+            commit_kind: commit_kind.into(),
+            parent_commit_ids: parents.clone(),
+            tree_id: tree_id.clone(),
+            changes,
+            packs: commit_body_pack_refs(&plan, &reserved),
+        };
+        let uploads = encrypted_uploads(
+            input.workspace_key,
+            input.workspace_id,
+            &commit_id,
+            commit_kind,
+            &parents,
+            input.device_id,
+            vault.next_device_seq,
+            &reserved,
+            &plan,
+            &commit_body,
+        )?;
+        let uploaded = self
+            .transfer_queue
+            .upload_reserved_objects(
+                input.workspace_id,
+                input.device_id,
+                &format!("upload_{commit_id}"),
+                uploads,
+            )
+            .await?;
+        let body_metadata = uploaded
+            .iter()
+            .find(|object| object.object_id == reserved.body_object_id)
+            .ok_or_else(|| SyncError::Transport("commit body upload metadata missing".into()))?;
+        let signature_payload = CommitSignaturePayload::new(
+            input.workspace_id,
+            &commit_id,
+            commit_kind,
+            &expected_head,
+            parents.clone(),
+            input.device_id,
+            vault.next_device_seq,
+            &reserved.body_object_id,
+            &body_metadata.ciphertext_sha256,
+            body_metadata.size_bytes,
+            referenced_object_ids.clone(),
+        );
+        let signature = sign_commit_payload(input.signing_key, &signature_payload)?;
+        let published = self
+            .commit_api
+            .publish_commit(PublishCommitInput {
+                workspace_id: input.workspace_id.into(),
+                commit_id: commit_id.clone(),
+                commit_kind: proto_commit_kind(plan_kind),
+                expected_head_commit_id: expected_head.clone(),
+                parent_commit_ids: parents.clone(),
+                author_device_id: input.device_id.into(),
+                device_seq: vault.next_device_seq,
+                body_object_id: reserved.body_object_id.clone(),
+                body_ciphertext_sha256: body_metadata.ciphertext_sha256.clone(),
+                body_size_bytes: body_metadata.size_bytes,
+                referenced_object_ids: referenced_object_ids.clone(),
+                signature,
+            })
+            .await?;
+        apply_publish_success(
+            input.conn,
+            input.vault_id,
+            &published,
+            plan_kind,
+            &parents,
+            &tree_id,
+            &tree_entries,
+            &plan,
+            vault.next_device_seq,
+            input.now_ms,
+        )?;
+
+        Ok(PushLocalChangesResult {
+            published: true,
+            commit_id: Some(commit_id),
+            commit_kind: Some(plan_kind),
+            uploaded_object_ids: uploaded
+                .into_iter()
+                .map(|object| object.object_id)
+                .collect(),
+            file_op_count: plan.file_ops.len(),
+            idempotent: published.idempotent,
+        })
+    }
+
+    pub async fn push_merge_commit(
+        &self,
+        input: PushMergeCommitInput<'_>,
+    ) -> SyncResult<PushLocalChangesResult> {
+        validate_push_merge_input(&input)?;
+        let head = self.commit_api.get_head(input.workspace_id).await?;
+        let vault = ensure_merge_vault_record(&input, &head)?;
+        let expected_head = head.current_head_commit_id.clone();
+        ensure_merge_parent_can_push(&vault, &expected_head, input.local_parent_commit_id)?;
+
+        let scanned_files = scan_vault(input.vault_root)?;
+        let scan_inputs = scanned_files
+            .iter()
+            .map(ScannedFile::file_input)
+            .collect::<Vec<_>>();
+        let scan_result = db::apply_scan(input.conn, &scan_inputs, input.now_ms)?;
+        let mut plan = plan_incremental(&scan_result, &scanned_files, &self.planner_config)?;
+        plan.commit_kind = CommitPlanKind::Merge;
+        if plan.is_empty() {
+            return Ok(PushLocalChangesResult {
+                published: false,
+                commit_id: None,
+                commit_kind: None,
+                uploaded_object_ids: Vec::new(),
+                file_op_count: 0,
+                idempotent: false,
+            });
+        }
+
+        let parents = vec![
+            expected_head.clone(),
+            input.local_parent_commit_id.to_string(),
+        ];
+        let plan_kind = CommitPlanKind::Merge;
         let reserved = self
             .reserve_commit_objects(input.workspace_id, input.device_id, &plan)
             .await?;
@@ -390,6 +556,14 @@ fn validate_push_input(input: &PushLocalChangesInput<'_>) -> SyncResult<()> {
     Ok(())
 }
 
+fn validate_push_merge_input(input: &PushMergeCommitInput<'_>) -> SyncResult<()> {
+    validate_required(input.vault_id, "vault_id")?;
+    validate_required(input.workspace_id, "workspace_id")?;
+    validate_required(input.device_id, "device_id")?;
+    validate_required(input.local_parent_commit_id, "local_parent_commit_id")?;
+    Ok(())
+}
+
 fn ensure_vault_record(
     input: &PushLocalChangesInput<'_>,
     head: &SyncHead,
@@ -419,6 +593,36 @@ fn ensure_vault_record(
     Ok(vault)
 }
 
+fn ensure_merge_vault_record(
+    input: &PushMergeCommitInput<'_>,
+    head: &SyncHead,
+) -> SyncResult<SyncVaultRecord> {
+    let existing = get_vault(input.conn, input.vault_id)?;
+    let mut vault = existing.unwrap_or_else(|| SyncVaultRecord {
+        vault_id: input.vault_id.into(),
+        root_path: input.vault_root.to_string_lossy().to_string(),
+        remote_workspace_id: input.workspace_id.into(),
+        remote_head_commit_id: empty_to_none(&head.current_head_commit_id),
+        local_head_commit_id: empty_to_none(&head.current_head_commit_id),
+        device_id: input.device_id.into(),
+        next_device_seq: 1,
+        enabled: true,
+        created_at_ms: input.now_ms,
+        updated_at_ms: input.now_ms,
+    });
+    vault.root_path = input.vault_root.to_string_lossy().to_string();
+    vault.remote_workspace_id = input.workspace_id.into();
+    vault.remote_head_commit_id = empty_to_none(&head.current_head_commit_id);
+    vault.device_id = input.device_id.into();
+    vault.enabled = true;
+    vault.updated_at_ms = input.now_ms;
+    if vault.next_device_seq <= 0 {
+        vault.next_device_seq = 1;
+    }
+    upsert_vault(input.conn, &vault)?;
+    Ok(vault)
+}
+
 fn ensure_local_head_can_push(vault: &SyncVaultRecord, remote_head: &str) -> SyncResult<()> {
     let local_head = vault.local_head_commit_id.as_deref().unwrap_or_default();
     if !remote_head.is_empty() && local_head != remote_head {
@@ -427,6 +631,24 @@ fn ensure_local_head_can_push(vault: &SyncVaultRecord, remote_head: &str) -> Syn
         )));
     }
     Ok(())
+}
+
+fn ensure_merge_parent_can_push(
+    vault: &SyncVaultRecord,
+    remote_head: &str,
+    local_parent_commit_id: &str,
+) -> SyncResult<()> {
+    if remote_head.is_empty() {
+        return Err(SyncError::InvalidArgument(
+            "merge commit requires a remote head".into(),
+        ));
+    }
+    if remote_head == local_parent_commit_id {
+        return Err(SyncError::InvalidArgument(
+            "merge commit requires a distinct local parent".into(),
+        ));
+    }
+    ensure_local_head_can_push(vault, remote_head)
 }
 
 fn parent_ids(expected_head: &str) -> Vec<String> {
@@ -736,6 +958,7 @@ fn proto_commit_kind(plan_kind: CommitPlanKind) -> SyncCommitKind {
     match plan_kind {
         CommitPlanKind::Checkpoint => SyncCommitKind::SYNC_COMMIT_KIND_CHECKPOINT,
         CommitPlanKind::Incremental => SyncCommitKind::SYNC_COMMIT_KIND_INCREMENTAL,
+        CommitPlanKind::Merge => SyncCommitKind::SYNC_COMMIT_KIND_MERGE,
     }
 }
 
@@ -743,6 +966,7 @@ fn commit_kind_label(plan_kind: CommitPlanKind) -> &'static str {
     match plan_kind {
         CommitPlanKind::Checkpoint => "checkpoint",
         CommitPlanKind::Incremental => "incremental",
+        CommitPlanKind::Merge => "merge",
     }
 }
 
@@ -886,6 +1110,63 @@ mod tests {
     }
 
     #[test]
+    fn push_pipeline_publishes_merge_commit_with_two_parents() {
+        let root = temp_vault("merge");
+        write_file(&root.join("a.md"), b"# A");
+        let mut conn = db::open_memory_sync_db().unwrap();
+        let fake = Arc::new(FakeSyncApi::default());
+        let http = Arc::new(FakeObjectHttp::default());
+        let pipeline = pipeline(fake.clone(), http);
+        let initial = block_on(pipeline.push_local_changes(input(&mut conn, &root))).unwrap();
+        let local_parent = initial.commit_id.as_deref().unwrap().to_string();
+        let remote_head = "remote_head_1".to_string();
+        let mut remote_entries = db::list_tree_entries(&conn, &local_parent).unwrap();
+        for entry in &mut remote_entries {
+            entry.commit_id = remote_head.clone();
+        }
+        let remote_tree_id = tree_id_for_entries(&remote_entries).unwrap();
+        let remote_tree_json = tree_json_for_entries(&remote_entries).unwrap();
+        db::persist_tree_cache(
+            &mut conn,
+            &remote_head,
+            &remote_tree_id,
+            &remote_tree_json,
+            "remote",
+            &remote_entries,
+            2,
+        )
+        .unwrap();
+        db::update_vault_after_pull(&conn, "vault_1", &remote_head, 2).unwrap();
+        fake.inner.lock().head = remote_head.clone();
+        write_file(&root.join("a.md"), b"# A local");
+
+        let result =
+            block_on(pipeline.push_merge_commit(merge_input(&mut conn, &root, &local_parent)))
+                .unwrap();
+
+        assert!(result.published);
+        assert_eq!(result.commit_kind, Some(CommitPlanKind::Merge));
+        let inner = fake.inner.lock();
+        assert_eq!(inner.publish_calls, 2);
+        assert!(
+            inner
+                .published_kinds
+                .contains(&SyncCommitKind::SYNC_COMMIT_KIND_MERGE)
+        );
+        assert_eq!(
+            inner.published_parents.last().unwrap(),
+            &vec![remote_head.clone(), local_parent]
+        );
+        drop(inner);
+        let vault = db::get_vault(&conn, "vault_1").unwrap().unwrap();
+        assert_eq!(vault.local_head_commit_id, result.commit_id);
+        assert_eq!(vault.next_device_seq, 3);
+        assert!(db::list_dirty_files(&conn).unwrap().is_empty());
+
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn push_pipeline_publishes_delete_tombstone() {
         let root = temp_vault("delete");
         let path = root.join("a.md");
@@ -969,6 +1250,25 @@ mod tests {
         }
     }
 
+    fn merge_input<'a>(
+        conn: &'a mut Connection,
+        root: &'a Path,
+        local_parent_commit_id: &'a str,
+    ) -> PushMergeCommitInput<'a> {
+        static WORKSPACE_KEY: SymmetricKey = [1u8; 32];
+        PushMergeCommitInput {
+            conn,
+            vault_id: "vault_1",
+            vault_root: root,
+            workspace_id: "workspace_1",
+            device_id: "device_1",
+            workspace_key: &WORKSPACE_KEY,
+            signing_key: Box::leak(Box::new(SigningKey::from_bytes(&[3u8; 32]))),
+            local_parent_commit_id,
+            now_ms: 2,
+        }
+    }
+
     fn block_on<T>(future: impl Future<Output = T>) -> T {
         Builder::new_current_thread()
             .enable_time()
@@ -1008,6 +1308,7 @@ mod tests {
         head: String,
         publish_calls: usize,
         published_kinds: Vec<SyncCommitKind>,
+        published_parents: Vec<Vec<String>>,
     }
 
     #[async_trait]
@@ -1040,6 +1341,7 @@ mod tests {
             }
             inner.publish_calls += 1;
             inner.published_kinds.push(input.commit_kind);
+            inner.published_parents.push(input.parent_commit_ids);
             inner.head = input.commit_id.clone();
             Ok(PublishedCommit {
                 commit_id: input.commit_id,

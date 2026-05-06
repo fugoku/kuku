@@ -6,6 +6,7 @@ pub mod crypto;
 pub mod db;
 pub mod errors;
 pub mod keys;
+pub mod merge;
 pub mod packer;
 pub mod planner;
 pub mod scanner;

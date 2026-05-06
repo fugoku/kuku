@@ -18,6 +18,7 @@ pub const DEFAULT_MAX_PACK_PLAINTEXT_BYTES: i64 = 28 * 1024 * 1024;
 pub enum CommitPlanKind {
     Checkpoint,
     Incremental,
+    Merge,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
