@@ -54,6 +54,10 @@ impl SyncState {
             device_id: Some(config.device_id),
             remember_workspace_key: config.remember_workspace_key,
             last_error: None,
+            last_synced_at_ms: None,
+            pending_uploads: 0,
+            pending_downloads: 0,
+            conflict_count: 0,
             updated_at_ms: now_ms(),
         };
         Ok(inner.status.clone())
@@ -73,6 +77,27 @@ impl SyncState {
         inner.status.phase = SyncPhase::Disabled;
         inner.status.last_error = None;
         inner.status.updated_at_ms = now_ms();
+        Ok(inner.status.clone())
+    }
+
+    pub fn complete_manual_sync(&self, conflict_count: i64) -> SyncResult<SyncRuntimeStatus> {
+        let mut inner = self.inner.lock();
+        if !inner.status.configured {
+            return Err(SyncError::NotConfigured);
+        }
+        if !inner.status.enabled {
+            return Err(SyncError::InvalidArgument(
+                "sync must be enabled before running sync now".into(),
+            ));
+        }
+        let timestamp = now_ms();
+        inner.status.phase = SyncPhase::Idle;
+        inner.status.last_error = None;
+        inner.status.last_synced_at_ms = Some(timestamp);
+        inner.status.pending_uploads = 0;
+        inner.status.pending_downloads = 0;
+        inner.status.conflict_count = conflict_count;
+        inner.status.updated_at_ms = timestamp;
         Ok(inner.status.clone())
     }
 
@@ -153,6 +178,7 @@ mod tests {
         assert!(!status.configured);
         assert!(!status.enabled);
         assert_eq!(status.phase, SyncPhase::NotConfigured);
+        assert_eq!(status.conflict_count, 0);
     }
 
     #[test]
@@ -167,6 +193,7 @@ mod tests {
         let enabled = state.set_enabled(true).unwrap();
         assert!(enabled.enabled);
         assert_eq!(enabled.phase, SyncPhase::Idle);
+        assert_eq!(enabled.pending_uploads, 0);
     }
 
     #[test]
@@ -193,5 +220,18 @@ mod tests {
         let error = state.set_error("push failed").unwrap();
         assert_eq!(error.phase, SyncPhase::Error);
         assert_eq!(error.last_error.as_deref(), Some("push failed"));
+    }
+
+    #[test]
+    fn manual_sync_updates_last_synced_timestamp() {
+        let state = SyncState::new();
+        state.configure_vault(config()).unwrap();
+        state.set_enabled(true).unwrap();
+
+        let status = state.complete_manual_sync(2).unwrap();
+
+        assert_eq!(status.phase, SyncPhase::Idle);
+        assert_eq!(status.conflict_count, 2);
+        assert!(status.last_synced_at_ms.is_some());
     }
 }
