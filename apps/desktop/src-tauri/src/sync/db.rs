@@ -9,7 +9,7 @@ use crate::variant;
 
 use super::errors::{SyncError, SyncResult};
 
-const CURRENT_SCHEMA_VERSION: i64 = 1;
+const CURRENT_SCHEMA_VERSION: i64 = 2;
 const SCHEMA_VERSION_KEY: &str = "schema_version";
 
 pub const FILE_KIND_MARKDOWN: &str = "markdown";
@@ -79,6 +79,18 @@ pub struct SyncCommitRecord {
     pub created_at_ms: i64,
     pub applied_at_ms: Option<i64>,
     pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SyncConflictRecord {
+    pub conflict_id: String,
+    pub path: String,
+    pub conflict_path: String,
+    pub base_commit_id: Option<String>,
+    pub local_commit_id: Option<String>,
+    pub remote_commit_id: Option<String>,
+    pub status: String,
+    pub created_at_ms: i64,
 }
 
 pub fn sync_db_path(home: &Path, vault_id: &str) -> SyncResult<PathBuf> {
@@ -444,6 +456,56 @@ pub fn upsert_local_commit(conn: &Connection, commit: &SyncCommitRecord) -> Sync
     Ok(())
 }
 
+pub fn upsert_conflict(conn: &Connection, conflict: &SyncConflictRecord) -> SyncResult<()> {
+    conn.execute(
+        r#"
+        INSERT INTO sync_conflicts (
+            conflict_id, path, conflict_path, base_commit_id, local_commit_id,
+            remote_commit_id, status, created_at_ms
+        )
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+        ON CONFLICT(conflict_id) DO UPDATE SET
+            path = excluded.path,
+            conflict_path = excluded.conflict_path,
+            base_commit_id = excluded.base_commit_id,
+            local_commit_id = excluded.local_commit_id,
+            remote_commit_id = excluded.remote_commit_id,
+            status = excluded.status
+        "#,
+        params![
+            conflict.conflict_id,
+            conflict.path,
+            conflict.conflict_path,
+            conflict.base_commit_id,
+            conflict.local_commit_id,
+            conflict.remote_commit_id,
+            conflict.status,
+            conflict.created_at_ms,
+        ],
+    )
+    .map_err(|error| SyncError::Storage(format!("failed to upsert sync conflict: {error}")))?;
+    Ok(())
+}
+
+pub fn list_open_conflicts(conn: &Connection) -> SyncResult<Vec<SyncConflictRecord>> {
+    let mut stmt = conn
+        .prepare(
+            r#"
+            SELECT conflict_id, path, conflict_path, base_commit_id, local_commit_id,
+                   remote_commit_id, status, created_at_ms
+            FROM sync_conflicts
+            WHERE status = 'open'
+            ORDER BY created_at_ms, conflict_path
+            "#,
+        )
+        .map_err(|error| SyncError::Storage(format!("failed to prepare conflict list: {error}")))?;
+    let rows = stmt
+        .query_map([], sync_conflict_from_row)
+        .map_err(|error| SyncError::Storage(format!("failed to query sync conflicts: {error}")))?;
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|error| SyncError::Storage(format!("failed to read sync conflicts: {error}")))
+}
+
 pub fn update_vault_after_publish(
     conn: &Connection,
     vault_id: &str,
@@ -664,6 +726,19 @@ fn sync_tree_entry_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<SyncTre
     })
 }
 
+fn sync_conflict_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<SyncConflictRecord> {
+    Ok(SyncConflictRecord {
+        conflict_id: row.get(0)?,
+        path: row.get(1)?,
+        conflict_path: row.get(2)?,
+        base_commit_id: row.get(3)?,
+        local_commit_id: row.get(4)?,
+        remote_commit_id: row.get(5)?,
+        status: row.get(6)?,
+        created_at_ms: row.get(7)?,
+    })
+}
+
 fn bool_to_i64(value: bool) -> i64 {
     if value { 1 } else { 0 }
 }
@@ -815,6 +890,7 @@ mod tests {
             "sync_commits",
             "sync_commit_trees",
             "sync_tree_entries",
+            "sync_conflicts",
             "sync_checkpoints",
             "sync_checkpoint_objects",
         ] {
@@ -831,7 +907,7 @@ mod tests {
             metadata_value(&conn, SCHEMA_VERSION_KEY)
                 .unwrap()
                 .as_deref(),
-            Some("1")
+            Some("2")
         );
     }
 
@@ -979,5 +1055,29 @@ mod tests {
             })
             .unwrap();
         assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn upsert_conflict_lists_open_conflicts() {
+        let conn = open_memory_sync_db().unwrap();
+        upsert_conflict(
+            &conn,
+            &SyncConflictRecord {
+                conflict_id: "conflict-1".into(),
+                path: "a.md".into(),
+                conflict_path: "a.conflict-19700101-000001.md".into(),
+                base_commit_id: Some("base".into()),
+                local_commit_id: None,
+                remote_commit_id: Some("remote".into()),
+                status: "open".into(),
+                created_at_ms: 1,
+            },
+        )
+        .unwrap();
+
+        let conflicts = list_open_conflicts(&conn).unwrap();
+
+        assert_eq!(conflicts.len(), 1);
+        assert_eq!(conflicts[0].conflict_path, "a.conflict-19700101-000001.md");
     }
 }
