@@ -11,6 +11,10 @@ import (
 )
 
 type Querier interface {
+	AddSyncUsageAccountPendingBytes(ctx context.Context, arg AddSyncUsageAccountPendingBytesParams) error
+	AddSyncUsagePendingBytes(ctx context.Context, arg AddSyncUsagePendingBytesParams) error
+	CompleteSyncUsageAccountObjectBytes(ctx context.Context, arg CompleteSyncUsageAccountObjectBytesParams) error
+	CompleteSyncUsageObjectBytes(ctx context.Context, arg CompleteSyncUsageObjectBytesParams) error
 	// Atomic lookup-and-invalidate. The previous separate SELECT + UPDATE pair
 	// allowed two concurrent requests with the same code to both pass the
 	// IS NULL guard before either UPDATE landed; this single UPDATE is
@@ -18,21 +22,37 @@ type Querier interface {
 	// winner gets a non-empty result. A second caller (or a stale/used token)
 	// gets pgx.ErrNoRows.
 	ConsumeOneTimeToken(ctx context.Context, tokenHash string) (AuthOneTimeToken, error)
+	CountActiveSyncWorkspacesByOwner(ctx context.Context, ownerUserID uuid.UUID) (int32, error)
 	CreateAuthEvent(ctx context.Context, arg CreateAuthEventParams) error
 	CreateFlowState(ctx context.Context, arg CreateFlowStateParams) (AuthFlowState, error)
 	CreateIdentity(ctx context.Context, arg CreateIdentityParams) (AuthIdentity, error)
 	CreateOneTimeToken(ctx context.Context, arg CreateOneTimeTokenParams) (AuthOneTimeToken, error)
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (AuthRefreshToken, error)
+	CreateReservedSyncObject(ctx context.Context, arg CreateReservedSyncObjectParams) (KukuSyncObject, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (AuthSession, error)
+	CreateSyncDevice(ctx context.Context, arg CreateSyncDeviceParams) (KukuSyncDevice, error)
+	CreateSyncUsageWorkspace(ctx context.Context, workspaceID uuid.UUID) (KukuSyncUsageWorkspace, error)
+	CreateSyncWorkspace(ctx context.Context, arg CreateSyncWorkspaceParams) (KukuSyncWorkspace, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (AuthUser, error)
 	DeleteFlowState(ctx context.Context, id uuid.UUID) error
 	EnsureSubscriptionExists(ctx context.Context, userID uuid.UUID) (KukuSubscription, error)
+	EnsureSyncUsageAccount(ctx context.Context, userID uuid.UUID) (KukuSyncUsageAccount, error)
+	GetActiveSyncDevice(ctx context.Context, arg GetActiveSyncDeviceParams) (KukuSyncDevice, error)
+	GetActiveSyncDeviceForUpdate(ctx context.Context, arg GetActiveSyncDeviceForUpdateParams) (KukuSyncDevice, error)
 	GetCurrentPeriodUsage(ctx context.Context, arg GetCurrentPeriodUsageParams) (GetCurrentPeriodUsageRow, error)
 	GetFlowStateByCode(ctx context.Context, authCode string) (AuthFlowState, error)
 	GetIdentityByProviderID(ctx context.Context, arg GetIdentityByProviderIDParams) (AuthIdentity, error)
+	GetLatestSyncCheckpointCommitID(ctx context.Context, workspaceID uuid.UUID) (string, error)
 	GetRefreshTokenByHash(ctx context.Context, tokenHash string) (AuthRefreshToken, error)
 	GetSubscriptionByUserID(ctx context.Context, userID uuid.UUID) (KukuSubscription, error)
 	GetSubscriptionByUserIDForUpdate(ctx context.Context, userID uuid.UUID) (KukuSubscription, error)
+	GetSyncCommit(ctx context.Context, arg GetSyncCommitParams) (KukuSyncCommit, error)
+	GetSyncObject(ctx context.Context, arg GetSyncObjectParams) (KukuSyncObject, error)
+	GetSyncObjectForUpdate(ctx context.Context, arg GetSyncObjectForUpdateParams) (KukuSyncObject, error)
+	GetSyncUsageAccountForUpdate(ctx context.Context, userID uuid.UUID) (KukuSyncUsageAccount, error)
+	GetSyncUsageWorkspaceForUpdate(ctx context.Context, workspaceID uuid.UUID) (KukuSyncUsageWorkspace, error)
+	GetSyncWorkspaceByIDAndOwner(ctx context.Context, arg GetSyncWorkspaceByIDAndOwnerParams) (KukuSyncWorkspace, error)
+	GetSyncWorkspaceForUpdate(ctx context.Context, arg GetSyncWorkspaceForUpdateParams) (KukuSyncWorkspace, error)
 	// Explicit column list so the tokens_k cast pins sqlc's generated Go type
 	// (float32) regardless of the storage type. Storage is NUMERIC so SUM
 	// aggregates are exact; the cast here is lossless for display (REAL has
@@ -43,18 +63,28 @@ type Querier interface {
 	GetValidSession(ctx context.Context, arg GetValidSessionParams) (AuthSession, error)
 	IncrementDailyAIRequests(ctx context.Context, arg IncrementDailyAIRequestsParams) error
 	IncrementDailyAITokens(ctx context.Context, arg IncrementDailyAITokensParams) error
+	IncrementSyncUsageWorkspaceCount(ctx context.Context, arg IncrementSyncUsageWorkspaceCountParams) error
 	InvalidateOneTimeTokensByEmail(ctx context.Context, arg InvalidateOneTimeTokensByEmailParams) error
+	ListSyncCommitsAfterServerSeq(ctx context.Context, arg ListSyncCommitsAfterServerSeqParams) ([]KukuSyncCommit, error)
+	ListSyncKeyEnvelopes(ctx context.Context, workspaceID uuid.UUID) ([]KukuSyncKeyEnvelope, error)
+	ListSyncObjectsByIDs(ctx context.Context, arg ListSyncObjectsByIDsParams) ([]KukuSyncObject, error)
+	MarkSyncObjectAvailable(ctx context.Context, arg MarkSyncObjectAvailableParams) (KukuSyncObject, error)
+	MarkSyncObjectFailed(ctx context.Context, arg MarkSyncObjectFailedParams) (KukuSyncObject, error)
+	MarkSyncObjectPending(ctx context.Context, arg MarkSyncObjectPendingParams) (KukuSyncObject, error)
 	RevokeAllUserRefreshTokens(ctx context.Context, userID uuid.UUID) error
 	RevokeAllUserSessions(ctx context.Context, userID uuid.UUID) error
 	RevokeRefreshToken(ctx context.Context, id uuid.UUID) error
 	RevokeSession(ctx context.Context, id uuid.UUID) error
 	RevokeSessionRefreshTokens(ctx context.Context, sessionID uuid.UUID) error
+	SoftDeleteSyncWorkspace(ctx context.Context, arg SoftDeleteSyncWorkspaceParams) error
 	SoftDeleteUser(ctx context.Context, id uuid.UUID) error
+	TouchSyncDeviceLastSeen(ctx context.Context, arg TouchSyncDeviceLastSeenParams) error
 	UpdateIdentityLastSignIn(ctx context.Context, arg UpdateIdentityLastSignInParams) error
 	UpdateSessionRefreshedAt(ctx context.Context, id uuid.UUID) error
 	UpdateSubscriptionPeriod(ctx context.Context, arg UpdateSubscriptionPeriodParams) (KukuSubscription, error)
 	UpdateUserLastSignIn(ctx context.Context, id uuid.UUID) error
 	UpdateUserName(ctx context.Context, arg UpdateUserNameParams) (AuthUser, error)
+	UpsertSyncKeyEnvelope(ctx context.Context, arg UpsertSyncKeyEnvelopeParams) (KukuSyncKeyEnvelope, error)
 }
 
 var _ Querier = (*Queries)(nil)
