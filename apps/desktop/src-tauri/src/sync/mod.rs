@@ -1,8 +1,10 @@
+pub mod client;
 pub mod commands;
 pub mod crypto;
 pub mod errors;
 pub mod keys;
 pub mod packer;
+pub mod transfer;
 pub mod types;
 
 use std::time::{SystemTime, UNIX_EPOCH};
