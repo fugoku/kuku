@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"strings"
 	"testing"
+	"time"
 )
 
 func newTestLogger() (*slog.Logger, *bytes.Buffer) {
@@ -115,5 +116,26 @@ func TestValidate_DevelopmentAllowsCORSWildcard(t *testing.T) {
 	log, _ := newTestLogger()
 	if err := cfg.Validate(log); err != nil {
 		t.Fatalf("expected dev to accept wildcard for ergonomic local setups, got %v", err)
+	}
+}
+
+func TestValidate_ProductionRejectsSyncDirectBytesDevRPC(t *testing.T) {
+	cfg := &Config{
+		Env:                             "production",
+		JWTSecret:                       "real",
+		TrustedProxiesRaw:               "10.0.0.0/8",
+		AllowedOrigins:                  []string{"https://www.kuku.mom"},
+		SyncDirectBytesDevEnabled:       true,
+		SyncObjectStoreDriver:           "s3_compatible",
+		SyncMaxWorkspacesPerUser:        5,
+		SyncMaxTotalStorageBytesPerUser: 1073741824,
+		SyncMaxStorageBytesPerWorkspace: 536870912,
+		SyncMaxSingleBlobBytes:          33554432,
+		SyncMaxPendingUploadBytes:       134217728,
+		SyncMaxPendingUploadAge:         24 * time.Hour,
+	}
+	log, _ := newTestLogger()
+	if err := cfg.Validate(log); err == nil {
+		t.Fatal("expected production to reject direct sync byte RPCs, got nil")
 	}
 }
