@@ -29,6 +29,11 @@ pub struct SyncRuntimeStatus {
     pub remember_workspace_key: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_synced_at_ms: Option<i64>,
+    pub pending_uploads: i64,
+    pub pending_downloads: i64,
+    pub conflict_count: i64,
     pub updated_at_ms: i64,
 }
 
@@ -44,6 +49,10 @@ impl SyncRuntimeStatus {
             device_id: None,
             remember_workspace_key: true,
             last_error: None,
+            last_synced_at_ms: None,
+            pending_uploads: 0,
+            pending_downloads: 0,
+            conflict_count: 0,
             updated_at_ms,
         }
     }
@@ -67,4 +76,18 @@ pub enum SyncPhase {
 #[serde(rename_all = "camelCase")]
 pub struct SyncStatusEvent {
     pub status: SyncRuntimeStatus,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncConflictSummary {
+    pub conflict_id: String,
+    pub path: String,
+    pub conflict_path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub base_commit_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remote_commit_id: Option<String>,
+    pub status: String,
+    pub created_at_ms: i64,
 }

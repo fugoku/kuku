@@ -158,6 +158,8 @@ pub fn run() {
             sync::commands::sync_get_status,
             sync::commands::sync_configure_vault,
             sync::commands::sync_set_enabled,
+            sync::commands::sync_run_once,
+            sync::commands::sync_list_conflicts,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
