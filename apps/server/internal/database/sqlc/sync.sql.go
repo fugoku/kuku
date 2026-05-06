@@ -12,6 +12,23 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const addSyncUsageAccountAvailableObjectBytes = `-- name: AddSyncUsageAccountAvailableObjectBytes :exec
+UPDATE kuku.sync_usage_accounts
+SET total_storage_bytes = total_storage_bytes + $2,
+    updated_at = now()
+WHERE user_id = $1
+`
+
+type AddSyncUsageAccountAvailableObjectBytesParams struct {
+	UserID            uuid.UUID `json:"user_id"`
+	TotalStorageBytes int64     `json:"total_storage_bytes"`
+}
+
+func (q *Queries) AddSyncUsageAccountAvailableObjectBytes(ctx context.Context, arg AddSyncUsageAccountAvailableObjectBytesParams) error {
+	_, err := q.db.Exec(ctx, addSyncUsageAccountAvailableObjectBytes, arg.UserID, arg.TotalStorageBytes)
+	return err
+}
+
 const addSyncUsageAccountPendingBytes = `-- name: AddSyncUsageAccountPendingBytes :exec
 UPDATE kuku.sync_usage_accounts
 SET pending_upload_bytes = pending_upload_bytes + $2,
@@ -26,6 +43,24 @@ type AddSyncUsageAccountPendingBytesParams struct {
 
 func (q *Queries) AddSyncUsageAccountPendingBytes(ctx context.Context, arg AddSyncUsageAccountPendingBytesParams) error {
 	_, err := q.db.Exec(ctx, addSyncUsageAccountPendingBytes, arg.UserID, arg.PendingUploadBytes)
+	return err
+}
+
+const addSyncUsageAvailableObjectBytes = `-- name: AddSyncUsageAvailableObjectBytes :exec
+UPDATE kuku.sync_usage_workspaces
+SET storage_bytes = storage_bytes + $2,
+    object_count = object_count + 1,
+    updated_at = now()
+WHERE workspace_id = $1
+`
+
+type AddSyncUsageAvailableObjectBytesParams struct {
+	WorkspaceID  uuid.UUID `json:"workspace_id"`
+	StorageBytes int64     `json:"storage_bytes"`
+}
+
+func (q *Queries) AddSyncUsageAvailableObjectBytes(ctx context.Context, arg AddSyncUsageAvailableObjectBytesParams) error {
+	_, err := q.db.Exec(ctx, addSyncUsageAvailableObjectBytes, arg.WorkspaceID, arg.StorageBytes)
 	return err
 }
 

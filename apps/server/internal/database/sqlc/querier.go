@@ -11,7 +11,9 @@ import (
 )
 
 type Querier interface {
+	AddSyncUsageAccountAvailableObjectBytes(ctx context.Context, arg AddSyncUsageAccountAvailableObjectBytesParams) error
 	AddSyncUsageAccountPendingBytes(ctx context.Context, arg AddSyncUsageAccountPendingBytesParams) error
+	AddSyncUsageAvailableObjectBytes(ctx context.Context, arg AddSyncUsageAvailableObjectBytesParams) error
 	AddSyncUsagePendingBytes(ctx context.Context, arg AddSyncUsagePendingBytesParams) error
 	CompleteSyncUsageAccountObjectBytes(ctx context.Context, arg CompleteSyncUsageAccountObjectBytesParams) error
 	CompleteSyncUsageObjectBytes(ctx context.Context, arg CompleteSyncUsageObjectBytesParams) error

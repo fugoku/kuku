@@ -218,6 +218,19 @@ SET pending_upload_bytes = pending_upload_bytes - $2,
     updated_at = now()
 WHERE user_id = $1;
 
+-- name: AddSyncUsageAvailableObjectBytes :exec
+UPDATE kuku.sync_usage_workspaces
+SET storage_bytes = storage_bytes + $2,
+    object_count = object_count + 1,
+    updated_at = now()
+WHERE workspace_id = $1;
+
+-- name: AddSyncUsageAccountAvailableObjectBytes :exec
+UPDATE kuku.sync_usage_accounts
+SET total_storage_bytes = total_storage_bytes + $2,
+    updated_at = now()
+WHERE user_id = $1;
+
 -- name: ListSyncCommitsAfterServerSeq :many
 SELECT * FROM kuku.sync_commits
 WHERE workspace_id = $1
