@@ -63,6 +63,7 @@ interface CameraPoint {
 
 const NODE_GEOMETRY = new SphereGeometry(1, 24, 16);
 const GRAPH_3D_SETTINGS = GRAPH_SETTINGS_DEFAULTS;
+const GRAPH_3D_NODE_REL_SIZE = 1;
 const Graph3DConstructor = ForceGraph3D as unknown as Graph3DConstructor;
 const DENSE_GRAPH_NODE_COUNT = 500;
 const LARGE_GRAPH_NODE_COUNT = 1_000;
@@ -99,8 +100,8 @@ function nodeOpacity(options: NodeOpacityOptions): number {
 }
 
 function nodeScale(radius: number, highlighted: boolean, softHighlighted: boolean): number {
-  if (highlighted) return radius * 1.12;
-  if (softHighlighted) return radius * 1.04;
+  if (highlighted) return radius;
+  if (softHighlighted) return radius;
   return radius;
 }
 
@@ -115,6 +116,10 @@ function nodeRadius(node: FGNode): number {
     cfg.nodeMinSize,
     Math.min(cfg.nodeMaxSize, cfg.nodeMinSize + node.linkCount * cfg.nodeSizeScale),
   );
+}
+
+function nodeVisualRadius(node: FGNode): number {
+  return Math.cbrt(Math.max(2, nodeRadius(node))) * GRAPH_3D_NODE_REL_SIZE;
 }
 
 function cameraDistanceForZoom(cameraPosition: { x: number; y: number; z: number }, scale: number) {
@@ -378,7 +383,7 @@ export default function GraphCanvas3D(props: GraphCanvas3DProps) {
   function nodeThreeObject(node: FGNode): Group | undefined {
     if (!shouldUseCustomNodeObject(node)) return undefined;
 
-    const radius = nodeRadius(node);
+    const radius = nodeVisualRadius(node);
     const color = nodeColor(node);
     const group = new Group();
     const selected = node.filePath === selectedNode();
@@ -409,7 +414,7 @@ export default function GraphCanvas3D(props: GraphCanvas3DProps) {
       const labelColor = getEffectiveTheme() === "dark" ? "#f7f4ff" : "#1d172b";
       const label = new SpriteText(
         shortLabel(node.name),
-        focusedFilePath() === node.filePath ? 4.4 : 3.4,
+        focusedFilePath() === node.filePath ? 3.4 : 2.7,
         labelColor,
       );
       label.fontFace = "Goorm Sans, -apple-system, BlinkMacSystemFont, sans-serif";
@@ -420,8 +425,8 @@ export default function GraphCanvas3D(props: GraphCanvas3DProps) {
       label.borderColor = labelBorderColor(node);
       label.borderWidth = focusedFilePath() === node.filePath ? 0.55 : 0.25;
       label.borderRadius = 2;
-      label.padding = focusedFilePath() === node.filePath ? [4, 3] : [3, 2];
-      label.position.y = radius + (focusedFilePath() === node.filePath ? 10 : 6.8);
+      label.padding = focusedFilePath() === node.filePath ? [3, 2] : [2, 1.5];
+      label.position.y = radius + (focusedFilePath() === node.filePath ? 7 : 4.8);
       label.renderOrder = 1000;
       label.material.depthTest = false;
       label.material.depthWrite = false;
@@ -652,7 +657,7 @@ export default function GraphCanvas3D(props: GraphCanvas3DProps) {
         .nodeVal((node) => Math.max(2, nodeRadius(node)))
         .nodeColor((node) => nodeColor(node))
         .nodeThreeObject((node) => nodeThreeObject(node) as Group)
-        .nodeRelSize(1)
+        .nodeRelSize(GRAPH_3D_NODE_REL_SIZE)
         .nodeResolution(nodeResolutionForBudget())
         .linkColor((link) => linkColor(link))
         .linkWidth((link) => linkWidth(link))
