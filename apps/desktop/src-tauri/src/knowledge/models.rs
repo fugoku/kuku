@@ -200,6 +200,54 @@ pub struct CreateDecisionDocumentResult {
     pub should_open: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ApplyDecisionDocumentRequest {
+    pub path: String,
+    pub expected_checksum: String,
+    pub source: String,
+    #[serde(default = "default_recover")]
+    pub recover: bool,
+}
+
+fn default_recover() -> bool {
+    true
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ApplyDecisionDocumentStatus {
+    Applied,
+    PartiallyApplied,
+    NeedsRevision,
+}
+
+impl ApplyDecisionDocumentStatus {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Applied => "applied",
+            Self::PartiallyApplied => "partially_applied",
+            Self::NeedsRevision => "needs_revision",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ApplyDecisionDocumentResult {
+    pub doc_id: String,
+    pub path: String,
+    pub status: ApplyDecisionDocumentStatus,
+    pub committed_memory_paths: Vec<String>,
+    pub rejected_decision_ids: Vec<String>,
+    pub needs_revision_decision_ids: Vec<String>,
+    pub recovered_from_journal: bool,
+    pub warnings: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub journal_cleanup_required: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub journal_path: Option<String>,
+}
+
 impl KnowledgeInitResult {
     pub fn from_status(status: KnowledgeStatusResult, created_dirs: Vec<String>) -> Self {
         Self {

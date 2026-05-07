@@ -1,3 +1,4 @@
+pub mod apply;
 pub mod commands;
 #[allow(dead_code)]
 pub mod decision_document;

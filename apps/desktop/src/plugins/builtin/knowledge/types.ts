@@ -80,7 +80,32 @@ interface CreateDecisionDocumentResult {
   should_open: true;
 }
 
+interface ApplyDecisionDocumentRequest {
+  path: string;
+  expected_checksum: string;
+  source: "editor_document_apply";
+  recover?: boolean;
+}
+
+type ApplyDecisionDocumentStatus = "applied" | "partially_applied" | "needs_revision";
+
+interface ApplyDecisionDocumentResult {
+  doc_id: string;
+  path: string;
+  status: ApplyDecisionDocumentStatus;
+  committed_memory_paths: string[];
+  rejected_decision_ids: string[];
+  needs_revision_decision_ids: string[];
+  recovered_from_journal: boolean;
+  warnings: string[];
+  journal_cleanup_required?: boolean;
+  journal_path?: string;
+}
+
 export type {
+  ApplyDecisionDocumentRequest,
+  ApplyDecisionDocumentResult,
+  ApplyDecisionDocumentStatus,
   CreateDecisionDocumentRequest,
   CreateDecisionDocumentResult,
   DecisionOptionId,

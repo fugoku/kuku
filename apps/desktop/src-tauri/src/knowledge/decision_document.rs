@@ -223,9 +223,30 @@ pub fn parse_decision_document(
 pub fn canonicalize_kuku_blocks(
     document: &ParsedDecisionDocument,
 ) -> Result<String, DecisionDocumentError> {
-    let mut output = String::with_capacity(document.markdown.len());
-    let mut cursor = 0;
-    let mut replacements = Vec::new();
+    render_with_replacements(
+        &document.markdown,
+        document
+            .blocks
+            .iter()
+            .map(|block| {
+                let Some(span) = block.span() else {
+                    return Err(DecisionDocumentError::validation(
+                        "Kuku block is missing byte span data",
+                    ));
+                };
+                Ok((span.full.clone(), block.canonical_markdown()?))
+            })
+            .collect::<Result<Vec<_>, _>>()?,
+    )
+}
+
+pub fn render_decision_document(
+    document: &ParsedDecisionDocument,
+) -> Result<String, DecisionDocumentError> {
+    let mut replacements = vec![(
+        document.frontmatter_span.clone(),
+        render_frontmatter_block(&document.frontmatter.raw)?,
+    )];
 
     for block in &document.blocks {
         let Some(span) = block.span() else {
@@ -235,21 +256,43 @@ pub fn canonicalize_kuku_blocks(
         };
         replacements.push((span.full.clone(), block.canonical_markdown()?));
     }
+
+    render_with_replacements(&document.markdown, replacements)
+}
+
+fn render_with_replacements(
+    markdown: &str,
+    mut replacements: Vec<(ByteRange, String)>,
+) -> Result<String, DecisionDocumentError> {
+    let mut output = String::with_capacity(markdown.len());
+    let mut cursor = 0;
     replacements.sort_by_key(|(range, _)| range.start);
 
     for (range, replacement) in replacements {
-        if range.start < cursor || range.end > document.markdown.len() {
+        if range.start < cursor || range.end > markdown.len() {
             return Err(DecisionDocumentError::validation(
                 "Kuku block byte span is invalid",
             ));
         }
-        output.push_str(&document.markdown[cursor..range.start]);
+        output.push_str(&markdown[cursor..range.start]);
         output.push_str(&replacement);
         cursor = range.end;
     }
-    output.push_str(&document.markdown[cursor..]);
+    output.push_str(&markdown[cursor..]);
 
     Ok(output)
+}
+
+fn render_frontmatter_block(frontmatter: &Mapping) -> Result<String, DecisionDocumentError> {
+    let mut yaml = serde_yaml::to_string(frontmatter)
+        .map_err(|error| DecisionDocumentError::validation(error.to_string()))?;
+    if let Some(stripped) = yaml.strip_prefix("---\n") {
+        yaml = stripped.to_string();
+    }
+    if !yaml.ends_with('\n') {
+        yaml.push('\n');
+    }
+    Ok(format!("---\n{yaml}---\n"))
 }
 
 pub fn validate_decision_document_integrity(
