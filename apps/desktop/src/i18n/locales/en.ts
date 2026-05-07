@@ -98,10 +98,12 @@ export const EN_MESSAGES = {
   "settings.plugin.sync.metrics.conflicts": "Conflicts",
   "settings.plugin.sync.configure.title": "Workspace",
   "settings.plugin.sync.workspace.label": "Workspace ID",
-  "settings.plugin.sync.workspace.description": "Remote encrypted sync workspace identifier.",
-  "settings.plugin.sync.workspace.placeholder": "workspace_...",
+  "settings.plugin.sync.workspace.description":
+    "Leave blank to create a new encrypted sync workspace, or paste an existing workspace ID to join it.",
+  "settings.plugin.sync.workspace.placeholder": "New workspace or workspace_...",
   "settings.plugin.sync.device.label": "Device ID",
-  "settings.plugin.sync.device.description": "Stable local device identifier for signed commits.",
+  "settings.plugin.sync.device.description":
+    "Assigned by the server when this device is registered.",
   "settings.plugin.sync.passphrase.label": "Recovery passphrase",
   "settings.plugin.sync.passphrase.description":
     "Used to recover the workspace key on another device. It is not shown in status.",

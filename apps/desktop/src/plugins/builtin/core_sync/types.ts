@@ -15,6 +15,7 @@ interface SyncVaultConfig {
   remoteWorkspaceId: string;
   deviceId: string;
   rememberWorkspaceKey: boolean;
+  passphrase?: string;
 }
 
 interface SyncRuntimeStatus {

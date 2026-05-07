@@ -17,7 +17,7 @@ import { authState, getAuthService } from "~/plugins/builtin/core_auth/auth_serv
 import { vaultState } from "~/stores/vault";
 
 import { ConflictList } from "./conflict_list";
-import { defaultDeviceId, defaultVaultId, mapSyncError } from "./service";
+import { defaultVaultId, mapSyncError } from "./service";
 import { refreshSyncStatus, syncStatus } from "./status_store";
 import { getSyncService } from "./runtime";
 import type { SyncPhase } from "./types";
@@ -78,7 +78,7 @@ function errorCopy(error: string | undefined): string | null {
 function SyncSettings(): JSX.Element {
   const settingsRefreshToken = useSettingsRefreshToken();
   const [remoteWorkspaceId, setRemoteWorkspaceId] = createSignal("");
-  const [deviceId, setDeviceId] = createSignal(defaultDeviceId());
+  const [deviceId, setDeviceId] = createSignal("");
   const [passphrase, setPassphrase] = createSignal("");
   const [rememberWorkspaceKey, setRememberWorkspaceKey] = createSignal(true);
   const [busy, setBusy] = createSignal(false);
@@ -122,14 +122,6 @@ function SyncSettings(): JSX.Element {
       setLocalError(t("settings.plugin.sync.error.vault_required"));
       return false;
     }
-    if (!remoteWorkspaceId().trim()) {
-      setLocalError(t("settings.plugin.sync.error.workspace_required"));
-      return false;
-    }
-    if (!deviceId().trim()) {
-      setLocalError(t("settings.plugin.sync.error.device_required"));
-      return false;
-    }
     if (!syncStatus.configured && !passphrase().trim()) {
       setLocalError(t("settings.plugin.sync.error.passphrase_required"));
       return false;
@@ -141,6 +133,7 @@ function SyncSettings(): JSX.Element {
       remoteWorkspaceId: remoteWorkspaceId().trim(),
       deviceId: deviceId().trim(),
       rememberWorkspaceKey: rememberWorkspaceKey(),
+      passphrase: passphrase().trim() || undefined,
     });
     setLocalError(null);
     await refreshSyncStatus(service);
@@ -190,7 +183,7 @@ function SyncSettings(): JSX.Element {
     if (!service || busy()) return;
     setBusy(true);
     try {
-      await service.runOnce();
+      await service.runOnce(passphrase().trim() || undefined);
       await refreshSyncStatus(service);
     } catch (error) {
       setLocalError(errorCopy(error instanceof Error ? error.message : String(error)));

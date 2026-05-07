@@ -14,7 +14,7 @@ interface SyncService {
   getStatus(): Promise<SyncRuntimeStatus>;
   configureVault(config: SyncVaultConfig): Promise<SyncRuntimeStatus>;
   setEnabled(enabled: boolean): Promise<SyncRuntimeStatus>;
-  runOnce(): Promise<SyncRuntimeStatus>;
+  runOnce(passphrase?: string): Promise<SyncRuntimeStatus>;
   listConflicts(): Promise<SyncConflictSummary[]>;
   authState(): Promise<SyncAuthState>;
 }
@@ -38,8 +38,8 @@ function createSyncService(authService?: AuthService | null): SyncService {
     async setEnabled(enabled) {
       return invoke<SyncRuntimeStatus>("sync_set_enabled", { enabled });
     },
-    async runOnce() {
-      return invoke<SyncRuntimeStatus>("sync_run_once");
+    async runOnce(passphrase) {
+      return invoke<SyncRuntimeStatus>("sync_run_once", { passphrase });
     },
     async listConflicts() {
       return invoke<SyncConflictSummary[]>("sync_list_conflicts");

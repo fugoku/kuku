@@ -97,10 +97,11 @@ export const KO_MESSAGES = {
   "settings.plugin.sync.metrics.conflicts": "충돌",
   "settings.plugin.sync.configure.title": "워크스페이스",
   "settings.plugin.sync.workspace.label": "워크스페이스 ID",
-  "settings.plugin.sync.workspace.description": "원격 암호화 동기화 워크스페이스 식별자예요.",
-  "settings.plugin.sync.workspace.placeholder": "workspace_...",
+  "settings.plugin.sync.workspace.description":
+    "비워 두면 새 암호화 동기화 워크스페이스를 만들고, 기존 ID를 붙여넣으면 그 워크스페이스에 참여해요.",
+  "settings.plugin.sync.workspace.placeholder": "새 워크스페이스 또는 workspace_...",
   "settings.plugin.sync.device.label": "기기 ID",
-  "settings.plugin.sync.device.description": "서명된 커밋에 사용할 이 기기의 안정적인 식별자예요.",
+  "settings.plugin.sync.device.description": "이 기기를 등록할 때 서버가 할당해요.",
   "settings.plugin.sync.passphrase.label": "복구 패스프레이즈",
   "settings.plugin.sync.passphrase.description":
     "다른 기기에서 워크스페이스 키를 복구할 때 사용해요. 상태 화면에는 표시하지 않아요.",

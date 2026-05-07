@@ -10,6 +10,8 @@ pub struct SyncVaultConfig {
     pub remote_workspace_id: String,
     pub device_id: String,
     pub remember_workspace_key: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub passphrase: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]

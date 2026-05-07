@@ -100,10 +100,11 @@ export const JA_MESSAGES = {
   "settings.plugin.sync.metrics.conflicts": "競合",
   "settings.plugin.sync.configure.title": "ワークスペース",
   "settings.plugin.sync.workspace.label": "ワークスペース ID",
-  "settings.plugin.sync.workspace.description": "リモート暗号化同期ワークスペースの識別子です。",
-  "settings.plugin.sync.workspace.placeholder": "workspace_...",
+  "settings.plugin.sync.workspace.description":
+    "空のままなら新しい暗号化同期ワークスペースを作成し、既存の ID を貼り付けるとそのワークスペースに参加します。",
+  "settings.plugin.sync.workspace.placeholder": "新規ワークスペースまたは workspace_...",
   "settings.plugin.sync.device.label": "端末 ID",
-  "settings.plugin.sync.device.description": "署名済みコミットに使う安定した端末識別子です。",
+  "settings.plugin.sync.device.description": "この端末の登録時にサーバーが割り当てます。",
   "settings.plugin.sync.passphrase.label": "復旧パスフレーズ",
   "settings.plugin.sync.passphrase.description":
     "別の端末でワークスペースキーを復旧するために使います。状態には表示されません。",

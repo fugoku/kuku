@@ -4,6 +4,7 @@ use argon2::{Algorithm, Argon2, Params, Version};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use chacha20poly1305::aead::{Aead, Payload};
 use chacha20poly1305::{Key, KeyInit, XChaCha20Poly1305, XNonce};
+use ed25519_dalek::SigningKey;
 use rand_core::{OsRng, RngCore};
 use serde::{Deserialize, Serialize};
 
@@ -236,6 +237,36 @@ pub fn forget_workspace_key(vault_id: &str) -> SyncResult<()> {
         Ok(()) | Err(secure_storage::SecureStorageError::NotFound) => Ok(()),
         Err(error) => Err(secure_storage_error(error)),
     }
+}
+
+pub fn random_device_signing_key() -> SigningKey {
+    let mut key = [0u8; 32];
+    OsRng.fill_bytes(&mut key);
+    SigningKey::from_bytes(&key)
+}
+
+pub fn remember_device_signing_key(vault_id: &str, signing_key: &SigningKey) -> SyncResult<()> {
+    secure_storage::write_bytes(
+        &sync_keychain_service(),
+        &device_signing_key_account(vault_id),
+        &signing_key.to_bytes(),
+    )
+    .map_err(secure_storage_error)
+}
+
+pub fn read_device_signing_key(vault_id: &str) -> SyncResult<Option<SigningKey>> {
+    let Some(bytes) = secure_storage::read_bytes(
+        &sync_keychain_service(),
+        &device_signing_key_account(vault_id),
+    )
+    .map_err(secure_storage_error)?
+    else {
+        return Ok(None);
+    };
+    let key = bytes.try_into().map_err(|_| {
+        SyncError::Crypto("remembered device signing key has invalid length".into())
+    })?;
+    Ok(Some(SigningKey::from_bytes(&key)))
 }
 
 pub fn unlock_workspace_key(
