@@ -34,7 +34,7 @@ const knowledgePlugin: KukuPlugin = {
     {
       id: "knowledge.panel",
       label: "Second Brain",
-      icon: "knowledge",
+      icon: "second-brain",
       location: { slot: "rightPanel" },
       order: 30,
       component: KnowledgePanel,
