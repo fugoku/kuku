@@ -9,7 +9,9 @@ import type {
 import {
   FORBIDDEN_KNOWLEDGE_AI_TOOL_NAMES,
   KNOWLEDGE_AI_TOOL_NAMES,
+  memoryContextRequestFromArgs,
   memoryProposeRequestFromArgs,
+  memorySearchRequestFromArgs,
   registerKnowledgeAiTools,
 } from "./ai_tools";
 import type { KnowledgeService } from "./service";
@@ -47,6 +49,53 @@ describe("knowledge AI tools", () => {
     });
   });
 
+  it("calls memory_search and returns committed memory hits", async () => {
+    const registry = createRegistry();
+    const service = createService();
+    registerKnowledgeAiTools(registry, service);
+
+    const handler = registry.getHandler("memory_search");
+    const output = await handler?.({
+      query: "session",
+      limit: 3,
+      tags: ["auth"],
+      kinds: ["decision"],
+    });
+
+    expect(service.lastSearchRequest).toEqual({
+      query: "session",
+      limit: 3,
+      tags: ["auth"],
+      kinds: ["decision"],
+    });
+    expect(JSON.parse(output ?? "{}")).toMatchObject({
+      hits: [{ id: "mem_auth", path: "Knowledge/memory/mem_auth.md" }],
+    });
+  });
+
+  it("calls memory_context and returns read-only memory context", async () => {
+    const registry = createRegistry();
+    const service = createService();
+    registerKnowledgeAiTools(registry, service);
+
+    const handler = registry.getHandler("memory_context");
+    const output = await handler?.({
+      query: "session",
+      active_path: "Notes/Auth.md",
+      limit: 2,
+    });
+
+    expect(service.lastContextRequest).toEqual({
+      query: "session",
+      active_path: "Notes/Auth.md",
+      limit: 2,
+    });
+    expect(JSON.parse(output ?? "{}")).toMatchObject({
+      query: "session",
+      memories: [{ id: "mem_auth", path: "Knowledge/memory/mem_auth.md" }],
+    });
+  });
+
   it("normalizes memory_propose arguments without adding apply fields", () => {
     const request = memoryProposeRequestFromArgs({
       title: "Auth",
@@ -63,6 +112,34 @@ describe("knowledge AI tools", () => {
     });
     expect("expected_checksum" in request).toBe(false);
     expect("source" in request).toBe(false);
+  });
+
+  it("normalizes memory_search and memory_context arguments", () => {
+    expect(
+      memorySearchRequestFromArgs({
+        query: "session",
+        limit: 50,
+        tags: ["auth", 1, "debug"],
+        kinds: ["decision"],
+      }),
+    ).toEqual({
+      query: "session",
+      limit: 50,
+      tags: ["auth", "debug"],
+      kinds: ["decision"],
+    });
+
+    expect(
+      memoryContextRequestFromArgs({
+        query: "session",
+        active_path: "Notes/Auth.md",
+        limit: 5,
+      }),
+    ).toEqual({
+      query: "session",
+      active_path: "Notes/Auth.md",
+      limit: 5,
+    });
   });
 });
 
@@ -94,11 +171,17 @@ function createRegistry(): AiProxyToolRegistry {
 
 function createService(): KnowledgeService & {
   lastRequest?: Parameters<KnowledgeService["proposeMemory"]>[0];
+  lastSearchRequest?: Parameters<KnowledgeService["searchMemory"]>[0];
+  lastContextRequest?: Parameters<KnowledgeService["memoryContext"]>[0];
 } {
   const service: KnowledgeService & {
     lastRequest?: Parameters<KnowledgeService["proposeMemory"]>[0];
+    lastSearchRequest?: Parameters<KnowledgeService["searchMemory"]>[0];
+    lastContextRequest?: Parameters<KnowledgeService["memoryContext"]>[0];
   } = {
     lastRequest: undefined,
+    lastSearchRequest: undefined,
+    lastContextRequest: undefined,
     status: async () => ({
       ok: true,
       value: {
@@ -154,6 +237,42 @@ function createService(): KnowledgeService & {
         message: "apply is not exposed to AI",
       },
     }),
+    searchMemory: async (request) => {
+      service.lastSearchRequest = request;
+      return {
+        ok: true,
+        value: {
+          hits: [memoryHit()],
+          warnings: [],
+          skipped_paths: [],
+        },
+      };
+    },
+    memoryContext: async (request) => {
+      service.lastContextRequest = request;
+      return {
+        ok: true,
+        value: {
+          query: request.query,
+          memories: [memoryHit()],
+          warnings: [],
+          skipped_paths: [],
+        },
+      };
+    },
   };
   return service;
+}
+
+function memoryHit() {
+  return {
+    id: "mem_auth",
+    path: "Knowledge/memory/mem_auth.md",
+    title: "Auth",
+    kind: "decision",
+    snippet: "Use session cookies first.",
+    tags: ["auth"],
+    source_refs: [],
+    score: 100,
+  };
 }

@@ -36,6 +36,10 @@ interface SourceRefInput {
   captured_at?: string;
 }
 
+type SourceRef = SourceRefInput & {
+  captured_at: string;
+};
+
 interface ProposedMemoryInput {
   suggested_id?: string;
   kind?: string;
@@ -102,6 +106,43 @@ interface ApplyDecisionDocumentResult {
   journal_path?: string;
 }
 
+interface SearchMemoryRequest {
+  query: string;
+  limit?: number;
+  tags?: string[];
+  kinds?: string[];
+}
+
+interface MemorySearchHit {
+  id: string;
+  path: string;
+  title: string;
+  kind?: string;
+  snippet: string;
+  tags: string[];
+  source_refs: SourceRef[];
+  score: number;
+}
+
+interface MemorySearchResult {
+  hits: MemorySearchHit[];
+  warnings: string[];
+  skipped_paths: string[];
+}
+
+interface MemoryContextRequest {
+  query: string;
+  active_path?: string;
+  limit?: number;
+}
+
+interface MemoryContextResult {
+  query: string;
+  memories: MemorySearchHit[];
+  warnings: string[];
+  skipped_paths: string[];
+}
+
 export type {
   ApplyDecisionDocumentRequest,
   ApplyDecisionDocumentResult,
@@ -114,8 +155,14 @@ export type {
   KnowledgeErrorCode,
   KnowledgeInitResult,
   KnowledgeStatusResult,
+  MemoryContextRequest,
+  MemoryContextResult,
+  MemorySearchHit,
+  MemorySearchResult,
   ProposalDefaultSelection,
   ProposedMemoryInput,
+  SearchMemoryRequest,
   SourceRange,
+  SourceRef,
   SourceRefInput,
 };

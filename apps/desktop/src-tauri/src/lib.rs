@@ -150,6 +150,8 @@ pub fn run() {
             knowledge::commands::knowledge_init,
             knowledge::commands::knowledge_create_decision_document,
             knowledge::commands::knowledge_apply_decision_document,
+            knowledge::commands::knowledge_search_memory,
+            knowledge::commands::knowledge_memory_context,
             knowledge::commands::memory_propose,
             // Search
             search::commands::search_query_simple,

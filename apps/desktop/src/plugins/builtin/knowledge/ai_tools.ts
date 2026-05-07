@@ -1,10 +1,15 @@
 import type { AiProxyToolRegistry } from "~/plugins/builtin/core_tool_registry/types";
 import type { Disposer } from "~/plugins/types";
 
-import type { CreateDecisionDocumentRequest, KnowledgeError } from "./types";
+import type {
+  CreateDecisionDocumentRequest,
+  KnowledgeError,
+  MemoryContextRequest,
+  SearchMemoryRequest,
+} from "./types";
 import type { KnowledgeService } from "./service";
 
-const KNOWLEDGE_AI_TOOL_NAMES = ["memory_propose"] as const;
+const KNOWLEDGE_AI_TOOL_NAMES = ["memory_search", "memory_context", "memory_propose"] as const;
 const FORBIDDEN_KNOWLEDGE_AI_TOOL_NAMES = [
   "memory_commit",
   "memory_write",
@@ -16,38 +21,111 @@ function registerKnowledgeAiTools(
   registry: AiProxyToolRegistry,
   service: KnowledgeService,
 ): Disposer {
-  return registry.register({
-    name: "memory_propose",
-    toolId: "knowledge.memory_propose",
-    description:
-      "Create a Knowledge decision document that proposes memories for explicit user review. This never commits memory.",
-    category: "knowledge",
-    parameters: {
-      type: "object",
-      properties: {
-        title: { type: "string" },
-        context: { type: "string" },
-        source_refs: { type: "array" },
-        proposed_memories: {
-          type: "array",
-          description: "Memory proposals to place in a user-reviewed decision document.",
+  const disposers = [
+    registry.register({
+      name: "memory_search",
+      toolId: "knowledge.memory_search",
+      description: "Search committed Knowledge MemoryItems. This is read-only.",
+      category: "knowledge",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string" },
+          limit: { type: "integer", description: "Defaults to 10 and is capped at 50." },
+          tags: { type: "array", items: { type: "string" } },
+          kinds: { type: "array", items: { type: "string" } },
         },
-        default_selection: {
-          type: "string",
-          enum: ["yes", "none"],
-          description: "Defaults to yes. Use none when the user should make every selection.",
-        },
+        required: ["query"],
       },
-      required: ["proposed_memories"],
-    },
-    handler: async (args) => {
-      const result = await service.proposeMemory(memoryProposeRequestFromArgs(args));
-      if (!result.ok) {
-        throw new Error(formatKnowledgeError(result.error));
-      }
-      return JSON.stringify(result.value, null, 2);
-    },
-  });
+      handler: async (args) => {
+        const result = await service.searchMemory(memorySearchRequestFromArgs(args));
+        if (!result.ok) {
+          throw new Error(formatKnowledgeError(result.error));
+        }
+        return JSON.stringify(result.value, null, 2);
+      },
+    }),
+    registry.register({
+      name: "memory_context",
+      toolId: "knowledge.memory_context",
+      description: "Return committed Knowledge memory context for a query. This is read-only.",
+      category: "knowledge",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string" },
+          active_path: {
+            type: "string",
+            description: "Optional vault-relative active document path hint.",
+          },
+          limit: { type: "integer", description: "Defaults to 10 and is capped at 50." },
+        },
+        required: ["query"],
+      },
+      handler: async (args) => {
+        const result = await service.memoryContext(memoryContextRequestFromArgs(args));
+        if (!result.ok) {
+          throw new Error(formatKnowledgeError(result.error));
+        }
+        return JSON.stringify(result.value, null, 2);
+      },
+    }),
+    registry.register({
+      name: "memory_propose",
+      toolId: "knowledge.memory_propose",
+      description:
+        "Create a Knowledge decision document that proposes memories for explicit user review. This never commits memory.",
+      category: "knowledge",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          context: { type: "string" },
+          source_refs: { type: "array" },
+          proposed_memories: {
+            type: "array",
+            description: "Memory proposals to place in a user-reviewed decision document.",
+          },
+          default_selection: {
+            type: "string",
+            enum: ["yes", "none"],
+            description: "Defaults to yes. Use none when the user should make every selection.",
+          },
+        },
+        required: ["proposed_memories"],
+      },
+      handler: async (args) => {
+        const result = await service.proposeMemory(memoryProposeRequestFromArgs(args));
+        if (!result.ok) {
+          throw new Error(formatKnowledgeError(result.error));
+        }
+        return JSON.stringify(result.value, null, 2);
+      },
+    }),
+  ];
+
+  return () => {
+    for (const dispose of disposers) {
+      dispose();
+    }
+  };
+}
+
+function memorySearchRequestFromArgs(args: Record<string, unknown>): SearchMemoryRequest {
+  return {
+    query: requiredString(args.query, "query"),
+    limit: optionalInteger(args.limit, "limit"),
+    tags: optionalStringArray(args.tags),
+    kinds: optionalStringArray(args.kinds),
+  };
+}
+
+function memoryContextRequestFromArgs(args: Record<string, unknown>): MemoryContextRequest {
+  return {
+    query: requiredString(args.query, "query"),
+    active_path: optionalString(args.active_path),
+    limit: optionalInteger(args.limit, "limit"),
+  };
 }
 
 function memoryProposeRequestFromArgs(
@@ -70,8 +148,30 @@ function optionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() !== "" ? value : undefined;
 }
 
+function requiredString(value: unknown, field: string): string {
+  if (typeof value !== "string") {
+    throw new Error(`${field} is required`);
+  }
+  return value;
+}
+
+function optionalInteger(value: unknown, field: string): number | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  if (typeof value !== "number" || !Number.isInteger(value)) {
+    throw new Error(`${field} must be an integer`);
+  }
+  return value;
+}
+
 function optionalArray(value: unknown): unknown[] | undefined {
   return Array.isArray(value) ? value : undefined;
+}
+
+function optionalStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  return value.filter((item): item is string => typeof item === "string");
 }
 
 function parseDefaultSelection(value: unknown): CreateDecisionDocumentRequest["default_selection"] {
@@ -88,6 +188,8 @@ function formatKnowledgeError(error: KnowledgeError): string {
 export {
   FORBIDDEN_KNOWLEDGE_AI_TOOL_NAMES,
   KNOWLEDGE_AI_TOOL_NAMES,
+  memoryContextRequestFromArgs,
   memoryProposeRequestFromArgs,
+  memorySearchRequestFromArgs,
   registerKnowledgeAiTools,
 };

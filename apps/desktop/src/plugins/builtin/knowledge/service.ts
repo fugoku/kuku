@@ -9,6 +9,10 @@ import type {
   KnowledgeError,
   KnowledgeInitResult,
   KnowledgeStatusResult,
+  MemoryContextRequest,
+  MemoryContextResult,
+  MemorySearchResult,
+  SearchMemoryRequest,
 } from "./types";
 
 interface KnowledgeService {
@@ -23,6 +27,10 @@ interface KnowledgeService {
   applyDecisionDocument(
     request: ApplyDecisionDocumentRequest,
   ): Promise<KnowledgeCommandResult<ApplyDecisionDocumentResult>>;
+  searchMemory(request: SearchMemoryRequest): Promise<KnowledgeCommandResult<MemorySearchResult>>;
+  memoryContext(
+    request: MemoryContextRequest,
+  ): Promise<KnowledgeCommandResult<MemoryContextResult>>;
 }
 
 function transportError(error: unknown): KnowledgeError {
@@ -63,6 +71,12 @@ function createKnowledgeService(): KnowledgeService {
       return invokeKnowledge<ApplyDecisionDocumentResult>("knowledge_apply_decision_document", {
         request,
       });
+    },
+    searchMemory(request) {
+      return invokeKnowledge<MemorySearchResult>("knowledge_search_memory", { request });
+    },
+    memoryContext(request) {
+      return invokeKnowledge<MemoryContextResult>("knowledge_memory_context", { request });
     },
   };
 }

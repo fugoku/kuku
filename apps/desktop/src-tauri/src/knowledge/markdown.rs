@@ -251,10 +251,36 @@ fn validate_memory_item(item: &MemoryItem) -> Result<(), KnowledgeModelError> {
         validate_non_empty_limited(tag, "tags", 40)?;
     }
     for source_ref in &item.source_refs {
-        validate_safe_vault_relative_path(&source_ref.path, "source_refs.path")?;
+        let path = validate_safe_vault_relative_path(&source_ref.path, "source_refs.path")?;
+        if path.chars().count() > MAX_SOURCE_PATH_CHARS {
+            return Err(KnowledgeModelError::new(
+                "source_refs.path",
+                "Path is too long",
+            ));
+        }
+        if let Some(title) = source_ref.title.as_deref() {
+            validate_non_empty_limited(title, "source_refs.title", MAX_TITLE_CHARS)?;
+        }
+        if let Some(section_path) = source_ref.section_path.as_ref() {
+            if section_path.len() > MAX_SECTION_PATH_ENTRIES {
+                return Err(KnowledgeModelError::new(
+                    "source_refs.section_path",
+                    "Too many section path entries",
+                ));
+            }
+            for entry in section_path {
+                validate_non_empty_limited(
+                    entry,
+                    "source_refs.section_path",
+                    MAX_SECTION_PATH_ENTRY_CHARS,
+                )?;
+            }
+        }
+        validate_range(source_ref.range.as_ref())?;
         if let Some(checksum) = source_ref.checksum.as_deref() {
             validate_sha256_checksum(checksum, "source_refs.checksum")?;
         }
+        validate_timestamp(&source_ref.captured_at, "source_refs.captured_at")?;
     }
     validate_timestamp(&item.created_at, "created_at")?;
     validate_timestamp(&item.updated_at, "updated_at")?;
