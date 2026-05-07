@@ -1,9 +1,11 @@
 import { lazy } from "solid-js";
 import { definePlugin } from "prosekit/core";
 
+import type { AiProxyToolRegistry } from "~/plugins/builtin/core_tool_registry/types";
 import type { KukuPlugin } from "~/plugins/types";
 import { openRightPanelView } from "~/stores/layout";
 
+import { registerKnowledgeAiTools } from "./ai_tools";
 import { knowledgeMarkdown } from "./markdown_handlers";
 import { createKnowledgeService } from "./service";
 import { knowledgeSettings } from "./settings";
@@ -56,6 +58,12 @@ const knowledgePlugin: KukuPlugin = {
   activate(ctx) {
     const service = createKnowledgeService();
     ctx.services.register("knowledge", service);
+    const proxyTools = ctx.services.get("core-tool-registry.proxyTools") as
+      | AiProxyToolRegistry
+      | undefined;
+    if (proxyTools) {
+      ctx.track(registerKnowledgeAiTools(proxyTools, service));
+    }
   },
 };
 
