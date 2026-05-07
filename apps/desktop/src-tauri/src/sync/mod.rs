@@ -137,14 +137,6 @@ fn validate_config(config: &SyncVaultConfig) -> SyncResult<()> {
     if config.root_path.trim().is_empty() {
         return Err(SyncError::InvalidArgument("root_path is required".into()));
     }
-    if config.remote_workspace_id.trim().is_empty() {
-        return Err(SyncError::InvalidArgument(
-            "remote_workspace_id is required".into(),
-        ));
-    }
-    if config.device_id.trim().is_empty() {
-        return Err(SyncError::InvalidArgument("device_id is required".into()));
-    }
     Ok(())
 }
 
@@ -166,6 +158,7 @@ mod tests {
             remote_workspace_id: "workspace_1".into(),
             device_id: "device_1".into(),
             remember_workspace_key: true,
+            passphrase: None,
         }
     }
 
