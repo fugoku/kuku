@@ -314,10 +314,7 @@ func (h *Handler) CompleteObjectUploadBatch(ctx context.Context, req *connect.Re
 	}
 	out := make([]*syncv1.ObjectUploadResult, 0, len(results))
 	for _, result := range results {
-		out = append(out, &syncv1.ObjectUploadResult{
-			Object:      syncObjectToProto(result.Object),
-			ErrorReason: objectErrorReasonToProto(result.ErrorReason).Enum(),
-		})
+		out = append(out, objectUploadResultToProto(result))
 	}
 	return connect.NewResponse(&syncv1.CompleteObjectUploadBatchResponse{Objects: out}), nil
 }
@@ -514,7 +511,14 @@ func syncObjectToProto(object sqlc.KukuSyncObject) *syncv1.SyncObject {
 		CreatedAt:         timestamp(object.CreatedAt),
 		AvailableAt:       timestamp(object.AvailableAt),
 		ExpiresAt:         timestamp(object.ExpiresAt),
-		ErrorReason:       objectErrorReasonToProto(object.ErrorReason).Enum(),
+		ErrorReason:       optionalObjectErrorReasonToProto(object.ErrorReason),
+	}
+}
+
+func objectUploadResultToProto(result ObjectUploadResult) *syncv1.ObjectUploadResult {
+	return &syncv1.ObjectUploadResult{
+		Object:      syncObjectToProto(result.Object),
+		ErrorReason: optionalObjectErrorReasonToProto(result.ErrorReason),
 	}
 }
 
@@ -604,6 +608,13 @@ func objectErrorReasonToProto(reason sqlc.NullKukuSyncObjectErrorReason) syncv1.
 	default:
 		return syncv1.SyncObjectErrorReason_SYNC_OBJECT_ERROR_REASON_UNSPECIFIED
 	}
+}
+
+func optionalObjectErrorReasonToProto(reason sqlc.NullKukuSyncObjectErrorReason) *syncv1.SyncObjectErrorReason {
+	if !reason.Valid {
+		return nil
+	}
+	return objectErrorReasonToProto(reason).Enum()
 }
 
 func storageProviderToProto(provider sqlc.KukuSyncStorageProvider) syncv1.SyncStorageProvider {
