@@ -133,6 +133,7 @@ pub fn configure_connection(conn: &Connection) -> SyncResult<()> {
 pub fn init_schema(conn: &Connection) -> SyncResult<()> {
     conn.execute_batch(CREATE_SCHEMA_SQL)
         .map_err(|error| SyncError::Storage(format!("failed to initialize sync DB: {error}")))?;
+    ensure_tree_entry_content_commit_id_column(conn)?;
     let stored = metadata_value(conn, SCHEMA_VERSION_KEY)?;
     match stored.as_deref() {
         Some(value) if value == CURRENT_SCHEMA_VERSION.to_string() => Ok(()),
@@ -141,6 +142,7 @@ pub fn init_schema(conn: &Connection) -> SyncResult<()> {
             conn.execute_batch(CREATE_SCHEMA_SQL).map_err(|error| {
                 SyncError::Storage(format!("failed to recreate sync DB schema: {error}"))
             })?;
+            ensure_tree_entry_content_commit_id_column(conn)?;
             persist_schema_version(conn)
         }
         None => persist_schema_version(conn),
@@ -381,12 +383,13 @@ pub fn persist_tree_cache(
         tx.execute(
             r#"
             INSERT INTO sync_tree_entries (
-                commit_id, file_id, normalized_path, plaintext_hash,
+                commit_id, content_commit_id, file_id, normalized_path, plaintext_hash,
                 content_object_id, pack_entry_id, kind
             )
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
             "#,
             params![
+                commit_id,
                 entry.commit_id,
                 entry.file_id,
                 entry.normalized_path,
@@ -410,7 +413,8 @@ pub fn list_tree_entries(
     let mut stmt = conn
         .prepare(
             r#"
-            SELECT commit_id, file_id, normalized_path, plaintext_hash,
+            SELECT COALESCE(content_commit_id, commit_id) AS commit_id,
+                   file_id, normalized_path, plaintext_hash,
                    content_object_id, pack_entry_id, kind
             FROM sync_tree_entries
             WHERE commit_id = ?1
@@ -626,6 +630,38 @@ fn persist_schema_version(conn: &Connection) -> SyncResult<()> {
     )
     .map_err(|error| SyncError::Storage(format!("failed to persist schema version: {error}")))?;
     Ok(())
+}
+
+fn ensure_tree_entry_content_commit_id_column(conn: &Connection) -> SyncResult<()> {
+    let mut stmt = conn
+        .prepare("PRAGMA table_info(sync_tree_entries)")
+        .map_err(|error| {
+            SyncError::Storage(format!("failed to inspect sync tree entry schema: {error}"))
+        })?;
+    let columns = stmt
+        .query_map([], |row| row.get::<_, String>(1))
+        .map_err(|error| {
+            SyncError::Storage(format!("failed to query sync tree entry schema: {error}"))
+        })?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| {
+            SyncError::Storage(format!("failed to read sync tree entry schema: {error}"))
+        })?;
+    if columns.iter().any(|column| column == "content_commit_id") {
+        return Ok(());
+    }
+    conn.execute_batch(
+        r#"
+        ALTER TABLE sync_tree_entries ADD COLUMN content_commit_id text null;
+        DELETE FROM sync_tree_entries;
+        DELETE FROM sync_commit_trees;
+        "#,
+    )
+    .map_err(|error| {
+        SyncError::Storage(format!(
+            "failed to migrate sync tree entry content commit ids: {error}"
+        ))
+    })
 }
 
 fn reset_schema(conn: &Connection) -> SyncResult<()> {
@@ -844,6 +880,7 @@ CREATE TABLE IF NOT EXISTS sync_commit_trees (
 
 CREATE TABLE IF NOT EXISTS sync_tree_entries (
   commit_id text not null,
+  content_commit_id text null,
   file_id text not null,
   normalized_path text not null,
   plaintext_hash text null,
@@ -1029,7 +1066,7 @@ mod tests {
     fn persist_tree_cache_roundtrips_entries() {
         let mut conn = open_memory_sync_db().unwrap();
         let entry = SyncTreeEntryRecord {
-            commit_id: "commit-1".into(),
+            commit_id: "content-commit-1".into(),
             file_id: "file-1".into(),
             normalized_path: "a.md".into(),
             plaintext_hash: Some("hash".into()),
@@ -1040,7 +1077,7 @@ mod tests {
 
         persist_tree_cache(
             &mut conn,
-            "commit-1",
+            "snapshot-commit-2",
             "tree-1",
             "{\"entries\":[]}",
             "local",
@@ -1055,6 +1092,19 @@ mod tests {
             })
             .unwrap();
         assert_eq!(count, 1);
+
+        let stored = list_tree_entries(&conn, "snapshot-commit-2").unwrap();
+        assert_eq!(stored[0].commit_id, "content-commit-1");
+
+        let (snapshot_commit_id, content_commit_id): (String, String) = conn
+            .query_row(
+                "SELECT commit_id, content_commit_id FROM sync_tree_entries",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(snapshot_commit_id, "snapshot-commit-2");
+        assert_eq!(content_commit_id, "content-commit-1");
     }
 
     #[test]
