@@ -8,6 +8,7 @@ use crate::knowledge::models::{
 };
 use crate::knowledge::proposal::create_decision_document_for_root;
 use crate::knowledge::service::{knowledge_init_for_root, knowledge_status_for_root};
+use crate::search::SearchState;
 use crate::vault::{VaultState, get_vault_root};
 
 #[command]
@@ -113,6 +114,7 @@ pub async fn memory_propose(
 #[command]
 pub async fn knowledge_apply_decision_document(
     state: State<'_, VaultState>,
+    search: State<'_, SearchState>,
     request: ApplyDecisionDocumentRequest,
 ) -> Result<KnowledgeCommandResult<ApplyDecisionDocumentResult>, String> {
     let root = match get_vault_root(&state) {
@@ -126,7 +128,14 @@ pub async fn knowledge_apply_decision_document(
     };
 
     match apply_decision_document_for_root(&root, request).await {
-        Ok(result) => Ok(KnowledgeCommandResult::ok(result)),
+        Ok(mut result) => {
+            for path in &result.committed_memory_paths {
+                if let Err(error) = search.notify_written_with_source(path, "knowledge-apply") {
+                    result.warnings.push(error);
+                }
+            }
+            Ok(KnowledgeCommandResult::ok(result))
+        }
         Err(error) => Ok(KnowledgeCommandResult::err(error.code, error.message)),
     }
 }
