@@ -806,9 +806,6 @@ fn persist_applied_commit(
 ) -> SyncResult<()> {
     let mut entries = tree_by_file_id.values().cloned().collect::<Vec<_>>();
     entries.sort_by(|left, right| left.normalized_path.cmp(&right.normalized_path));
-    for entry in &mut entries {
-        entry.commit_id = commit.header.commit_id.clone();
-    }
     validate_tree_id(&commit.body.tree_id, &entries)?;
     persist_tree_cache(
         input.conn,
@@ -1404,6 +1401,41 @@ mod tests {
         let mut conn = db::open_memory_sync_db().unwrap();
         let pipeline = pipeline(&fixture);
         block_on(pipeline.pull_remote_changes(input(&mut conn, &root, &fixture))).unwrap();
+        write_file(&root.join("a.md"), b"A\nb\n");
+        fixture = fixture.add_incremental(vec![RemoteChange::Upsert("a.md", b"a\nB\n".to_vec())]);
+
+        block_on(pipeline.pull_remote_changes(input(&mut conn, &root, &fixture))).unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(root.join("a.md")).unwrap(),
+            "A\nB\n"
+        );
+        assert!(db::list_open_conflicts(&conn).unwrap().is_empty());
+        assert_dirty_paths(&conn, &["a.md"]);
+
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn pull_merges_same_file_after_unchanged_intervening_commit() {
+        let root = temp_vault("merge-lines-after-unchanged");
+        let mut fixture = RemoteFixture::new().add_checkpoint(
+            vec![
+                ("a.md", b"a\nb\n".to_vec()),
+                ("b.md", b"unchanged\n".to_vec()),
+            ],
+            true,
+        );
+        let mut conn = db::open_memory_sync_db().unwrap();
+        let pipeline = pipeline(&fixture);
+        block_on(pipeline.pull_remote_changes(input(&mut conn, &root, &fixture))).unwrap();
+
+        fixture = fixture.add_incremental(vec![RemoteChange::Upsert(
+            "b.md",
+            b"remote changed b\n".to_vec(),
+        )]);
+        block_on(pipeline.pull_remote_changes(input(&mut conn, &root, &fixture))).unwrap();
+
         write_file(&root.join("a.md"), b"A\nb\n");
         fixture = fixture.add_incremental(vec![RemoteChange::Upsert("a.md", b"a\nB\n".to_vec())]);
 

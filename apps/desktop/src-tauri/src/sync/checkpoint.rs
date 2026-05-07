@@ -887,7 +887,9 @@ fn apply_publish_success(
 ) -> SyncResult<()> {
     let mut entries = tree_entries.to_vec();
     for entry in &mut entries {
-        entry.commit_id = published.commit_id.clone();
+        if entry.commit_id.is_empty() {
+            entry.commit_id = published.commit_id.clone();
+        }
     }
     let tree_json = tree_json_for_entries(&entries)?;
     persist_tree_cache(
