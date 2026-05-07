@@ -136,6 +136,10 @@ pub async fn knowledge_apply_decision_document(
             }
             Ok(KnowledgeCommandResult::ok(result))
         }
-        Err(error) => Ok(KnowledgeCommandResult::err(error.code, error.message)),
+        Err(error) => Ok(KnowledgeCommandResult::err_with_details(
+            error.code,
+            error.message,
+            error.details,
+        )),
     }
 }
