@@ -1,8 +1,10 @@
 use tauri::{State, command};
 
+use crate::knowledge::apply::apply_decision_document_for_root;
 use crate::knowledge::models::{
-    CreateDecisionDocumentRequest, CreateDecisionDocumentResult, KnowledgeCommandResult,
-    KnowledgeInitResult, KnowledgeStatusResult, MemoryProposeRequest, ProposalRequestSource,
+    ApplyDecisionDocumentRequest, ApplyDecisionDocumentResult, CreateDecisionDocumentRequest,
+    CreateDecisionDocumentResult, KnowledgeCommandResult, KnowledgeInitResult,
+    KnowledgeStatusResult, MemoryProposeRequest, ProposalRequestSource,
 };
 use crate::knowledge::proposal::create_decision_document_for_root;
 use crate::knowledge::service::{knowledge_init_for_root, knowledge_status_for_root};
@@ -105,5 +107,26 @@ pub async fn memory_propose(
             error.message,
             error.details,
         )),
+    }
+}
+
+#[command]
+pub async fn knowledge_apply_decision_document(
+    state: State<'_, VaultState>,
+    request: ApplyDecisionDocumentRequest,
+) -> Result<KnowledgeCommandResult<ApplyDecisionDocumentResult>, String> {
+    let root = match get_vault_root(&state) {
+        Ok(root) => root,
+        Err(error) => {
+            return Ok(KnowledgeCommandResult::err(
+                crate::knowledge::models::KnowledgeErrorCode::IoError,
+                error,
+            ));
+        }
+    };
+
+    match apply_decision_document_for_root(&root, request).await {
+        Ok(result) => Ok(KnowledgeCommandResult::ok(result)),
+        Err(error) => Ok(KnowledgeCommandResult::err(error.code, error.message)),
     }
 }

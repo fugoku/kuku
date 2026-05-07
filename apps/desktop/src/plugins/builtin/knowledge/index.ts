@@ -61,4 +61,9 @@ const knowledgePlugin: KukuPlugin = {
 
 export { knowledgePlugin };
 export type { KnowledgeService } from "./service";
-export type { KnowledgeInitResult, KnowledgeStatusResult } from "./types";
+export type {
+  ApplyDecisionDocumentResult,
+  ApplyDecisionDocumentStatus,
+  KnowledgeInitResult,
+  KnowledgeStatusResult,
+} from "./types";

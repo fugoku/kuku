@@ -1,6 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 
 import type {
+  ApplyDecisionDocumentRequest,
+  ApplyDecisionDocumentResult,
   CreateDecisionDocumentRequest,
   CreateDecisionDocumentResult,
   KnowledgeCommandResult,
@@ -18,6 +20,9 @@ interface KnowledgeService {
   proposeMemory(
     request: CreateDecisionDocumentRequest,
   ): Promise<KnowledgeCommandResult<CreateDecisionDocumentResult>>;
+  applyDecisionDocument(
+    request: ApplyDecisionDocumentRequest,
+  ): Promise<KnowledgeCommandResult<ApplyDecisionDocumentResult>>;
 }
 
 function transportError(error: unknown): KnowledgeError {
@@ -53,6 +58,11 @@ function createKnowledgeService(): KnowledgeService {
     },
     proposeMemory(request) {
       return invokeKnowledge<CreateDecisionDocumentResult>("memory_propose", { request });
+    },
+    applyDecisionDocument(request) {
+      return invokeKnowledge<ApplyDecisionDocumentResult>("knowledge_apply_decision_document", {
+        request,
+      });
     },
   };
 }
