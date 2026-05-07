@@ -199,6 +199,10 @@ function easeInOutCubic(progress: number): number {
   return progress < 0.5 ? 4 * progress * progress * progress : 1 - (-2 * progress + 2) ** 3 / 2;
 }
 
+function easeOutCubic(progress: number): number {
+  return 1 - (1 - progress) ** 3;
+}
+
 export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
   let hostEl: HTMLDivElement | undefined;
   let app: Application | undefined;
@@ -211,6 +215,7 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
   let destroyed = false;
   let renderFrame: number | undefined;
   let viewAnimationFrame: number | undefined;
+  let viewInertiaFrame: number | undefined;
   let layoutRelaxFrame: number | undefined;
   let layoutRelaxTicks = 0;
   let layoutRelaxCooling = 1;
@@ -218,7 +223,16 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
   let redrawLinksOnNextDraw = true;
   let redrawClustersOnNextDraw = true;
   let hoverFrame: number | undefined;
-  let dragStart: { x: number; y: number; view: ViewState } | null = null;
+  let dragStart: {
+    x: number;
+    y: number;
+    lastX: number;
+    lastY: number;
+    lastAt: number;
+    velocityX: number;
+    velocityY: number;
+    view: ViewState;
+  } | null = null;
   let nodeDrag: {
     node: LayoutNode;
     startClientX: number;
@@ -631,7 +645,7 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
         redrawStructuralLayers = layoutRelaxDrawTick % 2 === 0 || layoutRelaxTicks <= 1;
       }
       requestDraw({ links: redrawStructuralLayers, clusters: redrawStructuralLayers });
-      if (layoutRelaxTicks > 0 && (layoutRelaxCooling > 0.025 || maxSpeed > 0.035)) {
+      if (layoutRelaxTicks > 0 && (layoutRelaxCooling > 0.006 || maxSpeed > 0.008)) {
         layoutRelaxFrame = requestAnimationFrame(step);
       }
     };
@@ -1239,8 +1253,15 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
     viewAnimationFrame = undefined;
   }
 
+  function cancelViewInertia(): void {
+    if (viewInertiaFrame === undefined) return;
+    cancelAnimationFrame(viewInertiaFrame);
+    viewInertiaFrame = undefined;
+  }
+
   function animateView(nextView: ViewState, duration = 850): void {
     cancelViewAnimation();
+    cancelViewInertia();
     const start = { ...view };
     const startedAt = performance.now();
     const step = (now: number) => {
@@ -1263,6 +1284,37 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
     viewAnimationFrame = requestAnimationFrame(step);
   }
 
+  function startViewInertia(velocityX: number, velocityY: number): void {
+    cancelViewInertia();
+    if (Math.hypot(velocityX, velocityY) < 0.018) return;
+
+    let vx = velocityX;
+    let vy = velocityY;
+    let lastAt = performance.now();
+    const startedAt = lastAt;
+
+    const step = (now: number) => {
+      viewInertiaFrame = undefined;
+      if (destroyed) return;
+
+      const dt = Math.min(34, now - lastAt);
+      lastAt = now;
+      view.x += vx * dt;
+      view.y += vy * dt;
+
+      const decay = Math.exp(-dt / 260);
+      vx *= decay;
+      vy *= decay;
+      requestDraw();
+
+      if (now - startedAt < 900 && Math.hypot(vx, vy) > 0.01) {
+        viewInertiaFrame = requestAnimationFrame(step);
+      }
+    };
+
+    viewInertiaFrame = requestAnimationFrame(step);
+  }
+
   function followCurrentFile(): void {
     const next = !followMode();
     setFollowMode(next);
@@ -1279,23 +1331,53 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
     return 1.9;
   }
 
-  function zoomAt(centerX: number, centerY: number, nextScale: number): void {
+  function zoomAt(centerX: number, centerY: number, nextScale: number, duration = 220): void {
     cancelViewAnimation();
+    cancelViewInertia();
     const before = screenToGraph(centerX, centerY);
-    view.scale = Math.max(0.08, Math.min(8, nextScale));
-    view.x = centerX - before.x * view.scale;
-    view.y = centerY - before.y * view.scale;
-    requestDraw({ links: true, clusters: true });
+    const scale = Math.max(0.08, Math.min(8, nextScale));
+    const nextView = {
+      scale,
+      x: centerX - before.x * scale,
+      y: centerY - before.y * scale,
+    };
+    if (duration <= 0) {
+      view = nextView;
+      requestDraw({ links: true, clusters: true });
+      return;
+    }
+
+    const start = { ...view };
+    const startedAt = performance.now();
+    const step = (now: number) => {
+      viewAnimationFrame = undefined;
+      if (destroyed) return;
+      const progress = Math.min(1, (now - startedAt) / duration);
+      const eased = easeOutCubic(progress);
+      view = {
+        x: start.x + (nextView.x - start.x) * eased,
+        y: start.y + (nextView.y - start.y) * eased,
+        scale: start.scale + (nextView.scale - start.scale) * eased,
+      };
+      requestDraw({ links: true, clusters: true });
+      if (progress < 1) {
+        viewAnimationFrame = requestAnimationFrame(step);
+      } else {
+        view = nextView;
+        requestDraw({ links: true, clusters: true });
+      }
+    };
+    viewAnimationFrame = requestAnimationFrame(step);
   }
 
   function zoomIn(): void {
     const { width, height } = dimensions();
-    zoomAt(width / 2, height / 2, view.scale * 1.3);
+    zoomAt(width / 2, height / 2, view.scale * 1.3, 280);
   }
 
   function zoomOut(): void {
     const { width, height } = dimensions();
-    zoomAt(width / 2, height / 2, view.scale / 1.3);
+    zoomAt(width / 2, height / 2, view.scale / 1.3, 280);
   }
 
   function resetView(): void {
@@ -1397,6 +1479,15 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
       return;
     }
     if (dragStart) {
+      const now = performance.now();
+      const dt = Math.max(1, now - dragStart.lastAt);
+      const instantVelocityX = (event.clientX - dragStart.lastX) / dt;
+      const instantVelocityY = (event.clientY - dragStart.lastY) / dt;
+      dragStart.velocityX = dragStart.velocityX * 0.58 + instantVelocityX * 0.42;
+      dragStart.velocityY = dragStart.velocityY * 0.58 + instantVelocityY * 0.42;
+      dragStart.lastX = event.clientX;
+      dragStart.lastY = event.clientY;
+      dragStart.lastAt = now;
       view.x = dragStart.view.x + event.clientX - dragStart.x;
       view.y = dragStart.view.y + event.clientY - dragStart.y;
       requestDraw();
@@ -1412,6 +1503,7 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
   function handlePointerDown(event: PointerEvent): void {
     if (event.button !== 0) return;
     cancelViewAnimation();
+    cancelViewInertia();
     cancelLayoutRelaxation();
     const node = nearestNode(event.clientX, event.clientY);
     if (node) {
@@ -1428,7 +1520,16 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
       hostEl?.setPointerCapture(event.pointerId);
       return;
     }
-    dragStart = { x: event.clientX, y: event.clientY, view: { ...view } };
+    dragStart = {
+      x: event.clientX,
+      y: event.clientY,
+      lastX: event.clientX,
+      lastY: event.clientY,
+      lastAt: performance.now(),
+      velocityX: 0,
+      velocityY: 0,
+      view: { ...view },
+    };
     hostEl?.setPointerCapture(event.pointerId);
   }
 
@@ -1443,7 +1544,7 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
         dragged.node.vx = 0;
         dragged.node.vy = 0;
         setSelectedNode(dragged.node.filePath);
-        startLayoutRelaxation(isHugeGraph() ? 96 : 150);
+        startLayoutRelaxation(isHugeGraph() ? 130 : 210);
         requestDraw({ links: true, clusters: true });
         return;
       }
@@ -1453,10 +1554,14 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
       return;
     }
     if (!dragStart) return;
+    const pan = dragStart;
     const moved = Math.hypot(event.clientX - dragStart.x, event.clientY - dragStart.y);
     dragStart = null;
     hostEl?.releasePointerCapture(event.pointerId);
-    if (moved > 5) return;
+    if (moved > 5) {
+      startViewInertia(pan.velocityX, pan.velocityY);
+      return;
+    }
     const node = nearestNode(event.clientX, event.clientY);
     if (node) {
       setSelectedNode(node.filePath);
@@ -1473,7 +1578,7 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
     if (!hostEl) return;
     const rect = hostEl.getBoundingClientRect();
     const factor = event.deltaY > 0 ? 0.86 : 1.16;
-    zoomAt(event.clientX - rect.left, event.clientY - rect.top, view.scale * factor);
+    zoomAt(event.clientX - rect.left, event.clientY - rect.top, view.scale * factor, 170);
   }
 
   function handleContextMenu(event: MouseEvent): void {
@@ -1650,6 +1755,7 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
     destroyed = true;
     if (renderFrame !== undefined) cancelAnimationFrame(renderFrame);
     if (viewAnimationFrame !== undefined) cancelAnimationFrame(viewAnimationFrame);
+    if (viewInertiaFrame !== undefined) cancelAnimationFrame(viewInertiaFrame);
     if (layoutRelaxFrame !== undefined) cancelAnimationFrame(layoutRelaxFrame);
     if (hoverFrame !== undefined) cancelAnimationFrame(hoverFrame);
     resizeObs?.disconnect();
