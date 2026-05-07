@@ -5,6 +5,7 @@ mod auth;
 mod auth_commands;
 mod config;
 mod contract_client;
+mod knowledge;
 mod models;
 mod plugin_fs;
 #[allow(dead_code)]
@@ -144,6 +145,11 @@ pub fn run() {
             vault::commands::vault_get_trash_path,
             vault::commands::vault_remove,
             vault::commands::vault_rename,
+            // Knowledge
+            knowledge::commands::knowledge_status,
+            knowledge::commands::knowledge_init,
+            knowledge::commands::knowledge_create_decision_document,
+            knowledge::commands::memory_propose,
             // Search
             search::commands::search_query_simple,
             search::commands::search_query_advanced,

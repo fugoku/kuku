@@ -1,0 +1,109 @@
+use tauri::{State, command};
+
+use crate::knowledge::models::{
+    CreateDecisionDocumentRequest, CreateDecisionDocumentResult, KnowledgeCommandResult,
+    KnowledgeInitResult, KnowledgeStatusResult, MemoryProposeRequest, ProposalRequestSource,
+};
+use crate::knowledge::proposal::create_decision_document_for_root;
+use crate::knowledge::service::{knowledge_init_for_root, knowledge_status_for_root};
+use crate::vault::{VaultState, get_vault_root};
+
+#[command]
+pub async fn knowledge_status(
+    state: State<'_, VaultState>,
+) -> Result<KnowledgeCommandResult<KnowledgeStatusResult>, String> {
+    let root = match get_vault_root(&state) {
+        Ok(root) => root,
+        Err(error) => {
+            return Ok(KnowledgeCommandResult::err(
+                crate::knowledge::models::KnowledgeErrorCode::IoError,
+                error,
+            ));
+        }
+    };
+
+    Ok(match knowledge_status_for_root(&root).await {
+        Ok(status) => KnowledgeCommandResult::ok(status),
+        Err(error) => KnowledgeCommandResult::err(error.code, error.message),
+    })
+}
+
+#[command]
+pub async fn knowledge_init(
+    state: State<'_, VaultState>,
+) -> Result<KnowledgeCommandResult<KnowledgeInitResult>, String> {
+    let root = match get_vault_root(&state) {
+        Ok(root) => root,
+        Err(error) => {
+            return Ok(KnowledgeCommandResult::err(
+                crate::knowledge::models::KnowledgeErrorCode::IoError,
+                error,
+            ));
+        }
+    };
+
+    Ok(match knowledge_init_for_root(&root).await {
+        Ok(result) => KnowledgeCommandResult::ok(result),
+        Err(error) => KnowledgeCommandResult::err(error.code, error.message),
+    })
+}
+
+#[command]
+pub async fn knowledge_create_decision_document(
+    state: State<'_, VaultState>,
+    request: CreateDecisionDocumentRequest,
+) -> Result<KnowledgeCommandResult<CreateDecisionDocumentResult>, String> {
+    let root = match get_vault_root(&state) {
+        Ok(root) => root,
+        Err(error) => {
+            return Ok(KnowledgeCommandResult::err(
+                crate::knowledge::models::KnowledgeErrorCode::IoError,
+                error,
+            ));
+        }
+    };
+
+    match create_decision_document_for_root(&root, request, ProposalRequestSource::UiCommand).await
+    {
+        Ok(result) => Ok(KnowledgeCommandResult::ok(result)),
+        Err(error) => Ok(KnowledgeCommandResult::err_with_details(
+            error.code,
+            error.message,
+            error.details,
+        )),
+    }
+}
+
+#[command]
+pub async fn memory_propose(
+    state: State<'_, VaultState>,
+    request: MemoryProposeRequest,
+) -> Result<KnowledgeCommandResult<CreateDecisionDocumentResult>, String> {
+    let root = match get_vault_root(&state) {
+        Ok(root) => root,
+        Err(error) => {
+            return Ok(KnowledgeCommandResult::err(
+                crate::knowledge::models::KnowledgeErrorCode::IoError,
+                error,
+            ));
+        }
+    };
+
+    let request = CreateDecisionDocumentRequest {
+        title: request.title,
+        context: request.context,
+        source_refs: request.source_refs,
+        proposed_memories: request.proposed_memories,
+        request_source: Some(ProposalRequestSource::AiTool),
+        default_selection: request.default_selection,
+    };
+
+    match create_decision_document_for_root(&root, request, ProposalRequestSource::AiTool).await {
+        Ok(result) => Ok(KnowledgeCommandResult::ok(result)),
+        Err(error) => Ok(KnowledgeCommandResult::err_with_details(
+            error.code,
+            error.message,
+            error.details,
+        )),
+    }
+}
