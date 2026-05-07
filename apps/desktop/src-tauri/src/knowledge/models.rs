@@ -248,6 +248,56 @@ pub struct ApplyDecisionDocumentResult {
     pub journal_path: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SearchMemoryRequest {
+    pub query: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<usize>,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub kinds: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MemoryContextRequest {
+    pub query: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub active_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<usize>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MemorySearchResult {
+    pub hits: Vec<MemorySearchHit>,
+    pub warnings: Vec<String>,
+    pub skipped_paths: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MemorySearchHit {
+    pub id: String,
+    pub path: String,
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
+    pub snippet: String,
+    pub tags: Vec<String>,
+    pub source_refs: Vec<SourceRef>,
+    pub score: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MemoryContextResult {
+    pub query: String,
+    pub memories: Vec<MemorySearchHit>,
+    pub warnings: Vec<String>,
+    pub skipped_paths: Vec<String>,
+}
+
 impl KnowledgeInitResult {
     pub fn from_status(status: KnowledgeStatusResult, created_dirs: Vec<String>) -> Self {
         Self {
