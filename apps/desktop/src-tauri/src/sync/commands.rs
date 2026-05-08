@@ -262,6 +262,30 @@ pub async fn sync_disconnect_vault(
 }
 
 #[command]
+pub async fn sync_rebuild_vault_state(
+    app: AppHandle,
+    state: State<'_, SyncState>,
+) -> Result<SyncRuntimeStatus, SyncCommandError> {
+    let status = state.status();
+    if !status.configured {
+        return Err(command_error(SyncError::NotConfigured));
+    }
+    if state.is_sync_running() {
+        return Err(command_error(SyncError::InvalidArgument(
+            "sync is already running".into(),
+        )));
+    }
+    let config = config_from_status(&status).map_err(command_error)?;
+    state
+        .restore_vault_with_status(config, status.enabled, status.last_synced_at_ms)
+        .map_err(command_error)?;
+    let status = status_with_conflicts(&state, true).map_err(command_error)?;
+    persist_runtime_status(&status).map_err(command_error)?;
+    emit_status(&app, &status);
+    Ok(status)
+}
+
+#[command]
 pub async fn sync_set_enabled(
     app: AppHandle,
     state: State<'_, SyncState>,
@@ -1652,21 +1676,50 @@ fn pending_counts_for_status(
     }
 
     let mut conn = db::open_sync_db(&db_path)?;
-    let pending_uploads = pending_upload_count(&mut conn, &vault_root, super::now_ms())?;
-    Ok(Some((pending_uploads, status.pending_downloads)))
+    let pending_uploads = pending_upload_count(&mut conn, vault_id, &vault_root, super::now_ms())?;
+    let pending_downloads = pending_download_count(status)?;
+    Ok(Some((pending_uploads, pending_downloads)))
 }
 
-fn pending_upload_count(conn: &mut Connection, vault_root: &Path, now_ms: i64) -> SyncResult<i64> {
+fn pending_upload_count(
+    conn: &mut Connection,
+    vault_id: &str,
+    vault_root: &Path,
+    now_ms: i64,
+) -> SyncResult<i64> {
     let scanned_files = scan_vault(vault_root)?;
     let scan_inputs = scanned_files
         .iter()
         .map(ScannedFile::file_input)
         .collect::<Vec<_>>();
     db::apply_scan(conn, &scan_inputs, now_ms)?;
+    if let Some(local_head) =
+        db::get_vault(conn, vault_id)?.and_then(|vault| vault.local_head_commit_id)
+    {
+        db::clear_dirty_files_matching_head(conn, &local_head)?;
+    }
     Ok(db::list_dirty_files(conn)?
         .len()
         .try_into()
         .unwrap_or(i64::MAX))
+}
+
+fn pending_download_count(status: &SyncRuntimeStatus) -> SyncResult<i64> {
+    let Some(root_path) = status.root_path.as_deref() else {
+        return Ok(0);
+    };
+    let Some(workspace_id) = status.remote_workspace_id.as_deref() else {
+        return Ok(0);
+    };
+    Ok(
+        if cached_remote_status_for_config(Path::new(root_path), workspace_id)?
+            .is_some_and(|remote| remote.has_remote_changes)
+        {
+            1
+        } else {
+            0
+        },
+    )
 }
 
 async fn get_remote_status_for_state(status: &SyncRuntimeStatus) -> SyncResult<SyncRemoteStatus> {
@@ -1801,6 +1854,26 @@ mod tests {
             device_name: None,
             remember_workspace_key: true,
             passphrase: passphrase.map(str::to_string),
+        }
+    }
+
+    fn test_vault_record(
+        vault_id: &str,
+        root: &Path,
+        workspace_id: &str,
+        device_id: &str,
+    ) -> SyncVaultRecord {
+        SyncVaultRecord {
+            vault_id: vault_id.into(),
+            root_path: root.to_string_lossy().to_string(),
+            remote_workspace_id: workspace_id.into(),
+            remote_head_commit_id: None,
+            local_head_commit_id: None,
+            device_id: device_id.into(),
+            next_device_seq: 1,
+            enabled: true,
+            created_at_ms: 1,
+            updated_at_ms: 1,
         }
     }
 
@@ -2078,8 +2151,10 @@ mod tests {
         let root = temp_vault("pending-upload-count");
         write_file(&root.join("a.md"), b"# A");
         let mut conn = db::open_memory_sync_db().unwrap();
+        let vault = test_vault_record("vault_1", &root, "workspace_1", "device_1");
+        db::upsert_vault(&conn, &vault).unwrap();
 
-        let first_count = pending_upload_count(&mut conn, &root, 1).unwrap();
+        let first_count = pending_upload_count(&mut conn, "vault_1", &root, 1).unwrap();
         let file_ids = db::list_dirty_files(&conn)
             .unwrap()
             .into_iter()
@@ -2088,7 +2163,7 @@ mod tests {
         db::mark_files_synced(&mut conn, "commit_1", &file_ids).unwrap();
         write_file(&root.join("a.md"), b"# A changed");
 
-        let changed_count = pending_upload_count(&mut conn, &root, 2).unwrap();
+        let changed_count = pending_upload_count(&mut conn, "vault_1", &root, 2).unwrap();
 
         assert_eq!(first_count, 1);
         assert_eq!(changed_count, 1);

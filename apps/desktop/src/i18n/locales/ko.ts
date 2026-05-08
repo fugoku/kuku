@@ -70,6 +70,7 @@ export const KO_MESSAGES = {
   "settings.plugin.sync.action.refresh": "새로고침",
   "settings.plugin.sync.action.working": "처리 중...",
   "settings.plugin.sync.action.sync_now": "지금 동기화",
+  "settings.plugin.sync.action.rebuild_state": "상태 재계산",
   "settings.plugin.sync.action.disable": "동기화 끄기",
   "settings.plugin.sync.action.confirm_disable": "끄기 확인",
   "settings.plugin.sync.auth.title": "계정 필요",
@@ -162,10 +163,6 @@ export const KO_MESSAGES = {
   "settings.plugin.sync.workspace.confirm_delete": "삭제 확인",
   "settings.plugin.sync.workspace.head_version": "원격 버전",
   "settings.plugin.sync.workspace.name_placeholder": "워크스페이스 이름",
-  "settings.plugin.sync.enable.enabled_description": "이 지식보관함의 동기화가 켜져 있어요.",
-  "settings.plugin.sync.enable.disabled_description": "이 지식보관함의 동기화가 꺼져 있어요.",
-  "settings.plugin.sync.enable.help":
-    "충돌 복사본은 일반 Markdown 파일이며 다음 동기화 대상에 포함돼요.",
   "settings.plugin.sync.conflicts.title": "충돌",
   "settings.plugin.sync.conflicts.description":
     "자동 병합으로 두 변경을 한 파일에 보존할 수 없을 때 생성된 열린 충돌이에요.",

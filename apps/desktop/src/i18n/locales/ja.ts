@@ -73,6 +73,7 @@ export const JA_MESSAGES = {
   "settings.plugin.sync.action.refresh": "更新",
   "settings.plugin.sync.action.working": "処理中...",
   "settings.plugin.sync.action.sync_now": "今すぐ同期",
+  "settings.plugin.sync.action.rebuild_state": "状態を再計算",
   "settings.plugin.sync.action.disable": "同期を無効化",
   "settings.plugin.sync.action.confirm_disable": "無効化を確認",
   "settings.plugin.sync.auth.title": "アカウントが必要です",
@@ -165,10 +166,6 @@ export const JA_MESSAGES = {
   "settings.plugin.sync.workspace.confirm_delete": "削除を確認",
   "settings.plugin.sync.workspace.head_version": "リモートバージョン",
   "settings.plugin.sync.workspace.name_placeholder": "ワークスペース名",
-  "settings.plugin.sync.enable.enabled_description": "このボルトの同期は有効です。",
-  "settings.plugin.sync.enable.disabled_description": "このボルトの同期は無効です。",
-  "settings.plugin.sync.enable.help":
-    "競合コピーは通常の Markdown ファイルとして次回同期に含まれます。",
   "settings.plugin.sync.conflicts.title": "競合",
   "settings.plugin.sync.conflicts.description":
     "自動マージで両方の編集を 1 つのファイルに保持できない場合に作成された未解決の競合です。",

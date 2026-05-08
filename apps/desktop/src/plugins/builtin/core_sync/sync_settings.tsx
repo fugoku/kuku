@@ -17,7 +17,12 @@ import { vaultState } from "~/stores/vault";
 
 import { ConflictList } from "./conflict_list";
 import { defaultVaultId, mapSyncError, parseSyncCommandError, type SyncService } from "./service";
-import { applySyncStatus, refreshSyncStatus, syncStatus } from "./status_store";
+import {
+  applySyncRemoteStatus,
+  applySyncStatus,
+  refreshSyncStatus,
+  syncStatus,
+} from "./status_store";
 import { getSyncService } from "./runtime";
 import { transferStatusLabel } from "./transfer_status";
 import type {
@@ -314,7 +319,43 @@ function SyncSettings(): JSX.Element {
     }
   }
 
+  async function refreshWorkspaceAndRemoteStatus(): Promise<void> {
+    const service = getSyncService();
+    if (!service || workspaceActionBusy()) return;
+    const refreshRemote = async () => {
+      const refreshed = await refreshSyncStatus(service, { scanLocal: true });
+      if (!refreshed || !syncStatus.configured || !syncStatus.enabled) return;
+      const remoteStatus = await service.getRemoteStatus();
+      if (syncStatus.remoteWorkspaceId === remoteStatus.workspaceId) {
+        applySyncRemoteStatus(remoteStatus);
+      }
+    };
+
+    try {
+      await Promise.all([loadWorkspaces(), refreshRemote()]);
+    } catch (error) {
+      setLocalError(errorCopy(error));
+    }
+  }
+
+  async function handleRebuildSyncState(): Promise<void> {
+    const service = getSyncService();
+    if (!service || busy() || settingsDisabled()) return;
+    setBusy(true);
+    try {
+      applySyncStatus(await service.rebuildVaultState());
+      setLocalError(null);
+      await refreshSyncStatus(service, { scanLocal: true });
+      await refreshWorkspaceAndRemoteStatus();
+    } catch (error) {
+      setLocalError(errorCopy(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const canSyncNow = () => authReady() && syncStatus.configured && syncStatus.enabled && !busy();
+  const canRebuildSyncState = () => authReady() && syncStatus.configured && !busy();
   const workspaceActionBusy = () =>
     settingsDisabled() || workspaceLoading() || workspaceBusyId() !== null;
   const disabledCardClass = () => (settingsDisabled() ? "opacity-60" : undefined);
@@ -793,22 +834,12 @@ function SyncSettings(): JSX.Element {
         action={
           <div class="flex flex-nowrap justify-end gap-2">
             <SettingsToolbarAction
-              variant="primary"
               class="whitespace-nowrap"
               onClick={() => void handleCreateWorkspace()}
             >
               {busy()
                 ? t("settings.plugin.sync.action.working")
                 : t("settings.plugin.sync.workspace.create")}
-            </SettingsToolbarAction>
-            <SettingsToolbarAction
-              class="whitespace-nowrap"
-              disabled={workspaceActionBusy()}
-              onClick={() => void loadWorkspaces()}
-            >
-              {workspaceLoading()
-                ? t("settings.plugin.sync.action.working")
-                : t("settings.plugin.sync.action.refresh")}
             </SettingsToolbarAction>
           </div>
         }
@@ -860,7 +891,6 @@ function SyncSettings(): JSX.Element {
                               when={isCurrent()}
                               fallback={
                                 <SettingsToolbarAction
-                                  variant="primary"
                                   disabled={workspaceActionBusy()}
                                   onClick={() => void connectWorkspace(workspace)}
                                 >
@@ -921,6 +951,36 @@ function SyncSettings(): JSX.Element {
               );
             }}
           </For>
+          <div class="flex flex-wrap justify-end gap-2 border-t border-border/60 pt-3">
+            <SettingsToolbarAction
+              class="whitespace-nowrap"
+              disabled={workspaceActionBusy()}
+              onClick={() => void refreshWorkspaceAndRemoteStatus()}
+            >
+              {workspaceLoading()
+                ? t("settings.plugin.sync.action.working")
+                : t("settings.plugin.sync.action.refresh")}
+            </SettingsToolbarAction>
+            <SettingsToolbarAction
+              class="whitespace-nowrap"
+              disabled={!canSyncNow()}
+              onClick={() => void handleSyncNow()}
+            >
+              {busy()
+                ? t("settings.plugin.sync.action.working")
+                : t("settings.plugin.sync.action.sync_now")}
+            </SettingsToolbarAction>
+            <SettingsToolbarAction
+              variant="destructive"
+              class="whitespace-nowrap"
+              disabled={!canRebuildSyncState()}
+              onClick={() => void handleRebuildSyncState()}
+            >
+              {busy()
+                ? t("settings.plugin.sync.action.working")
+                : t("settings.plugin.sync.action.rebuild_state")}
+            </SettingsToolbarAction>
+          </div>
         </div>
       </SettingsCard>
 
@@ -931,31 +991,6 @@ function SyncSettings(): JSX.Element {
         class={disabledCardClass()}
       >
         <ConflictList disabled={settingsDisabled()} />
-      </SettingsCard>
-
-      <SettingsCard
-        tone={syncStatus.enabled ? "muted" : "subtle"}
-        class={disabledCardClass()}
-        description={
-          syncStatus.enabled
-            ? t("settings.plugin.sync.enable.enabled_description")
-            : t("settings.plugin.sync.enable.disabled_description")
-        }
-        action={
-          <div class="flex flex-wrap justify-end gap-2">
-            <SettingsToolbarAction
-              variant="primary"
-              disabled={!canSyncNow()}
-              onClick={() => void handleSyncNow()}
-            >
-              {busy()
-                ? t("settings.plugin.sync.action.working")
-                : t("settings.plugin.sync.action.sync_now")}
-            </SettingsToolbarAction>
-          </div>
-        }
-      >
-        <div class="text-[0.6875rem] text-text-muted">{t("settings.plugin.sync.enable.help")}</div>
       </SettingsCard>
     </SettingsPanel>
   );
