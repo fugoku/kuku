@@ -112,6 +112,18 @@ const TOOL_DISPLAY_BY_KIND: Record<
     description:
       "Tells the app to open a file in the editor so you can see what the assistant is talking about.",
   },
+  wiki_propose_page: {
+    label: "Propose Wiki Page",
+    activeLabel: "Drafting proposal",
+    description:
+      "Creates a reviewable Knowledge decision document for new wiki pages without committing them.",
+  },
+  wiki_propose_update: {
+    label: "Propose Wiki Update",
+    activeLabel: "Drafting proposal",
+    description:
+      "Creates a reviewable Knowledge decision document for wiki page updates without applying them.",
+  },
 };
 
 const KO_TOOL_DISPLAY_BY_KIND: Partial<
@@ -196,6 +208,16 @@ const KO_TOOL_DISPLAY_BY_KIND: Partial<
     label: "파일 열기",
     activeLabel: "열는 중",
     description: "에디터에서 파일을 바로 열어 현재 맥락을 확인해요.",
+  },
+  wiki_propose_page: {
+    label: "위키 페이지 제안",
+    activeLabel: "제안 작성 중",
+    description: "Knowledge 위키 페이지를 바로 쓰지 않고 검토용 결정 문서로 제안해요.",
+  },
+  wiki_propose_update: {
+    label: "위키 수정 제안",
+    activeLabel: "제안 작성 중",
+    description: "기존 Knowledge 위키 수정안을 바로 적용하지 않고 검토용 결정 문서로 제안해요.",
   },
 };
 

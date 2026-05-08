@@ -17,6 +17,8 @@ import type {
   ReadMemoryRequest,
   ReadMemoryResult,
   SearchMemoryRequest,
+  WikiProposePageRequest,
+  WikiProposeUpdateRequest,
 } from "./types";
 
 interface KnowledgeService {
@@ -27,6 +29,15 @@ interface KnowledgeService {
   ): Promise<KnowledgeCommandResult<CreateDecisionDocumentResult>>;
   proposeMemory(
     request: CreateDecisionDocumentRequest,
+  ): Promise<KnowledgeCommandResult<CreateDecisionDocumentResult>>;
+  createWikiDecisionDocument(
+    request: WikiProposePageRequest,
+  ): Promise<KnowledgeCommandResult<CreateDecisionDocumentResult>>;
+  proposeWikiPage(
+    request: WikiProposePageRequest,
+  ): Promise<KnowledgeCommandResult<CreateDecisionDocumentResult>>;
+  proposeWikiUpdate(
+    request: WikiProposeUpdateRequest,
   ): Promise<KnowledgeCommandResult<CreateDecisionDocumentResult>>;
   readDecisionDocument(
     request: ReadDecisionDocumentRequest,
@@ -74,6 +85,18 @@ function createKnowledgeService(): KnowledgeService {
     },
     proposeMemory(request) {
       return invokeKnowledge<CreateDecisionDocumentResult>("memory_propose", { request });
+    },
+    createWikiDecisionDocument(request) {
+      return invokeKnowledge<CreateDecisionDocumentResult>(
+        "knowledge_create_wiki_decision_document",
+        { request },
+      );
+    },
+    proposeWikiPage(request) {
+      return invokeKnowledge<CreateDecisionDocumentResult>("wiki_propose_page", { request });
+    },
+    proposeWikiUpdate(request) {
+      return invokeKnowledge<CreateDecisionDocumentResult>("wiki_propose_update", { request });
     },
     readDecisionDocument(request) {
       return invokeKnowledge<ReadDecisionDocumentResult>("knowledge_read_decision_document", {

@@ -13,6 +13,8 @@ import {
   memoryProposeRequestFromArgs,
   memorySearchRequestFromArgs,
   registerKnowledgeAiTools,
+  wikiProposePageRequestFromArgs,
+  wikiProposeUpdateRequestFromArgs,
 } from "./ai_tools";
 import type { KnowledgeService } from "./service";
 
@@ -46,6 +48,65 @@ describe("knowledge AI tools", () => {
     expect(JSON.parse(output ?? "{}")).toMatchObject({
       doc_id: "doc_auth",
       path: "Knowledge/decisions/auth.md",
+    });
+  });
+
+  it("calls wiki_propose_page and returns the created decision document", async () => {
+    const registry = createRegistry();
+    const service = createService();
+    registerKnowledgeAiTools(registry, service);
+
+    const handler = registry.getHandler("wiki_propose_page");
+    const output = await handler?.({
+      title: "Auth Wiki",
+      proposed_pages: [
+        {
+          path: "Knowledge/wiki/concepts/session-cookie-auth.md",
+          page_type: "concept",
+          title: "Session cookie auth",
+          body: "Use session cookies first.",
+        },
+      ],
+      default_selection: "none",
+    });
+
+    expect(service.lastWikiPageRequest?.default_selection).toBe("none");
+    expect(service.lastWikiPageRequest?.proposed_pages[0]).toMatchObject({
+      path: "Knowledge/wiki/concepts/session-cookie-auth.md",
+      page_type: "concept",
+    });
+    expect(JSON.parse(output ?? "{}")).toMatchObject({
+      doc_id: "doc_auth",
+      path: "Knowledge/decisions/auth.md",
+    });
+  });
+
+  it("calls wiki_propose_update and carries expected checksums", async () => {
+    const registry = createRegistry();
+    const service = createService();
+    registerKnowledgeAiTools(registry, service);
+
+    const handler = registry.getHandler("wiki_propose_update");
+    const output = await handler?.({
+      title: "Auth Wiki Update",
+      proposed_updates: [
+        {
+          path: "Knowledge/wiki/concepts/session-cookie-auth.md",
+          expected_checksum:
+            "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+          page_type: "concept",
+          title: "Session cookie auth",
+          body: "Use session cookies first, updated.",
+        },
+      ],
+    });
+
+    expect(service.lastWikiUpdateRequest?.proposed_updates[0].expected_checksum).toMatch(
+      /^sha256:/,
+    );
+    expect(JSON.parse(output ?? "{}")).toMatchObject({
+      path: "Knowledge/decisions/auth.md",
+      should_open: true,
     });
   });
 
@@ -124,6 +185,55 @@ describe("knowledge AI tools", () => {
     expect("source" in request).toBe(false);
   });
 
+  it("normalizes wiki proposal arguments without adding write or apply fields", () => {
+    const createRequest = wikiProposePageRequestFromArgs({
+      title: "Auth Wiki",
+      proposed_pages: [
+        {
+          path: "Knowledge/wiki/concepts/session-cookie-auth.md",
+          page_type: "concept",
+          title: "Session cookie auth",
+          body: "Use session cookies first.",
+        },
+      ],
+      default_selection: "yes",
+    });
+
+    expect(createRequest).toEqual({
+      title: "Auth Wiki",
+      context: undefined,
+      source_refs: undefined,
+      proposed_pages: [
+        {
+          path: "Knowledge/wiki/concepts/session-cookie-auth.md",
+          page_type: "concept",
+          title: "Session cookie auth",
+          body: "Use session cookies first.",
+        },
+      ],
+      default_selection: "yes",
+    });
+    expect("source" in createRequest).toBe(false);
+    expect("apply" in createRequest).toBe(false);
+
+    const updateRequest = wikiProposeUpdateRequestFromArgs({
+      proposed_updates: [
+        {
+          path: "Knowledge/wiki/concepts/session-cookie-auth.md",
+          expected_checksum:
+            "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+          page_type: "concept",
+          title: "Session cookie auth",
+          body: "Updated body.",
+        },
+      ],
+    });
+
+    expect(updateRequest.proposed_updates[0].expected_checksum).toMatch(/^sha256:/);
+    expect("source" in updateRequest).toBe(false);
+    expect("apply" in updateRequest).toBe(false);
+  });
+
   it("normalizes memory_search and memory_context arguments", () => {
     expect(
       memorySearchRequestFromArgs({
@@ -193,15 +303,21 @@ function findArrayWithoutItems(value: unknown, path = "$"): string[] {
 
 function createService(): KnowledgeService & {
   lastRequest?: Parameters<KnowledgeService["proposeMemory"]>[0];
+  lastWikiPageRequest?: Parameters<KnowledgeService["proposeWikiPage"]>[0];
+  lastWikiUpdateRequest?: Parameters<KnowledgeService["proposeWikiUpdate"]>[0];
   lastSearchRequest?: Parameters<KnowledgeService["searchMemory"]>[0];
   lastContextRequest?: Parameters<KnowledgeService["memoryContext"]>[0];
 } {
   const service: KnowledgeService & {
     lastRequest?: Parameters<KnowledgeService["proposeMemory"]>[0];
+    lastWikiPageRequest?: Parameters<KnowledgeService["proposeWikiPage"]>[0];
+    lastWikiUpdateRequest?: Parameters<KnowledgeService["proposeWikiUpdate"]>[0];
     lastSearchRequest?: Parameters<KnowledgeService["searchMemory"]>[0];
     lastContextRequest?: Parameters<KnowledgeService["memoryContext"]>[0];
   } = {
     lastRequest: undefined,
+    lastWikiPageRequest: undefined,
+    lastWikiUpdateRequest: undefined,
     lastSearchRequest: undefined,
     lastContextRequest: undefined,
     status: async () => ({
@@ -242,6 +358,45 @@ function createService(): KnowledgeService & {
     }),
     proposeMemory: async (request) => {
       service.lastRequest = request;
+      return {
+        ok: true,
+        value: {
+          doc_id: "doc_auth",
+          proposal_id: "prop_auth",
+          path: "Knowledge/decisions/auth.md",
+          title: "Auth",
+          created: true,
+          should_open: true,
+        },
+      };
+    },
+    createWikiDecisionDocument: async () => ({
+      ok: true,
+      value: {
+        doc_id: "doc_auth",
+        proposal_id: "prop_auth",
+        path: "Knowledge/decisions/auth.md",
+        title: "Auth",
+        created: true,
+        should_open: true,
+      },
+    }),
+    proposeWikiPage: async (request) => {
+      service.lastWikiPageRequest = request;
+      return {
+        ok: true,
+        value: {
+          doc_id: "doc_auth",
+          proposal_id: "prop_auth",
+          path: "Knowledge/decisions/auth.md",
+          title: "Auth",
+          created: true,
+          should_open: true,
+        },
+      };
+    },
+    proposeWikiUpdate: async (request) => {
+      service.lastWikiUpdateRequest = request;
       return {
         ok: true,
         value: {
