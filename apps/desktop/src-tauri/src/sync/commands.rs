@@ -68,9 +68,20 @@ pub async fn sync_get_remote_status(
     state: State<'_, SyncState>,
 ) -> Result<SyncRemoteStatus, SyncCommandError> {
     let status = state.status();
-    let remote_status = get_remote_status_for_state(&status)
-        .await
-        .map_err(command_error)?;
+    let remote_status = match get_remote_status_for_state(&status).await {
+        Ok(remote_status) => remote_status,
+        Err(error) => {
+            if clear_binding_if_current_workspace_missing(&app, &state, &status, &error)
+                .await
+                .ok()
+                .flatten()
+                .is_some()
+            {
+                return Err(command_error(SyncError::NotConfigured));
+            }
+            return Err(command_error(error));
+        }
+    };
     let status = match state.clear_remote_status_error() {
         Ok(Some(status)) => {
             emit_status(&app, &status);
@@ -273,6 +284,20 @@ pub async fn sync_run_once(
                     Ok(status)
                 }
                 Err(error) => {
+                    let status = state.status();
+                    if clear_binding_if_current_workspace_missing(
+                        &worker_app,
+                        &state,
+                        &status,
+                        &error,
+                    )
+                    .await
+                    .ok()
+                    .flatten()
+                    .is_some()
+                    {
+                        return Err(command_error(SyncError::NotConfigured));
+                    }
                     if let Ok(status) = state.set_error(&error) {
                         emit_status(&worker_app, &status);
                     }
@@ -761,6 +786,47 @@ async fn delete_account_workspace(workspace_id: &str) -> SyncResult<()> {
     let authorization = authorization_header().await?;
     let client = ConnectSyncClient::with_authorization_header(authorization);
     client.delete_workspace(workspace_id).await
+}
+
+async fn current_workspace_exists_for_account(workspace_id: &str) -> SyncResult<bool> {
+    let authorization = authorization_header().await?;
+    let client = ConnectSyncClient::with_authorization_header(authorization);
+    Ok(client
+        .list_workspaces()
+        .await?
+        .iter()
+        .any(|workspace| workspace.workspace_id == workspace_id))
+}
+
+fn error_may_indicate_missing_current_workspace(error: &SyncError) -> bool {
+    match error {
+        SyncError::PermissionRequired => true,
+        SyncError::InvalidArgument(message) => message.contains("workspace was not found"),
+        _ => false,
+    }
+}
+
+async fn clear_binding_if_current_workspace_missing(
+    app: &AppHandle,
+    state: &SyncState,
+    status: &SyncRuntimeStatus,
+    error: &SyncError,
+) -> SyncResult<Option<SyncRuntimeStatus>> {
+    if !error_may_indicate_missing_current_workspace(error) {
+        return Ok(None);
+    }
+    let Some(workspace_id) = status
+        .remote_workspace_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    else {
+        return Ok(None);
+    };
+    if current_workspace_exists_for_account(workspace_id).await? {
+        return Ok(None);
+    }
+    clear_current_workspace_binding(app, state, status).map(Some)
 }
 
 fn clear_current_workspace_binding(
@@ -1732,6 +1798,22 @@ mod tests {
         assert!(!is_head_conflict(&SyncError::Transport(
             "PublishCommit failed: unavailable".into()
         )));
+    }
+
+    #[test]
+    fn missing_workspace_probe_only_runs_for_relevant_errors() {
+        assert!(error_may_indicate_missing_current_workspace(
+            &SyncError::PermissionRequired
+        ));
+        assert!(error_may_indicate_missing_current_workspace(
+            &SyncError::InvalidArgument("workspace was not found for this account".into())
+        ));
+        assert!(!error_may_indicate_missing_current_workspace(
+            &SyncError::Offline("unavailable".into())
+        ));
+        assert!(!error_may_indicate_missing_current_workspace(
+            &SyncError::QuotaExceeded("quota exceeded".into())
+        ));
     }
 
     #[test]

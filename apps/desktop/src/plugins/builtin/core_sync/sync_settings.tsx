@@ -500,11 +500,8 @@ function SyncSettings(): JSX.Element {
       setConfirmDeleteWorkspaceId(null);
       setLocalError(null);
       await refreshSyncStatus(service, { scanLocal: true });
-      if (status.configured) {
-        await loadWorkspaces({ quiet: true });
-      } else {
-        setWorkspaces([]);
-      }
+      await refreshAccountRecoveryState(service);
+      await loadWorkspaces({ quiet: true });
     } catch (error) {
       setLocalError(errorCopy(error));
     } finally {
