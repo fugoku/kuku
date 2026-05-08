@@ -536,6 +536,30 @@ pub fn mark_conflict_resolved(conn: &Connection, conflict_id: &str) -> SyncResul
     Ok(())
 }
 
+pub fn mark_unsynced_file_deleted_clean(
+    conn: &Connection,
+    normalized_path: &str,
+    now_ms: i64,
+) -> SyncResult<()> {
+    conn.execute(
+        r#"
+        UPDATE sync_files
+        SET deleted = 1,
+            dirty = 0,
+            mtime_ms = ?2
+        WHERE normalized_path = ?1
+          AND last_synced_commit_id IS NULL
+        "#,
+        params![normalized_path, now_ms],
+    )
+    .map_err(|error| {
+        SyncError::Storage(format!(
+            "failed to mark unsynced file deleted clean: {error}"
+        ))
+    })?;
+    Ok(())
+}
+
 pub fn get_conflict_status(conn: &Connection, conflict_id: &str) -> SyncResult<Option<String>> {
     match conn.query_row(
         "SELECT status FROM sync_conflicts WHERE conflict_id = ?1",
@@ -1218,5 +1242,64 @@ mod tests {
             get_conflict_status(&conn, "conflict-1").unwrap().as_deref(),
             Some("resolved")
         );
+    }
+
+    #[test]
+    fn mark_unsynced_file_deleted_clean_clears_pending_local_artifact() {
+        let mut conn = open_memory_sync_db().unwrap();
+        let normalized_path = "a.conflict-19700101-000001.md";
+        apply_scan(
+            &mut conn,
+            &[SyncFileInput {
+                path: "a.conflict-19700101-000001.md".into(),
+                normalized_path: normalized_path.into(),
+                kind: FILE_KIND_MARKDOWN.into(),
+                plaintext_hash: Some("hash".into()),
+                size_bytes: Some(4),
+                mtime_ms: Some(1),
+            }],
+            1,
+        )
+        .unwrap();
+
+        mark_unsynced_file_deleted_clean(&conn, normalized_path, 2).unwrap();
+
+        let files = list_files(&conn).unwrap();
+        assert_eq!(files.len(), 1);
+        assert!(files[0].deleted);
+        assert!(!files[0].dirty);
+        assert!(list_dirty_files(&conn).unwrap().is_empty());
+    }
+
+    #[test]
+    fn mark_unsynced_file_deleted_clean_keeps_synced_delete_dirty() {
+        let mut conn = open_memory_sync_db().unwrap();
+        let normalized_path = "a.conflict-19700101-000001.md";
+        apply_scan(
+            &mut conn,
+            &[SyncFileInput {
+                path: "a.conflict-19700101-000001.md".into(),
+                normalized_path: normalized_path.into(),
+                kind: FILE_KIND_MARKDOWN.into(),
+                plaintext_hash: Some("hash".into()),
+                size_bytes: Some(4),
+                mtime_ms: Some(1),
+            }],
+            1,
+        )
+        .unwrap();
+        mark_files_synced(
+            &mut conn,
+            "commit_1",
+            &[file_id_for_normalized_path(normalized_path)],
+        )
+        .unwrap();
+        apply_scan(&mut conn, &[], 2).unwrap();
+
+        mark_unsynced_file_deleted_clean(&conn, normalized_path, 3).unwrap();
+
+        let dirty = list_dirty_files(&conn).unwrap();
+        assert_eq!(dirty.len(), 1);
+        assert!(dirty[0].deleted);
     }
 }

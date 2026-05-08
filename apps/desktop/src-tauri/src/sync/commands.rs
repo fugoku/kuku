@@ -35,7 +35,7 @@ use super::errors::command_error;
 use super::errors::{SyncCommandError, SyncError, SyncResult};
 use super::keys;
 use super::planner::PlannerConfig;
-use super::scanner::{ScannedFile, scan_vault};
+use super::scanner::{ScannedFile, normalize_vault_relative_path, scan_vault};
 use super::transfer::{
     ObjectTransferQueue, ReqwestObjectTransferHttp, TransferProgressEvent, TransferProgressSink,
     TransferQueueConfig,
@@ -1640,6 +1640,9 @@ fn list_open_conflicts(
             && !vault_relative_file_exists(vault_root, &conflict.conflict_path)?
         {
             db::mark_conflict_resolved(&conn, &conflict.conflict_id)?;
+            if let Ok(normalized_path) = normalize_vault_relative_path(&conflict.conflict_path) {
+                db::mark_unsynced_file_deleted_clean(&conn, &normalized_path, super::now_ms())?;
+            }
             continue;
         }
         summaries.push(SyncConflictSummary {
