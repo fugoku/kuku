@@ -4,6 +4,7 @@ import {
   SettingsBanner,
   SettingsCard,
   SettingsInput,
+  SettingsListRow,
   SettingsMetricRow,
   SettingsPanel,
   SettingsStatusBadge,
@@ -16,10 +17,10 @@ import { vaultState } from "~/stores/vault";
 
 import { ConflictList } from "./conflict_list";
 import { defaultVaultId, mapSyncError } from "./service";
-import { refreshSyncStatus, syncStatus } from "./status_store";
+import { applySyncStatus, refreshSyncStatus, syncStatus } from "./status_store";
 import { getSyncService } from "./runtime";
 import { transferStatusLabel } from "./transfer_status";
-import type { SyncErrorCategory, SyncRuntimeStatus } from "./types";
+import type { SyncErrorCategory, SyncRuntimeStatus, SyncWorkspaceSummary } from "./types";
 
 function formatTimestamp(ts?: number): string {
   if (!ts) return t("settings.plugin.sync.metrics.never");
@@ -106,6 +107,12 @@ function SyncSettings(): JSX.Element {
   const [recoveryPhraseSaving, setRecoveryPhraseSaving] = createSignal(false);
   const [recoveryPhraseBackedUp, setRecoveryPhraseBackedUp] = createSignal(false);
   const [busy, setBusy] = createSignal(false);
+  const [workspaceLoading, setWorkspaceLoading] = createSignal(false);
+  const [workspaceBusyId, setWorkspaceBusyId] = createSignal<string | null>(null);
+  const [workspaces, setWorkspaces] = createSignal<SyncWorkspaceSummary[]>([]);
+  const [renamingWorkspaceId, setRenamingWorkspaceId] = createSignal<string | null>(null);
+  const [workspaceDraftName, setWorkspaceDraftName] = createSignal("");
+  const [confirmDeleteWorkspaceId, setConfirmDeleteWorkspaceId] = createSignal<string | null>(null);
   const [localError, setLocalError] = createSignal<string | null>(null);
   const [confirmDisable, setConfirmDisable] = createSignal(false);
   const [authMode, setAuthMode] = createSignal<"ready" | "loginRequired" | "permissionRequired">(
@@ -133,6 +140,11 @@ function SyncSettings(): JSX.Element {
       if (generated) {
         setRecoveryPhrase(generated);
       }
+    }
+    if (syncStatus.configured || syncStatus.accountKeyId) {
+      await loadWorkspaces({ quiet: true });
+    } else {
+      setWorkspaces([]);
     }
   }
 
@@ -230,6 +242,7 @@ function SyncSettings(): JSX.Element {
   }
 
   const canSyncNow = () => syncStatus.configured && syncStatus.enabled && !busy();
+  const workspaceActionBusy = () => workspaceLoading() || workspaceBusyId() !== null;
   const visibleError = () =>
     localError() ?? errorCopy(syncStatus.lastError, syncStatus.lastErrorCategory);
   const recoveryPhraseWords = createMemo(() =>
@@ -280,6 +293,127 @@ function SyncSettings(): JSX.Element {
       setLocalError(errorCopy(error));
     } finally {
       setRecoveryPhraseSaving(false);
+    }
+  }
+
+  async function loadWorkspaces(options?: { quiet?: boolean }): Promise<void> {
+    const service = getSyncService();
+    if (!service || workspaceLoading()) return;
+    if (!authState.authenticated || authMode() !== "ready") {
+      setWorkspaces([]);
+      return;
+    }
+    setWorkspaceLoading(true);
+    try {
+      const rows = await service.listWorkspaces(recoveryPhrase().trim() || undefined);
+      setWorkspaces(rows);
+      if (!options?.quiet) setLocalError(null);
+    } catch (error) {
+      if (!options?.quiet) setLocalError(errorCopy(error));
+    } finally {
+      setWorkspaceLoading(false);
+    }
+  }
+
+  async function connectWorkspace(workspace: SyncWorkspaceSummary): Promise<void> {
+    const service = getSyncService();
+    const rootPath = vaultState.rootPath;
+    if (!service || workspaceActionBusy()) return;
+    if (!rootPath) {
+      setLocalError(t("settings.plugin.sync.error.vault_required"));
+      return;
+    }
+    setWorkspaceBusyId(workspace.workspaceId);
+    try {
+      await service.configureVault({
+        vaultId: syncStatus.vaultId ?? defaultVaultId(rootPath),
+        rootPath,
+        accountKeyId: syncStatus.accountKeyId,
+        remoteWorkspaceId: workspace.workspaceId,
+        workspaceName: workspace.name,
+        deviceId: syncStatus.deviceId ?? "",
+        deviceName: syncStatus.deviceName,
+        rememberWorkspaceKey: true,
+        passphrase: recoveryPhrase().trim() || undefined,
+      });
+      await service.setEnabled(true);
+      setLocalError(null);
+      await refreshSyncStatus(service, { scanLocal: true });
+      await loadWorkspaces({ quiet: true });
+    } catch (error) {
+      setLocalError(errorCopy(error));
+    } finally {
+      setWorkspaceBusyId(null);
+    }
+  }
+
+  function startRenameWorkspace(workspace: SyncWorkspaceSummary): void {
+    setRenamingWorkspaceId(workspace.workspaceId);
+    setWorkspaceDraftName(workspace.name);
+    setConfirmDeleteWorkspaceId(null);
+  }
+
+  async function saveWorkspaceRename(workspace: SyncWorkspaceSummary): Promise<void> {
+    const service = getSyncService();
+    const name = workspaceDraftName().trim();
+    if (!service || workspaceActionBusy()) return;
+    if (!name) {
+      setLocalError(t("settings.plugin.sync.error.workspace_name_required"));
+      return;
+    }
+    setWorkspaceBusyId(workspace.workspaceId);
+    try {
+      const updated = await service.renameWorkspace({
+        workspaceId: workspace.workspaceId,
+        name,
+        expectedMetadataVersion: workspace.metadataVersion,
+        passphrase: recoveryPhrase().trim() || undefined,
+      });
+      setWorkspaces((rows) =>
+        rows.map((row) => (row.workspaceId === updated.workspaceId ? updated : row)),
+      );
+      setRenamingWorkspaceId(null);
+      setWorkspaceDraftName("");
+      setLocalError(null);
+      if (updated.current) {
+        await refreshSyncStatus(service, { scanLocal: true });
+      }
+    } catch (error) {
+      setLocalError(errorCopy(error));
+    } finally {
+      setWorkspaceBusyId(null);
+    }
+  }
+
+  async function deleteWorkspace(workspace: SyncWorkspaceSummary): Promise<void> {
+    const service = getSyncService();
+    if (!service || workspaceActionBusy()) return;
+    if (confirmDeleteWorkspaceId() !== workspace.workspaceId) {
+      setConfirmDeleteWorkspaceId(workspace.workspaceId);
+      window.setTimeout(() => {
+        if (confirmDeleteWorkspaceId() === workspace.workspaceId) {
+          setConfirmDeleteWorkspaceId(null);
+        }
+      }, 3000);
+      return;
+    }
+    setWorkspaceBusyId(workspace.workspaceId);
+    try {
+      const status = await service.deleteWorkspace(workspace.workspaceId);
+      applySyncStatus(status);
+      setWorkspaces((rows) => rows.filter((row) => row.workspaceId !== workspace.workspaceId));
+      setConfirmDeleteWorkspaceId(null);
+      setLocalError(null);
+      await refreshSyncStatus(service, { scanLocal: true });
+      if (status.configured) {
+        await loadWorkspaces({ quiet: true });
+      } else {
+        setWorkspaces([]);
+      }
+    } catch (error) {
+      setLocalError(errorCopy(error));
+    } finally {
+      setWorkspaceBusyId(null);
     }
   }
 
@@ -412,6 +546,119 @@ function SyncSettings(): JSX.Element {
             label={t("settings.plugin.sync.metrics.pending")}
             value={`${syncStatus.pendingUploads} / ${syncStatus.pendingDownloads}`}
           />
+        </div>
+      </SettingsCard>
+
+      <SettingsCard
+        title={t("settings.plugin.sync.workspace.title")}
+        description={t("settings.plugin.sync.workspace.description")}
+        tone="subtle"
+        action={
+          <SettingsToolbarAction
+            disabled={workspaceActionBusy()}
+            onClick={() => void loadWorkspaces()}
+          >
+            {workspaceLoading()
+              ? t("settings.plugin.sync.action.working")
+              : t("settings.plugin.sync.action.refresh")}
+          </SettingsToolbarAction>
+        }
+      >
+        <div class="space-y-2">
+          <Show when={workspaceLoading()}>
+            <SettingsBanner tone="info" description={t("settings.plugin.sync.workspace.loading")} />
+          </Show>
+          <Show when={!workspaceLoading() && workspaces().length === 0}>
+            <SettingsBanner tone="info" description={t("settings.plugin.sync.workspace.empty")} />
+          </Show>
+          <For each={workspaces()}>
+            {(workspace) => {
+              const isEditing = () => renamingWorkspaceId() === workspace.workspaceId;
+              const isBusy = () => workspaceBusyId() === workspace.workspaceId;
+              const isDeleteConfirm = () => confirmDeleteWorkspaceId() === workspace.workspaceId;
+              return (
+                <SettingsListRow
+                  title={
+                    <Show
+                      when={isEditing()}
+                      fallback={<span class="break-all">{workspace.name}</span>}
+                    >
+                      <SettingsInput
+                        value={workspaceDraftName()}
+                        onInput={(event) => setWorkspaceDraftName(event.currentTarget.value)}
+                        placeholder={t("settings.plugin.sync.workspace.name_placeholder")}
+                        class="h-7 max-w-80 py-1 text-[0.75rem]"
+                      />
+                    </Show>
+                  }
+                  description={`${t("settings.plugin.sync.workspace.head_version")} ${workspace.headVersion}`}
+                  meta={
+                    workspace.current ? (
+                      <SettingsStatusBadge tone="neutral">
+                        {t("settings.plugin.sync.workspace.current")}
+                      </SettingsStatusBadge>
+                    ) : undefined
+                  }
+                  action={
+                    <div class="flex flex-wrap justify-end gap-2">
+                      <Show
+                        when={isEditing()}
+                        fallback={
+                          <>
+                            <Show when={!workspace.current}>
+                              <SettingsToolbarAction
+                                variant="primary"
+                                disabled={workspaceActionBusy()}
+                                onClick={() => void connectWorkspace(workspace)}
+                              >
+                                {isBusy()
+                                  ? t("settings.plugin.sync.action.working")
+                                  : t("settings.plugin.sync.workspace.connect")}
+                              </SettingsToolbarAction>
+                            </Show>
+                            <SettingsToolbarAction
+                              disabled={workspaceActionBusy()}
+                              onClick={() => startRenameWorkspace(workspace)}
+                            >
+                              {t("settings.plugin.sync.workspace.rename")}
+                            </SettingsToolbarAction>
+                            <SettingsToolbarAction
+                              variant={isDeleteConfirm() ? "destructive" : "default"}
+                              disabled={workspaceActionBusy()}
+                              onClick={() => void deleteWorkspace(workspace)}
+                            >
+                              {isDeleteConfirm()
+                                ? t("settings.plugin.sync.workspace.confirm_delete")
+                                : t("settings.plugin.sync.workspace.delete")}
+                            </SettingsToolbarAction>
+                          </>
+                        }
+                      >
+                        <SettingsToolbarAction
+                          variant="primary"
+                          disabled={workspaceActionBusy()}
+                          onClick={() => void saveWorkspaceRename(workspace)}
+                        >
+                          {isBusy()
+                            ? t("settings.plugin.sync.action.working")
+                            : t("settings.plugin.sync.workspace.save")}
+                        </SettingsToolbarAction>
+                        <SettingsToolbarAction
+                          disabled={workspaceActionBusy()}
+                          onClick={() => {
+                            setRenamingWorkspaceId(null);
+                            setWorkspaceDraftName("");
+                          }}
+                        >
+                          {t("settings.plugin.sync.workspace.cancel")}
+                        </SettingsToolbarAction>
+                      </Show>
+                    </div>
+                  }
+                />
+              );
+            }}
+          </For>
         </div>
       </SettingsCard>
 
