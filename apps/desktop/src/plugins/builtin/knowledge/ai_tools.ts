@@ -3,9 +3,12 @@ import type { Disposer } from "~/plugins/types";
 
 import type {
   CreateDecisionDocumentRequest,
+  KnowledgeContextRequest,
   KnowledgeError,
   MemoryContextRequest,
+  ReadWikiPageRequest,
   SearchMemoryRequest,
+  SearchWikiRequest,
   WikiProposePageRequest,
   WikiProposeUpdateRequest,
 } from "./types";
@@ -14,6 +17,9 @@ import type { KnowledgeService } from "./service";
 const KNOWLEDGE_AI_TOOL_NAMES = [
   "memory_search",
   "memory_context",
+  "wiki_search",
+  "wiki_read",
+  "knowledge_context",
   "memory_propose",
   "wiki_propose_page",
   "wiki_propose_update",
@@ -99,7 +105,8 @@ const PROPOSED_WIKI_PAGE_PARAMETER_SCHEMA = {
   properties: {
     path: {
       type: "string",
-      description: "Vault-relative committed wiki page path under Knowledge/wiki ending in .md.",
+      description:
+        "Vault-relative committed wiki page path under Knowledge/wiki ending in .md. Use Knowledge/wiki/sources for source pages, Knowledge/wiki/concepts for concept pages, Knowledge/wiki/entities for entity pages, and Knowledge/wiki/synthesis for synthesis pages.",
     },
     expected_checksum: {
       type: "string",
@@ -137,6 +144,11 @@ const PROPOSED_WIKI_PAGE_PARAMETER_SCHEMA = {
 const PROPOSED_WIKI_UPDATE_PARAMETER_SCHEMA = {
   ...PROPOSED_WIKI_PAGE_PARAMETER_SCHEMA,
   required: ["path", "expected_checksum", "page_type", "title", "body"],
+};
+
+const WIKI_PAGE_TYPE_PARAMETER_SCHEMA = {
+  type: "string",
+  enum: ["source", "concept", "entity", "synthesis"],
 };
 
 function registerKnowledgeAiTools(
@@ -186,6 +198,88 @@ function registerKnowledgeAiTools(
       },
       handler: async (args) => {
         const result = await service.memoryContext(memoryContextRequestFromArgs(args));
+        if (!result.ok) {
+          throw new Error(formatKnowledgeError(result.error));
+        }
+        return JSON.stringify(result.value, null, 2);
+      },
+    }),
+    registry.register({
+      name: "wiki_search",
+      toolId: "knowledge.wiki_search",
+      description:
+        "Search committed Knowledge wiki pages. This is read-only and only returns Knowledge/wiki pages.",
+      category: "knowledge",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string" },
+          limit: { type: "integer", description: "Defaults to 10 and is capped at 50." },
+          tags: { type: "array", items: { type: "string" } },
+          page_types: {
+            type: "array",
+            items: WIKI_PAGE_TYPE_PARAMETER_SCHEMA,
+            description: "Optional filter for source, concept, entity, or synthesis pages.",
+          },
+        },
+        required: ["query"],
+      },
+      handler: async (args) => {
+        const result = await service.searchWiki(wikiSearchRequestFromArgs(args));
+        if (!result.ok) {
+          throw new Error(formatKnowledgeError(result.error));
+        }
+        return JSON.stringify(result.value, null, 2);
+      },
+    }),
+    registry.register({
+      name: "wiki_read",
+      toolId: "knowledge.wiki_read",
+      description: "Read and parse a committed Knowledge wiki page by path. This is read-only.",
+      category: "knowledge",
+      parameters: {
+        type: "object",
+        properties: {
+          path: {
+            type: "string",
+            description: "Vault-relative path under Knowledge/wiki ending in .md.",
+          },
+        },
+        required: ["path"],
+      },
+      handler: async (args) => {
+        const result = await service.readWikiPage(readWikiPageRequestFromArgs(args));
+        if (!result.ok) {
+          throw new Error(formatKnowledgeError(result.error));
+        }
+        return JSON.stringify(result.value, null, 2);
+      },
+    }),
+    registry.register({
+      name: "knowledge_context",
+      toolId: "knowledge.knowledge_context",
+      description:
+        "Return read-only Knowledge context by combining committed memory and wiki search hits.",
+      category: "knowledge",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string" },
+          active_path: {
+            type: "string",
+            description: "Optional vault-relative active document path hint.",
+          },
+          limit: { type: "integer", description: "Defaults to 10 and is capped at 50." },
+          include: {
+            type: "array",
+            items: { type: "string", enum: ["memory", "wiki"] },
+            description: "Defaults to both memory and wiki.",
+          },
+        },
+        required: ["query"],
+      },
+      handler: async (args) => {
+        const result = await service.knowledgeContext(knowledgeContextRequestFromArgs(args));
         if (!result.ok) {
           throw new Error(formatKnowledgeError(result.error));
         }
@@ -326,6 +420,30 @@ function memoryContextRequestFromArgs(args: Record<string, unknown>): MemoryCont
   };
 }
 
+function wikiSearchRequestFromArgs(args: Record<string, unknown>): SearchWikiRequest {
+  return {
+    query: requiredString(args.query, "query"),
+    limit: optionalInteger(args.limit, "limit"),
+    tags: optionalStringArray(args.tags),
+    page_types: optionalWikiPageTypes(args.page_types),
+  };
+}
+
+function readWikiPageRequestFromArgs(args: Record<string, unknown>): ReadWikiPageRequest {
+  return {
+    path: requiredString(args.path, "path"),
+  };
+}
+
+function knowledgeContextRequestFromArgs(args: Record<string, unknown>): KnowledgeContextRequest {
+  return {
+    query: requiredString(args.query, "query"),
+    active_path: optionalString(args.active_path),
+    limit: optionalInteger(args.limit, "limit"),
+    include: optionalKnowledgeContextInclude(args.include),
+  };
+}
+
 function memoryProposeRequestFromArgs(
   args: Record<string, unknown>,
 ): CreateDecisionDocumentRequest {
@@ -400,6 +518,22 @@ function optionalStringArray(value: unknown): string[] | undefined {
   return value.filter((item): item is string => typeof item === "string");
 }
 
+function optionalWikiPageTypes(value: unknown): SearchWikiRequest["page_types"] {
+  if (!Array.isArray(value)) return undefined;
+  return value.filter(
+    (item): item is NonNullable<SearchWikiRequest["page_types"]>[number] =>
+      item === "source" || item === "concept" || item === "entity" || item === "synthesis",
+  );
+}
+
+function optionalKnowledgeContextInclude(value: unknown): KnowledgeContextRequest["include"] {
+  if (!Array.isArray(value)) return undefined;
+  return value.filter(
+    (item): item is NonNullable<KnowledgeContextRequest["include"]>[number] =>
+      item === "memory" || item === "wiki",
+  );
+}
+
 function parseDefaultSelection(value: unknown): CreateDecisionDocumentRequest["default_selection"] {
   if (value === "yes" || value === "none") {
     return value;
@@ -414,10 +548,13 @@ function formatKnowledgeError(error: KnowledgeError): string {
 export {
   FORBIDDEN_KNOWLEDGE_AI_TOOL_NAMES,
   KNOWLEDGE_AI_TOOL_NAMES,
+  knowledgeContextRequestFromArgs,
   memoryContextRequestFromArgs,
   memoryProposeRequestFromArgs,
   memorySearchRequestFromArgs,
+  readWikiPageRequestFromArgs,
   registerKnowledgeAiTools,
+  wikiSearchRequestFromArgs,
   wikiProposePageRequestFromArgs,
   wikiProposeUpdateRequestFromArgs,
 };

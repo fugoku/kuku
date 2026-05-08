@@ -3,18 +3,24 @@ use tauri::{State, command};
 use crate::knowledge::apply::apply_decision_document_for_root;
 use crate::knowledge::models::{
     ApplyDecisionDocumentRequest, ApplyDecisionDocumentResult, CreateDecisionDocumentRequest,
-    CreateDecisionDocumentResult, KnowledgeCommandResult, KnowledgeInitResult,
-    KnowledgeStatusResult, MemoryContextRequest, MemoryContextResult, MemoryProposeRequest,
-    MemorySearchResult, ProposalRequestSource, ReadDecisionDocumentRequest,
-    ReadDecisionDocumentResult, ReadMemoryRequest, ReadMemoryResult, SearchMemoryRequest,
-    WikiProposePageRequest, WikiProposeUpdateRequest,
+    CreateDecisionDocumentResult, KnowledgeCommandResult, KnowledgeContextRequest,
+    KnowledgeContextResult, KnowledgeInitResult, KnowledgeStatusResult, MemoryContextRequest,
+    MemoryContextResult, MemoryProposeRequest, MemorySearchResult, ProposalRequestSource,
+    ReadDecisionDocumentRequest, ReadDecisionDocumentResult, ReadMemoryRequest, ReadMemoryResult,
+    ReadWikiPageRequest, ReadWikiPageResult, SearchMemoryRequest, SearchWikiRequest,
+    WikiProposePageRequest, WikiProposeUpdateRequest, WikiSearchResult,
 };
 use crate::knowledge::proposal::{
     create_decision_document_for_root, create_wiki_decision_document_for_root,
     create_wiki_update_decision_document_for_root,
 };
-use crate::knowledge::read::{read_decision_document_for_root, read_memory_for_root};
-use crate::knowledge::search::{memory_context_for_root, search_memory_for_root};
+use crate::knowledge::read::{
+    read_decision_document_for_root, read_memory_for_root, read_wiki_page_for_root,
+};
+use crate::knowledge::search::{
+    knowledge_context_for_root, memory_context_for_root, search_memory_for_root,
+    search_wiki_for_root,
+};
 use crate::knowledge::service::{knowledge_init_for_root, knowledge_status_for_root};
 use crate::search::SearchState;
 use crate::vault::{VaultState, get_vault_root};
@@ -247,6 +253,27 @@ pub async fn knowledge_read_memory(
 }
 
 #[command]
+pub async fn knowledge_read_wiki_page(
+    state: State<'_, VaultState>,
+    request: ReadWikiPageRequest,
+) -> Result<KnowledgeCommandResult<ReadWikiPageResult>, String> {
+    let root = match get_vault_root(&state) {
+        Ok(root) => root,
+        Err(error) => {
+            return Ok(KnowledgeCommandResult::err(
+                crate::knowledge::models::KnowledgeErrorCode::IoError,
+                error,
+            ));
+        }
+    };
+
+    match read_wiki_page_for_root(&root, request).await {
+        Ok(result) => Ok(KnowledgeCommandResult::ok(result)),
+        Err(error) => Ok(KnowledgeCommandResult::err(error.code, error.message)),
+    }
+}
+
+#[command]
 pub async fn knowledge_apply_decision_document(
     state: State<'_, VaultState>,
     search: State<'_, SearchState>,
@@ -306,6 +333,27 @@ pub async fn knowledge_search_memory(
 }
 
 #[command]
+pub async fn knowledge_search_wiki(
+    state: State<'_, VaultState>,
+    request: SearchWikiRequest,
+) -> Result<KnowledgeCommandResult<WikiSearchResult>, String> {
+    let root = match get_vault_root(&state) {
+        Ok(root) => root,
+        Err(error) => {
+            return Ok(KnowledgeCommandResult::err(
+                crate::knowledge::models::KnowledgeErrorCode::IoError,
+                error,
+            ));
+        }
+    };
+
+    match search_wiki_for_root(&root, request).await {
+        Ok(result) => Ok(KnowledgeCommandResult::ok(result)),
+        Err(error) => Ok(KnowledgeCommandResult::err(error.code, error.message)),
+    }
+}
+
+#[command]
 pub async fn knowledge_memory_context(
     state: State<'_, VaultState>,
     request: MemoryContextRequest,
@@ -321,6 +369,27 @@ pub async fn knowledge_memory_context(
     };
 
     match memory_context_for_root(&root, request).await {
+        Ok(result) => Ok(KnowledgeCommandResult::ok(result)),
+        Err(error) => Ok(KnowledgeCommandResult::err(error.code, error.message)),
+    }
+}
+
+#[command]
+pub async fn knowledge_context(
+    state: State<'_, VaultState>,
+    request: KnowledgeContextRequest,
+) -> Result<KnowledgeCommandResult<KnowledgeContextResult>, String> {
+    let root = match get_vault_root(&state) {
+        Ok(root) => root,
+        Err(error) => {
+            return Ok(KnowledgeCommandResult::err(
+                crate::knowledge::models::KnowledgeErrorCode::IoError,
+                error,
+            ));
+        }
+    };
+
+    match knowledge_context_for_root(&root, request).await {
         Ok(result) => Ok(KnowledgeCommandResult::ok(result)),
         Err(error) => Ok(KnowledgeCommandResult::err(error.code, error.message)),
     }

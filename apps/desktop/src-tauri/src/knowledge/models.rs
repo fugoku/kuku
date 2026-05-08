@@ -456,6 +456,25 @@ pub struct WikiContextRequest {
     pub limit: Option<usize>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KnowledgeContextRequest {
+    pub query: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub active_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<usize>,
+    #[serde(default)]
+    pub include: Vec<KnowledgeContextInclude>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum KnowledgeContextInclude {
+    Memory,
+    Wiki,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MemorySearchResult {
     pub hits: Vec<MemorySearchHit>,
@@ -507,6 +526,17 @@ pub struct MemoryContextResult {
 pub struct WikiContextResult {
     pub query: String,
     pub pages: Vec<WikiSearchHit>,
+    pub warnings: Vec<String>,
+    pub skipped_paths: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KnowledgeContextResult {
+    pub query: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub active_path: Option<String>,
+    pub memory_hits: Vec<MemorySearchHit>,
+    pub wiki_hits: Vec<WikiSearchHit>,
     pub warnings: Vec<String>,
     pub skipped_paths: Vec<String>,
 }

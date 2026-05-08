@@ -6,6 +6,8 @@ import type {
   CreateDecisionDocumentRequest,
   CreateDecisionDocumentResult,
   KnowledgeCommandResult,
+  KnowledgeContextRequest,
+  KnowledgeContextResult,
   KnowledgeError,
   KnowledgeInitResult,
   KnowledgeStatusResult,
@@ -16,7 +18,11 @@ import type {
   ReadDecisionDocumentResult,
   ReadMemoryRequest,
   ReadMemoryResult,
+  ReadWikiPageRequest,
+  ReadWikiPageResult,
   SearchMemoryRequest,
+  SearchWikiRequest,
+  WikiSearchResult,
   WikiProposePageRequest,
   WikiProposeUpdateRequest,
 } from "./types";
@@ -43,13 +49,18 @@ interface KnowledgeService {
     request: ReadDecisionDocumentRequest,
   ): Promise<KnowledgeCommandResult<ReadDecisionDocumentResult>>;
   readMemory(request: ReadMemoryRequest): Promise<KnowledgeCommandResult<ReadMemoryResult>>;
+  readWikiPage(request: ReadWikiPageRequest): Promise<KnowledgeCommandResult<ReadWikiPageResult>>;
   applyDecisionDocument(
     request: ApplyDecisionDocumentRequest,
   ): Promise<KnowledgeCommandResult<ApplyDecisionDocumentResult>>;
   searchMemory(request: SearchMemoryRequest): Promise<KnowledgeCommandResult<MemorySearchResult>>;
+  searchWiki(request: SearchWikiRequest): Promise<KnowledgeCommandResult<WikiSearchResult>>;
   memoryContext(
     request: MemoryContextRequest,
   ): Promise<KnowledgeCommandResult<MemoryContextResult>>;
+  knowledgeContext(
+    request: KnowledgeContextRequest,
+  ): Promise<KnowledgeCommandResult<KnowledgeContextResult>>;
 }
 
 function transportError(error: unknown): KnowledgeError {
@@ -106,6 +117,9 @@ function createKnowledgeService(): KnowledgeService {
     readMemory(request) {
       return invokeKnowledge<ReadMemoryResult>("knowledge_read_memory", { request });
     },
+    readWikiPage(request) {
+      return invokeKnowledge<ReadWikiPageResult>("knowledge_read_wiki_page", { request });
+    },
     applyDecisionDocument(request) {
       return invokeKnowledge<ApplyDecisionDocumentResult>("knowledge_apply_decision_document", {
         request,
@@ -114,8 +128,14 @@ function createKnowledgeService(): KnowledgeService {
     searchMemory(request) {
       return invokeKnowledge<MemorySearchResult>("knowledge_search_memory", { request });
     },
+    searchWiki(request) {
+      return invokeKnowledge<WikiSearchResult>("knowledge_search_wiki", { request });
+    },
     memoryContext(request) {
       return invokeKnowledge<MemoryContextResult>("knowledge_memory_context", { request });
+    },
+    knowledgeContext(request) {
+      return invokeKnowledge<KnowledgeContextResult>("knowledge_context", { request });
     },
   };
 }
