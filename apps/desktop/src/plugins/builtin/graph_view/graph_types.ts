@@ -99,6 +99,8 @@ export interface GraphSummary {
   clusterCount: number;
 }
 
+export type GraphNodeFilter = (node: GraphNode) => boolean;
+
 export function getGraphSummary(state: GraphState | null | undefined): GraphSummary {
   if (!state) {
     return { nodeCount: 0, linkCount: 0, orphanCount: 0, clusterCount: 0 };
@@ -108,6 +110,47 @@ export function getGraphSummary(state: GraphState | null | undefined): GraphSumm
     linkCount: state.links.length,
     orphanCount: state.nodes.filter((n) => n.isOrphan).length,
     clusterCount: state.clusters.length,
+  };
+}
+
+export function filterGraphState(
+  state: GraphState,
+  nodeFilter: GraphNodeFilter | null | undefined,
+): GraphState {
+  if (!nodeFilter) return state;
+
+  const sourceNodes = state.nodes.filter(nodeFilter);
+  const includedPaths = new Set(sourceNodes.map((node) => node.filePath));
+  const links = state.links.filter(
+    (link) => includedPaths.has(link.source) && includedPaths.has(link.target),
+  );
+  const adjacencyMap: Record<string, string[]> = {};
+  for (const node of sourceNodes) {
+    adjacencyMap[node.filePath] = [];
+  }
+  for (const link of links) {
+    adjacencyMap[link.source]?.push(link.target);
+    adjacencyMap[link.target]?.push(link.source);
+  }
+
+  const clusters = [...new Set(sourceNodes.map((node) => node.folder))].sort();
+  const clusterIndexByFolder = new Map(clusters.map((folder, index) => [folder, index]));
+  const nodes = sourceNodes.map((node) => {
+    const linkCount = adjacencyMap[node.filePath]?.length ?? 0;
+    return {
+      ...node,
+      clusterIndex: clusterIndexByFolder.get(node.folder) ?? 0,
+      linkCount,
+      isOrphan: linkCount === 0,
+    };
+  });
+
+  return {
+    ...state,
+    nodes,
+    links,
+    adjacencyMap,
+    clusters,
   };
 }
 

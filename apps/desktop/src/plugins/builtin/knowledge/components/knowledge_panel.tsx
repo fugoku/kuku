@@ -1,14 +1,10 @@
 import { createMemo, createSignal, For, onMount, Show } from "solid-js";
 
-import {
-  EyeIcon,
-  FileIcon,
-  FolderPlusIcon,
-  PlusIcon,
-  SearchIcon,
-} from "~/components/icons/general_icons";
+import { EyeIcon, SearchIcon } from "~/components/icons/general_icons";
 import { listDirectory, readFile } from "~/lib/vault_fs";
 import type { FileEntry } from "~/lib/vault_types";
+import GraphCanvas from "~/plugins/builtin/graph_view/graph_canvas_pixi";
+import type { GraphNode } from "~/plugins/builtin/graph_view/graph_types";
 import { editorState } from "~/stores/editor";
 import { openTab } from "~/stores/files";
 
@@ -31,11 +27,8 @@ import {
 } from "../knowledge_panel_data";
 import { createKnowledgeService } from "../service";
 import type {
-  CreateDecisionDocumentRequest,
-  CreateDecisionDocumentResult,
   KnowledgeContextResult,
   KnowledgeCommandResult,
-  KnowledgeInitResult,
   KnowledgeStatusResult,
   MemorySearchHit,
   WikiSearchHit,
@@ -61,27 +54,9 @@ const STATUS_ITEMS: { key: keyof KnowledgeStatusResult; label: string }[] = [
 
 type ContextHit = { kind: "memory"; hit: MemorySearchHit } | { kind: "wiki"; hit: WikiSearchHit };
 
-function debugProposalRequest(label: string): CreateDecisionDocumentRequest {
-  return {
-    title: `Knowledge Debug ${label}`,
-    context: "Created from the Second Brain debug panel to verify proposal document generation.",
-    default_selection: "yes",
-    proposed_memories: [
-      {
-        kind: "decision",
-        title: `Debug memory ${label}`,
-        body: "This generated proposal is only for checking the knowledge-layer proposal path. It does not write committed memory.",
-        tags: ["knowledge", "debug"],
-      },
-    ],
-  };
-}
-
 function KnowledgePanel() {
   const service = createKnowledgeService();
   const [status, setStatus] = createSignal<KnowledgeStatusResult | null>(null);
-  const [initResult, setInitResult] = createSignal<KnowledgeInitResult | null>(null);
-  const [createdDoc, setCreatedDoc] = createSignal<CreateDecisionDocumentResult | null>(null);
   const [decisionDocs, setDecisionDocs] = createSignal<DecisionDocumentSummary[]>([]);
   const [recentMemory, setRecentMemory] = createSignal<MemorySummary[]>([]);
   const [recentWiki, setRecentWiki] = createSignal<WikiSummary[]>([]);
@@ -107,29 +82,6 @@ function KnowledgePanel() {
     () =>
       panelWarnings().length + recoveryJournals().length + (contextResult()?.warnings.length ?? 0),
   );
-
-  async function runCommand<T>(
-    command: string,
-    action: () => Promise<KnowledgeCommandResult<T>>,
-    onSuccess: (value: T) => void,
-  ): Promise<void> {
-    setBusy(command);
-    setError(null);
-
-    try {
-      const result = await action();
-      if (result.ok) {
-        onSuccess(result.value);
-        return;
-      }
-
-      setError(formatCommandError(result));
-    } catch (commandError) {
-      setError(commandError instanceof Error ? commandError.message : String(commandError));
-    } finally {
-      setBusy(null);
-    }
-  }
 
   async function refreshPanelData(): Promise<void> {
     setBusy("knowledge_status");
@@ -163,42 +115,6 @@ function KnowledgePanel() {
     }
   }
 
-  function initializeKnowledge(): Promise<void> {
-    return runCommand(
-      "knowledge_init",
-      () => service.init(),
-      (value) => {
-        setInitResult(value);
-        setStatus(value);
-        void refreshPanelData();
-      },
-    );
-  }
-
-  function createDecisionDocument(): Promise<void> {
-    return runCommand(
-      "knowledge_create_decision_document",
-      () => service.createDecisionDocument(debugProposalRequest("UI")),
-      (value) => {
-        setCreatedDoc(value);
-        openDocument(value.path, value.title);
-        void refreshPanelData();
-      },
-    );
-  }
-
-  function proposeMemory(): Promise<void> {
-    return runCommand(
-      "memory_propose",
-      () => service.proposeMemory(debugProposalRequest("Tool")),
-      (value) => {
-        setCreatedDoc(value);
-        openDocument(value.path, value.title);
-        void refreshPanelData();
-      },
-    );
-  }
-
   async function refreshContext(): Promise<void> {
     const query = contextQuery().trim() || deriveContextQuery(editorState.filePath);
     if (!query) {
@@ -227,12 +143,6 @@ function KnowledgePanel() {
     }
   }
 
-  function openCreatedDocument(): void {
-    const doc = createdDoc();
-    if (!doc) return;
-    openDocument(doc.path, doc.title);
-  }
-
   onMount(() => {
     void refreshPanelData();
     void refreshContext();
@@ -255,6 +165,8 @@ function KnowledgePanel() {
 
       <div class="min-h-0 flex-1 overflow-auto p-3">
         <div class="flex flex-col gap-3">
+          <KnowledgeGraphSection />
+
           <section class={SECTION}>
             <div class={SECTION_HEADER}>
               <h3 class="text-[0.75rem] font-medium text-text-primary">Overview</h3>
@@ -276,63 +188,6 @@ function KnowledgePanel() {
                 tone={warningCount() ? "warn" : "ok"}
               />
             </div>
-          </section>
-
-          <section class={SECTION}>
-            <div class={SECTION_HEADER}>
-              <h3 class="text-[0.75rem] font-medium text-text-primary">Actions</h3>
-            </div>
-
-            <div class="grid grid-cols-2 gap-2 p-3">
-              <button
-                type="button"
-                class={BUTTON}
-                disabled={isBusy()}
-                title="Create Knowledge directories"
-                onClick={() => void initializeKnowledge()}
-              >
-                <FolderPlusIcon />
-                Init
-              </button>
-              <button
-                type="button"
-                class={BUTTON}
-                disabled={isBusy()}
-                title="Create a sample decision document from the UI command"
-                onClick={() => void createDecisionDocument()}
-              >
-                <FileIcon />
-                UI doc
-              </button>
-              <button
-                type="button"
-                class={BUTTON}
-                disabled={isBusy()}
-                title="Create a sample decision document through memory_propose"
-                onClick={() => void proposeMemory()}
-              >
-                <PlusIcon />
-                Tool doc
-              </button>
-              <button
-                type="button"
-                class={BUTTON}
-                disabled={isBusy() || !createdDoc()}
-                title="Open the last generated decision document"
-                onClick={openCreatedDocument}
-              >
-                <EyeIcon />
-                Open
-              </button>
-            </div>
-
-            <Show when={createdDoc()}>
-              {(doc) => (
-                <div class="border-t border-border/60 px-3 py-2">
-                  <PathLine label="Last document" path={doc().path} />
-                </div>
-              )}
-            </Show>
           </section>
 
           <Show when={error()}>
@@ -465,24 +320,45 @@ function KnowledgePanel() {
               </For>
             </div>
           </section>
-
-          <Show when={initResult()?.created_dirs.length}>
-            <section class={SECTION}>
-              <div class="border-b border-border/70 px-3 py-2">
-                <h3 class="text-[0.75rem] font-medium text-text-primary">Created dirs</h3>
-              </div>
-              <div class="flex flex-col gap-1 p-3">
-                <For each={initResult()?.created_dirs ?? []}>
-                  {(path) => (
-                    <span class="truncate font-mono text-[0.6875rem] text-text-muted">{path}</span>
-                  )}
-                </For>
-              </div>
-            </section>
-          </Show>
         </div>
       </div>
     </section>
+  );
+}
+
+function KnowledgeGraphSection() {
+  return (
+    <section class={SECTION}>
+      <div class={SECTION_HEADER}>
+        <h3 class="text-[0.75rem] font-medium text-text-primary">Knowledge Graph</h3>
+        <StatePill value="2D" />
+      </div>
+      <div class="border-t border-border/60 bg-bg-primary">
+        <div class="mx-auto aspect-4/3 max-h-[42vh] w-full max-w-[56vh] min-w-0 overflow-hidden">
+          <GraphCanvas
+            variant="compact"
+            currentFilePath={editorState.filePath}
+            nodeFilter={isKnowledgeInternalGraphNode}
+            emptyTitle="No linked knowledge yet"
+            emptyHint="Try connecting related memory, wiki, and decisions to grow this map."
+            onNodeClick={(node) => openDocument(node.filePath, node.name)}
+            initialShowClusters
+            hideFollowControl
+            hideZoomLabel
+            class="size-full"
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function isKnowledgeInternalGraphNode(node: GraphNode): boolean {
+  const path = node.filePath.replace(/\\/g, "/").toLowerCase();
+  return (
+    path.startsWith("knowledge/memory/") ||
+    path.startsWith("knowledge/wiki/") ||
+    path.startsWith("knowledge/decisions/")
   );
 }
 
@@ -641,15 +517,6 @@ function ContextRow(props: { item: ContextHit; onOpen: () => void }) {
       <button type="button" class={BUTTON} title="Open context result" onClick={props.onOpen}>
         <EyeIcon />
       </button>
-    </div>
-  );
-}
-
-function PathLine(props: { label: string; path: string }) {
-  return (
-    <div>
-      <div class="text-[0.6875rem] font-medium text-text-secondary">{props.label}</div>
-      <p class="mt-1 truncate font-mono text-[0.6875rem] text-text-muted">{props.path}</p>
     </div>
   );
 }
