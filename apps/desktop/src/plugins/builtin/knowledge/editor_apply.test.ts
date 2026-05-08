@@ -42,6 +42,7 @@ describe("knowledge editor apply", () => {
             path: request.path,
             status: "applied",
             committed_memory_paths: ["Knowledge/memory/mem_auth.md"],
+            committed_wiki_paths: [],
             rejected_decision_ids: [],
             needs_revision_decision_ids: [],
             recovered_from_journal: false,

@@ -10,16 +10,18 @@ use tokio::io::AsyncWriteExt;
 
 use crate::knowledge::decision_document::{
     DecisionBlock, DecisionDocumentError, MemoryProposalBlock, ParsedDecisionDocument,
-    ParsedKukuBlock, parse_decision_document, render_decision_document,
+    ParsedKukuBlock, WikiProposalBlock, parse_decision_document, render_decision_document,
     validate_decision_document_integrity,
 };
 use crate::knowledge::markdown::{
-    format_utc_timestamp, serialize_memory_item, sha256_checksum_bytes,
-    validate_safe_vault_relative_path, validate_sha256_checksum,
+    format_utc_timestamp, make_knowledge_id, parse_wiki_page, serialize_memory_item,
+    serialize_wiki_page, sha256_checksum_bytes, validate_safe_vault_relative_path,
+    validate_sha256_checksum,
 };
 use crate::knowledge::models::{
     ApplyDecisionDocumentRequest, ApplyDecisionDocumentResult, ApplyDecisionDocumentStatus,
-    DecisionOptionId, KnowledgeErrorCode, MemoryItem, MemoryStatus,
+    DecisionOptionId, KnowledgeErrorCode, KnowledgeIdPrefix, MemoryItem, MemoryStatus, WikiPage,
+    WikiPageStatus,
 };
 
 #[cfg(test)]
@@ -191,17 +193,37 @@ async fn apply_decision_document_with_locks(
         .iter()
         .any(|outcome| outcome.selected == DecisionOptionId::Yes)
     {
-        return apply_with_memory_writes(MemoryWriteApplyInput {
-            root,
-            decision_document_path: path,
-            relative_decision_document_path: relative_path,
-            decision_document_checksum_before: current_checksum,
-            document,
-            outcomes,
-            document_status,
-            resolved_at,
-        })
-        .await;
+        return match document.frontmatter.target_kind.as_str() {
+            "memory" => {
+                apply_with_memory_writes(MemoryWriteApplyInput {
+                    root,
+                    decision_document_path: path,
+                    relative_decision_document_path: relative_path,
+                    decision_document_checksum_before: current_checksum,
+                    document,
+                    outcomes,
+                    document_status,
+                    resolved_at,
+                })
+                .await
+            }
+            "wiki" => {
+                apply_with_wiki_writes(WikiWriteApplyInput {
+                    root,
+                    decision_document_path: path,
+                    relative_decision_document_path: relative_path,
+                    decision_document_checksum_before: current_checksum,
+                    document,
+                    outcomes,
+                    document_status,
+                    resolved_at,
+                })
+                .await
+            }
+            _ => Err(ApplyServiceError::validation(
+                "Unsupported decision document target_kind",
+            )),
+        };
     }
 
     apply_decision_updates(
@@ -219,6 +241,7 @@ async fn apply_decision_document_with_locks(
         path: relative_path.to_string(),
         status: document_status,
         committed_memory_paths: vec![],
+        committed_wiki_paths: vec![],
         rejected_decision_ids: outcomes
             .iter()
             .filter(|outcome| outcome.selected == DecisionOptionId::No)
@@ -374,11 +397,7 @@ async fn rollback_staged_journal(
         .cloned()
         .collect::<BTreeSet<_>>();
     if let Some(inflight_path) = journal.inflight_publish_path.as_deref() {
-        if !journal
-            .planned_memory_paths
-            .iter()
-            .any(|path| path == inflight_path)
-        {
+        if !journal.path_is_planned(inflight_path) {
             return Err(persist_cleanup_required_error(
                 journal_path,
                 journal.clone(),
@@ -387,7 +406,7 @@ async fn rollback_staged_journal(
             )
             .await);
         }
-        let Some(checksum) = journal.memory_checksums.get(inflight_path) else {
+        let Some(checksum) = journal.checksum_for_path(inflight_path) else {
             return Err(persist_cleanup_required_error(
                 journal_path,
                 journal.clone(),
@@ -398,6 +417,17 @@ async fn rollback_staged_journal(
         };
         match journal_path_state(root, inflight_path, checksum).await? {
             JournalPathState::ChecksumMatch => {
+                if journal.is_wiki_update_path(inflight_path) {
+                    return Err(persist_cleanup_required_error(
+                        journal_path,
+                        journal.clone(),
+                        format!(
+                            "Inflight wiki update was published and requires manual recovery: {inflight_path}"
+                        ),
+                        KnowledgeErrorCode::ApplyRecoveryRequired,
+                    )
+                    .await);
+                }
                 rollback_candidates.insert(inflight_path.to_string());
             }
             JournalPathState::Missing => {}
@@ -414,11 +444,7 @@ async fn rollback_staged_journal(
     }
 
     for candidate in rollback_candidates {
-        if !journal
-            .planned_memory_paths
-            .iter()
-            .any(|path| path == &candidate)
-        {
+        if !journal.path_is_planned(&candidate) {
             return Err(persist_cleanup_required_error(
                 journal_path,
                 journal.clone(),
@@ -427,7 +453,7 @@ async fn rollback_staged_journal(
             )
             .await);
         }
-        let Some(checksum) = journal.memory_checksums.get(&candidate) else {
+        let Some(checksum) = journal.checksum_for_path(&candidate) else {
             return Err(persist_cleanup_required_error(
                 journal_path,
                 journal.clone(),
@@ -442,7 +468,7 @@ async fn rollback_staged_journal(
                     return Err(persist_cleanup_required_error(
                         journal_path,
                         journal.clone(),
-                        format!("Failed to rollback created memory path {candidate}: {error}"),
+                        format!("Failed to rollback created path {candidate}: {error}"),
                         KnowledgeErrorCode::ApplyRecoveryRequired,
                     )
                     .await);
@@ -553,9 +579,9 @@ async fn validate_finalized_journal_match(
         return Err("Decision document checksum does not match finalized journal".to_string());
     }
 
-    for path in &journal.finalized_memory_paths {
-        let Some(checksum) = journal.memory_checksums.get(path) else {
-            return Err(format!("Finalized memory path has no checksum: {path}"));
+    for path in journal.finalized_paths() {
+        let Some(checksum) = journal.checksum_for_path(path) else {
+            return Err(format!("Finalized path has no checksum: {path}"));
         };
         match journal_path_state(root, path, checksum)
             .await
@@ -563,10 +589,10 @@ async fn validate_finalized_journal_match(
         {
             JournalPathState::ChecksumMatch => {}
             JournalPathState::Missing => {
-                return Err(format!("Finalized memory path is missing: {path}"));
+                return Err(format!("Finalized path is missing: {path}"));
             }
             JournalPathState::ChecksumMismatch => {
-                return Err(format!("Finalized memory checksum mismatch: {path}"));
+                return Err(format!("Finalized path checksum mismatch: {path}"));
             }
         }
     }
@@ -587,23 +613,23 @@ async fn validate_finalized_journal_match(
     }
 
     let finalized_paths = journal
-        .finalized_memory_paths
-        .iter()
+        .finalized_paths()
         .map(String::as_str)
         .collect::<BTreeSet<_>>();
     if let Ok(outcomes) = collect_decision_outcomes(document) {
         for outcome in outcomes {
-            let Some(memory_path) = outcome.memory_path else {
+            let write_path = outcome.memory_path.or(outcome.wiki_path);
+            let Some(write_path) = write_path else {
                 continue;
             };
-            if finalized_paths.contains(memory_path.as_str()) {
+            if finalized_paths.contains(write_path.as_str()) {
                 continue;
             }
-            match journal_path_state(root, &memory_path, "sha256:unused").await {
+            match journal_path_state(root, &write_path, "sha256:unused").await {
                 Ok(JournalPathState::Missing) => {}
                 Ok(_) => {
                     return Err(format!(
-                        "Memory target collision is not covered by finalized journal: {memory_path}"
+                        "Target collision is not covered by finalized journal: {write_path}"
                     ));
                 }
                 Err(error) => return Err(error.message),
@@ -669,6 +695,7 @@ async fn recover_finalized_journal(
             status: document_status,
             outcomes: &outcomes,
             committed_memory_paths: journal.finalized_memory_paths.clone(),
+            committed_wiki_paths: journal.finalized_wiki_paths.clone(),
             recovered_from_journal: true,
             warnings,
             journal_cleanup_required: Some(true),
@@ -686,6 +713,7 @@ async fn recover_finalized_journal(
             status: document_status,
             outcomes: &outcomes,
             committed_memory_paths: journal.finalized_memory_paths.clone(),
+            committed_wiki_paths: journal.finalized_wiki_paths.clone(),
             recovered_from_journal: true,
             warnings,
             journal_cleanup_required: Some(true),
@@ -705,6 +733,7 @@ async fn recover_finalized_journal(
         status: document_status,
         outcomes: &outcomes,
         committed_memory_paths: journal.finalized_memory_paths.clone(),
+        committed_wiki_paths: journal.finalized_wiki_paths.clone(),
         recovered_from_journal: true,
         warnings,
         journal_cleanup_required: None,
@@ -803,8 +832,8 @@ async fn completed_orphan_matches(
     ) {
         return Ok(false);
     }
-    for path in &journal.finalized_memory_paths {
-        let Some(checksum) = journal.memory_checksums.get(path) else {
+    for path in journal.finalized_paths() {
+        let Some(checksum) = journal.checksum_for_path(path) else {
             return Ok(false);
         };
         if journal_path_state(root, path, checksum).await? != JournalPathState::ChecksumMatch {
@@ -840,6 +869,7 @@ fn outcomes_from_journal(journal: &ApplyJournal) -> Vec<ZeroWriteOutcome> {
             target_change_id: result.target_change_id.clone(),
             selected: result.selected_option_id.clone(),
             memory_path: result.memory_path.clone(),
+            wiki_path: result.wiki_path.clone(),
         })
         .collect()
 }
@@ -850,6 +880,7 @@ struct ApplyResultInput<'a> {
     status: ApplyDecisionDocumentStatus,
     outcomes: &'a [ZeroWriteOutcome],
     committed_memory_paths: Vec<String>,
+    committed_wiki_paths: Vec<String>,
     recovered_from_journal: bool,
     warnings: Vec<String>,
     journal_cleanup_required: Option<bool>,
@@ -862,6 +893,7 @@ fn apply_result_from_outcomes(input: ApplyResultInput<'_>) -> ApplyDecisionDocum
         path: input.path.to_string(),
         status: input.status,
         committed_memory_paths: input.committed_memory_paths,
+        committed_wiki_paths: input.committed_wiki_paths,
         rejected_decision_ids: input
             .outcomes
             .iter()
@@ -969,13 +1001,18 @@ struct ZeroWriteOutcome {
     target_change_id: String,
     selected: DecisionOptionId,
     memory_path: Option<String>,
+    wiki_path: Option<String>,
 }
 
 fn collect_decision_outcomes(
     document: &ParsedDecisionDocument,
 ) -> Result<Vec<ZeroWriteOutcome>, ApplyServiceError> {
-    let proposal_by_id = document
+    let memory_proposal_by_id = document
         .proposal_blocks()
+        .map(|proposal| (proposal.value.id.as_str(), &proposal.value))
+        .collect::<BTreeMap<_, _>>();
+    let wiki_proposal_by_id = document
+        .wiki_proposal_blocks()
         .map(|proposal| (proposal.value.id.as_str(), &proposal.value))
         .collect::<BTreeMap<_, _>>();
     let mut outcomes = Vec::new();
@@ -989,21 +1026,37 @@ fn collect_decision_outcomes(
                 ));
             }
         }
-        let memory_path = if selected == DecisionOptionId::Yes {
-            let proposal = proposal_by_id
-                .get(decision.value.target_change_id.as_str())
-                .ok_or_else(|| {
-                    ApplyServiceError::validation("Decision target has no memory proposal")
-                })?;
-            Some(memory_path_for_id(&proposal.memory.id))
-        } else {
-            None
+        let (memory_path, wiki_path) = match document.frontmatter.target_kind.as_str() {
+            "memory" if selected == DecisionOptionId::Yes => {
+                let proposal = memory_proposal_by_id
+                    .get(decision.value.target_change_id.as_str())
+                    .ok_or_else(|| {
+                        ApplyServiceError::validation("Decision target has no memory proposal")
+                    })?;
+                (Some(memory_path_for_id(&proposal.memory.id)), None)
+            }
+            "memory" => (None, None),
+            "wiki" if selected == DecisionOptionId::Yes => {
+                let proposal = wiki_proposal_by_id
+                    .get(decision.value.target_change_id.as_str())
+                    .ok_or_else(|| {
+                        ApplyServiceError::validation("Decision target has no wiki proposal")
+                    })?;
+                (None, Some(proposal.page.path.clone()))
+            }
+            "wiki" => (None, None),
+            _ => {
+                return Err(ApplyServiceError::validation(
+                    "Unsupported decision document target_kind",
+                ));
+            }
         };
         outcomes.push(ZeroWriteOutcome {
             decision_id: decision.value.id.clone(),
             target_change_id: decision.value.target_change_id.clone(),
             selected,
             memory_path,
+            wiki_path,
         });
     }
     Ok(outcomes)
@@ -1256,6 +1309,7 @@ async fn apply_with_memory_writes(
                 .iter()
                 .map(|planned| planned.final_path.clone())
                 .collect(),
+            committed_wiki_paths: vec![],
             recovered_from_journal: false,
             warnings,
             journal_cleanup_required: Some(true),
@@ -1276,6 +1330,7 @@ async fn apply_with_memory_writes(
                 .iter()
                 .map(|planned| planned.final_path.clone())
                 .collect(),
+            committed_wiki_paths: vec![],
             recovered_from_journal: false,
             warnings,
             journal_cleanup_required: Some(true),
@@ -1292,6 +1347,234 @@ async fn apply_with_memory_writes(
         status: document_status,
         outcomes: &outcomes,
         committed_memory_paths: planned_writes
+            .iter()
+            .map(|planned| planned.final_path.clone())
+            .collect(),
+        committed_wiki_paths: vec![],
+        recovered_from_journal: false,
+        warnings,
+        journal_cleanup_required: None,
+        journal_path: None,
+    }))
+}
+
+struct WikiWriteApplyInput<'a> {
+    root: &'a Path,
+    decision_document_path: &'a Path,
+    relative_decision_document_path: &'a str,
+    decision_document_checksum_before: String,
+    document: ParsedDecisionDocument,
+    outcomes: Vec<ZeroWriteOutcome>,
+    document_status: ApplyDecisionDocumentStatus,
+    resolved_at: String,
+}
+
+async fn apply_with_wiki_writes(
+    input: WikiWriteApplyInput<'_>,
+) -> Result<ApplyDecisionDocumentResult, ApplyServiceError> {
+    let WikiWriteApplyInput {
+        root,
+        decision_document_path,
+        relative_decision_document_path,
+        decision_document_checksum_before,
+        mut document,
+        outcomes,
+        document_status,
+        resolved_at,
+    } = input;
+
+    let planned_writes = plan_wiki_writes(
+        root,
+        &document,
+        &outcomes,
+        relative_decision_document_path,
+        &resolved_at,
+    )
+    .await?;
+
+    let journal_path = journal_path(root, &document.frontmatter.id);
+    let mut journal = ApplyJournal::new_wiki(
+        &document.frontmatter.id,
+        &document.frontmatter.proposal_id,
+        relative_decision_document_path,
+        &decision_document_checksum_before,
+        &planned_writes,
+        &outcomes,
+        &resolved_at,
+    );
+    write_journal_atomic(&journal_path, &journal).await?;
+
+    for planned in &planned_writes {
+        if let Err(error) = stage_wiki_file(planned).await {
+            let _ = cleanup_staging_dir(root, &document.frontmatter.id).await;
+            let _ = remove_journal_file(&journal_path).await;
+            return Err(error);
+        }
+    }
+
+    for planned in &planned_writes {
+        journal.inflight_publish_path = Some(planned.final_path.clone());
+        journal.updated_at = format_utc_timestamp(SystemTime::now());
+        write_journal_atomic(&journal_path, &journal).await?;
+
+        if let Err(error) = publish_wiki_file(root, planned).await {
+            journal.inflight_publish_path = None;
+            journal.updated_at = format_utc_timestamp(SystemTime::now());
+            let _ = write_journal_atomic(&journal_path, &journal).await;
+            let _ = cleanup_staging_dir(root, &document.frontmatter.id).await;
+            let _ = remove_journal_file(&journal_path).await;
+            return Err(error);
+        }
+
+        match planned.operation {
+            WikiWriteOperation::Create => journal.created_paths.push(planned.final_path.clone()),
+            WikiWriteOperation::Update => journal.updated_paths.push(planned.final_path.clone()),
+        }
+        journal
+            .wiki_checksums
+            .insert(planned.final_path.clone(), planned.checksum.clone());
+        journal.inflight_publish_path = None;
+        journal.updated_at = format_utc_timestamp(SystemTime::now());
+        if let Err(error) = write_journal_atomic(&journal_path, &journal).await {
+            if planned.operation == WikiWriteOperation::Update {
+                let message = format!(
+                    "Journal update failed after wiki update publish: {}",
+                    error.message
+                );
+                return Err(persist_cleanup_required_error(
+                    &journal_path,
+                    journal,
+                    message,
+                    KnowledgeErrorCode::ApplyRecoveryRequired,
+                )
+                .await);
+            }
+            return Err(rollback_after_publish_journal_update_failure(
+                root,
+                &journal_path,
+                journal,
+                error,
+            )
+            .await);
+        }
+    }
+
+    journal.state = ApplyJournalState::Finalized;
+    journal.finalized_wiki_paths = planned_writes
+        .iter()
+        .map(|planned| planned.final_path.clone())
+        .collect();
+    journal.updated_at = format_utc_timestamp(SystemTime::now());
+    if let Err(error) = write_journal_atomic(&journal_path, &journal).await {
+        if planned_writes
+            .iter()
+            .any(|planned| planned.operation == WikiWriteOperation::Update)
+        {
+            let message = format!(
+                "Journal finalization failed after wiki update publish: {}",
+                error.message
+            );
+            return Err(persist_cleanup_required_error(
+                &journal_path,
+                journal,
+                message,
+                KnowledgeErrorCode::ApplyRecoveryRequired,
+            )
+            .await);
+        }
+        return Err(rollback_after_publish_journal_update_failure(
+            root,
+            &journal_path,
+            journal,
+            error,
+        )
+        .await);
+    }
+
+    apply_decision_updates(
+        &mut document,
+        &outcomes,
+        document_status.as_str(),
+        &resolved_at,
+    );
+    let next_markdown = render_decision_document(&document).map_err(|error| {
+        ApplyServiceError::apply_recovery_required(error.message)
+            .with_details(recovery_error_details(&journal))
+    })?;
+    if consume_test_failpoint(root, "decision-save-after-finalization").await?
+        || guarded_replace_file(
+            decision_document_path,
+            decision_document_checksum_before.clone(),
+            next_markdown.as_bytes(),
+        )
+        .await
+        .is_err()
+    {
+        journal.error = Some("Decision document save failed after wiki finalization".to_string());
+        journal.updated_at = format_utc_timestamp(SystemTime::now());
+        let _ = write_journal_atomic(&journal_path, &journal).await;
+        return Err(ApplyServiceError::apply_recovery_required(
+            "Decision document save failed after wiki finalization",
+        )
+        .with_details(recovery_error_details(&journal)));
+    }
+
+    let mut warnings = Vec::new();
+    journal.state = ApplyJournalState::DocumentSaved;
+    journal.updated_at = format_utc_timestamp(SystemTime::now());
+    if let Err(error) = write_journal_atomic(&journal_path, &journal).await {
+        warnings.push(format!(
+            "Decision document saved, but apply journal update failed: {}",
+            error.message
+        ));
+        return Ok(apply_result_from_outcomes(ApplyResultInput {
+            doc_id: &document.frontmatter.id,
+            path: relative_decision_document_path,
+            status: document_status,
+            outcomes: &outcomes,
+            committed_memory_paths: vec![],
+            committed_wiki_paths: planned_writes
+                .iter()
+                .map(|planned| planned.final_path.clone())
+                .collect(),
+            recovered_from_journal: false,
+            warnings,
+            journal_cleanup_required: Some(true),
+            journal_path: Some(journal_vault_path(&document.frontmatter.id)),
+        }));
+    }
+    if let Err(error) = remove_journal_file(&journal_path).await {
+        warnings.push(format!(
+            "Decision document saved, but apply journal cleanup failed: {}",
+            error.message
+        ));
+        return Ok(apply_result_from_outcomes(ApplyResultInput {
+            doc_id: &document.frontmatter.id,
+            path: relative_decision_document_path,
+            status: document_status,
+            outcomes: &outcomes,
+            committed_memory_paths: vec![],
+            committed_wiki_paths: planned_writes
+                .iter()
+                .map(|planned| planned.final_path.clone())
+                .collect(),
+            recovered_from_journal: false,
+            warnings,
+            journal_cleanup_required: Some(true),
+            journal_path: Some(journal_vault_path(&document.frontmatter.id)),
+        }));
+    }
+    if let Err(error) = cleanup_staging_dir(root, &document.frontmatter.id).await {
+        warnings.push(format!("Apply staging cleanup failed: {}", error.message));
+    }
+
+    Ok(apply_result_from_outcomes(ApplyResultInput {
+        doc_id: &document.frontmatter.id,
+        path: relative_decision_document_path,
+        status: document_status,
+        outcomes: &outcomes,
+        committed_memory_paths: vec![],
+        committed_wiki_paths: planned_writes
             .iter()
             .map(|planned| planned.final_path.clone())
             .collect(),
@@ -1474,6 +1757,263 @@ async fn publish_memory_file(
     Ok(())
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum WikiWriteOperation {
+    Create,
+    Update,
+}
+
+#[derive(Debug, Clone)]
+struct PlannedWikiWrite {
+    final_path: String,
+    staged_path: PathBuf,
+    bytes: Vec<u8>,
+    checksum: String,
+    operation: WikiWriteOperation,
+    expected_checksum: Option<String>,
+}
+
+async fn plan_wiki_writes(
+    root: &Path,
+    document: &ParsedDecisionDocument,
+    outcomes: &[ZeroWriteOutcome],
+    decision_document_path: &str,
+    timestamp: &str,
+) -> Result<Vec<PlannedWikiWrite>, ApplyServiceError> {
+    let proposals = document
+        .wiki_proposal_blocks()
+        .map(|proposal| (proposal.value.id.as_str(), &proposal.value))
+        .collect::<BTreeMap<_, _>>();
+    let mut paths = BTreeSet::new();
+    let mut planned = Vec::new();
+    for outcome in outcomes {
+        if outcome.selected != DecisionOptionId::Yes {
+            continue;
+        }
+        let proposal = proposals
+            .get(outcome.target_change_id.as_str())
+            .ok_or_else(|| ApplyServiceError::validation("Decision target has no wiki proposal"))?;
+        let operation = wiki_write_operation(proposal)?;
+        let final_path = outcome
+            .wiki_path
+            .clone()
+            .unwrap_or_else(|| proposal.page.path.clone());
+        if !paths.insert(final_path.clone()) {
+            return Err(ApplyServiceError::validation(format!(
+                "Duplicate wiki output path: {final_path}"
+            )));
+        }
+
+        let existing = match operation {
+            WikiWriteOperation::Create => {
+                if exact_or_case_insensitive_exists(&root.join(&final_path)).await? {
+                    return Err(ApplyServiceError::already_exists(format!(
+                        "Wiki output path already exists: {final_path}"
+                    )));
+                }
+                None
+            }
+            WikiWriteOperation::Update => {
+                let expected = proposal.page.expected_checksum.as_deref().ok_or_else(|| {
+                    ApplyServiceError::validation("Wiki update proposal requires expected_checksum")
+                })?;
+                let bytes = tokio::fs::read(root.join(&final_path))
+                    .await
+                    .map_err(|error| {
+                        if error.kind() == std::io::ErrorKind::NotFound {
+                            ApplyServiceError::validation(format!(
+                                "Wiki update path does not exist: {final_path}"
+                            ))
+                        } else {
+                            ApplyServiceError::io(error.to_string())
+                        }
+                    })?;
+                let actual = sha256_checksum_bytes(&bytes);
+                if actual != expected {
+                    return Err(ApplyServiceError::document_changed(format!(
+                        "Wiki page changed before apply: {final_path}"
+                    )));
+                }
+                let markdown = String::from_utf8(bytes).map_err(|_| {
+                    ApplyServiceError::validation(format!("Wiki page is not UTF-8: {final_path}"))
+                })?;
+                Some(parse_wiki_page(&markdown).map_err(|error| {
+                    ApplyServiceError::validation(format!("{}: {}", error.field, error.message))
+                })?)
+            }
+        };
+
+        let bytes = render_wiki_page_bytes(
+            proposal,
+            existing.as_ref(),
+            &document.frontmatter.proposal_id,
+            decision_document_path,
+            timestamp,
+        )?;
+        let staged_name = hex::encode(Sha256::digest(final_path.as_bytes()));
+        let staged_path = root
+            .join(".kuku/knowledge/apply-tmp")
+            .join(&document.frontmatter.id)
+            .join(format!("{staged_name}.md"));
+        let checksum = sha256_checksum_bytes(&bytes);
+        planned.push(PlannedWikiWrite {
+            final_path,
+            staged_path,
+            bytes,
+            checksum,
+            operation,
+            expected_checksum: proposal.page.expected_checksum.clone(),
+        });
+    }
+    Ok(planned)
+}
+
+fn wiki_write_operation(
+    proposal: &WikiProposalBlock,
+) -> Result<WikiWriteOperation, ApplyServiceError> {
+    match proposal.operation.as_str() {
+        "create_wiki_page" => Ok(WikiWriteOperation::Create),
+        "update_wiki_page" => Ok(WikiWriteOperation::Update),
+        value => Err(ApplyServiceError::validation(format!(
+            "Unsupported wiki proposal operation: {value}"
+        ))),
+    }
+}
+
+fn render_wiki_page_bytes(
+    proposal: &WikiProposalBlock,
+    existing: Option<&WikiPage>,
+    proposal_id: &str,
+    decision_document_path: &str,
+    timestamp: &str,
+) -> Result<Vec<u8>, ApplyServiceError> {
+    let page = WikiPage {
+        id: existing
+            .map(|page| page.id.clone())
+            .unwrap_or_else(|| make_knowledge_id(KnowledgeIdPrefix::Wiki, &proposal.page.path)),
+        page_type: wiki_page_type(&proposal.page.page_type)?,
+        title: proposal.page.title.clone(),
+        status: existing
+            .map(|page| page.status.clone())
+            .unwrap_or(WikiPageStatus::Active),
+        tags: proposal.page.tags.clone(),
+        source_refs: proposal.page.source_refs.clone(),
+        created_at: existing
+            .map(|page| page.created_at.clone())
+            .unwrap_or_else(|| timestamp.to_string()),
+        updated_at: timestamp.to_string(),
+        proposal_id: proposal_id.to_string(),
+        decision_document: decision_document_path.to_string(),
+        body: proposal.page.body.clone(),
+    };
+    let markdown =
+        serialize_wiki_page(&page).map_err(|error| ApplyServiceError::validation(error.message))?;
+    Ok(markdown.into_bytes())
+}
+
+fn wiki_page_type(
+    value: &str,
+) -> Result<crate::knowledge::models::WikiPageType, ApplyServiceError> {
+    match value {
+        "source" => Ok(crate::knowledge::models::WikiPageType::Source),
+        "concept" => Ok(crate::knowledge::models::WikiPageType::Concept),
+        "entity" => Ok(crate::knowledge::models::WikiPageType::Entity),
+        "synthesis" => Ok(crate::knowledge::models::WikiPageType::Synthesis),
+        value => Err(ApplyServiceError::validation(format!(
+            "Unsupported wiki page_type: {value}"
+        ))),
+    }
+}
+
+async fn stage_wiki_file(planned: &PlannedWikiWrite) -> Result<(), ApplyServiceError> {
+    if let Some(parent) = planned.staged_path.parent() {
+        tokio::fs::create_dir_all(parent)
+            .await
+            .map_err(|error| ApplyServiceError::io(error.to_string()))?;
+    }
+    let mut file = tokio::fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(&planned.staged_path)
+        .await
+        .map_err(|error| ApplyServiceError::io(error.to_string()))?;
+    file.write_all(&planned.bytes)
+        .await
+        .map_err(|error| ApplyServiceError::io(error.to_string()))?;
+    file.sync_all()
+        .await
+        .map_err(|error| ApplyServiceError::io(error.to_string()))?;
+    drop(file);
+
+    let staged = tokio::fs::read(&planned.staged_path)
+        .await
+        .map_err(|error| ApplyServiceError::io(error.to_string()))?;
+    if sha256_checksum_bytes(&staged) != planned.checksum {
+        return Err(ApplyServiceError::io(format!(
+            "Staged wiki checksum verification failed for {}",
+            planned.final_path
+        )));
+    }
+    Ok(())
+}
+
+async fn publish_wiki_file(
+    root: &Path,
+    planned: &PlannedWikiWrite,
+) -> Result<(), ApplyServiceError> {
+    let destination = root.join(&planned.final_path);
+    match planned.operation {
+        WikiWriteOperation::Create => {
+            if let Some(parent) = destination.parent() {
+                tokio::fs::create_dir_all(parent)
+                    .await
+                    .map_err(|error| ApplyServiceError::io(error.to_string()))?;
+            }
+            tokio::fs::hard_link(&planned.staged_path, &destination)
+                .await
+                .map_err(|error| {
+                    if error.kind() == std::io::ErrorKind::AlreadyExists {
+                        ApplyServiceError::already_exists(format!(
+                            "Wiki output path already exists: {}",
+                            planned.final_path
+                        ))
+                    } else {
+                        ApplyServiceError::io(error.to_string())
+                    }
+                })?;
+        }
+        WikiWriteOperation::Update => {
+            let expected = planned.expected_checksum.clone().ok_or_else(|| {
+                ApplyServiceError::validation("Wiki update requires expected checksum")
+            })?;
+            guarded_replace_file(&destination, expected, &planned.bytes)
+                .await
+                .map_err(|mut error| {
+                    if error.code == KnowledgeErrorCode::DocumentChanged {
+                        error.message =
+                            format!("Wiki page changed during apply: {}", planned.final_path);
+                    }
+                    error
+                })?;
+        }
+    }
+
+    let published = tokio::fs::read(&destination)
+        .await
+        .map_err(|error| ApplyServiceError::io(error.to_string()))?;
+    if sha256_checksum_bytes(&published) != planned.checksum {
+        return Err(ApplyServiceError::io(format!(
+            "Published wiki checksum verification failed for {}",
+            planned.final_path
+        )));
+    }
+    tokio::fs::remove_file(&planned.staged_path)
+        .await
+        .map_err(|error| ApplyServiceError::io(error.to_string()))?;
+    Ok(())
+}
+
 async fn cleanup_staging_dir(root: &Path, doc_id: &str) -> Result<(), ApplyServiceError> {
     let dir = root.join(".kuku/knowledge/apply-tmp").join(doc_id);
     match tokio::fs::remove_dir_all(&dir).await {
@@ -1501,6 +2041,7 @@ fn recovery_error_details(journal: &ApplyJournal) -> JsonValue {
     json!({
         "journal_path": journal_vault_path(&journal.doc_id),
         "created_paths": &journal.created_paths,
+        "updated_paths": &journal.updated_paths,
         "cleanup_required": journal.state == ApplyJournalState::CleanupRequired,
     })
 }
@@ -1531,13 +2072,25 @@ struct ApplyJournal {
     proposal_id: String,
     decision_document_path: String,
     decision_document_checksum_before: String,
+    #[serde(default = "default_apply_target_kind")]
+    target_kind: String,
     state: ApplyJournalState,
     planned_memory_paths: Vec<String>,
+    #[serde(default)]
+    planned_wiki_paths: Vec<String>,
     created_paths: Vec<String>,
+    #[serde(default)]
+    updated_paths: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     inflight_publish_path: Option<String>,
     finalized_memory_paths: Vec<String>,
+    #[serde(default)]
+    finalized_wiki_paths: Vec<String>,
     memory_checksums: BTreeMap<String, String>,
+    #[serde(default)]
+    wiki_checksums: BTreeMap<String, String>,
+    #[serde(default)]
+    wiki_update_expected_checksums: BTreeMap<String, String>,
     decision_results: Vec<JournalDecisionResult>,
     created_at: String,
     updated_at: String,
@@ -1561,17 +2114,74 @@ impl ApplyJournal {
             proposal_id: proposal_id.to_string(),
             decision_document_path: decision_document_path.to_string(),
             decision_document_checksum_before: decision_document_checksum_before.to_string(),
+            target_kind: "memory".to_string(),
             state: ApplyJournalState::Staged,
             planned_memory_paths: planned_writes
                 .iter()
                 .map(|planned| planned.final_path.clone())
                 .collect(),
+            planned_wiki_paths: vec![],
             created_paths: vec![],
+            updated_paths: vec![],
             inflight_publish_path: None,
             finalized_memory_paths: vec![],
+            finalized_wiki_paths: vec![],
             memory_checksums: planned_writes
                 .iter()
                 .map(|planned| (planned.final_path.clone(), planned.checksum.clone()))
+                .collect(),
+            wiki_checksums: BTreeMap::new(),
+            wiki_update_expected_checksums: BTreeMap::new(),
+            decision_results: outcomes
+                .iter()
+                .map(JournalDecisionResult::from_outcome)
+                .collect(),
+            created_at: timestamp.to_string(),
+            updated_at: timestamp.to_string(),
+            error: None,
+        }
+    }
+
+    fn new_wiki(
+        doc_id: &str,
+        proposal_id: &str,
+        decision_document_path: &str,
+        decision_document_checksum_before: &str,
+        planned_writes: &[PlannedWikiWrite],
+        outcomes: &[ZeroWriteOutcome],
+        timestamp: &str,
+    ) -> Self {
+        Self {
+            apply_id: format!("apply_{doc_id}_{}", timestamp.replace(['-', ':'], "")),
+            doc_id: doc_id.to_string(),
+            proposal_id: proposal_id.to_string(),
+            decision_document_path: decision_document_path.to_string(),
+            decision_document_checksum_before: decision_document_checksum_before.to_string(),
+            target_kind: "wiki".to_string(),
+            state: ApplyJournalState::Staged,
+            planned_memory_paths: vec![],
+            planned_wiki_paths: planned_writes
+                .iter()
+                .map(|planned| planned.final_path.clone())
+                .collect(),
+            created_paths: vec![],
+            updated_paths: vec![],
+            inflight_publish_path: None,
+            finalized_memory_paths: vec![],
+            finalized_wiki_paths: vec![],
+            memory_checksums: BTreeMap::new(),
+            wiki_checksums: planned_writes
+                .iter()
+                .map(|planned| (planned.final_path.clone(), planned.checksum.clone()))
+                .collect(),
+            wiki_update_expected_checksums: planned_writes
+                .iter()
+                .filter_map(|planned| {
+                    planned
+                        .expected_checksum
+                        .as_ref()
+                        .map(|checksum| (planned.final_path.clone(), checksum.clone()))
+                })
                 .collect(),
             decision_results: outcomes
                 .iter()
@@ -1582,6 +2192,36 @@ impl ApplyJournal {
             error: None,
         }
     }
+
+    fn path_is_planned(&self, path: &str) -> bool {
+        self.planned_memory_paths
+            .iter()
+            .any(|planned| planned == path)
+            || self
+                .planned_wiki_paths
+                .iter()
+                .any(|planned| planned == path)
+    }
+
+    fn checksum_for_path(&self, path: &str) -> Option<&String> {
+        self.memory_checksums
+            .get(path)
+            .or_else(|| self.wiki_checksums.get(path))
+    }
+
+    fn finalized_paths(&self) -> impl Iterator<Item = &String> {
+        self.finalized_memory_paths
+            .iter()
+            .chain(self.finalized_wiki_paths.iter())
+    }
+
+    fn is_wiki_update_path(&self, path: &str) -> bool {
+        self.wiki_update_expected_checksums.contains_key(path)
+    }
+}
+
+fn default_apply_target_kind() -> String {
+    "memory".to_string()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -1601,6 +2241,8 @@ struct JournalDecisionResult {
     status: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     memory_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    wiki_path: Option<String>,
 }
 
 impl JournalDecisionResult {
@@ -1616,6 +2258,7 @@ impl JournalDecisionResult {
             selected_option_id: outcome.selected.clone(),
             status: status.to_string(),
             memory_path: outcome.memory_path.clone(),
+            wiki_path: outcome.wiki_path.clone(),
         }
     }
 }
@@ -1873,7 +2516,7 @@ mod tests {
     use tauri::async_runtime;
 
     use super::*;
-    use crate::knowledge::markdown::{parse_memory_item, sha256_checksum_bytes};
+    use crate::knowledge::markdown::{parse_memory_item, parse_wiki_page, sha256_checksum_bytes};
 
     static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -1906,6 +2549,132 @@ mod tests {
         let updated = fs::read_to_string(root.join("Knowledge/decisions/auth.md")).unwrap();
         assert!(updated.contains("status: applied\n"));
         assert!(updated.contains("status: committed\n"));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn one_yes_apply_writes_expected_wiki_page_and_marks_applied() {
+        let root = setup_vault(wiki_decision_document("yes", None, None));
+        let result = apply_fixture(&root).unwrap();
+
+        assert_eq!(result.status, ApplyDecisionDocumentStatus::Applied);
+        assert!(result.committed_memory_paths.is_empty());
+        assert_eq!(
+            result.committed_wiki_paths,
+            vec!["Knowledge/wiki/concepts/session-cookie-auth.md"]
+        );
+        assert_no_journal_or_temp_files(&root);
+
+        let wiki_markdown =
+            fs::read_to_string(root.join("Knowledge/wiki/concepts/session-cookie-auth.md"))
+                .unwrap();
+        let page = parse_wiki_page(&wiki_markdown).unwrap();
+        assert_eq!(
+            page.id,
+            "wiki_knowledge_wiki_concepts_session_cookie_auth_md"
+        );
+        assert_eq!(page.title, "Session cookie auth");
+        assert_eq!(page.status, WikiPageStatus::Active);
+        assert_eq!(page.proposal_id, "prop_auth");
+        assert_eq!(page.decision_document, "Knowledge/decisions/auth.md");
+        assert_eq!(page.body, "Use session cookie auth first.\n");
+
+        let updated = fs::read_to_string(root.join("Knowledge/decisions/auth.md")).unwrap();
+        assert!(updated.contains("target_kind: wiki\n"));
+        assert!(updated.contains("status: applied\n"));
+        assert!(updated.contains("status: committed\n"));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn wiki_update_replaces_only_when_checksum_matches() {
+        let existing = existing_wiki_page_markdown();
+        let checksum = sha256_checksum_bytes(existing.as_bytes());
+        let root = setup_vault(wiki_decision_document("yes", Some(&checksum), None));
+        write_existing_wiki_page(&root, &existing);
+
+        let result = apply_fixture(&root).unwrap();
+
+        assert_eq!(result.status, ApplyDecisionDocumentStatus::Applied);
+        assert_eq!(
+            result.committed_wiki_paths,
+            vec!["Knowledge/wiki/concepts/session-cookie-auth.md"]
+        );
+        let markdown =
+            fs::read_to_string(root.join("Knowledge/wiki/concepts/session-cookie-auth.md"))
+                .unwrap();
+        let page = parse_wiki_page(&markdown).unwrap();
+        assert_eq!(page.id, "wiki_existing_auth");
+        assert_eq!(page.created_at, "2026-05-07T00:00:00Z");
+        assert_eq!(page.body, "Use session cookie auth first.\n");
+        assert!(markdown.contains("updated_at: "));
+        assert_no_journal_or_temp_files(&root);
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn wiki_update_checksum_mismatch_writes_nothing() {
+        let existing = existing_wiki_page_markdown();
+        let checksum = sha256_checksum_bytes(existing.as_bytes());
+        let root = setup_vault(wiki_decision_document("yes", Some(&checksum), None));
+        write_existing_wiki_page(&root, "changed wiki page");
+
+        let error = apply_fixture(&root).unwrap_err();
+
+        assert_eq!(error.code, KnowledgeErrorCode::DocumentChanged);
+        assert_eq!(
+            fs::read_to_string(root.join("Knowledge/wiki/concepts/session-cookie-auth.md"))
+                .unwrap(),
+            "changed wiki page"
+        );
+        let pending = fs::read_to_string(root.join("Knowledge/decisions/auth.md")).unwrap();
+        assert!(pending.contains("status: pending\n"));
+        assert_no_journal_or_temp_files(&root);
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn all_no_wiki_apply_writes_no_wiki_and_marks_applied() {
+        let root = setup_vault(wiki_decision_document("no", None, None));
+        let result = apply_fixture(&root).unwrap();
+
+        assert_eq!(result.status, ApplyDecisionDocumentStatus::Applied);
+        assert_eq!(result.rejected_decision_ids, vec!["decision_auth"]);
+        assert!(result.committed_wiki_paths.is_empty());
+        assert!(
+            !root
+                .join("Knowledge/wiki/concepts/session-cookie-auth.md")
+                .exists()
+        );
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn finalized_wiki_journal_recovery_updates_document_without_wiki_rewrite() {
+        let root = setup_vault(wiki_decision_document("yes", None, None));
+        write_test_failpoint(&root, "decision-save-after-finalization");
+
+        let error = apply_fixture(&root).unwrap_err();
+        assert_eq!(error.code, KnowledgeErrorCode::ApplyRecoveryRequired);
+        assert!(
+            root.join("Knowledge/wiki/concepts/session-cookie-auth.md")
+                .is_file()
+        );
+        assert_journal_state(&root, ApplyJournalState::Finalized);
+
+        let result = apply_fixture(&root).unwrap();
+        assert!(result.recovered_from_journal);
+        assert_eq!(result.status, ApplyDecisionDocumentStatus::Applied);
+        assert_eq!(
+            result.committed_wiki_paths,
+            vec!["Knowledge/wiki/concepts/session-cookie-auth.md"]
+        );
+        assert_no_journal_or_temp_files(&root);
 
         let _ = fs::remove_dir_all(root);
     }
@@ -2648,6 +3417,103 @@ mod tests {
             "```\n",
         ));
         document
+    }
+
+    fn wiki_decision_document(
+        selection: &str,
+        expected_checksum: Option<&str>,
+        other_text: Option<&str>,
+    ) -> String {
+        let operation = if expected_checksum.is_some() {
+            "update_wiki_page"
+        } else {
+            "create_wiki_page"
+        };
+        let expected_checksum_yaml = expected_checksum
+            .map(|checksum| format!("  expected_checksum: {checksum}\n"))
+            .unwrap_or_default();
+        let other_text_yaml = other_text
+            .map(|text| format!("other_text: {text}\n"))
+            .unwrap_or_default();
+        format!(
+            concat!(
+                "---\n",
+                "id: doc_auth\n",
+                "proposal_id: prop_auth\n",
+                "target_kind: wiki\n",
+                "request_source: ai_tool\n",
+                "status: pending\n",
+                "created_at: 2026-05-07T00:00:00Z\n",
+                "updated_at: 2026-05-07T00:00:00Z\n",
+                "source_refs: []\n",
+                "---\n",
+                "\n",
+                "```kuku-wiki-proposal\n",
+                "id: change_auth\n",
+                "operation: {operation}\n",
+                "page:\n",
+                "  path: Knowledge/wiki/concepts/session-cookie-auth.md\n",
+                "{expected_checksum_yaml}",
+                "  page_type: concept\n",
+                "  title: Session cookie auth\n",
+                "  tags:\n",
+                "  - auth\n",
+                "  body: |-\n",
+                "    Use session cookie auth first.\n",
+                "  source_refs: []\n",
+                "```\n",
+                "\n",
+                "```kuku-decision\n",
+                "id: decision_auth\n",
+                "proposal_id: prop_auth\n",
+                "target_change_id: change_auth\n",
+                "question: Create this wiki page?\n",
+                "selection_mode: single\n",
+                "required: true\n",
+                "status: pending\n",
+                "selected_option_id: {selection}\n",
+                "options:\n",
+                "- id: yes\n",
+                "  label: Yes\n",
+                "- id: no\n",
+                "  label: No\n",
+                "- id: other\n",
+                "  label: Other\n",
+                "  requires_input: true\n",
+                "{other_text_yaml}",
+                "```\n",
+            ),
+            operation = operation,
+            expected_checksum_yaml = expected_checksum_yaml,
+            selection = selection,
+            other_text_yaml = other_text_yaml,
+        )
+    }
+
+    fn existing_wiki_page_markdown() -> String {
+        concat!(
+            "---\n",
+            "id: wiki_existing_auth\n",
+            "page_type: concept\n",
+            "title: Session cookie auth\n",
+            "status: active\n",
+            "tags:\n",
+            "- auth\n",
+            "source_refs: []\n",
+            "created_at: 2026-05-07T00:00:00Z\n",
+            "updated_at: 2026-05-07T00:00:00Z\n",
+            "proposal_id: prop_old\n",
+            "decision_document: Knowledge/decisions/old-auth.md\n",
+            "---\n",
+            "Old wiki body.\n",
+        )
+        .to_string()
+    }
+
+    fn write_existing_wiki_page(root: &Path, markdown: &str) {
+        let path = root.join("Knowledge/wiki/concepts/session-cookie-auth.md");
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, markdown).unwrap();
     }
 
     fn document_before_selection() -> &'static str {

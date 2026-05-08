@@ -196,6 +196,7 @@ interface ApplyDecisionDocumentResult {
   path: string;
   status: ApplyDecisionDocumentStatus;
   committed_memory_paths: string[];
+  committed_wiki_paths: string[];
   rejected_decision_ids: string[];
   needs_revision_decision_ids: string[];
   recovered_from_journal: boolean;
