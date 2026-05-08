@@ -102,6 +102,7 @@ export const MESSAGE_KEYS = [
   "settings.plugin.sync.conflicts.description",
   "settings.plugin.sync.conflicts.empty",
   "settings.plugin.sync.conflicts.copy_prefix",
+  "settings.plugin.sync.conflicts.open_copy",
   "settings.plugin.sync.error.auth_required",
   "settings.plugin.sync.error.not_configured",
   "settings.plugin.sync.error.offline",

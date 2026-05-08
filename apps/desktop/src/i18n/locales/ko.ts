@@ -118,6 +118,7 @@ export const KO_MESSAGES = {
     "자동 병합으로 두 변경을 한 파일에 보존할 수 없을 때 생성된 열린 충돌이에요.",
   "settings.plugin.sync.conflicts.empty": "열린 동기화 충돌이 없어요.",
   "settings.plugin.sync.conflicts.copy_prefix": "복사본:",
+  "settings.plugin.sync.conflicts.open_copy": "열기",
   "settings.plugin.sync.error.auth_required": "동기화 전에 다시 로그인해 주세요.",
   "settings.plugin.sync.error.not_configured": "동기화 전에 이 지식보관함을 설정해 주세요.",
   "settings.plugin.sync.error.offline": "서버에 연결할 수 없어요. 안전하게 다시 시도할 수 있어요.",
