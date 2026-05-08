@@ -6,6 +6,7 @@ use tauri_plugin_dialog::DialogExt;
 
 use crate::models::{ChecksumWriteResult, FileEntry, FileReadResult};
 use crate::search::SearchState;
+use crate::sync::{self, SyncState};
 use crate::vault::checksum::compute_checksum;
 use crate::vault::{
     DEFAULT_FILE_EXTENSIONS, get_vault_root, read_directory_recursive, resolve_vault_path_strict,
@@ -155,6 +156,7 @@ pub async fn vault_open(
     app: AppHandle,
     state: State<'_, VaultState>,
     search: State<'_, SearchState>,
+    sync_state: State<'_, SyncState>,
     path: String,
 ) -> Result<(), String> {
     if path.trim().is_empty() {
@@ -177,6 +179,13 @@ pub async fn vault_open(
     }
 
     search.switch_vault(root.to_path_buf())?;
+    if let Err(error) = sync::commands::restore_vault_config_for_root(&app, &sync_state, root) {
+        eprintln!(
+            "failed to restore sync config for vault {}: {error}",
+            root.display()
+        );
+        sync::commands::reset_vault_config_runtime(&app, &sync_state);
+    }
 
     let stop_tx = watcher::start_watching_with_search(
         app,
@@ -211,8 +220,10 @@ pub async fn vault_choose_directory(app: AppHandle) -> Result<Option<String>, St
 
 #[command]
 pub async fn vault_close(
+    app: AppHandle,
     state: State<'_, VaultState>,
     search: State<'_, SearchState>,
+    sync_state: State<'_, SyncState>,
 ) -> Result<(), String> {
     {
         let mut guard = state.inner.lock();
@@ -222,6 +233,7 @@ pub async fn vault_close(
         guard.path = None;
     }
     search.close_runtime()?;
+    sync::commands::reset_vault_config_runtime(&app, &sync_state);
     Ok(())
 }
 

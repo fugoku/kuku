@@ -12,6 +12,7 @@ pub mod planner;
 pub mod scanner;
 pub mod transfer;
 pub mod types;
+pub mod vault_config;
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -53,12 +54,24 @@ impl SyncState {
     }
 
     pub fn configure_vault(&self, config: SyncVaultConfig) -> SyncResult<SyncRuntimeStatus> {
+        self.restore_vault(config, false)
+    }
+
+    pub fn restore_vault(
+        &self,
+        config: SyncVaultConfig,
+        enabled: bool,
+    ) -> SyncResult<SyncRuntimeStatus> {
         validate_config(&config)?;
         let mut inner = self.inner.lock();
         inner.status = SyncRuntimeStatus {
             configured: true,
-            enabled: false,
-            phase: SyncPhase::Disabled,
+            enabled,
+            phase: if enabled {
+                SyncPhase::Idle
+            } else {
+                SyncPhase::Disabled
+            },
             vault_id: Some(config.vault_id),
             root_path: Some(config.root_path),
             remote_workspace_id: Some(config.remote_workspace_id),
@@ -74,6 +87,13 @@ impl SyncState {
             updated_at_ms: now_ms(),
         };
         Ok(inner.status.clone())
+    }
+
+    pub fn reset(&self) -> SyncRuntimeStatus {
+        let mut inner = self.inner.lock();
+        inner.active_run_id = None;
+        inner.status = SyncRuntimeStatus::not_configured(now_ms());
+        inner.status.clone()
     }
 
     pub fn set_enabled(&self, enabled: bool) -> SyncResult<SyncRuntimeStatus> {

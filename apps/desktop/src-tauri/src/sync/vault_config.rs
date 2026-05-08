@@ -1,0 +1,203 @@
+use std::fs;
+use std::path::{Path, PathBuf};
+
+use serde::{Deserialize, Serialize};
+
+use super::errors::{SyncError, SyncResult};
+use super::keys;
+use super::types::SyncVaultConfig;
+
+const CONFIG_DIR_NAME: &str = ".kuku";
+const CONFIG_FILE_NAME: &str = "sync.json";
+const SCHEMA_VERSION: u32 = 1;
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncVaultConfigFile {
+    pub schema_version: u32,
+    pub vault_id: String,
+    pub remote_workspace_id: String,
+    pub device_id: String,
+    pub enabled: bool,
+    pub remember_workspace_key: bool,
+    pub secure: SyncVaultSecureRefs,
+    pub updated_at_ms: i64,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncVaultSecureRefs {
+    pub workspace_key_account: String,
+    pub device_signing_key_account: String,
+}
+
+pub fn sync_config_path(vault_root: &Path) -> PathBuf {
+    vault_root.join(CONFIG_DIR_NAME).join(CONFIG_FILE_NAME)
+}
+
+pub fn read_sync_config(vault_root: &Path) -> SyncResult<Option<SyncVaultConfigFile>> {
+    let path = sync_config_path(vault_root);
+    if !path.exists() {
+        return Ok(None);
+    }
+
+    let bytes = fs::read(&path).map_err(|error| {
+        SyncError::Storage(format!(
+            "failed to read vault sync config {}: {error}",
+            path.display()
+        ))
+    })?;
+    let config: SyncVaultConfigFile = serde_json::from_slice(&bytes)?;
+    validate_config_file(&config)?;
+    Ok(Some(config))
+}
+
+pub fn write_sync_config(
+    vault_root: &Path,
+    config: &SyncVaultConfig,
+    enabled: bool,
+    updated_at_ms: i64,
+) -> SyncResult<SyncVaultConfigFile> {
+    let config_file = config_file_from_runtime(config, enabled, updated_at_ms)?;
+    let path = sync_config_path(vault_root);
+    let parent = path
+        .parent()
+        .ok_or_else(|| SyncError::Storage("vault sync config path has no parent".into()))?;
+    fs::create_dir_all(parent).map_err(|error| {
+        SyncError::Storage(format!(
+            "failed to create vault sync config directory {}: {error}",
+            parent.display()
+        ))
+    })?;
+    let bytes = serde_json::to_vec_pretty(&config_file)?;
+    fs::write(&path, bytes).map_err(|error| {
+        SyncError::Storage(format!(
+            "failed to write vault sync config {}: {error}",
+            path.display()
+        ))
+    })?;
+    Ok(config_file)
+}
+
+pub fn runtime_config_from_file(
+    vault_root: &Path,
+    config: &SyncVaultConfigFile,
+) -> SyncVaultConfig {
+    SyncVaultConfig {
+        vault_id: config.vault_id.clone(),
+        root_path: vault_root.to_string_lossy().to_string(),
+        remote_workspace_id: config.remote_workspace_id.clone(),
+        device_id: config.device_id.clone(),
+        remember_workspace_key: config.remember_workspace_key,
+        passphrase: None,
+    }
+}
+
+fn config_file_from_runtime(
+    config: &SyncVaultConfig,
+    enabled: bool,
+    updated_at_ms: i64,
+) -> SyncResult<SyncVaultConfigFile> {
+    if config.vault_id.trim().is_empty() {
+        return Err(SyncError::InvalidArgument("vault_id is required".into()));
+    }
+    if config.remote_workspace_id.trim().is_empty() {
+        return Err(SyncError::InvalidArgument(
+            "remote_workspace_id is required".into(),
+        ));
+    }
+    if config.device_id.trim().is_empty() {
+        return Err(SyncError::InvalidArgument("device_id is required".into()));
+    }
+
+    Ok(SyncVaultConfigFile {
+        schema_version: SCHEMA_VERSION,
+        vault_id: config.vault_id.trim().to_string(),
+        remote_workspace_id: config.remote_workspace_id.trim().to_string(),
+        device_id: config.device_id.trim().to_string(),
+        enabled,
+        remember_workspace_key: config.remember_workspace_key,
+        secure: SyncVaultSecureRefs {
+            workspace_key_account: keys::workspace_key_account(config.vault_id.trim()),
+            device_signing_key_account: keys::device_signing_key_account(config.vault_id.trim()),
+        },
+        updated_at_ms,
+    })
+}
+
+fn validate_config_file(config: &SyncVaultConfigFile) -> SyncResult<()> {
+    if config.schema_version != SCHEMA_VERSION {
+        return Err(SyncError::UnsupportedVersion(
+            config.schema_version.min(u8::MAX as u32) as u8,
+        ));
+    }
+    if config.vault_id.trim().is_empty() {
+        return Err(SyncError::InvalidArgument(
+            "vault sync config is missing vault_id".into(),
+        ));
+    }
+    if config.remote_workspace_id.trim().is_empty() {
+        return Err(SyncError::InvalidArgument(
+            "vault sync config is missing remote_workspace_id".into(),
+        ));
+    }
+    if config.device_id.trim().is_empty() {
+        return Err(SyncError::InvalidArgument(
+            "vault sync config is missing device_id".into(),
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sync_config_roundtrips_non_secret_vault_settings() {
+        let root = temp_vault("roundtrip");
+        let config = SyncVaultConfig {
+            vault_id: "vault_1".into(),
+            root_path: root.to_string_lossy().to_string(),
+            remote_workspace_id: "workspace_1".into(),
+            device_id: "device_1".into(),
+            remember_workspace_key: true,
+            passphrase: Some("super-secret-passphrase".into()),
+        };
+
+        let written = write_sync_config(&root, &config, true, 123).unwrap();
+        let raw = fs::read_to_string(sync_config_path(&root)).unwrap();
+        let loaded = read_sync_config(&root).unwrap().unwrap();
+        let runtime = runtime_config_from_file(&root, &loaded);
+
+        assert_eq!(written, loaded);
+        assert!(loaded.enabled);
+        assert_eq!(runtime.vault_id, "vault_1");
+        assert_eq!(runtime.remote_workspace_id, "workspace_1");
+        assert_eq!(runtime.device_id, "device_1");
+        assert_eq!(runtime.passphrase, None);
+        assert!(!raw.contains("super-secret-passphrase"));
+        assert!(raw.contains("vault:vault_1:workspace-key:v1"));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn missing_sync_config_returns_none() {
+        let root = temp_vault("missing");
+
+        assert!(read_sync_config(&root).unwrap().is_none());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    fn temp_vault(name: &str) -> PathBuf {
+        let root = std::env::temp_dir().join(format!(
+            "kuku-sync-vault-config-{name}-{}-{}",
+            std::process::id(),
+            crate::sync::now_ms()
+        ));
+        fs::create_dir_all(&root).unwrap();
+        root
+    }
+}
