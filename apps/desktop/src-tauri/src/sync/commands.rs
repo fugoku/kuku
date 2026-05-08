@@ -40,8 +40,9 @@ use super::transfer::{
     TransferQueueConfig,
 };
 use super::types::{
-    SYNC_STATUS_EVENT, SyncConflictSummary, SyncPhase, SyncRemoteStatus, SyncRuntimeStatus,
-    SyncStatusEvent, SyncVaultConfig,
+    SYNC_STATUS_EVENT, SyncConflictSummary, SyncPhase, SyncRemoteStatus,
+    SyncRenameWorkspaceRequest, SyncRuntimeStatus, SyncStatusEvent, SyncVaultConfig,
+    SyncWorkspaceSummary,
 };
 use super::vault_config;
 
@@ -105,6 +106,61 @@ pub async fn sync_get_saved_recovery_phrase(
     account_key_id: String,
 ) -> Result<Option<String>, SyncCommandError> {
     keys::read_account_recovery_phrase(account_key_id.trim()).map_err(command_error)
+}
+
+#[command]
+pub async fn sync_list_workspaces(
+    state: State<'_, SyncState>,
+    passphrase: Option<String>,
+) -> Result<Vec<SyncWorkspaceSummary>, SyncCommandError> {
+    let current_workspace_id = state.status().remote_workspace_id;
+    list_account_workspaces(current_workspace_id.as_deref(), passphrase.as_deref())
+        .await
+        .map_err(command_error)
+}
+
+#[command]
+pub async fn sync_rename_workspace(
+    app: AppHandle,
+    state: State<'_, SyncState>,
+    request: SyncRenameWorkspaceRequest,
+) -> Result<SyncWorkspaceSummary, SyncCommandError> {
+    let current_workspace_id = state.status().remote_workspace_id;
+    let summary = rename_account_workspace(&request, current_workspace_id.as_deref())
+        .await
+        .map_err(command_error)?;
+    if let Some(status) = state
+        .update_workspace_name(&summary.workspace_id, summary.name.clone())
+        .map_err(command_error)?
+    {
+        persist_runtime_status(&status).map_err(command_error)?;
+        emit_status(&app, &status);
+    }
+    Ok(summary)
+}
+
+#[command]
+pub async fn sync_delete_workspace(
+    app: AppHandle,
+    state: State<'_, SyncState>,
+    workspace_id: String,
+) -> Result<SyncRuntimeStatus, SyncCommandError> {
+    let workspace_id = normalized_workspace_id(&workspace_id).map_err(command_error)?;
+    let status = state.status();
+    let deleting_current = status.remote_workspace_id.as_deref() == Some(workspace_id);
+    if deleting_current && state.is_sync_running() {
+        return Err(command_error(SyncError::InvalidArgument(
+            "sync is already running".into(),
+        )));
+    }
+
+    delete_account_workspace(workspace_id)
+        .await
+        .map_err(command_error)?;
+    if deleting_current {
+        return clear_current_workspace_binding(&app, &state, &status).map_err(command_error);
+    }
+    Ok(state.status())
 }
 
 #[command]
@@ -473,6 +529,39 @@ async fn prepare_account_key(
     })
 }
 
+async fn unlock_existing_account_key(
+    client: &Arc<ConnectSyncClient>,
+    recovery_phrase: Option<&str>,
+) -> SyncResult<Option<PreparedAccountKey>> {
+    let Some(account_key) = client.get_account_key_state().await? else {
+        return Ok(None);
+    };
+    if let Some(account_root_key) = keys::read_account_root_key(&account_key.account_key_id)? {
+        return Ok(Some(PreparedAccountKey {
+            account_key_id: account_key.account_key_id,
+            account_root_key,
+            recovery_phrase: None,
+        }));
+    }
+
+    let recovery_phrase = recovery_phrase
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            SyncError::Crypto("recovery phrase is required to unlock account sync state".into())
+        })?;
+    let account_root_key =
+        unlock_account_root_key(client, &account_key.account_key_id, recovery_phrase).await?;
+    let normalized_phrase = account_keys::normalize_recovery_phrase(recovery_phrase);
+    keys::remember_account_root_key(&account_key.account_key_id, &account_root_key)?;
+    keys::remember_account_recovery_phrase(&account_key.account_key_id, &normalized_phrase)?;
+    Ok(Some(PreparedAccountKey {
+        account_key_id: account_key.account_key_id,
+        account_root_key,
+        recovery_phrase: Some(normalized_phrase),
+    }))
+}
+
 async fn unlock_account_root_key(
     client: &Arc<ConnectSyncClient>,
     account_key_id: &str,
@@ -559,6 +648,91 @@ async fn workspace_by_id(
         })
 }
 
+async fn list_account_workspaces(
+    current_workspace_id: Option<&str>,
+    recovery_phrase: Option<&str>,
+) -> SyncResult<Vec<SyncWorkspaceSummary>> {
+    let authorization = authorization_header().await?;
+    let client = Arc::new(ConnectSyncClient::with_authorization_header(authorization));
+    let Some(account) = unlock_existing_account_key(&client, recovery_phrase).await? else {
+        return Ok(Vec::new());
+    };
+    client
+        .list_workspaces()
+        .await?
+        .iter()
+        .map(|workspace| workspace_summary_from_metadata(&account, workspace, current_workspace_id))
+        .collect()
+}
+
+async fn rename_account_workspace(
+    request: &SyncRenameWorkspaceRequest,
+    current_workspace_id: Option<&str>,
+) -> SyncResult<SyncWorkspaceSummary> {
+    let workspace_id = normalized_workspace_id(&request.workspace_id)?;
+    let workspace_name = normalized_workspace_name(&request.name)?;
+    let authorization = authorization_header().await?;
+    let client = Arc::new(ConnectSyncClient::with_authorization_header(authorization));
+    let account = unlock_existing_account_key(&client, request.passphrase.as_deref())
+        .await?
+        .ok_or(SyncError::NotConfigured)?;
+    let next_metadata_version = request
+        .expected_metadata_version
+        .checked_add(1)
+        .ok_or_else(|| SyncError::InvalidArgument("workspace metadata version overflow".into()))?;
+    let encrypted_metadata = account_keys::encrypt_workspace_metadata(
+        &account.account_root_key,
+        &account.account_key_id,
+        workspace_id,
+        next_metadata_version,
+        &WorkspaceDisplayMetadata::new(workspace_name),
+    )?;
+    let workspace = client
+        .update_workspace_metadata(UpdateWorkspaceMetadataInput {
+            workspace_id: workspace_id.into(),
+            encrypted_metadata,
+            metadata_version: next_metadata_version,
+            expected_metadata_version: request.expected_metadata_version,
+        })
+        .await?;
+    workspace_summary_from_metadata(&account, &workspace, current_workspace_id)
+}
+
+async fn delete_account_workspace(workspace_id: &str) -> SyncResult<()> {
+    let authorization = authorization_header().await?;
+    let client = ConnectSyncClient::with_authorization_header(authorization);
+    client.delete_workspace(workspace_id).await
+}
+
+fn clear_current_workspace_binding(
+    app: &AppHandle,
+    state: &SyncState,
+    status: &SyncRuntimeStatus,
+) -> SyncResult<SyncRuntimeStatus> {
+    let vault_id = status
+        .vault_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or(SyncError::NotConfigured)?;
+    keys::forget_workspace_key(vault_id)?;
+    keys::forget_passphrase(vault_id)?;
+    keys::forget_device_signing_key(vault_id)?;
+    if let Some(root_path) = status
+        .root_path
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        vault_config::delete_sync_config(Path::new(root_path))?;
+    }
+    let conn = open_sync_db_for_vault(vault_id)?;
+    db::delete_vault(&conn, vault_id)?;
+    let status = state.reset();
+    emit_status(app, &status);
+    Ok(status)
+}
+
 fn workspace_key_from_account(
     account: &PreparedAccountKey,
     workspace: &SyncWorkspaceMetadata,
@@ -592,6 +766,48 @@ fn workspace_display_name_from_metadata(
         &workspace.encrypted_metadata,
     )?
     .name)
+}
+
+fn workspace_summary_from_metadata(
+    account: &PreparedAccountKey,
+    workspace: &SyncWorkspaceMetadata,
+    current_workspace_id: Option<&str>,
+) -> SyncResult<SyncWorkspaceSummary> {
+    let name = workspace_display_name_from_metadata(account, workspace)?;
+    let _workspace_key = workspace_key_from_account(account, workspace)?;
+    Ok(SyncWorkspaceSummary {
+        workspace_id: workspace.workspace_id.clone(),
+        name,
+        current: current_workspace_id == Some(workspace.workspace_id.as_str()),
+        head_version: workspace.head_version,
+        metadata_version: workspace.metadata_version,
+        workspace_key_version: workspace.workspace_key_version,
+    })
+}
+
+fn normalized_workspace_id(workspace_id: &str) -> SyncResult<&str> {
+    let workspace_id = workspace_id.trim();
+    if workspace_id.is_empty() {
+        return Err(SyncError::InvalidArgument(
+            "workspace id is required".into(),
+        ));
+    }
+    Ok(workspace_id)
+}
+
+fn normalized_workspace_name(name: &str) -> SyncResult<&str> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err(SyncError::InvalidArgument(
+            "workspace name is required".into(),
+        ));
+    }
+    if name.chars().count() > 120 {
+        return Err(SyncError::InvalidArgument(
+            "workspace name is too long".into(),
+        ));
+    }
+    Ok(name)
 }
 
 async fn register_device_with_name(
@@ -1324,6 +1540,116 @@ mod tests {
             required_passphrase(&config(None)),
             Err(SyncError::Crypto(message)) if message.contains("passphrase")
         ));
+    }
+
+    #[test]
+    fn normalized_workspace_name_trims_and_validates() {
+        assert_eq!(
+            normalized_workspace_name("  Team Notes  ").unwrap(),
+            "Team Notes"
+        );
+        assert!(matches!(
+            normalized_workspace_name("   "),
+            Err(SyncError::InvalidArgument(message)) if message.contains("required")
+        ));
+        assert!(matches!(
+            normalized_workspace_name(&"a".repeat(121)),
+            Err(SyncError::InvalidArgument(message)) if message.contains("too long")
+        ));
+    }
+
+    #[test]
+    fn normalized_workspace_id_trims_and_rejects_empty_values() {
+        assert_eq!(
+            normalized_workspace_id("  workspace_1  ").unwrap(),
+            "workspace_1"
+        );
+        assert!(matches!(
+            normalized_workspace_id("   "),
+            Err(SyncError::InvalidArgument(message)) if message.contains("required")
+        ));
+    }
+
+    #[test]
+    fn workspace_summary_decrypts_name_and_marks_current() {
+        let account_root_key = [7u8; 32];
+        let workspace_key = [9u8; 32];
+        let account = PreparedAccountKey {
+            account_key_id: "account_key_1".into(),
+            account_root_key,
+            recovery_phrase: None,
+        };
+        let workspace = encrypted_workspace_for_account(
+            &account.account_root_key,
+            &account.account_key_id,
+            "workspace_1",
+            "Team Notes",
+            &workspace_key,
+        );
+
+        let summary =
+            workspace_summary_from_metadata(&account, &workspace, Some("workspace_1")).unwrap();
+
+        assert_eq!(summary.workspace_id, "workspace_1");
+        assert_eq!(summary.name, "Team Notes");
+        assert!(summary.current);
+        assert_eq!(summary.head_version, 12);
+        assert_eq!(summary.metadata_version, WORKSPACE_METADATA_VERSION);
+        assert_eq!(summary.workspace_key_version, WORKSPACE_KEY_VERSION);
+    }
+
+    #[test]
+    fn workspace_summary_rejects_wrong_account_key() {
+        let account = PreparedAccountKey {
+            account_key_id: "account_key_1".into(),
+            account_root_key: [7u8; 32],
+            recovery_phrase: None,
+        };
+        let workspace = encrypted_workspace_for_account(
+            &[8u8; 32],
+            "account_key_1",
+            "workspace_1",
+            "Team Notes",
+            &[9u8; 32],
+        );
+
+        assert!(matches!(
+            workspace_summary_from_metadata(&account, &workspace, None),
+            Err(SyncError::Crypto(_))
+        ));
+    }
+
+    fn encrypted_workspace_for_account(
+        account_root_key: &SymmetricKey,
+        account_key_id: &str,
+        workspace_id: &str,
+        workspace_name: &str,
+        workspace_key: &SymmetricKey,
+    ) -> SyncWorkspaceMetadata {
+        SyncWorkspaceMetadata {
+            workspace_id: workspace_id.into(),
+            current_head_commit_id: "commit_1".into(),
+            head_version: 12,
+            crypto_version: CRYPTO_VERSION.into(),
+            encrypted_metadata: account_keys::encrypt_workspace_metadata(
+                account_root_key,
+                account_key_id,
+                workspace_id,
+                WORKSPACE_METADATA_VERSION,
+                &WorkspaceDisplayMetadata::new(workspace_name),
+            )
+            .unwrap(),
+            metadata_version: WORKSPACE_METADATA_VERSION,
+            encrypted_workspace_key: account_keys::encrypt_workspace_key_for_account(
+                account_root_key,
+                account_key_id,
+                workspace_id,
+                WORKSPACE_KEY_VERSION,
+                workspace_key,
+            )
+            .unwrap(),
+            workspace_key_version: WORKSPACE_KEY_VERSION,
+        }
     }
 
     #[test]

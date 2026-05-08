@@ -7,14 +7,15 @@ use kuku_contract::proto::kuku::sync::v1::SyncCommitKind;
 use kuku_contract::proto::kuku::sync::v1::{
     CompleteObjectUploadBatchRequest, CompletedObjectUpload, CreateAccountKeyRequest,
     CreateObjectDownloadBatchRequest, CreateObjectUploadBatchRequest, CreateWorkspaceRequest,
-    GetAccountKeyStateRequest, GetHeadRequest, ListAccountKeyEnvelopesRequest, ListCommitsRequest,
-    ListKeyEnvelopesRequest, ListWorkspacesRequest, ObjectDownloadTarget, ObjectReservation,
-    ObjectReservationRequest, ObjectUploadResult, PublishCommitRequest,
-    PutAccountKeyEnvelopeRequest, PutKeyEnvelopeRequest, RegisterDeviceRequest,
-    ReserveObjectIdsRequest, SyncAccountKey, SyncAccountKeyEnvelope, SyncAccountKeyRecipientType,
-    SyncCommit, SyncDevice, SyncHttpHeader, SyncKeyEnvelope, SyncKeyRecipientType, SyncObject,
-    SyncObjectErrorReason, SyncObjectKind, SyncWorkspace, UpdateDeviceMetadataRequest,
-    UpdateWorkspaceKeyRequest, UpdateWorkspaceMetadataRequest, UploadObjectDescriptor,
+    DeleteWorkspaceRequest, GetAccountKeyStateRequest, GetHeadRequest,
+    ListAccountKeyEnvelopesRequest, ListCommitsRequest, ListKeyEnvelopesRequest,
+    ListWorkspacesRequest, ObjectDownloadTarget, ObjectReservation, ObjectReservationRequest,
+    ObjectUploadResult, PublishCommitRequest, PutAccountKeyEnvelopeRequest, PutKeyEnvelopeRequest,
+    RegisterDeviceRequest, ReserveObjectIdsRequest, SyncAccountKey, SyncAccountKeyEnvelope,
+    SyncAccountKeyRecipientType, SyncCommit, SyncDevice, SyncHttpHeader, SyncKeyEnvelope,
+    SyncKeyRecipientType, SyncObject, SyncObjectErrorReason, SyncObjectKind, SyncWorkspace,
+    UpdateDeviceMetadataRequest, UpdateWorkspaceKeyRequest, UpdateWorkspaceMetadataRequest,
+    UploadObjectDescriptor,
 };
 
 use crate::contract_client;
@@ -267,6 +268,8 @@ pub trait SyncSetupApi: Send + Sync {
 
     async fn list_workspaces(&self) -> SyncResult<Vec<SyncWorkspaceMetadata>>;
 
+    async fn delete_workspace(&self, workspace_id: &str) -> SyncResult<()>;
+
     async fn update_workspace_metadata(
         &self,
         input: UpdateWorkspaceMetadataInput,
@@ -513,6 +516,19 @@ impl SyncSetupApi for ConnectSyncClient {
             .iter()
             .map(workspace_from_proto)
             .collect()
+    }
+
+    async fn delete_workspace(&self, workspace_id: &str) -> SyncResult<()> {
+        let request = DeleteWorkspaceRequest {
+            workspace_id: Some(workspace_id.to_string()),
+            ..Default::default()
+        };
+        contract_client::sync_service_client()
+            .map_err(SyncError::Transport)?
+            .delete_workspace_with_options(request, self.call_options())
+            .await
+            .map_err(|error| sync_rpc_error("DeleteWorkspace", error))?;
+        Ok(())
     }
 
     async fn update_workspace_metadata(

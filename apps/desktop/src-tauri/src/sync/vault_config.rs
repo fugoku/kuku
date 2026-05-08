@@ -63,6 +63,18 @@ pub fn sync_config_path(vault_root: &Path) -> PathBuf {
     vault_root.join(CONFIG_DIR_NAME).join(CONFIG_FILE_NAME)
 }
 
+pub fn delete_sync_config(vault_root: &Path) -> SyncResult<()> {
+    let path = sync_config_path(vault_root);
+    match fs::remove_file(&path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(SyncError::Storage(format!(
+            "failed to delete vault sync config {}: {error}",
+            path.display()
+        ))),
+    }
+}
+
 pub fn read_sync_config(vault_root: &Path) -> SyncResult<Option<SyncVaultConfigFile>> {
     let path = sync_config_path(vault_root);
     if !path.exists() {
@@ -326,6 +338,29 @@ mod tests {
 
         assert!(read_sync_config(&root).unwrap().is_none());
 
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn delete_sync_config_removes_file_and_ignores_missing_file() {
+        let root = temp_vault("delete");
+        let config = SyncVaultConfig {
+            vault_id: "vault_1".into(),
+            root_path: root.to_string_lossy().to_string(),
+            account_key_id: None,
+            remote_workspace_id: "workspace_1".into(),
+            workspace_name: None,
+            device_id: "device_1".into(),
+            device_name: None,
+            remember_workspace_key: true,
+            passphrase: None,
+        };
+
+        write_sync_config(&root, &config, true, 123).unwrap();
+        delete_sync_config(&root).unwrap();
+        delete_sync_config(&root).unwrap();
+
+        assert!(read_sync_config(&root).unwrap().is_none());
         fs::remove_dir_all(root).unwrap();
     }
 

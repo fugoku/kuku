@@ -58,6 +58,27 @@ pub struct SyncRuntimeStatus {
     pub updated_at_ms: i64,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncWorkspaceSummary {
+    pub workspace_id: String,
+    pub name: String,
+    pub current: bool,
+    pub head_version: i64,
+    pub metadata_version: i64,
+    pub workspace_key_version: i64,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncRenameWorkspaceRequest {
+    pub workspace_id: String,
+    pub name: String,
+    pub expected_metadata_version: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub passphrase: Option<String>,
+}
+
 impl SyncRuntimeStatus {
     pub fn not_configured(updated_at_ms: i64) -> Self {
         Self {

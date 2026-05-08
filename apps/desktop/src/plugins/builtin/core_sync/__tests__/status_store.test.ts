@@ -210,6 +210,15 @@ describe("sync status store", () => {
       async getSavedRecoveryPhrase() {
         return null;
       },
+      async listWorkspaces() {
+        return [];
+      },
+      async renameWorkspace() {
+        throw new Error("not implemented");
+      },
+      async deleteWorkspace() {
+        return refreshedStatus;
+      },
       async saveRecoveryPhraseFile() {
         return true;
       },
@@ -302,6 +311,15 @@ describe("sync status store", () => {
       },
       async getSavedRecoveryPhrase() {
         return null;
+      },
+      async listWorkspaces() {
+        return [];
+      },
+      async renameWorkspace() {
+        throw new Error("not implemented");
+      },
+      async deleteWorkspace() {
+        return idleStatus;
       },
       async saveRecoveryPhraseFile() {
         return true;
