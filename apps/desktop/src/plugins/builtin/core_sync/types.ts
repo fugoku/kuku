@@ -101,6 +101,7 @@ interface SyncWorkspaceSummary {
 interface SyncAccountRecoveryState {
   configured: boolean;
   accountKeyId?: string;
+  recoveryPhraseConfigured: boolean;
   applied: boolean;
   recoveryPhraseSaved: boolean;
 }

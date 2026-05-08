@@ -213,6 +213,7 @@ describe("sync status store", () => {
       async getAccountRecoveryState() {
         return {
           configured: false,
+          recoveryPhraseConfigured: false,
           applied: false,
           recoveryPhraseSaved: false,
         };
@@ -322,6 +323,7 @@ describe("sync status store", () => {
       async getAccountRecoveryState() {
         return {
           configured: false,
+          recoveryPhraseConfigured: false,
           applied: false,
           recoveryPhraseSaved: false,
         };

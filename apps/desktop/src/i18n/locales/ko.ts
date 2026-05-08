@@ -130,6 +130,13 @@ export const KO_MESSAGES = {
     "동기화를 켜기 전에 이 생성된 문구를 백업해 주세요. 새 기기에서 암호화된 동기화 워크스페이스를 여는 데 사용해요.",
   "settings.plugin.sync.passphrase.placeholder": "복구 문구 입력",
   "settings.plugin.sync.passphrase.generate": "생성",
+  "settings.plugin.sync.passphrase.unlock": "복구 문구 확인",
+  "settings.plugin.sync.passphrase.unlock_required":
+    "이 계정의 동기화 정보를 열려면 복구 문구를 먼저 확인해 주세요.",
+  "settings.plugin.sync.passphrase.unlock_description":
+    "이 계정에는 이미 복구 문구가 설정되어 있어요. 계속하려면 복구 문구를 입력해서 워크스페이스 정보를 열어야 해요.",
+  "settings.plugin.sync.passphrase.reset_only":
+    "복구 문구를 입력할 수 없으면 기존 서버 동기화 정보는 복구할 수 없어요. 초기화 후 새로 연결해야 하며 서버의 기존 동기화 정보가 삭제돼요.",
   "settings.plugin.sync.passphrase.copy": "문구 복사",
   "settings.plugin.sync.passphrase.copied": "복사됨",
   "settings.plugin.sync.passphrase.save": ".md 저장",

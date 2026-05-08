@@ -576,11 +576,22 @@ async fn get_account_recovery_state() -> SyncResult<SyncAccountRecoveryState> {
     };
 
     let account_key_id = account_key.account_key_id;
+    let recovery_phrase_configured =
+        client
+            .list_account_key_envelopes()
+            .await?
+            .iter()
+            .any(|envelope| {
+                envelope.account_key_id == account_key_id
+                && envelope.recipient_type
+                    == SyncAccountKeyRecipientType::SYNC_ACCOUNT_KEY_RECIPIENT_TYPE_RECOVERY_PHRASE
+            });
     let applied = keys::read_account_root_key(&account_key_id)?.is_some();
     let recovery_phrase_saved = keys::read_account_recovery_phrase(&account_key_id)?.is_some();
     Ok(SyncAccountRecoveryState {
         configured: true,
         account_key_id: Some(account_key_id),
+        recovery_phrase_configured,
         applied,
         recovery_phrase_saved,
     })

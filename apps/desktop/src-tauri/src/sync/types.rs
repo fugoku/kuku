@@ -75,6 +75,7 @@ pub struct SyncAccountRecoveryState {
     pub configured: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub account_key_id: Option<String>,
+    pub recovery_phrase_configured: bool,
     pub applied: bool,
     pub recovery_phrase_saved: bool,
 }
