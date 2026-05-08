@@ -46,38 +46,39 @@ const titleId = `${stripId}-title`;
 const modelNamesForSr = pricingModelIcons.map((m) => m.label).join(', ');
 ---
 
-<div
-  class="lp-pr-models"
-  id={stripId}
-  role="region"
-  aria-labelledby={titleId}
->
+<div class="lp-pr-models" id={stripId} role="region" aria-labelledby={titleId}>
   <p class="lp-pr-models__title" id={titleId} data-i18n="pr.models.strip_title">
     Includes major model providers
   </p>
   <div class="lp-pr-models__row" aria-hidden="true">
-    {pricingModelIcons.map((m) =>
-      m.mode === 'mask' ? (
-        <span class="lp-pr-models__cell">
-          <span
-            class:list={['lp-pr-models__icon', 'lp-pr-models__icon--mask', `lp-pr-models__icon--${m.slug}`]}
-            style={`--lp-pr-mask: url('${m.maskUrl}'); --lp-pr-brand: ${m.brandFill};`}
-          />
-        </span>
-      ) : (
-        <span class="lp-pr-models__cell">
-          <img
-            class:list={['lp-pr-models__icon', `lp-pr-models__icon--${m.slug}`]}
-            src={m.src}
-            alt=""
-            width="20"
-            height="20"
-            loading="lazy"
-            decoding="async"
-          />
-        </span>
+    {
+      pricingModelIcons.map((m) =>
+        m.mode === 'mask' ? (
+          <span class="lp-pr-models__cell">
+            <span
+              class:list={[
+                'lp-pr-models__icon',
+                'lp-pr-models__icon--mask',
+                `lp-pr-models__icon--${m.slug}`,
+              ]}
+              style={`--lp-pr-mask: url('${m.maskUrl}'); --lp-pr-brand: ${m.brandFill};`}
+            />
+          </span>
+        ) : (
+          <span class="lp-pr-models__cell">
+            <img
+              class:list={['lp-pr-models__icon', `lp-pr-models__icon--${m.slug}`]}
+              src={m.src}
+              alt=""
+              width="20"
+              height="20"
+              loading="lazy"
+              decoding="async"
+            />
+          </span>
+        ),
       )
-    )}
+    }
   </div>
   <span class="lp-pr-models__sr">{modelNamesForSr}</span>
 </div>
