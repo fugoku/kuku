@@ -520,25 +520,18 @@ async fn prepare_existing_workspace(
     let workspace_key = workspace_key_from_account(&account, &workspace)?;
 
     let signing_key = keys::read_device_signing_key(&config.vault_id)?;
-    let (device_id, signing_key) = match (local_vault, signing_key) {
-        (Some(vault), Some(signing_key)) if !vault.device_id.trim().is_empty() => {
-            (vault.device_id, signing_key)
-        }
-        (_, Some(signing_key)) if !config.device_id.trim().is_empty() => {
-            (config.device_id.trim().to_string(), signing_key)
-        }
-        _ => {
-            let signing_key = keys::random_device_signing_key();
-            let device = register_device_with_name(
-                client,
-                &account,
-                &workspace_id,
-                &signing_key,
-                &device_name,
-            )
-            .await?;
-            (device.device_id, signing_key)
-        }
+    let reusable_device_id =
+        reusable_device_id_for_workspace(&workspace_id, config.device_id.as_str(), local_vault);
+    let (device_id, signing_key) = if let (Some(device_id), Some(signing_key)) =
+        (reusable_device_id, signing_key)
+    {
+        (device_id, signing_key)
+    } else {
+        let signing_key = keys::random_device_signing_key();
+        let device =
+            register_device_with_name(client, &account, &workspace_id, &signing_key, &device_name)
+                .await?;
+        (device.device_id, signing_key)
     };
 
     Ok(PreparedSyncConfig {
@@ -975,6 +968,29 @@ fn workspace_summary_from_metadata(
         metadata_version: workspace.metadata_version,
         workspace_key_version: workspace.workspace_key_version,
     })
+}
+
+fn reusable_device_id_for_workspace(
+    workspace_id: &str,
+    config_device_id: &str,
+    local_vault: Option<SyncVaultRecord>,
+) -> Option<String> {
+    match local_vault {
+        Some(vault) if vault.remote_workspace_id == workspace_id => {
+            non_empty_trimmed(vault.device_id.as_str())
+        }
+        Some(_) => None,
+        None => non_empty_trimmed(config_device_id),
+    }
+}
+
+fn non_empty_trimmed(value: &str) -> Option<String> {
+    let value = value.trim();
+    if value.is_empty() {
+        None
+    } else {
+        Some(value.to_string())
+    }
 }
 
 fn next_workspace_display_name(
@@ -1879,6 +1895,45 @@ mod tests {
             workspace_summary_from_metadata(&account, &workspace, None),
             Err(SyncError::Crypto(_))
         ));
+    }
+
+    #[test]
+    fn reusable_device_id_is_scoped_to_workspace() {
+        let current_vault = SyncVaultRecord {
+            vault_id: "vault_1".into(),
+            root_path: "/tmp/vault".into(),
+            remote_workspace_id: "workspace_current".into(),
+            remote_head_commit_id: None,
+            local_head_commit_id: None,
+            device_id: "device_current".into(),
+            next_device_seq: 1,
+            enabled: true,
+            created_at_ms: 1,
+            updated_at_ms: 1,
+        };
+
+        assert_eq!(
+            reusable_device_id_for_workspace(
+                "workspace_current",
+                "device_from_config",
+                Some(current_vault.clone()),
+            )
+            .as_deref(),
+            Some("device_current")
+        );
+        assert_eq!(
+            reusable_device_id_for_workspace(
+                "workspace_new",
+                "device_from_config",
+                Some(current_vault),
+            ),
+            None
+        );
+        assert_eq!(
+            reusable_device_id_for_workspace("workspace_new", " device_from_config ", None)
+                .as_deref(),
+            Some("device_from_config")
+        );
     }
 
     fn encrypted_workspace_for_account(

@@ -334,7 +334,8 @@ function SyncSettings(): JSX.Element {
     if (accountRecoveryConfigured()) return t("settings.plugin.sync.passphrase.description");
     return t("settings.plugin.sync.passphrase.create_description");
   };
-  const currentWorkspaceSyncActionVariant = (): "primary" | "warning" | "destructive" => confirmDisable() ? "destructive" : "warning";
+  const currentWorkspaceSyncActionVariant = (): "primary" | "warning" | "destructive" =>
+    confirmDisable() ? "destructive" : "warning";
   const currentWorkspaceSyncActionLabel = () => {
     if (busy()) return t("settings.plugin.sync.action.working");
     return confirmDisable()
