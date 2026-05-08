@@ -6,15 +6,26 @@ import type {
   KnowledgeError,
   MemoryContextRequest,
   SearchMemoryRequest,
+  WikiProposePageRequest,
+  WikiProposeUpdateRequest,
 } from "./types";
 import type { KnowledgeService } from "./service";
 
-const KNOWLEDGE_AI_TOOL_NAMES = ["memory_search", "memory_context", "memory_propose"] as const;
+const KNOWLEDGE_AI_TOOL_NAMES = [
+  "memory_search",
+  "memory_context",
+  "memory_propose",
+  "wiki_propose_page",
+  "wiki_propose_update",
+] as const;
 const FORBIDDEN_KNOWLEDGE_AI_TOOL_NAMES = [
   "memory_commit",
   "memory_write",
   "memory_delete",
   "knowledge_apply_decision_document",
+  "wiki_write_page",
+  "wiki_commit",
+  "wiki_apply_decision_document",
 ] as const;
 
 const SOURCE_REF_PARAMETER_SCHEMA = {
@@ -81,6 +92,51 @@ const PROPOSED_MEMORY_PARAMETER_SCHEMA = {
     },
   },
   required: ["title", "body"],
+};
+
+const PROPOSED_WIKI_PAGE_PARAMETER_SCHEMA = {
+  type: "object",
+  properties: {
+    path: {
+      type: "string",
+      description: "Vault-relative committed wiki page path under Knowledge/wiki ending in .md.",
+    },
+    expected_checksum: {
+      type: "string",
+      description: "Required only for wiki_propose_update.",
+    },
+    page_type: {
+      type: "string",
+      enum: ["source", "concept", "entity", "synthesis"],
+    },
+    title: { type: "string" },
+    body: { type: "string" },
+    tags: {
+      type: "array",
+      items: { type: "string" },
+    },
+    source_refs: {
+      type: "array",
+      items: SOURCE_REF_PARAMETER_SCHEMA,
+    },
+    decision: {
+      type: "object",
+      properties: {
+        question: { type: "string" },
+        selected_option_id: {
+          type: "string",
+          enum: ["yes", "no", "other"],
+        },
+        other_text: { type: "string" },
+      },
+    },
+  },
+  required: ["path", "page_type", "title", "body"],
+};
+
+const PROPOSED_WIKI_UPDATE_PARAMETER_SCHEMA = {
+  ...PROPOSED_WIKI_PAGE_PARAMETER_SCHEMA,
+  required: ["path", "expected_checksum", "page_type", "title", "body"],
 };
 
 function registerKnowledgeAiTools(
@@ -172,6 +228,78 @@ function registerKnowledgeAiTools(
         return JSON.stringify(result.value, null, 2);
       },
     }),
+    registry.register({
+      name: "wiki_propose_page",
+      toolId: "knowledge.wiki_propose_page",
+      description:
+        "Create a Knowledge decision document that proposes committed wiki pages for explicit user review. This never writes Knowledge/wiki pages.",
+      category: "knowledge",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          context: { type: "string" },
+          source_refs: {
+            type: "array",
+            items: SOURCE_REF_PARAMETER_SCHEMA,
+          },
+          proposed_pages: {
+            type: "array",
+            items: PROPOSED_WIKI_PAGE_PARAMETER_SCHEMA,
+            description: "Wiki pages to place in a user-reviewed decision document.",
+          },
+          default_selection: {
+            type: "string",
+            enum: ["yes", "none"],
+            description: "Defaults to yes. Use none when the user should make every selection.",
+          },
+        },
+        required: ["proposed_pages"],
+      },
+      handler: async (args) => {
+        const result = await service.proposeWikiPage(wikiProposePageRequestFromArgs(args));
+        if (!result.ok) {
+          throw new Error(formatKnowledgeError(result.error));
+        }
+        return JSON.stringify(result.value, null, 2);
+      },
+    }),
+    registry.register({
+      name: "wiki_propose_update",
+      toolId: "knowledge.wiki_propose_update",
+      description:
+        "Create a Knowledge decision document that proposes updates to existing committed wiki pages. This never applies the update.",
+      category: "knowledge",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          context: { type: "string" },
+          source_refs: {
+            type: "array",
+            items: SOURCE_REF_PARAMETER_SCHEMA,
+          },
+          proposed_updates: {
+            type: "array",
+            items: PROPOSED_WIKI_UPDATE_PARAMETER_SCHEMA,
+            description: "Wiki page updates to place in a user-reviewed decision document.",
+          },
+          default_selection: {
+            type: "string",
+            enum: ["yes", "none"],
+            description: "Defaults to yes. Use none when the user should make every selection.",
+          },
+        },
+        required: ["proposed_updates"],
+      },
+      handler: async (args) => {
+        const result = await service.proposeWikiUpdate(wikiProposeUpdateRequestFromArgs(args));
+        if (!result.ok) {
+          throw new Error(formatKnowledgeError(result.error));
+        }
+        return JSON.stringify(result.value, null, 2);
+      },
+    }),
   ];
 
   return () => {
@@ -210,6 +338,34 @@ function memoryProposeRequestFromArgs(
     context: optionalString(args.context),
     source_refs: optionalArray(args.source_refs) as CreateDecisionDocumentRequest["source_refs"],
     proposed_memories: args.proposed_memories as CreateDecisionDocumentRequest["proposed_memories"],
+    default_selection: parseDefaultSelection(args.default_selection),
+  };
+}
+
+function wikiProposePageRequestFromArgs(args: Record<string, unknown>): WikiProposePageRequest {
+  if (!Array.isArray(args.proposed_pages)) {
+    throw new Error("proposed_pages is required");
+  }
+
+  return {
+    title: optionalString(args.title),
+    context: optionalString(args.context),
+    source_refs: optionalArray(args.source_refs) as WikiProposePageRequest["source_refs"],
+    proposed_pages: args.proposed_pages as WikiProposePageRequest["proposed_pages"],
+    default_selection: parseDefaultSelection(args.default_selection),
+  };
+}
+
+function wikiProposeUpdateRequestFromArgs(args: Record<string, unknown>): WikiProposeUpdateRequest {
+  if (!Array.isArray(args.proposed_updates)) {
+    throw new Error("proposed_updates is required");
+  }
+
+  return {
+    title: optionalString(args.title),
+    context: optionalString(args.context),
+    source_refs: optionalArray(args.source_refs) as WikiProposeUpdateRequest["source_refs"],
+    proposed_updates: args.proposed_updates as WikiProposeUpdateRequest["proposed_updates"],
     default_selection: parseDefaultSelection(args.default_selection),
   };
 }
@@ -262,4 +418,6 @@ export {
   memoryProposeRequestFromArgs,
   memorySearchRequestFromArgs,
   registerKnowledgeAiTools,
+  wikiProposePageRequestFromArgs,
+  wikiProposeUpdateRequestFromArgs,
 };

@@ -10,16 +10,18 @@ use tokio::io::AsyncWriteExt;
 use crate::knowledge::markdown::{
     KnowledgeModelError, format_path_timestamp, format_utc_timestamp,
     make_collision_free_knowledge_id, normalize_source_ref, sha256_checksum_bytes, slugify_title,
-    validate_safe_vault_relative_path,
+    validate_safe_vault_relative_path, validate_sha256_checksum, validate_wiki_page_path,
 };
 use crate::knowledge::models::{
     CreateDecisionDocumentRequest, CreateDecisionDocumentResult, DecisionOptionId,
     KnowledgeErrorCode, KnowledgeIdPrefix, ProposalDefaultSelection, ProposalRequestSource,
-    ProposedDecisionInput, ProposedMemoryInput, SourceRef,
+    ProposedDecisionInput, ProposedMemoryInput, ProposedWikiPageInput, SourceRef, WikiPageType,
+    WikiProposePageRequest, WikiProposeUpdateRequest,
 };
 use crate::knowledge::service::{KnowledgeServiceError, knowledge_init_for_root};
 
 const MAX_PROPOSED_MEMORIES: usize = 20;
+const MAX_PROPOSED_WIKI_PAGES: usize = 20;
 const MAX_TITLE_CHARS: usize = 160;
 const MAX_BODY_CHARS: usize = 20_000;
 const MAX_CONTEXT_CHARS: usize = 10_000;
@@ -94,6 +96,33 @@ pub async fn create_decision_document_for_root(
     let now = SystemTime::now();
     let normalized = normalize_request(request, request_source, now)?;
     let rendered = render_decision_document(&normalized)?;
+    publish_decision_document(root, &normalized.path_slug, rendered, now).await
+}
+
+pub async fn create_wiki_decision_document_for_root(
+    root: &Path,
+    request: WikiProposePageRequest,
+    request_source: ProposalRequestSource,
+) -> Result<CreateDecisionDocumentResult, ProposalServiceError> {
+    knowledge_init_for_root(root).await?;
+    let now = SystemTime::now();
+    let normalized =
+        normalize_wiki_page_request(request, WikiProposalOperation::Create, request_source, now)?;
+    validate_wiki_proposal_paths_for_root(root, &normalized).await?;
+    let rendered = render_wiki_decision_document(&normalized)?;
+    publish_decision_document(root, &normalized.path_slug, rendered, now).await
+}
+
+pub async fn create_wiki_update_decision_document_for_root(
+    root: &Path,
+    request: WikiProposeUpdateRequest,
+    request_source: ProposalRequestSource,
+) -> Result<CreateDecisionDocumentResult, ProposalServiceError> {
+    knowledge_init_for_root(root).await?;
+    let now = SystemTime::now();
+    let normalized = normalize_wiki_update_request(request, request_source, now)?;
+    validate_wiki_proposal_paths_for_root(root, &normalized).await?;
+    let rendered = render_wiki_decision_document(&normalized)?;
     publish_decision_document(root, &normalized.path_slug, rendered, now).await
 }
 
@@ -208,7 +237,12 @@ fn normalize_proposed_memory(
         })?;
     used_decision_ids.insert(decision_id.clone());
 
-    let decision = normalize_decision(proposed.decision, default_selection, &field("decision"))?;
+    let decision = normalize_decision(
+        proposed.decision,
+        default_selection,
+        &field("decision"),
+        "Remember this memory?",
+    )?;
 
     Ok(NormalizedProposedMemory {
         change_id,
@@ -223,14 +257,224 @@ fn normalize_proposed_memory(
     })
 }
 
+fn normalize_wiki_page_request(
+    request: WikiProposePageRequest,
+    operation: WikiProposalOperation,
+    request_source: ProposalRequestSource,
+    now: SystemTime,
+) -> Result<NormalizedWikiProposal, ProposalServiceError> {
+    normalize_wiki_request_parts(
+        request.title,
+        request.context,
+        request.source_refs,
+        request.proposed_pages,
+        request.default_selection,
+        operation,
+        request_source,
+        now,
+        "proposed_pages",
+    )
+}
+
+fn normalize_wiki_update_request(
+    request: WikiProposeUpdateRequest,
+    request_source: ProposalRequestSource,
+    now: SystemTime,
+) -> Result<NormalizedWikiProposal, ProposalServiceError> {
+    normalize_wiki_request_parts(
+        request.title,
+        request.context,
+        request.source_refs,
+        request.proposed_updates,
+        request.default_selection,
+        WikiProposalOperation::Update,
+        request_source,
+        now,
+        "proposed_updates",
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn normalize_wiki_request_parts(
+    title: Option<String>,
+    context: Option<String>,
+    source_refs: Vec<crate::knowledge::models::SourceRefInput>,
+    proposed_pages: Vec<ProposedWikiPageInput>,
+    default_selection: ProposalDefaultSelection,
+    operation: WikiProposalOperation,
+    request_source: ProposalRequestSource,
+    now: SystemTime,
+    proposed_field: &str,
+) -> Result<NormalizedWikiProposal, ProposalServiceError> {
+    if proposed_pages.is_empty() {
+        return Err(ProposalServiceError::invalid(format!(
+            "{proposed_field} must contain at least one item"
+        )));
+    }
+    if proposed_pages.len() > MAX_PROPOSED_WIKI_PAGES {
+        return Err(ProposalServiceError::invalid(format!(
+            "{proposed_field} contains too many items"
+        )));
+    }
+
+    let captured_at = format_utc_timestamp(now);
+    let first_title = trim_required(
+        &proposed_pages[0].title,
+        &format!("{proposed_field}[0].title"),
+        MAX_TITLE_CHARS,
+    )?;
+    let default_title = match operation {
+        WikiProposalOperation::Create => format!("Wiki Proposal - {first_title}"),
+        WikiProposalOperation::Update => format!("Wiki Update Proposal - {first_title}"),
+    };
+    let title = match title {
+        Some(title) => trim_required(&title, "title", MAX_TITLE_CHARS)?,
+        None => default_title,
+    };
+    let path_slug = slugify_title(&title);
+    let context = optional_limited(context, "context", MAX_CONTEXT_CHARS)?;
+    let source_refs = source_refs
+        .into_iter()
+        .map(|source_ref| normalize_source_ref(source_ref, &captured_at))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let mut used_paths = BTreeSet::new();
+    let mut used_change_ids = BTreeSet::new();
+    let mut used_decision_ids = BTreeSet::new();
+    let mut normalized_pages = Vec::new();
+    for (index, proposed) in proposed_pages.into_iter().enumerate() {
+        normalized_pages.push(normalize_proposed_wiki_page(
+            proposed,
+            index,
+            proposed_field,
+            &captured_at,
+            operation,
+            default_selection.clone(),
+            &mut used_paths,
+            &mut used_change_ids,
+            &mut used_decision_ids,
+        )?);
+    }
+
+    let doc_id = make_collision_free_knowledge_id(KnowledgeIdPrefix::Document, &title, |_| false)?;
+    let proposal_id =
+        make_collision_free_knowledge_id(KnowledgeIdPrefix::Proposal, &title, |_| false)?;
+
+    Ok(NormalizedWikiProposal {
+        doc_id,
+        proposal_id,
+        title,
+        context,
+        request_source,
+        status: "pending".to_string(),
+        created_at: captured_at.clone(),
+        updated_at: captured_at,
+        source_refs,
+        operation,
+        proposed_pages: normalized_pages,
+        path_slug,
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn normalize_proposed_wiki_page(
+    proposed: ProposedWikiPageInput,
+    index: usize,
+    proposed_field: &str,
+    captured_at: &str,
+    operation: WikiProposalOperation,
+    default_selection: ProposalDefaultSelection,
+    used_paths: &mut BTreeSet<String>,
+    used_change_ids: &mut BTreeSet<String>,
+    used_decision_ids: &mut BTreeSet<String>,
+) -> Result<NormalizedProposedWikiPage, ProposalServiceError> {
+    let field = |name: &str| format!("{proposed_field}[{index}].{name}");
+    let path = validate_wiki_page_path(&proposed.path, &field("path"))?;
+    if !used_paths.insert(path.clone()) {
+        return Err(ProposalServiceError::invalid(format!(
+            "{} is duplicated",
+            field("path")
+        )));
+    }
+
+    let expected_checksum = match operation {
+        WikiProposalOperation::Create => {
+            if proposed.expected_checksum.is_some() {
+                return Err(ProposalServiceError::invalid(format!(
+                    "{} is not allowed for create_wiki_page",
+                    field("expected_checksum")
+                )));
+            }
+            None
+        }
+        WikiProposalOperation::Update => {
+            let Some(checksum) = proposed.expected_checksum else {
+                return Err(ProposalServiceError::invalid(format!(
+                    "{} is required for update_wiki_page",
+                    field("expected_checksum")
+                )));
+            };
+            validate_sha256_checksum(&checksum, &field("expected_checksum"))?;
+            Some(checksum)
+        }
+    };
+
+    let title = trim_required(&proposed.title, &field("title"), MAX_TITLE_CHARS)?;
+    let body = trim_required(&proposed.body, &field("body"), MAX_BODY_CHARS)?;
+    let tags = normalize_tags(proposed.tags, &field("tags"))?;
+    let source_refs = proposed
+        .source_refs
+        .into_iter()
+        .map(|source_ref| normalize_source_ref(source_ref, captured_at))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let change_seed = format!("{} {}", operation.as_str(), title);
+    let change_id =
+        make_collision_free_knowledge_id(KnowledgeIdPrefix::Change, &change_seed, |id| {
+            used_change_ids.contains(id)
+        })?;
+    used_change_ids.insert(change_id.clone());
+
+    let decision_id =
+        make_collision_free_knowledge_id(KnowledgeIdPrefix::Decision, &change_seed, |id| {
+            used_decision_ids.contains(id)
+        })?;
+    used_decision_ids.insert(decision_id.clone());
+
+    let default_question = match operation {
+        WikiProposalOperation::Create => "Create this wiki page?",
+        WikiProposalOperation::Update => "Update this wiki page?",
+    };
+    let decision = normalize_decision(
+        proposed.decision,
+        default_selection,
+        &field("decision"),
+        default_question,
+    )?;
+
+    Ok(NormalizedProposedWikiPage {
+        change_id,
+        path,
+        expected_checksum,
+        page_type: proposed.page_type,
+        title,
+        body,
+        tags,
+        source_refs,
+        decision_id,
+        decision,
+    })
+}
+
 fn normalize_decision(
     decision: Option<ProposedDecisionInput>,
     default_selection: ProposalDefaultSelection,
     field: &str,
+    default_question: &str,
 ) -> Result<NormalizedDecisionDraft, ProposalServiceError> {
     let question = match decision.as_ref().and_then(|value| value.question.as_ref()) {
         Some(question) => trim_required(question, &format!("{field}.question"), MAX_TITLE_CHARS)?,
-        None => "Remember this memory?".to_string(),
+        None => default_question.to_string(),
     };
     let selected_option_id = decision
         .as_ref()
@@ -480,6 +724,32 @@ async fn exact_or_case_insensitive_exists(path: &Path) -> Result<bool, ProposalS
     Ok(false)
 }
 
+async fn validate_wiki_proposal_paths_for_root(
+    root: &Path,
+    proposal: &NormalizedWikiProposal,
+) -> Result<(), ProposalServiceError> {
+    for proposed in &proposal.proposed_pages {
+        let destination = root.join(&proposed.path);
+        let exists = exact_or_case_insensitive_exists(&destination).await?;
+        match proposal.operation {
+            WikiProposalOperation::Create if exists => {
+                return Err(ProposalServiceError::already_exists(format!(
+                    "Wiki page already exists: {}",
+                    proposed.path
+                )));
+            }
+            WikiProposalOperation::Update if !exists => {
+                return Err(ProposalServiceError::invalid(format!(
+                    "Wiki page does not exist: {}",
+                    proposed.path
+                )));
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
 struct DocumentWriteLock {
     path: PathBuf,
 }
@@ -531,6 +801,51 @@ struct NormalizedProposal {
     source_refs: Vec<SourceRef>,
     proposed_memories: Vec<NormalizedProposedMemory>,
     path_slug: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum WikiProposalOperation {
+    Create,
+    Update,
+}
+
+impl WikiProposalOperation {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Create => "create_wiki_page",
+            Self::Update => "update_wiki_page",
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct NormalizedWikiProposal {
+    doc_id: String,
+    proposal_id: String,
+    title: String,
+    context: Option<String>,
+    request_source: ProposalRequestSource,
+    status: String,
+    created_at: String,
+    updated_at: String,
+    source_refs: Vec<SourceRef>,
+    operation: WikiProposalOperation,
+    proposed_pages: Vec<NormalizedProposedWikiPage>,
+    path_slug: String,
+}
+
+#[derive(Debug, Clone)]
+struct NormalizedProposedWikiPage {
+    change_id: String,
+    path: String,
+    expected_checksum: Option<String>,
+    page_type: WikiPageType,
+    title: String,
+    body: String,
+    tags: Vec<String>,
+    source_refs: Vec<SourceRef>,
+    decision_id: String,
+    decision: NormalizedDecisionDraft,
 }
 
 #[derive(Debug, Clone)]
@@ -590,6 +905,25 @@ struct MemoryProposalMemory<'a> {
     source_refs: &'a [SourceRef],
 }
 
+#[derive(Serialize)]
+struct WikiProposalBlock<'a> {
+    id: &'a str,
+    operation: &'a str,
+    page: WikiProposalPage<'a>,
+}
+
+#[derive(Serialize)]
+struct WikiProposalPage<'a> {
+    path: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    expected_checksum: Option<&'a str>,
+    page_type: &'a WikiPageType,
+    title: &'a str,
+    tags: &'a [String],
+    body: &'a str,
+    source_refs: &'a [SourceRef],
+}
+
 impl<'a> From<&'a NormalizedProposedMemory> for MemoryProposalBlock<'a> {
     fn from(value: &'a NormalizedProposedMemory) -> Self {
         Self {
@@ -598,6 +932,24 @@ impl<'a> From<&'a NormalizedProposedMemory> for MemoryProposalBlock<'a> {
             memory: MemoryProposalMemory {
                 id: &value.memory_id,
                 kind: value.kind.as_deref(),
+                title: &value.title,
+                tags: &value.tags,
+                body: &value.body,
+                source_refs: &value.source_refs,
+            },
+        }
+    }
+}
+
+impl<'a> WikiProposalBlock<'a> {
+    fn from_parts(operation: WikiProposalOperation, value: &'a NormalizedProposedWikiPage) -> Self {
+        Self {
+            id: &value.change_id,
+            operation: operation.as_str(),
+            page: WikiProposalPage {
+                path: &value.path,
+                expected_checksum: value.expected_checksum.as_deref(),
+                page_type: &value.page_type,
                 title: &value.title,
                 tags: &value.tags,
                 body: &value.body,
@@ -635,16 +987,41 @@ struct DecisionOptionBlock<'a> {
 
 impl<'a> DecisionBlock<'a> {
     fn from_parts(proposal: &'a NormalizedProposal, memory: &'a NormalizedProposedMemory) -> Self {
+        Self::from_change(
+            &proposal.proposal_id,
+            &memory.change_id,
+            &memory.decision_id,
+            &memory.decision,
+        )
+    }
+
+    fn from_wiki_parts(
+        proposal: &'a NormalizedWikiProposal,
+        page: &'a NormalizedProposedWikiPage,
+    ) -> Self {
+        Self::from_change(
+            &proposal.proposal_id,
+            &page.change_id,
+            &page.decision_id,
+            &page.decision,
+        )
+    }
+
+    fn from_change(
+        proposal_id: &'a str,
+        target_change_id: &'a str,
+        decision_id: &'a str,
+        decision: &'a NormalizedDecisionDraft,
+    ) -> Self {
         Self {
-            id: &memory.decision_id,
-            proposal_id: &proposal.proposal_id,
-            target_change_id: &memory.change_id,
-            question: &memory.decision.question,
+            id: decision_id,
+            proposal_id,
+            target_change_id,
+            question: &decision.question,
             selection_mode: "single",
             required: true,
             status: "pending",
-            selected_option_id: memory
-                .decision
+            selected_option_id: decision
                 .selected_option_id
                 .as_ref()
                 .map(DecisionOptionId::as_str),
@@ -665,7 +1042,7 @@ impl<'a> DecisionBlock<'a> {
                     requires_input: Some(true),
                 },
             ],
-            other_text: memory.decision.other_text.as_deref(),
+            other_text: decision.other_text.as_deref(),
             resolved_at: None,
         }
     }
@@ -699,6 +1076,17 @@ fn render_decision_document(
         proposal_id: proposal.proposal_id.clone(),
         title: proposal.title.clone(),
         markdown: render_decision_document_markdown(proposal)?,
+    })
+}
+
+fn render_wiki_decision_document(
+    proposal: &NormalizedWikiProposal,
+) -> Result<RenderedDecisionDocument, ProposalServiceError> {
+    Ok(RenderedDecisionDocument {
+        doc_id: proposal.doc_id.clone(),
+        proposal_id: proposal.proposal_id.clone(),
+        title: proposal.title.clone(),
+        markdown: render_wiki_decision_document_markdown(proposal)?,
     })
 }
 
@@ -751,6 +1139,55 @@ fn render_decision_document_markdown(
     Ok(ensure_one_final_newline(output))
 }
 
+fn render_wiki_decision_document_markdown(
+    proposal: &NormalizedWikiProposal,
+) -> Result<String, ProposalServiceError> {
+    let frontmatter = DecisionDocumentFrontmatter {
+        id: &proposal.doc_id,
+        proposal_id: &proposal.proposal_id,
+        target_kind: "wiki",
+        request_source: proposal.request_source.clone(),
+        status: &proposal.status,
+        created_at: &proposal.created_at,
+        updated_at: &proposal.updated_at,
+        source_refs: &proposal.source_refs,
+    };
+    let mut output = String::new();
+    output.push_str("---\n");
+    output.push_str(&canonical_yaml(&frontmatter)?);
+    output.push_str("---\n\n");
+    output.push_str("# Wiki Proposal\n\n");
+    output.push_str("## Context\n\n");
+    if let Some(context) = proposal.context.as_deref() {
+        output.push_str(context);
+        output.push_str("\n\n");
+    }
+    output.push_str("## Source References\n\n");
+    for source_ref in &proposal.source_refs {
+        output.push_str("- ");
+        output.push_str(&source_ref.path);
+        output.push('\n');
+    }
+    output.push('\n');
+    output.push_str("## Proposed Changes\n\n");
+    for proposed in &proposal.proposed_pages {
+        let block = WikiProposalBlock::from_parts(proposal.operation, proposed);
+        output.push_str("```kuku-wiki-proposal\n");
+        output.push_str(&canonical_yaml(&block)?);
+        output.push_str("```\n\n");
+    }
+    output.push_str("## Decisions\n\n");
+    for proposed in &proposal.proposed_pages {
+        let block = DecisionBlock::from_wiki_parts(proposal, proposed);
+        output.push_str("```kuku-decision\n");
+        output.push_str(&canonical_yaml(&block)?);
+        output.push_str("```\n\n");
+    }
+    output.push_str("## Notes\n\n");
+    output.push_str("## Final Approval\n");
+    Ok(ensure_one_final_newline(output))
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs;
@@ -762,9 +1199,13 @@ mod tests {
     use tauri::async_runtime;
 
     use super::*;
+    use crate::knowledge::decision_document::{
+        parse_decision_document, validate_decision_document_integrity,
+    };
     use crate::knowledge::models::{
         CreateDecisionDocumentRequest, DecisionOptionId, ProposalDefaultSelection,
-        ProposedDecisionInput, ProposedMemoryInput,
+        ProposedDecisionInput, ProposedMemoryInput, ProposedWikiPageInput, WikiPageType,
+        WikiProposePageRequest, WikiProposeUpdateRequest,
     };
 
     static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -798,6 +1239,125 @@ mod tests {
         assert!(markdown.contains("selected_option_id: yes"));
 
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn create_wiki_decision_document_writes_decision_doc_only() {
+        let root = temp_vault();
+        let request = request_with_one_wiki_page();
+
+        let result = async_runtime::block_on(create_wiki_decision_document_for_root(
+            &root,
+            request,
+            ProposalRequestSource::AiTool,
+        ))
+        .unwrap();
+
+        assert!(result.created);
+        assert!(result.should_open);
+        assert!(result.path.starts_with("Knowledge/decisions/"));
+        assert!(root.join(&result.path).is_file());
+        assert!(root.join("Knowledge/wiki/concepts").is_dir());
+        assert_eq!(
+            fs::read_dir(root.join("Knowledge/wiki/concepts"))
+                .unwrap()
+                .count(),
+            0
+        );
+
+        let markdown = fs::read_to_string(root.join(&result.path)).unwrap();
+        assert!(markdown.contains("target_kind: wiki"));
+        assert!(markdown.contains("request_source: ai_tool"));
+        assert!(markdown.contains("```kuku-wiki-proposal"));
+        assert!(markdown.contains("operation: create_wiki_page"));
+        assert!(markdown.contains("path: Knowledge/wiki/concepts/session-cookie-auth.md"));
+        assert!(markdown.contains("page_type: concept"));
+        assert!(markdown.contains("selected_option_id: yes"));
+
+        let parsed = parse_decision_document(&markdown).unwrap();
+        let integrity = validate_decision_document_integrity(&parsed, Some(&root)).unwrap();
+        assert_eq!(
+            integrity.yes_wiki_paths,
+            vec!["Knowledge/wiki/concepts/session-cookie-auth.md"]
+        );
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn wiki_update_decision_document_requires_checksum_and_existing_page() {
+        let now = UNIX_EPOCH + Duration::from_secs(1);
+        let mut missing_checksum = request_with_one_wiki_update();
+        missing_checksum.proposed_updates[0].expected_checksum = None;
+        assert!(
+            normalize_wiki_update_request(missing_checksum, ProposalRequestSource::AiTool, now)
+                .is_err()
+        );
+
+        let root = temp_vault();
+        let missing_page = request_with_one_wiki_update();
+        let error = async_runtime::block_on(create_wiki_update_decision_document_for_root(
+            &root,
+            missing_page,
+            ProposalRequestSource::AiTool,
+        ))
+        .unwrap_err();
+        assert_eq!(error.code, KnowledgeErrorCode::InvalidArgument);
+
+        fs::create_dir_all(root.join("Knowledge/wiki/concepts")).unwrap();
+        fs::write(
+            root.join("Knowledge/wiki/concepts/session-cookie-auth.md"),
+            "existing",
+        )
+        .unwrap();
+        let result = async_runtime::block_on(create_wiki_update_decision_document_for_root(
+            &root,
+            request_with_one_wiki_update(),
+            ProposalRequestSource::AiTool,
+        ))
+        .unwrap();
+        let markdown = fs::read_to_string(root.join(result.path)).unwrap();
+        assert!(markdown.contains("operation: update_wiki_page"));
+        assert!(markdown.contains("expected_checksum: sha256:"));
+        let parsed = parse_decision_document(&markdown).unwrap();
+        let integrity = validate_decision_document_integrity(&parsed, Some(&root)).unwrap();
+        assert_eq!(
+            integrity.yes_wiki_paths,
+            vec!["Knowledge/wiki/concepts/session-cookie-auth.md"]
+        );
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn wiki_proposal_validation_rejects_duplicate_paths_and_create_checksums() {
+        let now = UNIX_EPOCH + Duration::from_secs(1);
+
+        let mut duplicate = request_with_one_wiki_page();
+        duplicate
+            .proposed_pages
+            .push(duplicate.proposed_pages[0].clone());
+        assert!(
+            normalize_wiki_page_request(
+                duplicate,
+                WikiProposalOperation::Create,
+                ProposalRequestSource::AiTool,
+                now,
+            )
+            .is_err()
+        );
+
+        let mut create_checksum = request_with_one_wiki_page();
+        create_checksum.proposed_pages[0].expected_checksum = Some(valid_checksum());
+        assert!(
+            normalize_wiki_page_request(
+                create_checksum,
+                WikiProposalOperation::Create,
+                ProposalRequestSource::AiTool,
+                now,
+            )
+            .is_err()
+        );
     }
 
     #[test]
@@ -884,6 +1444,20 @@ mod tests {
         });
 
         assert!(serde_json::from_value::<CreateDecisionDocumentRequest>(value).is_err());
+
+        let value = json!({
+            "proposed_pages": [
+                {
+                    "path": "Knowledge/wiki/concepts/auth.md",
+                    "page_type": "concept",
+                    "title": "Auth",
+                    "body": "Body",
+                    "unexpected": true
+                }
+            ]
+        });
+
+        assert!(serde_json::from_value::<WikiProposePageRequest>(value).is_err());
     }
 
     #[test]
@@ -946,6 +1520,50 @@ mod tests {
             request_source: None,
             default_selection: ProposalDefaultSelection::Yes,
         }
+    }
+
+    fn request_with_one_wiki_page() -> WikiProposePageRequest {
+        WikiProposePageRequest {
+            title: Some("Auth Wiki".to_string()),
+            context: Some("Context".to_string()),
+            source_refs: vec![],
+            proposed_pages: vec![ProposedWikiPageInput {
+                path: "Knowledge/wiki/concepts/session-cookie-auth.md".to_string(),
+                expected_checksum: None,
+                title: "Session cookie auth".to_string(),
+                page_type: WikiPageType::Concept,
+                body: "Use session cookie auth before OAuth.".to_string(),
+                tags: vec![" auth ".to_string(), "".to_string()],
+                source_refs: vec![],
+                decision: None,
+            }],
+            request_source: None,
+            default_selection: ProposalDefaultSelection::Yes,
+        }
+    }
+
+    fn request_with_one_wiki_update() -> WikiProposeUpdateRequest {
+        WikiProposeUpdateRequest {
+            title: Some("Auth Wiki Update".to_string()),
+            context: Some("Context".to_string()),
+            source_refs: vec![],
+            proposed_updates: vec![ProposedWikiPageInput {
+                path: "Knowledge/wiki/concepts/session-cookie-auth.md".to_string(),
+                expected_checksum: Some(valid_checksum()),
+                title: "Session cookie auth".to_string(),
+                page_type: WikiPageType::Concept,
+                body: "Use session cookie auth before OAuth, with updated notes.".to_string(),
+                tags: vec!["auth".to_string()],
+                source_refs: vec![],
+                decision: None,
+            }],
+            request_source: None,
+            default_selection: ProposalDefaultSelection::Yes,
+        }
+    }
+
+    fn valid_checksum() -> String {
+        "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad".to_string()
     }
 
     fn temp_vault() -> PathBuf {

@@ -7,8 +7,12 @@ use crate::knowledge::models::{
     KnowledgeStatusResult, MemoryContextRequest, MemoryContextResult, MemoryProposeRequest,
     MemorySearchResult, ProposalRequestSource, ReadDecisionDocumentRequest,
     ReadDecisionDocumentResult, ReadMemoryRequest, ReadMemoryResult, SearchMemoryRequest,
+    WikiProposePageRequest, WikiProposeUpdateRequest,
 };
-use crate::knowledge::proposal::create_decision_document_for_root;
+use crate::knowledge::proposal::{
+    create_decision_document_for_root, create_wiki_decision_document_for_root,
+    create_wiki_update_decision_document_for_root,
+};
 use crate::knowledge::read::{read_decision_document_for_root, read_memory_for_root};
 use crate::knowledge::search::{memory_context_for_root, search_memory_for_root};
 use crate::knowledge::service::{knowledge_init_for_root, knowledge_status_for_root};
@@ -106,6 +110,91 @@ pub async fn memory_propose(
     };
 
     match create_decision_document_for_root(&root, request, ProposalRequestSource::AiTool).await {
+        Ok(result) => Ok(KnowledgeCommandResult::ok(result)),
+        Err(error) => Ok(KnowledgeCommandResult::err_with_details(
+            error.code,
+            error.message,
+            error.details,
+        )),
+    }
+}
+
+#[command]
+pub async fn knowledge_create_wiki_decision_document(
+    state: State<'_, VaultState>,
+    request: WikiProposePageRequest,
+) -> Result<KnowledgeCommandResult<CreateDecisionDocumentResult>, String> {
+    let root = match get_vault_root(&state) {
+        Ok(root) => root,
+        Err(error) => {
+            return Ok(KnowledgeCommandResult::err(
+                crate::knowledge::models::KnowledgeErrorCode::IoError,
+                error,
+            ));
+        }
+    };
+
+    match create_wiki_decision_document_for_root(&root, request, ProposalRequestSource::UiCommand)
+        .await
+    {
+        Ok(result) => Ok(KnowledgeCommandResult::ok(result)),
+        Err(error) => Ok(KnowledgeCommandResult::err_with_details(
+            error.code,
+            error.message,
+            error.details,
+        )),
+    }
+}
+
+#[command]
+pub async fn wiki_propose_page(
+    state: State<'_, VaultState>,
+    request: WikiProposePageRequest,
+) -> Result<KnowledgeCommandResult<CreateDecisionDocumentResult>, String> {
+    let root = match get_vault_root(&state) {
+        Ok(root) => root,
+        Err(error) => {
+            return Ok(KnowledgeCommandResult::err(
+                crate::knowledge::models::KnowledgeErrorCode::IoError,
+                error,
+            ));
+        }
+    };
+
+    match create_wiki_decision_document_for_root(&root, request, ProposalRequestSource::AiTool)
+        .await
+    {
+        Ok(result) => Ok(KnowledgeCommandResult::ok(result)),
+        Err(error) => Ok(KnowledgeCommandResult::err_with_details(
+            error.code,
+            error.message,
+            error.details,
+        )),
+    }
+}
+
+#[command]
+pub async fn wiki_propose_update(
+    state: State<'_, VaultState>,
+    request: WikiProposeUpdateRequest,
+) -> Result<KnowledgeCommandResult<CreateDecisionDocumentResult>, String> {
+    let root = match get_vault_root(&state) {
+        Ok(root) => root,
+        Err(error) => {
+            return Ok(KnowledgeCommandResult::err(
+                crate::knowledge::models::KnowledgeErrorCode::IoError,
+                error,
+            ));
+        }
+    };
+
+    match create_wiki_update_decision_document_for_root(
+        &root,
+        request,
+        ProposalRequestSource::AiTool,
+    )
+    .await
+    {
         Ok(result) => Ok(KnowledgeCommandResult::ok(result)),
         Err(error) => Ok(KnowledgeCommandResult::err_with_details(
             error.code,
