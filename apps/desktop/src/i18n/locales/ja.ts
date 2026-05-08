@@ -121,6 +121,7 @@ export const JA_MESSAGES = {
     "自動マージで両方の編集を 1 つのファイルに保持できない場合に作成された未解決の競合です。",
   "settings.plugin.sync.conflicts.empty": "未解決の同期競合はありません。",
   "settings.plugin.sync.conflicts.copy_prefix": "コピー:",
+  "settings.plugin.sync.conflicts.open_copy": "開く",
   "settings.plugin.sync.error.auth_required": "同期する前に再度ログインしてください。",
   "settings.plugin.sync.error.not_configured": "同期する前にこのボルトを設定してください。",
   "settings.plugin.sync.error.offline": "サーバーに接続できません。安全に再試行できます。",

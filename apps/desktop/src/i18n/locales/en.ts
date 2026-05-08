@@ -120,6 +120,7 @@ export const EN_MESSAGES = {
     "Open conflicts created when automatic merge cannot preserve both edits in one file.",
   "settings.plugin.sync.conflicts.empty": "No open sync conflicts.",
   "settings.plugin.sync.conflicts.copy_prefix": "Copy:",
+  "settings.plugin.sync.conflicts.open_copy": "Open",
   "settings.plugin.sync.error.auth_required": "Sign in again before syncing.",
   "settings.plugin.sync.error.not_configured": "Configure this vault before syncing.",
   "settings.plugin.sync.error.offline":

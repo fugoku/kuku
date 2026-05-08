@@ -4,14 +4,24 @@ import {
   SettingsBanner,
   SettingsListRow,
   SettingsStatusBadge,
+  SettingsToolbarAction,
 } from "~/components/settings/settings_blocks";
 import { t } from "~/i18n";
+import { openTab } from "~/stores/files";
 
 import { syncConflicts } from "./status_store";
 
 function formatTimestamp(ms: number): string {
   if (!ms) return "";
   return new Date(ms).toLocaleString();
+}
+
+function baseName(path: string): string {
+  return path.split("/").at(-1) ?? path;
+}
+
+function openConflictCopy(path: string): void {
+  openTab(baseName(path), path, "editor");
 }
 
 function ConflictList(): JSX.Element {
@@ -34,9 +44,14 @@ function ConflictList(): JSX.Element {
               }
               meta={<SettingsStatusBadge tone="info">{conflict.status}</SettingsStatusBadge>}
               action={
-                <span class="text-[0.6875rem] whitespace-nowrap text-text-muted">
-                  {formatTimestamp(conflict.createdAtMs)}
-                </span>
+                <div class="flex flex-col items-end gap-1">
+                  <SettingsToolbarAction onClick={() => openConflictCopy(conflict.conflictPath)}>
+                    {t("settings.plugin.sync.conflicts.open_copy")}
+                  </SettingsToolbarAction>
+                  <span class="text-[0.6875rem] whitespace-nowrap text-text-muted">
+                    {formatTimestamp(conflict.createdAtMs)}
+                  </span>
+                </div>
               }
             />
           )}
