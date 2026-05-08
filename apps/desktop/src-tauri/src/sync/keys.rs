@@ -362,6 +362,16 @@ pub fn read_device_signing_key(vault_id: &str) -> SyncResult<Option<SigningKey>>
     Ok(Some(SigningKey::from_bytes(&key)))
 }
 
+pub fn forget_device_signing_key(vault_id: &str) -> SyncResult<()> {
+    match secure_storage::delete(
+        &sync_keychain_service(),
+        &device_signing_key_account(vault_id),
+    ) {
+        Ok(()) | Err(secure_storage::SecureStorageError::NotFound) => Ok(()),
+        Err(error) => Err(secure_storage_error(error)),
+    }
+}
+
 pub fn unlock_workspace_key(
     remembered_key: Option<SymmetricKey>,
     passphrase_envelope: &PassphraseKeyEnvelope,

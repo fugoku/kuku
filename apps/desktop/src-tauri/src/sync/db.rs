@@ -214,6 +214,18 @@ pub fn get_vault(conn: &Connection, vault_id: &str) -> SyncResult<Option<SyncVau
     .map_err(|error| SyncError::Storage(format!("failed to read sync vault: {error}")))
 }
 
+pub fn delete_vault(conn: &Connection, vault_id: &str) -> SyncResult<()> {
+    conn.execute(
+        r#"
+        DELETE FROM sync_vaults
+        WHERE vault_id = ?1
+        "#,
+        params![vault_id],
+    )
+    .map_err(|error| SyncError::Storage(format!("failed to delete sync vault: {error}")))?;
+    Ok(())
+}
+
 pub fn apply_scan(
     conn: &mut Connection,
     files: &[SyncFileInput],
@@ -978,6 +990,28 @@ mod tests {
         assert!(!stored.enabled);
         assert_eq!(stored.created_at_ms, 1);
         assert_eq!(stored.updated_at_ms, 2);
+    }
+
+    #[test]
+    fn delete_vault_removes_configured_vault_row() {
+        let conn = open_memory_sync_db().unwrap();
+        let vault = SyncVaultRecord {
+            vault_id: "vault_1".into(),
+            root_path: "/tmp/vault".into(),
+            remote_workspace_id: "workspace_1".into(),
+            remote_head_commit_id: None,
+            local_head_commit_id: None,
+            device_id: "device_1".into(),
+            next_device_seq: 1,
+            enabled: true,
+            created_at_ms: 1,
+            updated_at_ms: 1,
+        };
+
+        upsert_vault(&conn, &vault).unwrap();
+        delete_vault(&conn, "vault_1").unwrap();
+
+        assert!(get_vault(&conn, "vault_1").unwrap().is_none());
     }
 
     #[test]

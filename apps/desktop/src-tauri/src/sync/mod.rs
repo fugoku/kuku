@@ -224,6 +224,23 @@ impl SyncState {
         Ok(Some(inner.status.clone()))
     }
 
+    pub fn update_workspace_name(
+        &self,
+        workspace_id: &str,
+        workspace_name: String,
+    ) -> SyncResult<Option<SyncRuntimeStatus>> {
+        let mut inner = self.inner.lock();
+        if !inner.status.configured {
+            return Ok(None);
+        }
+        if inner.status.remote_workspace_id.as_deref() != Some(workspace_id) {
+            return Ok(None);
+        }
+        inner.status.workspace_name = Some(workspace_name);
+        inner.status.updated_at_ms = now_ms();
+        Ok(Some(inner.status.clone()))
+    }
+
     pub fn set_phase(&self, phase: SyncPhase) -> SyncResult<SyncRuntimeStatus> {
         let mut inner = self.inner.lock();
         if !inner.status.configured {
@@ -483,6 +500,26 @@ mod tests {
         assert_eq!(enabled.phase, SyncPhase::Idle);
         assert_eq!(enabled.pending_uploads, 0);
         assert_eq!(enabled.transfer, SyncTransferStatus::default());
+    }
+
+    #[test]
+    fn update_workspace_name_updates_current_workspace_only() {
+        let state = SyncState::new();
+        state.configure_vault(config()).unwrap();
+
+        let ignored = state
+            .update_workspace_name("workspace_other", "Other".into())
+            .unwrap();
+        assert!(ignored.is_none());
+        assert_eq!(state.status().workspace_name, None);
+
+        let updated = state
+            .update_workspace_name("workspace_1", "Renamed".into())
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(updated.workspace_name.as_deref(), Some("Renamed"));
+        assert_eq!(state.status().workspace_name.as_deref(), Some("Renamed"));
     }
 
     #[test]

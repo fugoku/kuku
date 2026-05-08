@@ -6,9 +6,11 @@ import type {
   SyncCommandError,
   SyncConflictSummary,
   SyncErrorCategory,
+  SyncRenameWorkspaceInput,
   SyncRemoteStatus,
   SyncRuntimeStatus,
   SyncVaultConfig,
+  SyncWorkspaceSummary,
 } from "./types";
 
 const CORE_SYNC_PLUGIN_ID = "core-sync";
@@ -24,6 +26,9 @@ interface SyncService {
   getSavedPassphrase(vaultId: string): Promise<string | null>;
   generateRecoveryPhrase(): Promise<string>;
   getSavedRecoveryPhrase(accountKeyId: string): Promise<string | null>;
+  listWorkspaces(passphrase?: string): Promise<SyncWorkspaceSummary[]>;
+  renameWorkspace(input: SyncRenameWorkspaceInput): Promise<SyncWorkspaceSummary>;
+  deleteWorkspace(workspaceId: string): Promise<SyncRuntimeStatus>;
   saveRecoveryPhraseFile(phrase: string): Promise<boolean>;
   configureVault(config: SyncVaultConfig): Promise<SyncRuntimeStatus>;
   setEnabled(enabled: boolean): Promise<SyncRuntimeStatus>;
@@ -61,6 +66,15 @@ function createSyncService(authService?: AuthService | null): SyncService {
     },
     async getSavedRecoveryPhrase(accountKeyId) {
       return invoke<string | null>("sync_get_saved_recovery_phrase", { accountKeyId });
+    },
+    async listWorkspaces(passphrase) {
+      return invoke<SyncWorkspaceSummary[]>("sync_list_workspaces", { passphrase });
+    },
+    async renameWorkspace(input) {
+      return invoke<SyncWorkspaceSummary>("sync_rename_workspace", { request: input });
+    },
+    async deleteWorkspace(workspaceId) {
+      return invoke<SyncRuntimeStatus>("sync_delete_workspace", { workspaceId });
     },
     async saveRecoveryPhraseFile(phrase) {
       return invoke<boolean>("sync_save_recovery_phrase_file", { phrase });

@@ -89,6 +89,22 @@ interface SyncRemoteStatus {
   checkedAtMs: number;
 }
 
+interface SyncWorkspaceSummary {
+  workspaceId: string;
+  name: string;
+  current: boolean;
+  headVersion: number;
+  metadataVersion: number;
+  workspaceKeyVersion: number;
+}
+
+interface SyncRenameWorkspaceInput {
+  workspaceId: string;
+  name: string;
+  expectedMetadataVersion: number;
+  passphrase?: string;
+}
+
 interface SyncStatusEvent {
   status: SyncRuntimeStatus;
 }
@@ -112,9 +128,11 @@ export type {
   SyncConflictSummary,
   SyncPhase,
   SyncRemoteStatus,
+  SyncRenameWorkspaceInput,
   SyncRuntimeStatus,
   SyncStatusEvent,
   SyncTransferDirection,
   SyncTransferStatus,
   SyncVaultConfig,
+  SyncWorkspaceSummary,
 };
