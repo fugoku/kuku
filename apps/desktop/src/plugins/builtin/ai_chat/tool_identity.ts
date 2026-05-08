@@ -112,6 +112,21 @@ const TOOL_DISPLAY_BY_KIND: Record<
     description:
       "Tells the app to open a file in the editor so you can see what the assistant is talking about.",
   },
+  wiki_search: {
+    label: "Search Wiki",
+    activeLabel: "Searching wiki",
+    description: "Searches committed Knowledge wiki pages without changing them.",
+  },
+  wiki_read: {
+    label: "Read Wiki",
+    activeLabel: "Reading wiki",
+    description: "Reads a committed Knowledge wiki page so the assistant can cite its content.",
+  },
+  knowledge_context: {
+    label: "Knowledge Context",
+    activeLabel: "Reading context",
+    description: "Combines committed memory and wiki hits for the current question.",
+  },
   wiki_propose_page: {
     label: "Propose Wiki Page",
     activeLabel: "Drafting proposal",
@@ -208,6 +223,21 @@ const KO_TOOL_DISPLAY_BY_KIND: Partial<
     label: "파일 열기",
     activeLabel: "열는 중",
     description: "에디터에서 파일을 바로 열어 현재 맥락을 확인해요.",
+  },
+  wiki_search: {
+    label: "위키 검색",
+    activeLabel: "위키 검색 중",
+    description: "적용 완료된 Knowledge 위키 페이지를 변경 없이 검색해요.",
+  },
+  wiki_read: {
+    label: "위키 읽기",
+    activeLabel: "위키 읽는 중",
+    description: "적용 완료된 Knowledge 위키 페이지를 읽어 근거로 사용할 수 있게 해요.",
+  },
+  knowledge_context: {
+    label: "지식 문맥",
+    activeLabel: "문맥 확인 중",
+    description: "질문에 맞는 memory와 wiki 문맥을 함께 가져와요.",
   },
   wiki_propose_page: {
     label: "위키 페이지 제안",

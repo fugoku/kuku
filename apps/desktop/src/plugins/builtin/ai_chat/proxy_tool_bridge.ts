@@ -6,7 +6,14 @@ import type {
   ProxyToolCallPayload,
 } from "~/plugins/builtin/core_tool_registry/types";
 
-async function createProxyToolBridge(registry: AiProxyToolRegistry): Promise<() => void> {
+interface ProxyToolBridgeOptions {
+  onToolsChanged?: () => void | Promise<void>;
+}
+
+async function createProxyToolBridge(
+  registry: AiProxyToolRegistry,
+  options: ProxyToolBridgeOptions = {},
+): Promise<() => void> {
   const syncedNames = new Set<string>();
   let disposed = false;
   let syncPromise = Promise.resolve();
@@ -52,6 +59,8 @@ async function createProxyToolBridge(registry: AiProxyToolRegistry): Promise<() 
     for (const name of successfulNames) {
       syncedNames.add(name);
     }
+
+    await options.onToolsChanged?.();
   }
 
   function queueSync(): void {

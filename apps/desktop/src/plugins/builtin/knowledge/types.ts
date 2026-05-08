@@ -26,6 +26,8 @@ type WikiPageType = "source" | "concept" | "entity" | "synthesis";
 
 type WikiPageStatus = "active" | "archived" | "superseded";
 
+type KnowledgeContextInclude = "memory" | "wiki";
+
 interface SourceRange {
   start_line: number;
   end_line: number;
@@ -265,6 +267,13 @@ interface WikiContextRequest {
   limit?: number;
 }
 
+interface KnowledgeContextRequest {
+  query: string;
+  active_path?: string;
+  limit?: number;
+  include?: KnowledgeContextInclude[];
+}
+
 interface MemoryContextResult {
   query: string;
   memories: MemorySearchHit[];
@@ -279,6 +288,15 @@ interface WikiContextResult {
   skipped_paths: string[];
 }
 
+interface KnowledgeContextResult {
+  query: string;
+  active_path?: string;
+  memory_hits: MemorySearchHit[];
+  wiki_hits: WikiSearchHit[];
+  warnings: string[];
+  skipped_paths: string[];
+}
+
 export type {
   ApplyDecisionDocumentRequest,
   ApplyDecisionDocumentResult,
@@ -287,6 +305,9 @@ export type {
   CreateDecisionDocumentResult,
   DecisionOptionId,
   KnowledgeCommandResult,
+  KnowledgeContextInclude,
+  KnowledgeContextRequest,
+  KnowledgeContextResult,
   KnowledgeError,
   KnowledgeErrorCode,
   KnowledgeInitResult,

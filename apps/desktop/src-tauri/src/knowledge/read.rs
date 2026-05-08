@@ -2,12 +2,12 @@ use std::path::Path;
 
 use crate::knowledge::decision_document::parse_decision_document;
 use crate::knowledge::markdown::{
-    is_valid_knowledge_id, parse_memory_item, sha256_checksum_bytes,
-    validate_safe_vault_relative_path,
+    is_valid_knowledge_id, parse_memory_item, parse_wiki_page, sha256_checksum_bytes,
+    validate_safe_vault_relative_path, validate_wiki_page_path,
 };
 use crate::knowledge::models::{
     KnowledgeErrorCode, ReadDecisionDocumentRequest, ReadDecisionDocumentResult, ReadMemoryItem,
-    ReadMemoryRequest, ReadMemoryResult,
+    ReadMemoryRequest, ReadMemoryResult, ReadWikiPageItem, ReadWikiPageRequest, ReadWikiPageResult,
 };
 
 #[derive(Debug, Clone)]
@@ -86,6 +86,31 @@ pub async fn read_memory_for_root(
     })
 }
 
+pub async fn read_wiki_page_for_root(
+    root: &Path,
+    request: ReadWikiPageRequest,
+) -> Result<ReadWikiPageResult, ReadServiceError> {
+    let path = validate_wiki_read_path(&request.path)?;
+    let absolute_path = root.join(&path);
+    let markdown = tokio::fs::read_to_string(&absolute_path)
+        .await
+        .map_err(|error| match error.kind() {
+            std::io::ErrorKind::NotFound => ReadServiceError::validation("Wiki page not found"),
+            _ => ReadServiceError::io(error.to_string()),
+        })?;
+    let checksum = sha256_checksum_bytes(markdown.as_bytes());
+    let page = parse_wiki_page(&markdown).map_err(|error| {
+        ReadServiceError::validation(format!("{}: {}", error.field, error.message))
+    })?;
+
+    Ok(ReadWikiPageResult {
+        page: ReadWikiPageItem::from(page),
+        path,
+        markdown,
+        checksum,
+    })
+}
+
 fn validate_decision_document_path(path: &str) -> Result<String, ReadServiceError> {
     let path = validate_safe_vault_relative_path(path, "path").map_err(|error| {
         ReadServiceError::validation(format!("{}: {}", error.field, error.message))
@@ -96,6 +121,12 @@ fn validate_decision_document_path(path: &str) -> Result<String, ReadServiceErro
         ));
     }
     Ok(path)
+}
+
+fn validate_wiki_read_path(path: &str) -> Result<String, ReadServiceError> {
+    validate_wiki_page_path(path, "path").map_err(|error| {
+        ReadServiceError::validation(format!("{}: {}", error.field, error.message))
+    })
 }
 
 fn validate_memory_id(id: &str) -> Result<(), ReadServiceError> {
@@ -119,8 +150,10 @@ mod tests {
     use tauri::async_runtime;
 
     use super::*;
-    use crate::knowledge::markdown::serialize_memory_item;
-    use crate::knowledge::models::{MemoryItem, MemoryStatus, SourceRef};
+    use crate::knowledge::markdown::{serialize_memory_item, serialize_wiki_page};
+    use crate::knowledge::models::{
+        MemoryItem, MemoryStatus, SourceRef, WikiPage, WikiPageStatus, WikiPageType,
+    };
 
     static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -219,6 +252,55 @@ mod tests {
         let _ = fs::remove_dir_all(root);
     }
 
+    #[test]
+    fn reads_wiki_page_by_path_with_sha256_checksum() {
+        let root = temp_vault();
+        fs::create_dir_all(root.join("Knowledge/wiki/concepts")).unwrap();
+        let page = wiki_page();
+        let markdown = serialize_wiki_page(&page).unwrap();
+        fs::write(
+            root.join("Knowledge/wiki/concepts/session-cookie-auth.md"),
+            &markdown,
+        )
+        .unwrap();
+
+        let result = async_runtime::block_on(read_wiki_page_for_root(
+            &root,
+            ReadWikiPageRequest {
+                path: "Knowledge/wiki/concepts/session-cookie-auth.md".to_string(),
+            },
+        ))
+        .unwrap();
+
+        assert_eq!(
+            result.path,
+            "Knowledge/wiki/concepts/session-cookie-auth.md"
+        );
+        assert_eq!(result.page.id, "wiki_session_cookie_auth");
+        assert_eq!(result.page.page_type, WikiPageType::Concept);
+        assert_eq!(result.page.body, "Use session cookies first.\n");
+        assert_eq!(result.markdown, markdown);
+        assert!(result.checksum.starts_with("sha256:"));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn read_wiki_page_rejects_paths_outside_wiki() {
+        let root = temp_vault();
+        let error = async_runtime::block_on(read_wiki_page_for_root(
+            &root,
+            ReadWikiPageRequest {
+                path: "Knowledge/decisions/auth.md".to_string(),
+            },
+        ))
+        .unwrap_err();
+
+        assert_eq!(error.code, KnowledgeErrorCode::ValidationFailed);
+
+        let _ = fs::remove_dir_all(root);
+    }
+
     fn decision_document() -> String {
         r#"---
 id: doc_auth
@@ -285,6 +367,29 @@ options:
             proposal_id: "prop_auth".to_string(),
             decision_document: "Knowledge/decisions/auth.md".to_string(),
             body: "Use session cookies first.".to_string(),
+        }
+    }
+
+    fn wiki_page() -> WikiPage {
+        WikiPage {
+            id: "wiki_session_cookie_auth".to_string(),
+            page_type: WikiPageType::Concept,
+            title: "Session cookie auth".to_string(),
+            status: WikiPageStatus::Active,
+            tags: vec!["auth".to_string()],
+            source_refs: vec![SourceRef {
+                path: "Notes/Auth.md".to_string(),
+                title: Some("Auth notes".to_string()),
+                section_path: None,
+                range: None,
+                checksum: None,
+                captured_at: "2026-05-07T00:00:00Z".to_string(),
+            }],
+            created_at: "2026-05-07T00:00:00Z".to_string(),
+            updated_at: "2026-05-07T00:00:01Z".to_string(),
+            proposal_id: "prop_auth".to_string(),
+            decision_document: "Knowledge/decisions/auth.md".to_string(),
+            body: "Use session cookies first.\n".to_string(),
         }
     }
 
