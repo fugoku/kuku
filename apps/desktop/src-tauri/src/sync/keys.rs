@@ -202,6 +202,10 @@ pub fn workspace_key_account(vault_id: &str) -> String {
     format!("vault:{vault_id}:workspace-key:v1")
 }
 
+pub fn passphrase_account(vault_id: &str) -> String {
+    format!("vault:{vault_id}:passphrase:v1")
+}
+
 pub fn device_signing_key_account(vault_id: &str) -> String {
     format!("vault:{vault_id}:device-signing-key:v1")
 }
@@ -234,6 +238,34 @@ pub fn read_remembered_workspace_key(vault_id: &str) -> SyncResult<Option<Symmet
 
 pub fn forget_workspace_key(vault_id: &str) -> SyncResult<()> {
     match secure_storage::delete(&sync_keychain_service(), &workspace_key_account(vault_id)) {
+        Ok(()) | Err(secure_storage::SecureStorageError::NotFound) => Ok(()),
+        Err(error) => Err(secure_storage_error(error)),
+    }
+}
+
+pub fn remember_passphrase(vault_id: &str, passphrase: &str) -> SyncResult<()> {
+    secure_storage::write_bytes(
+        &sync_keychain_service(),
+        &passphrase_account(vault_id),
+        passphrase.as_bytes(),
+    )
+    .map_err(secure_storage_error)
+}
+
+pub fn read_remembered_passphrase(vault_id: &str) -> SyncResult<Option<String>> {
+    let Some(bytes) =
+        secure_storage::read_bytes(&sync_keychain_service(), &passphrase_account(vault_id))
+            .map_err(secure_storage_error)?
+    else {
+        return Ok(None);
+    };
+    String::from_utf8(bytes)
+        .map(Some)
+        .map_err(|_| SyncError::Crypto("remembered passphrase is not valid UTF-8".into()))
+}
+
+pub fn forget_passphrase(vault_id: &str) -> SyncResult<()> {
+    match secure_storage::delete(&sync_keychain_service(), &passphrase_account(vault_id)) {
         Ok(()) | Err(secure_storage::SecureStorageError::NotFound) => Ok(()),
         Err(error) => Err(secure_storage_error(error)),
     }
@@ -362,6 +394,7 @@ mod tests {
             workspace_key_account("vault-1"),
             "vault:vault-1:workspace-key:v1"
         );
+        assert_eq!(passphrase_account("vault-1"), "vault:vault-1:passphrase:v1");
         assert_eq!(
             device_signing_key_account("vault-1"),
             "vault:vault-1:device-signing-key:v1"

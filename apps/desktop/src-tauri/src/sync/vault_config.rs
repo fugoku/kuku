@@ -28,6 +28,7 @@ pub struct SyncVaultConfigFile {
 #[serde(rename_all = "camelCase")]
 pub struct SyncVaultSecureRefs {
     pub workspace_key_account: String,
+    pub passphrase_account: String,
     pub device_signing_key_account: String,
 }
 
@@ -119,6 +120,7 @@ fn config_file_from_runtime(
         remember_workspace_key: config.remember_workspace_key,
         secure: SyncVaultSecureRefs {
             workspace_key_account: keys::workspace_key_account(config.vault_id.trim()),
+            passphrase_account: keys::passphrase_account(config.vault_id.trim()),
             device_signing_key_account: keys::device_signing_key_account(config.vault_id.trim()),
         },
         updated_at_ms,

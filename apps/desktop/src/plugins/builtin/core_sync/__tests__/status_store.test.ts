@@ -200,6 +200,9 @@ describe("sync status store", () => {
           checkedAtMs: 1,
         };
       },
+      async getSavedPassphrase() {
+        return null;
+      },
       async configureVault() {
         return idleStatus;
       },

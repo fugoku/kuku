@@ -10,6 +10,7 @@ import {
   SettingsStatusBadge,
   SettingsToolbarAction,
 } from "~/components/settings/settings_blocks";
+import { EyeIcon, EyeOffIcon } from "~/components/icons";
 import Switch from "~/components/ui/switch";
 import { useSettingsRefreshToken } from "~/components/settings/settings_refresh";
 import { t } from "~/i18n";
@@ -98,6 +99,7 @@ function SyncSettings(): JSX.Element {
   const [remoteWorkspaceId, setRemoteWorkspaceId] = createSignal("");
   const [deviceId, setDeviceId] = createSignal("");
   const [passphrase, setPassphrase] = createSignal("");
+  const [showPassphrase, setShowPassphrase] = createSignal(false);
   const [rememberWorkspaceKey, setRememberWorkspaceKey] = createSignal(true);
   const [busy, setBusy] = createSignal(false);
   const [localError, setLocalError] = createSignal<string | null>(null);
@@ -119,6 +121,14 @@ function SyncSettings(): JSX.Element {
     }
     if (syncStatus.deviceId && !deviceId()) {
       setDeviceId(syncStatus.deviceId);
+    }
+    const vaultId =
+      syncStatus.vaultId ?? (vaultState.rootPath ? defaultVaultId(vaultState.rootPath) : null);
+    if (vaultId && !passphrase()) {
+      const savedPassphrase = await service.getSavedPassphrase(vaultId).catch(() => null);
+      if (savedPassphrase) {
+        setPassphrase(savedPassphrase);
+      }
     }
     setRememberWorkspaceKey(syncStatus.rememberWorkspaceKey);
   }
@@ -330,12 +340,32 @@ function SyncSettings(): JSX.Element {
             label={t("settings.plugin.sync.passphrase.label")}
             description={t("settings.plugin.sync.passphrase.description")}
             control={
-              <SettingsInput
-                type="password"
-                value={passphrase()}
-                onInput={(event) => setPassphrase(event.currentTarget.value)}
-                placeholder={t("settings.plugin.sync.passphrase.placeholder")}
-              />
+              <div class="relative w-full">
+                <SettingsInput
+                  type={showPassphrase() ? "text" : "password"}
+                  value={passphrase()}
+                  onInput={(event) => setPassphrase(event.currentTarget.value)}
+                  placeholder={t("settings.plugin.sync.passphrase.placeholder")}
+                  class="pr-9"
+                  autocomplete="off"
+                  spellcheck={false}
+                />
+                <button
+                  type="button"
+                  class="absolute inset-y-0 right-0 flex items-center px-2.5 text-text-muted transition-colors hover:text-text-primary"
+                  onClick={() => setShowPassphrase((prev) => !prev)}
+                  tabIndex={-1}
+                  title={
+                    showPassphrase()
+                      ? t("settings.plugin.sync.passphrase.hide")
+                      : t("settings.plugin.sync.passphrase.show")
+                  }
+                >
+                  <Show when={showPassphrase()} fallback={<EyeIcon size={14} />}>
+                    <EyeOffIcon size={14} />
+                  </Show>
+                </button>
+              </div>
             }
             stacked
           />

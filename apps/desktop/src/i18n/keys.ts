@@ -121,6 +121,8 @@ export const MESSAGE_KEYS = [
   "settings.plugin.sync.passphrase.label",
   "settings.plugin.sync.passphrase.description",
   "settings.plugin.sync.passphrase.placeholder",
+  "settings.plugin.sync.passphrase.hide",
+  "settings.plugin.sync.passphrase.show",
   "settings.plugin.sync.remember.label",
   "settings.plugin.sync.remember.description",
   "settings.plugin.sync.enable.enabled_description",
