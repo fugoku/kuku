@@ -241,6 +241,31 @@ func TestServiceIntegrationLocalMetadataRoundTrip(t *testing.T) {
 	if downloadedObject.ObjectID != uploaded.ObjectID || string(downloaded) != string(payload) {
 		t.Fatalf("download mismatch: object=%+v payload=%q", downloadedObject, downloaded)
 	}
+
+	usage, err := queries.EnsureSyncUsageAccount(ctx, user.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if usage.WorkspaceCount != 1 || usage.TotalStorageBytes != int64(len(payload)) {
+		t.Fatalf("usage before delete = %+v, want one workspace and uploaded bytes", usage)
+	}
+	if err := service.DeleteWorkspace(ctx, user.ID, workspace.ID); err != nil {
+		t.Fatal(err)
+	}
+	usage, err = queries.EnsureSyncUsageAccount(ctx, user.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if usage.WorkspaceCount != 0 || usage.TotalStorageBytes != 0 || usage.PendingUploadBytes != 0 {
+		t.Fatalf("usage after delete = %+v, want released account quota", usage)
+	}
+	workspaces, err = service.ListWorkspaces(ctx, user.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(workspaces) != 0 {
+		t.Fatalf("workspaces after delete = %+v, want empty", workspaces)
+	}
 }
 
 func TestServiceIntegrationPublishCommitCorrectness(t *testing.T) {
