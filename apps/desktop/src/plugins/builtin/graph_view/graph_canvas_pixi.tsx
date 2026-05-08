@@ -36,10 +36,12 @@ import {
   clusterBgColor,
   clusterColor,
   clusterTextColor,
+  filterGraphState,
   getGraphSummary,
   type GraphCanvasHandle,
   type GraphLink,
   type GraphNode,
+  type GraphNodeFilter,
   type GraphVariant,
 } from "./graph_types";
 
@@ -54,6 +56,11 @@ interface GraphCanvasProps {
   onHandle?: (handle: GraphCanvasHandle) => void;
   initialFollowMode?: boolean;
   initialShowClusters?: boolean;
+  nodeFilter?: GraphNodeFilter;
+  emptyTitle?: string;
+  emptyHint?: string;
+  hideFollowControl?: boolean;
+  hideZoomLabel?: boolean;
   class?: string;
 }
 
@@ -262,13 +269,25 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
   const showClusters = () =>
     isCompact() ? compactShowClusters() : getGraphSettings().showClusters;
   const focusedFilePath = () => hoveredNode()?.filePath ?? selectedNode() ?? currentFilePath();
+  const showFollowControl = () => !props.hideFollowControl;
+  const showZoomLabel = () => !props.hideZoomLabel;
 
-  const summary = createMemo(() => getGraphSummary(store()?.state ?? null));
+  const graphState = createMemo(() => {
+    const state = store()?.state;
+    return state ? filterGraphState(state, props.nodeFilter) : null;
+  });
+  const summary = createMemo(() => getGraphSummary(graphState()));
+  const layoutRevision = createMemo(() => {
+    const state = graphState();
+    return state
+      ? [state.lastIndexedAt, state.nodes.length, state.links.length, state.clusters.length]
+      : [null, 0, 0, 0];
+  });
   const status = createMemo((): "loading" | "error" | "empty" | "ready" => {
     const s = store()?.state;
     if (!s || s.isIndexing) return "loading";
     if (s.error) return "error";
-    if (s.nodes.length === 0) return "empty";
+    if ((graphState()?.nodes.length ?? 0) === 0) return "empty";
     return "ready";
   });
 
@@ -285,7 +304,7 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
 
   const connectedToFocus = createMemo(() => {
     const fp = focusedFilePath();
-    const s = store()?.state;
+    const s = graphState();
     if (!fp || !s) return new Set<string>();
     return new Set(s.adjacencyMap[fp]);
   });
@@ -775,7 +794,7 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
     if (isCompact() || view.scale >= 1.5 || !labelLayer || points.length === 0) return;
     const cx = points.reduce((sum, point) => sum + point.x, 0) / points.length;
     const minY = Math.min(...points.map((point) => point.y));
-    const clusterName = store()?.state.clusters[clusterIndex] || t("graph.cluster.root") || "Root";
+    const clusterName = graphState()?.clusters[clusterIndex] || t("graph.cluster.root") || "Root";
     addTextPill({
       text: shortLabel(clusterName.split("/").pop() ?? clusterName, 14),
       x: cx,
@@ -1234,10 +1253,12 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
     const maxY = Math.max(...ys);
     const graphWidth = Math.max(1, maxX - minX);
     const graphHeight = Math.max(1, maxY - minY);
-    const padding = isCompact() ? 44 : 96;
+    const padding = isCompact() ? Math.min(120, Math.max(72, Math.min(width, height) * 0.14)) : 96;
+    const usableWidth = Math.max(1, width - padding);
+    const usableHeight = Math.max(1, height - padding);
     const scale = Math.max(
       0.08,
-      Math.min(4, Math.min((width - padding) / graphWidth, (height - padding) / graphHeight)),
+      Math.min(4, Math.min(usableWidth / graphWidth, usableHeight / graphHeight)),
     );
     const nextView = {
       scale,
@@ -1677,9 +1698,9 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
 
   createEffect(
     on(
-      () => store()?.state.lastIndexedAt,
+      () => layoutRevision(),
       () => {
-        const s = store()?.state;
+        const s = graphState();
         if (!s || s.nodes.length === 0) return;
         buildLayout(s.nodes, s.links, s.clusters);
         const selected = selectedNode();
@@ -1748,7 +1769,7 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
       settings.orphanNodeSize,
     ];
 
-    const s = store()?.state;
+    const s = graphState();
     if (!s || s.nodes.length === 0) return;
     buildLayout(s.nodes, s.links, s.clusters);
     const selected = untrack(() => selectedNode());
@@ -1800,8 +1821,12 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
             </Show>
             <Show when={!initError() && status() === "empty"}>
               <div class="space-y-2">
-                <p class="text-sm text-text-secondary">{t("graph.status.empty")}</p>
-                <p class="text-xs text-text-muted">{t("graph.status.empty_hint")}</p>
+                <p class="text-sm text-text-secondary">
+                  {props.emptyTitle ?? t("graph.status.empty")}
+                </p>
+                <p class="text-xs text-text-muted">
+                  {props.emptyHint ?? t("graph.status.empty_hint")}
+                </p>
               </div>
             </Show>
             <div class="mt-4 flex items-center justify-center gap-3 text-[0.6875rem] text-text-muted">
@@ -1858,7 +1883,7 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
           >
             <FitViewIcon />
           </CtrlBtn>
-          <Show when={isCompact()}>
+          <Show when={isCompact() && showFollowControl()}>
             <CtrlBtn
               title={followMode() ? t("graph.ctrl.stop_following") : t("graph.ctrl.follow_current")}
               onClick={followCurrentFile}
@@ -1869,27 +1894,33 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
             </CtrlBtn>
           </Show>
           <Show when={!isCompact()}>
-            <CtrlBtn
-              title={followMode() ? t("graph.ctrl.stop_following") : t("graph.ctrl.follow_current")}
-              onClick={followCurrentFile}
-              active={followMode()}
-            >
-              <LocateIcon />
-            </CtrlBtn>
+            <Show when={showFollowControl()}>
+              <CtrlBtn
+                title={
+                  followMode() ? t("graph.ctrl.stop_following") : t("graph.ctrl.follow_current")
+                }
+                onClick={followCurrentFile}
+                active={followMode()}
+              >
+                <LocateIcon />
+              </CtrlBtn>
+            </Show>
             <CtrlBtn title={t("graph.ctrl.reset_view")} onClick={resetView}>
               <ResetViewIcon />
             </CtrlBtn>
             <div class="mx-1 h-4 w-px bg-border" />
           </Show>
-          <span
-            class="px-1 text-center font-mono text-[0.6875rem] text-text-muted tabular-nums"
-            classList={{
-              "min-w-11": !isCompact(),
-              "min-w-8 text-[0.625rem]": isCompact(),
-            }}
-          >
-            {Math.round(zoomLevel() * 100)}%
-          </span>
+          <Show when={showZoomLabel()}>
+            <span
+              class="px-1 text-center font-mono text-[0.6875rem] text-text-muted tabular-nums"
+              classList={{
+                "min-w-11": !isCompact(),
+                "min-w-8 text-[0.625rem]": isCompact(),
+              }}
+            >
+              {Math.round(zoomLevel() * 100)}%
+            </span>
+          </Show>
         </div>
       </Show>
 
@@ -1920,7 +1951,7 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
                   color: clusterColor(node().clusterIndex),
                 }}
               >
-                {store()?.state.clusters[node().clusterIndex]?.split("/").pop() ||
+                {graphState()?.clusters[node().clusterIndex]?.split("/").pop() ||
                   t("graph.cluster.root") ||
                   "Root"}
               </span>
