@@ -63,6 +63,13 @@ pub async fn sync_get_remote_status(
 }
 
 #[command]
+pub async fn sync_get_saved_passphrase(
+    vault_id: String,
+) -> Result<Option<String>, SyncCommandError> {
+    keys::read_remembered_passphrase(vault_id.trim()).map_err(command_error)
+}
+
+#[command]
 pub async fn sync_configure_vault(
     app: AppHandle,
     state: State<'_, SyncState>,
@@ -215,7 +222,7 @@ async fn prepare_new_workspace(
         passphrase,
     )
     .await?;
-    persist_local_keys(config, &workspace_key, &signing_key)?;
+    persist_local_keys(config, &workspace_key, &signing_key, Some(passphrase))?;
     Ok(PreparedSyncConfig {
         workspace_id: workspace.workspace_id,
         device_id: device.device_id,
@@ -228,12 +235,14 @@ async fn prepare_existing_workspace(
     local_vault: Option<SyncVaultRecord>,
 ) -> SyncResult<PreparedSyncConfig> {
     let workspace_id = config.remote_workspace_id.trim().to_string();
+    let mut verified_passphrase = None;
     let workspace_key = match keys::read_remembered_workspace_key(&config.vault_id)? {
         Some(key) => key,
         None => {
             let passphrase = required_passphrase(config)?;
             let envelopes = client.list_key_envelopes(&workspace_id).await?;
             let (key, _) = unlock_workspace_key_from_envelopes(&envelopes, passphrase)?;
+            verified_passphrase = Some(passphrase);
             key
         }
     };
@@ -253,7 +262,7 @@ async fn prepare_existing_workspace(
         }
     };
 
-    persist_local_keys(config, &workspace_key, &signing_key)?;
+    persist_local_keys(config, &workspace_key, &signing_key, verified_passphrase)?;
     Ok(PreparedSyncConfig {
         workspace_id,
         device_id,
@@ -308,11 +317,16 @@ fn persist_local_keys(
     config: &SyncVaultConfig,
     workspace_key: &SymmetricKey,
     signing_key: &SigningKey,
+    verified_passphrase: Option<&str>,
 ) -> SyncResult<()> {
     if config.remember_workspace_key {
         keys::remember_workspace_key(&config.vault_id, workspace_key)?;
+        if let Some(passphrase) = verified_passphrase {
+            keys::remember_passphrase(&config.vault_id, passphrase)?;
+        }
     } else {
         keys::forget_workspace_key(&config.vault_id)?;
+        keys::forget_passphrase(&config.vault_id)?;
     }
     keys::remember_device_signing_key(&config.vault_id, signing_key)
 }
@@ -546,6 +560,7 @@ async fn workspace_key_for_run(
     let (workspace_key, _) = unlock_workspace_key_from_envelopes(&envelopes, passphrase)?;
     if remember_workspace_key {
         keys::remember_workspace_key(vault_id, &workspace_key)?;
+        keys::remember_passphrase(vault_id, passphrase)?;
     }
     Ok(workspace_key)
 }

@@ -20,6 +20,7 @@ interface SyncStatusOptions {
 interface SyncService {
   getStatus(options?: SyncStatusOptions): Promise<SyncRuntimeStatus>;
   getRemoteStatus(): Promise<SyncRemoteStatus>;
+  getSavedPassphrase(vaultId: string): Promise<string | null>;
   configureVault(config: SyncVaultConfig): Promise<SyncRuntimeStatus>;
   setEnabled(enabled: boolean): Promise<SyncRuntimeStatus>;
   runOnce(passphrase?: string): Promise<SyncRuntimeStatus>;
@@ -44,6 +45,9 @@ function createSyncService(authService?: AuthService | null): SyncService {
     },
     async getRemoteStatus() {
       return invoke<SyncRemoteStatus>("sync_get_remote_status");
+    },
+    async getSavedPassphrase(vaultId) {
+      return invoke<string | null>("sync_get_saved_passphrase", { vaultId });
     },
     async configureVault(config) {
       return invoke<SyncRuntimeStatus>("sync_configure_vault", { config });

@@ -137,6 +137,8 @@ export const JA_MESSAGES = {
   "settings.plugin.sync.passphrase.description":
     "別の端末でワークスペースキーを復旧するために使います。状態には表示されません。",
   "settings.plugin.sync.passphrase.placeholder": "パスフレーズを入力",
+  "settings.plugin.sync.passphrase.hide": "パスフレーズを隠す",
+  "settings.plugin.sync.passphrase.show": "パスフレーズを表示",
   "settings.plugin.sync.remember.label": "この端末でキーを記憶",
   "settings.plugin.sync.remember.description":
     "ロック解除済みワークスペースキーをローカルの安全な保存領域に保持します。",

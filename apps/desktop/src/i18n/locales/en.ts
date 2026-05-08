@@ -136,6 +136,8 @@ export const EN_MESSAGES = {
   "settings.plugin.sync.passphrase.description":
     "Used to recover the workspace key on another device. It is not shown in status.",
   "settings.plugin.sync.passphrase.placeholder": "Enter passphrase",
+  "settings.plugin.sync.passphrase.hide": "Hide passphrase",
+  "settings.plugin.sync.passphrase.show": "Show passphrase",
   "settings.plugin.sync.remember.label": "Remember key on this device",
   "settings.plugin.sync.remember.description":
     "Store the unlocked workspace key in local secure storage.",

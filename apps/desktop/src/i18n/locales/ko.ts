@@ -134,6 +134,8 @@ export const KO_MESSAGES = {
   "settings.plugin.sync.passphrase.description":
     "다른 기기에서 워크스페이스 키를 복구할 때 사용해요. 상태 화면에는 표시하지 않아요.",
   "settings.plugin.sync.passphrase.placeholder": "패스프레이즈 입력",
+  "settings.plugin.sync.passphrase.hide": "패스프레이즈 숨기기",
+  "settings.plugin.sync.passphrase.show": "패스프레이즈 보기",
   "settings.plugin.sync.remember.label": "이 기기에 키 기억",
   "settings.plugin.sync.remember.description":
     "잠금 해제된 워크스페이스 키를 로컬 보안 저장소에 보관해요.",
