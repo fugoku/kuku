@@ -927,10 +927,20 @@ pub fn restore_vault_config_for_root(
     state: &SyncState,
     vault_root: &Path,
 ) -> SyncResult<SyncRuntimeStatus> {
-    let Some(config_file) = vault_config::read_sync_config(vault_root)? else {
-        let status = state.reset();
-        emit_status(app, &status);
-        return Ok(status);
+    let config_file = match vault_config::read_sync_config(vault_root) {
+        Ok(Some(config_file)) => config_file,
+        Ok(None) => {
+            let status = state.reset();
+            emit_status(app, &status);
+            return Ok(status);
+        }
+        Err(error @ SyncError::UnsupportedVersion(_)) => {
+            vault_config::reset_sync_config(vault_root)?;
+            let status = state.reset();
+            emit_status(app, &status);
+            return Err(error);
+        }
+        Err(error) => return Err(error),
     };
 
     let config = vault_config::runtime_config_from_file(vault_root, &config_file);

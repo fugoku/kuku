@@ -10,7 +10,12 @@ use super::types::{SyncRemoteStatus, SyncVaultConfig};
 const CONFIG_DIR_NAME: &str = ".kuku";
 const CONFIG_FILE_NAME: &str = "sync.json";
 const SCHEMA_VERSION: u32 = 2;
-const MIN_SUPPORTED_SCHEMA_VERSION: u32 = 1;
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+struct SyncVaultConfigVersion {
+    schema_version: u32,
+}
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -77,6 +82,39 @@ pub fn delete_sync_config(vault_root: &Path) -> SyncResult<()> {
 }
 
 pub fn read_sync_config(vault_root: &Path) -> SyncResult<Option<SyncVaultConfigFile>> {
+    let Some((bytes, _path)) = read_sync_config_bytes(vault_root)? else {
+        return Ok(None);
+    };
+    let version: SyncVaultConfigVersion = serde_json::from_slice(&bytes)?;
+    if version.schema_version != SCHEMA_VERSION {
+        return Err(SyncError::UnsupportedVersion(
+            version.schema_version.min(u8::MAX as u32) as u8,
+        ));
+    }
+    let config: SyncVaultConfigFile = serde_json::from_slice(&bytes)?;
+    validate_config_file(&config)?;
+    Ok(Some(config))
+}
+
+pub fn reset_sync_config(vault_root: &Path) -> SyncResult<()> {
+    if let Ok(Some(config)) = read_sync_config_file_unchecked(vault_root)
+        && let Some(vault_id) = trimmed_optional(Some(&config.vault_id))
+    {
+        keys::forget_workspace_key(&vault_id)?;
+        keys::forget_passphrase(&vault_id)?;
+        keys::forget_device_signing_key(&vault_id)?;
+    }
+    delete_sync_config(vault_root)
+}
+
+fn read_sync_config_file_unchecked(vault_root: &Path) -> SyncResult<Option<SyncVaultConfigFile>> {
+    let Some((bytes, _path)) = read_sync_config_bytes(vault_root)? else {
+        return Ok(None);
+    };
+    serde_json::from_slice(&bytes).map(Some).map_err(Into::into)
+}
+
+fn read_sync_config_bytes(vault_root: &Path) -> SyncResult<Option<(Vec<u8>, PathBuf)>> {
     let path = sync_config_path(vault_root);
     if !path.exists() {
         return Ok(None);
@@ -88,9 +126,7 @@ pub fn read_sync_config(vault_root: &Path) -> SyncResult<Option<SyncVaultConfigF
             path.display()
         ))
     })?;
-    let config: SyncVaultConfigFile = serde_json::from_slice(&bytes)?;
-    validate_config_file(&config)?;
-    Ok(Some(config))
+    Ok(Some((bytes, path)))
 }
 
 pub fn write_sync_config(
@@ -208,9 +244,7 @@ fn status_for_workspace(status: SyncVaultStatusFile, workspace_id: &str) -> Sync
 }
 
 fn validate_config_file(config: &SyncVaultConfigFile) -> SyncResult<()> {
-    if config.schema_version < MIN_SUPPORTED_SCHEMA_VERSION
-        || config.schema_version > SCHEMA_VERSION
-    {
+    if config.schema_version != SCHEMA_VERSION {
         return Err(SyncError::UnsupportedVersion(
             config.schema_version.min(u8::MAX as u32) as u8,
         ));
@@ -336,7 +370,7 @@ mod tests {
     }
 
     #[test]
-    fn legacy_schema_v1_config_is_accepted_for_restore() {
+    fn legacy_schema_v1_config_is_rejected_for_reset() {
         let root = temp_vault("schema-v1");
         let json = r#"{
   "schemaVersion": 1,
@@ -368,23 +402,12 @@ mod tests {
         fs::create_dir_all(sync_config_path(&root).parent().unwrap()).unwrap();
         fs::write(sync_config_path(&root), json).unwrap();
 
-        let loaded = read_sync_config(&root).unwrap().unwrap();
-        let runtime = runtime_config_from_file(&root, &loaded);
-
-        assert_eq!(loaded.schema_version, 1);
-        assert_eq!(runtime.vault_id, "vault_1");
-        assert_eq!(runtime.account_key_id, None);
-        assert_eq!(runtime.remote_workspace_id, "workspace_1");
-        assert_eq!(runtime.device_id, "device_1");
-        assert_eq!(loaded.status.last_synced_at_ms, Some(456));
-        assert_eq!(
-            loaded
-                .status
-                .remote
-                .as_ref()
-                .map(|status| status.workspace_id.as_str()),
-            Some("workspace_1")
-        );
+        assert!(matches!(
+            read_sync_config(&root),
+            Err(SyncError::UnsupportedVersion(1))
+        ));
+        reset_sync_config(&root).unwrap();
+        assert!(!sync_config_path(&root).exists());
 
         fs::remove_dir_all(root).unwrap();
     }
