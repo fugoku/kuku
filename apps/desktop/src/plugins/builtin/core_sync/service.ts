@@ -6,6 +6,7 @@ import type {
   SyncCommandError,
   SyncConflictSummary,
   SyncErrorCategory,
+  SyncRemoteStatus,
   SyncRuntimeStatus,
   SyncVaultConfig,
 } from "./types";
@@ -14,6 +15,7 @@ const CORE_SYNC_PLUGIN_ID = "core-sync";
 
 interface SyncService {
   getStatus(): Promise<SyncRuntimeStatus>;
+  getRemoteStatus(): Promise<SyncRemoteStatus>;
   configureVault(config: SyncVaultConfig): Promise<SyncRuntimeStatus>;
   setEnabled(enabled: boolean): Promise<SyncRuntimeStatus>;
   runOnce(passphrase?: string): Promise<SyncRuntimeStatus>;
@@ -33,6 +35,9 @@ function createSyncService(authService?: AuthService | null): SyncService {
   return {
     async getStatus() {
       return invoke<SyncRuntimeStatus>("sync_get_status");
+    },
+    async getRemoteStatus() {
+      return invoke<SyncRemoteStatus>("sync_get_remote_status");
     },
     async configureVault(config) {
       return invoke<SyncRuntimeStatus>("sync_configure_vault", { config });

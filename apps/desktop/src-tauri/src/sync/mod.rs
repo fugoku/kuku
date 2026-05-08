@@ -17,7 +17,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use parking_lot::Mutex;
 
-use self::errors::{SyncError, SyncResult};
+use self::errors::{SyncError, SyncErrorCategory, SyncResult};
 use self::transfer::{TransferDirection, TransferProgressEvent};
 use self::types::{
     SyncPhase, SyncRuntimeStatus, SyncTransferDirection, SyncTransferStatus, SyncVaultConfig,
@@ -138,6 +138,39 @@ impl SyncState {
         inner.status.conflict_count = conflict_count;
         inner.status.updated_at_ms = timestamp;
         Ok(inner.status.clone())
+    }
+
+    pub fn clear_remote_status_error(&self) -> SyncResult<Option<SyncRuntimeStatus>> {
+        let mut inner = self.inner.lock();
+        if !inner.status.configured {
+            return Err(SyncError::NotConfigured);
+        }
+        if inner.active_run_id.is_some() {
+            return Ok(None);
+        }
+        if !matches!(
+            inner.status.last_error_category,
+            Some(
+                SyncErrorCategory::LoginRequired
+                    | SyncErrorCategory::PermissionRequired
+                    | SyncErrorCategory::SyncDisabled
+                    | SyncErrorCategory::Offline
+                    | SyncErrorCategory::Server
+            )
+        ) {
+            return Ok(None);
+        }
+
+        inner.status.phase = if inner.status.enabled {
+            SyncPhase::Idle
+        } else {
+            SyncPhase::Disabled
+        };
+        inner.status.last_error = None;
+        inner.status.last_error_category = None;
+        inner.status.transfer = SyncTransferStatus::default();
+        inner.status.updated_at_ms = now_ms();
+        Ok(Some(inner.status.clone()))
     }
 
     pub fn set_phase(&self, phase: SyncPhase) -> SyncResult<SyncRuntimeStatus> {
@@ -433,6 +466,22 @@ mod tests {
         assert_eq!(status.conflict_count, 2);
         assert!(status.last_synced_at_ms.is_some());
         assert_eq!(status.transfer, SyncTransferStatus::default());
+    }
+
+    #[test]
+    fn remote_status_success_clears_connectivity_error() {
+        let state = SyncState::new();
+        state.configure_vault(config()).unwrap();
+        state.set_enabled(true).unwrap();
+        state
+            .set_error(&SyncError::Offline("network failed".into()))
+            .unwrap();
+
+        let status = state.clear_remote_status_error().unwrap().unwrap();
+
+        assert_eq!(status.phase, SyncPhase::Idle);
+        assert_eq!(status.last_error_category, None);
+        assert_eq!(status.last_error, None);
     }
 
     #[test]
