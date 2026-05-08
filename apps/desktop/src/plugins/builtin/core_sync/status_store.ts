@@ -94,6 +94,14 @@ function applySyncConflicts(conflicts: SyncConflictSummary[]): void {
 function applySyncRemoteStatus(status: SyncRemoteStatus | null): void {
   remoteStatusNeedsLiveRefresh = false;
   setSyncRemoteStatus(status);
+  if (
+    status &&
+    syncStatus.configured &&
+    syncStatus.enabled &&
+    syncStatus.remoteWorkspaceId === status.workspaceId
+  ) {
+    setSyncStatus("pendingDownloads", status.hasRemoteChanges ? 1 : 0);
+  }
 }
 
 function applyCachedSyncRemoteStatus(status: SyncRemoteStatus): void {

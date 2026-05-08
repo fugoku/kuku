@@ -71,6 +71,7 @@ export const EN_MESSAGES = {
   "settings.plugin.sync.action.refresh": "Refresh",
   "settings.plugin.sync.action.working": "Working...",
   "settings.plugin.sync.action.sync_now": "Sync Now",
+  "settings.plugin.sync.action.rebuild_state": "Recompute state",
   "settings.plugin.sync.action.disable": "Disable Sync",
   "settings.plugin.sync.action.confirm_disable": "Confirm Disable",
   "settings.plugin.sync.auth.title": "Account required",
@@ -163,10 +164,6 @@ export const EN_MESSAGES = {
   "settings.plugin.sync.workspace.confirm_delete": "Confirm delete",
   "settings.plugin.sync.workspace.head_version": "Remote version",
   "settings.plugin.sync.workspace.name_placeholder": "Workspace name",
-  "settings.plugin.sync.enable.enabled_description": "Sync is enabled for this vault.",
-  "settings.plugin.sync.enable.disabled_description": "Sync is disabled for this vault.",
-  "settings.plugin.sync.enable.help":
-    "Conflict copies are normal Markdown files and will be included in the next sync.",
   "settings.plugin.sync.conflicts.title": "Conflicts",
   "settings.plugin.sync.conflicts.description":
     "Open conflicts created when automatic merge cannot preserve both edits in one file.",

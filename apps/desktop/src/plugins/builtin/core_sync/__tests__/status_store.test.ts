@@ -156,6 +156,53 @@ describe("sync status store", () => {
     expect(syncRemoteStatus()).toBeNull();
   });
 
+  it("reconciles pending downloads from remote status", () => {
+    applySyncStatus({
+      configured: true,
+      enabled: true,
+      phase: "idle",
+      remoteWorkspaceId: "workspace_1",
+      rememberWorkspaceKey: true,
+      pendingUploads: 0,
+      pendingDownloads: 11,
+      transfer: {
+        active: false,
+        direction: "idle",
+        retrying: false,
+        uploadTotalObjects: 0,
+        uploadCompletedObjects: 0,
+        uploadFailedObjects: 0,
+        downloadTotalObjects: 0,
+        downloadCompletedObjects: 0,
+        downloadFailedObjects: 0,
+      },
+      conflictCount: 0,
+      updatedAtMs: 11,
+    });
+
+    applySyncRemoteStatus({
+      workspaceId: "workspace_1",
+      remoteHeadCommitId: "commit_1",
+      remoteHeadVersion: 1,
+      latestCheckpointCommitId: "commit_1",
+      hasRemoteChanges: false,
+      checkedAtMs: 12,
+    });
+
+    expect(syncStatus.pendingDownloads).toBe(0);
+
+    applySyncRemoteStatus({
+      workspaceId: "workspace_1",
+      remoteHeadCommitId: "commit_2",
+      remoteHeadVersion: 2,
+      latestCheckpointCommitId: "commit_2",
+      hasRemoteChanges: true,
+      checkedAtMs: 13,
+    });
+
+    expect(syncStatus.pendingDownloads).toBe(1);
+  });
+
   it("loads the initial remote status during runtime status refresh", async () => {
     const refreshedStatus: SyncRuntimeStatus = {
       configured: true,
@@ -237,6 +284,9 @@ describe("sync status store", () => {
         return refreshedStatus;
       },
       async disconnectVault() {
+        return refreshedStatus;
+      },
+      async rebuildVaultState() {
         return refreshedStatus;
       },
       async setEnabled() {
@@ -353,6 +403,9 @@ describe("sync status store", () => {
         return idleStatus;
       },
       async disconnectVault() {
+        return idleStatus;
+      },
+      async rebuildVaultState() {
         return idleStatus;
       },
       async setEnabled() {

@@ -186,6 +186,7 @@ pub fn run() {
             sync::commands::sync_save_recovery_phrase_file,
             sync::commands::sync_configure_vault,
             sync::commands::sync_disconnect_vault,
+            sync::commands::sync_rebuild_vault_state,
             sync::commands::sync_set_enabled,
             sync::commands::sync_run_once,
             sync::commands::sync_list_conflicts,

@@ -641,6 +641,48 @@ pub fn mark_files_synced(
     })
 }
 
+pub fn clear_dirty_files_matching_head(conn: &Connection, commit_id: &str) -> SyncResult<usize> {
+    let changed = conn
+        .execute(
+            r#"
+            UPDATE sync_files
+            SET dirty = 0,
+                last_synced_commit_id = ?1
+            WHERE dirty = 1
+              AND last_synced_commit_id = ?1
+              AND (
+                (
+                  deleted = 0
+                  AND EXISTS (
+                    SELECT 1
+                    FROM sync_tree_entries
+                    WHERE sync_tree_entries.commit_id = ?1
+                      AND sync_tree_entries.file_id = sync_files.file_id
+                      AND sync_tree_entries.normalized_path = sync_files.normalized_path
+                      AND sync_tree_entries.kind = sync_files.kind
+                      AND COALESCE(sync_tree_entries.plaintext_hash, '') =
+                          COALESCE(sync_files.plaintext_hash, '')
+                  )
+                )
+                OR (
+                  deleted = 1
+                  AND NOT EXISTS (
+                    SELECT 1
+                    FROM sync_tree_entries
+                    WHERE sync_tree_entries.commit_id = ?1
+                      AND sync_tree_entries.file_id = sync_files.file_id
+                  )
+                )
+              )
+            "#,
+            params![commit_id],
+        )
+        .map_err(|error| {
+            SyncError::Storage(format!("failed to clear stale dirty sync files: {error}"))
+        })?;
+    Ok(changed)
+}
+
 pub fn file_id_for_normalized_path(normalized_path: &str) -> String {
     let hash = blake3::hash(normalized_path.as_bytes())
         .to_hex()
@@ -1301,5 +1343,111 @@ mod tests {
         let dirty = list_dirty_files(&conn).unwrap();
         assert_eq!(dirty.len(), 1);
         assert!(dirty[0].deleted);
+    }
+
+    #[test]
+    fn clear_dirty_files_matching_head_clears_stale_dirty_match() {
+        let mut conn = open_memory_sync_db().unwrap();
+        let normalized_path = "a.md";
+        let file_id = file_id_for_normalized_path(normalized_path);
+        apply_scan(
+            &mut conn,
+            &[SyncFileInput {
+                path: "a.md".into(),
+                normalized_path: normalized_path.into(),
+                kind: FILE_KIND_MARKDOWN.into(),
+                plaintext_hash: Some("hash-1".into()),
+                size_bytes: Some(6),
+                mtime_ms: Some(1),
+            }],
+            1,
+        )
+        .unwrap();
+        mark_files_synced(&mut conn, "commit_1", std::slice::from_ref(&file_id)).unwrap();
+        persist_tree_cache(
+            &mut conn,
+            "commit_1",
+            "tree_1",
+            "[]",
+            "local",
+            &[SyncTreeEntryRecord {
+                commit_id: "commit_1".into(),
+                file_id: file_id.clone(),
+                normalized_path: normalized_path.into(),
+                plaintext_hash: Some("hash-1".into()),
+                content_object_id: Some("object_1".into()),
+                pack_entry_id: Some("entry_1".into()),
+                kind: FILE_KIND_MARKDOWN.into(),
+            }],
+            1,
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE sync_files SET dirty = 1 WHERE file_id = ?1",
+            params![file_id],
+        )
+        .unwrap();
+
+        let changed = clear_dirty_files_matching_head(&conn, "commit_1").unwrap();
+
+        assert_eq!(changed, 1);
+        assert!(list_dirty_files(&conn).unwrap().is_empty());
+    }
+
+    #[test]
+    fn clear_dirty_files_matching_head_keeps_real_local_change() {
+        let mut conn = open_memory_sync_db().unwrap();
+        let normalized_path = "a.md";
+        let file_id = file_id_for_normalized_path(normalized_path);
+        apply_scan(
+            &mut conn,
+            &[SyncFileInput {
+                path: "a.md".into(),
+                normalized_path: normalized_path.into(),
+                kind: FILE_KIND_MARKDOWN.into(),
+                plaintext_hash: Some("hash-1".into()),
+                size_bytes: Some(6),
+                mtime_ms: Some(1),
+            }],
+            1,
+        )
+        .unwrap();
+        mark_files_synced(&mut conn, "commit_1", std::slice::from_ref(&file_id)).unwrap();
+        persist_tree_cache(
+            &mut conn,
+            "commit_1",
+            "tree_1",
+            "[]",
+            "local",
+            &[SyncTreeEntryRecord {
+                commit_id: "commit_1".into(),
+                file_id: file_id.clone(),
+                normalized_path: normalized_path.into(),
+                plaintext_hash: Some("hash-1".into()),
+                content_object_id: Some("object_1".into()),
+                pack_entry_id: Some("entry_1".into()),
+                kind: FILE_KIND_MARKDOWN.into(),
+            }],
+            1,
+        )
+        .unwrap();
+        apply_scan(
+            &mut conn,
+            &[SyncFileInput {
+                path: "a.md".into(),
+                normalized_path: normalized_path.into(),
+                kind: FILE_KIND_MARKDOWN.into(),
+                plaintext_hash: Some("hash-2".into()),
+                size_bytes: Some(6),
+                mtime_ms: Some(2),
+            }],
+            2,
+        )
+        .unwrap();
+
+        let changed = clear_dirty_files_matching_head(&conn, "commit_1").unwrap();
+
+        assert_eq!(changed, 0);
+        assert_eq!(list_dirty_files(&conn).unwrap().len(), 1);
     }
 }

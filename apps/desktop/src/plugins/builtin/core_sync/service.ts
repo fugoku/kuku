@@ -36,6 +36,7 @@ interface SyncService {
   saveRecoveryPhraseFile(phrase: string): Promise<boolean>;
   configureVault(config: SyncVaultConfig): Promise<SyncRuntimeStatus>;
   disconnectVault(): Promise<SyncRuntimeStatus>;
+  rebuildVaultState(): Promise<SyncRuntimeStatus>;
   setEnabled(enabled: boolean): Promise<SyncRuntimeStatus>;
   runOnce(passphrase?: string): Promise<SyncRuntimeStatus>;
   listConflicts(): Promise<SyncConflictSummary[]>;
@@ -95,6 +96,9 @@ function createSyncService(authService?: AuthService | null): SyncService {
     },
     async disconnectVault() {
       return invoke<SyncRuntimeStatus>("sync_disconnect_vault");
+    },
+    async rebuildVaultState() {
+      return invoke<SyncRuntimeStatus>("sync_rebuild_vault_state");
     },
     async setEnabled(enabled) {
       return invoke<SyncRuntimeStatus>("sync_set_enabled", { enabled });
