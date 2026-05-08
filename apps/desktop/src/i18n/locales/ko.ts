@@ -143,6 +143,10 @@ export const KO_MESSAGES = {
   "settings.plugin.sync.passphrase.backup_confirm": "이 복구 문구를 안전한 곳에 저장했어요.",
   "settings.plugin.sync.passphrase.hide": "문구 숨기기",
   "settings.plugin.sync.passphrase.show": "문구 보기",
+  "settings.plugin.sync.passphrase.collapse": "접기",
+  "settings.plugin.sync.passphrase.edit": "수정",
+  "settings.plugin.sync.passphrase.verified":
+    "복구 문구가 확인되어 이 기기에서 워크스페이스 정보를 열 수 있어요.",
   "settings.plugin.sync.workspace.title": "워크스페이스",
   "settings.plugin.sync.workspace.description":
     "계정에 연결된 암호화 동기화 워크스페이스를 이름으로 관리해요.",

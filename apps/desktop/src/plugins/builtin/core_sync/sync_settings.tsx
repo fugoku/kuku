@@ -120,6 +120,7 @@ function SyncSettings(): JSX.Element {
     "empty" | "generated" | "saved" | "user"
   >("empty");
   const [showRecoveryPhrase, setShowRecoveryPhrase] = createSignal(false);
+  const [recoveryPhraseExpanded, setRecoveryPhraseExpanded] = createSignal(true);
   const [recoveryPhraseCopied, setRecoveryPhraseCopied] = createSignal(false);
   const [recoveryPhraseSaving, setRecoveryPhraseSaving] = createSignal(false);
   const [recoveryPhraseBackedUp, setRecoveryPhraseBackedUp] = createSignal(false);
@@ -184,21 +185,27 @@ function SyncSettings(): JSX.Element {
       if (savedRecoveryPhrase) {
         setRecoveryPhrase(savedRecoveryPhrase);
         setRecoveryPhraseSource("saved");
+        if (accountRecovery?.applied) {
+          setRecoveryPhraseExpanded(false);
+        }
       }
     }
     if (accountRecovery?.configured && recoveryPhraseSource() === "generated") {
       setRecoveryPhrase("");
       setRecoveryPhraseSource("empty");
       setRecoveryPhraseBackedUp(false);
+      setRecoveryPhraseExpanded(true);
     }
     if (canCreateAccountRecovery() && !recoveryPhrase()) {
       const generated = await service.generateRecoveryPhrase().catch(() => null);
       if (generated) {
         setRecoveryPhrase(generated);
         setRecoveryPhraseSource("generated");
+        setRecoveryPhraseExpanded(true);
       }
     }
     if (accountRecovery?.configured && !accountRecovery.applied) {
+      setRecoveryPhraseExpanded(true);
       setWorkspaces([]);
     } else if (syncStatus.configured || accountKeyId) {
       await loadWorkspaces({ quiet: true });
@@ -225,6 +232,7 @@ function SyncSettings(): JSX.Element {
         if (!authenticated) {
           setAuthMode("loginRequired");
           setAccountRecoveryState(null);
+          setRecoveryPhraseExpanded(true);
           setWorkspaces([]);
           return;
         }
@@ -348,6 +356,16 @@ function SyncSettings(): JSX.Element {
     recoveryPhrase().trim().split(/\s+/).filter(Boolean),
   );
   const requiresRecoveryBackup = () => canCreateAccountRecovery();
+  const recoveryPhraseCollapsed = () =>
+    !recoveryPhraseExpanded() &&
+    accountRecoveryApplied() &&
+    !requiresAccountUnlock() &&
+    !requiresRecoveryBackup();
+  const recoveryPhraseDescription = () => {
+    if (recoveryPhraseCollapsed()) return t("settings.plugin.sync.passphrase.verified");
+    if (accountRecoveryConfigured()) return t("settings.plugin.sync.passphrase.description");
+    return t("settings.plugin.sync.passphrase.create_description");
+  };
 
   async function generateRecoveryPhrase(): Promise<void> {
     const service = getSyncService();
@@ -413,6 +431,7 @@ function SyncSettings(): JSX.Element {
       await refreshAccountRecoveryState(service);
       setLocalError(null);
       setShowRecoveryPhrase(false);
+      setRecoveryPhraseExpanded(false);
     } catch (error) {
       setWorkspaces([]);
       setLocalError(errorCopy(error));
@@ -586,13 +605,27 @@ function SyncSettings(): JSX.Element {
 
       <SettingsCard
         title={t("settings.plugin.sync.passphrase.label")}
-        description={
-          accountRecoveryConfigured()
-            ? t("settings.plugin.sync.passphrase.description")
-            : t("settings.plugin.sync.passphrase.create_description")
-        }
+        description={recoveryPhraseDescription()}
         tone="subtle"
         class={disabledCardClass()}
+        bodyClass={recoveryPhraseCollapsed() ? "hidden" : undefined}
+        action={
+          <Show
+            when={accountRecoveryApplied() && recoveryPhrase().trim() && !requiresRecoveryBackup()}
+          >
+            <SettingsToolbarAction
+              disabled={settingsDisabled()}
+              onClick={() => {
+                setRecoveryPhraseExpanded((expanded) => !expanded);
+                setShowRecoveryPhrase(false);
+              }}
+            >
+              {recoveryPhraseExpanded()
+                ? t("settings.plugin.sync.passphrase.collapse")
+                : t("settings.plugin.sync.passphrase.edit")}
+            </SettingsToolbarAction>
+          </Show>
+        }
       >
         <div class="space-y-2">
           <Show when={requiresAccountUnlock()}>
