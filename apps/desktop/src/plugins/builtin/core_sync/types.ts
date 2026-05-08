@@ -98,6 +98,13 @@ interface SyncWorkspaceSummary {
   workspaceKeyVersion: number;
 }
 
+interface SyncAccountRecoveryState {
+  configured: boolean;
+  accountKeyId?: string;
+  applied: boolean;
+  recoveryPhraseSaved: boolean;
+}
+
 interface SyncRenameWorkspaceInput {
   workspaceId: string;
   name: string;
@@ -122,6 +129,7 @@ interface SyncConflictSummary {
 type SyncAuthState = "ready" | "loginRequired" | "permissionRequired";
 
 export type {
+  SyncAccountRecoveryState,
   SyncAuthState,
   SyncCommandError,
   SyncErrorCategory,

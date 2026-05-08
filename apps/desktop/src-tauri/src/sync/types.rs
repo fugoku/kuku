@@ -69,6 +69,16 @@ pub struct SyncWorkspaceSummary {
     pub workspace_key_version: i64,
 }
 
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncAccountRecoveryState {
+    pub configured: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub account_key_id: Option<String>,
+    pub applied: bool,
+    pub recovery_phrase_saved: bool,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct SyncRenameWorkspaceRequest {

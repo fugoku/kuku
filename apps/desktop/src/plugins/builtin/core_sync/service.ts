@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 import type { AuthService } from "../core_auth";
 import type {
+  SyncAccountRecoveryState,
   SyncAuthState,
   SyncCommandError,
   SyncConflictSummary,
@@ -26,6 +27,7 @@ interface SyncService {
   getSavedPassphrase(vaultId: string): Promise<string | null>;
   generateRecoveryPhrase(): Promise<string>;
   getSavedRecoveryPhrase(accountKeyId: string): Promise<string | null>;
+  getAccountRecoveryState(): Promise<SyncAccountRecoveryState>;
   listWorkspaces(passphrase?: string): Promise<SyncWorkspaceSummary[]>;
   renameWorkspace(input: SyncRenameWorkspaceInput): Promise<SyncWorkspaceSummary>;
   deleteWorkspace(workspaceId: string): Promise<SyncRuntimeStatus>;
@@ -66,6 +68,9 @@ function createSyncService(authService?: AuthService | null): SyncService {
     },
     async getSavedRecoveryPhrase(accountKeyId) {
       return invoke<string | null>("sync_get_saved_recovery_phrase", { accountKeyId });
+    },
+    async getAccountRecoveryState() {
+      return invoke<SyncAccountRecoveryState>("sync_get_account_recovery_state");
     },
     async listWorkspaces(passphrase) {
       return invoke<SyncWorkspaceSummary[]>("sync_list_workspaces", { passphrase });

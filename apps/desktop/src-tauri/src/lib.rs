@@ -178,6 +178,7 @@ pub fn run() {
             sync::commands::sync_get_saved_passphrase,
             sync::commands::sync_generate_recovery_phrase,
             sync::commands::sync_get_saved_recovery_phrase,
+            sync::commands::sync_get_account_recovery_state,
             sync::commands::sync_list_workspaces,
             sync::commands::sync_rename_workspace,
             sync::commands::sync_delete_workspace,

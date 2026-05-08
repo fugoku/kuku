@@ -40,7 +40,7 @@ use super::transfer::{
     TransferQueueConfig,
 };
 use super::types::{
-    SYNC_STATUS_EVENT, SyncConflictSummary, SyncPhase, SyncRemoteStatus,
+    SYNC_STATUS_EVENT, SyncAccountRecoveryState, SyncConflictSummary, SyncPhase, SyncRemoteStatus,
     SyncRenameWorkspaceRequest, SyncRuntimeStatus, SyncStatusEvent, SyncVaultConfig,
     SyncWorkspaceSummary,
 };
@@ -106,6 +106,12 @@ pub async fn sync_get_saved_recovery_phrase(
     account_key_id: String,
 ) -> Result<Option<String>, SyncCommandError> {
     keys::read_account_recovery_phrase(account_key_id.trim()).map_err(command_error)
+}
+
+#[command]
+pub async fn sync_get_account_recovery_state() -> Result<SyncAccountRecoveryState, SyncCommandError>
+{
+    get_account_recovery_state().await.map_err(command_error)
 }
 
 #[command]
@@ -560,6 +566,24 @@ async fn unlock_existing_account_key(
         account_root_key,
         recovery_phrase: Some(normalized_phrase),
     }))
+}
+
+async fn get_account_recovery_state() -> SyncResult<SyncAccountRecoveryState> {
+    let authorization = authorization_header().await?;
+    let client = ConnectSyncClient::with_authorization_header(authorization);
+    let Some(account_key) = client.get_account_key_state().await? else {
+        return Ok(SyncAccountRecoveryState::default());
+    };
+
+    let account_key_id = account_key.account_key_id;
+    let applied = keys::read_account_root_key(&account_key_id)?.is_some();
+    let recovery_phrase_saved = keys::read_account_recovery_phrase(&account_key_id)?.is_some();
+    Ok(SyncAccountRecoveryState {
+        configured: true,
+        account_key_id: Some(account_key_id),
+        applied,
+        recovery_phrase_saved,
+    })
 }
 
 async fn unlock_account_root_key(
