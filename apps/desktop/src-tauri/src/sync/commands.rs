@@ -1,11 +1,13 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use chrono::{Local, SecondsFormat};
 use ed25519_dalek::SigningKey;
 use kuku_contract::proto::kuku::sync::v1::SyncAccountKeyRecipientType;
 use rand_core::{OsRng, RngCore};
 use rusqlite::Connection;
 use tauri::{AppHandle, Emitter, Manager, State, command};
+use tauri_plugin_dialog::DialogExt;
 
 use crate::search::SearchState;
 use crate::vault::VaultState;
@@ -49,6 +51,7 @@ const ACCOUNT_KEY_VERSION: i64 = 1;
 const WORKSPACE_METADATA_VERSION: i64 = 1;
 const WORKSPACE_KEY_VERSION: i64 = 1;
 const DEVICE_METADATA_VERSION: i64 = 1;
+const RECOVERY_PHRASE_EXPORT_FILE_NAME: &str = "kuku-sync-recovery-phrase.md";
 
 #[command]
 pub async fn sync_get_status(
@@ -102,6 +105,45 @@ pub async fn sync_get_saved_recovery_phrase(
     account_key_id: String,
 ) -> Result<Option<String>, SyncCommandError> {
     keys::read_account_recovery_phrase(account_key_id.trim()).map_err(command_error)
+}
+
+#[command]
+pub async fn sync_save_recovery_phrase_file(
+    app: AppHandle,
+    phrase: String,
+) -> Result<bool, SyncCommandError> {
+    let normalized_phrase = account_keys::normalize_recovery_phrase(&phrase);
+    if normalized_phrase.is_empty() {
+        return Err(command_error(SyncError::InvalidArgument(
+            "recovery phrase is required".into(),
+        )));
+    }
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let path = app
+            .dialog()
+            .file()
+            .add_filter("Markdown", &["md", "markdown"])
+            .set_file_name(RECOVERY_PHRASE_EXPORT_FILE_NAME)
+            .blocking_save_file()
+            .and_then(|path| path.into_path().ok());
+        let Some(path) = path else {
+            return Ok(false);
+        };
+
+        std::fs::write(&path, recovery_phrase_export_text(&normalized_phrase)).map_err(
+            |error| {
+                command_error(SyncError::Storage(format!(
+                    "failed to save recovery phrase to {}: {error}",
+                    path.display()
+                )))
+            },
+        )?;
+
+        Ok(true)
+    })
+    .await
+    .map_err(|error| SyncCommandError::server(format!("save dialog worker failed: {error}")))?
 }
 
 #[command]
@@ -194,6 +236,23 @@ pub(crate) fn emit_status(app: &AppHandle, status: &SyncRuntimeStatus) {
             status: status.clone(),
         },
     );
+}
+
+fn recovery_phrase_export_text(phrase: &str) -> String {
+    let saved_at = Local::now().to_rfc3339_opts(SecondsFormat::Secs, false);
+    [
+        "# Kuku Sync Recovery Phrase",
+        "",
+        &format!("Saved at: {saved_at}"),
+        "",
+        "Keep this file private. Anyone with this recovery phrase and your account access can unlock your encrypted sync workspaces.",
+        "",
+        "```text",
+        phrase,
+        "```",
+        "",
+    ]
+    .join("\n")
 }
 
 struct RuntimeTransferProgressSink {

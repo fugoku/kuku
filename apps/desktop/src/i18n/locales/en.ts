@@ -124,23 +124,19 @@ export const EN_MESSAGES = {
   "sync.indicator.open_settings": "Open Sync settings",
   "sync.indicator.remote.current": "Current",
   "sync.indicator.remote.changed": "Remote changed",
-  "settings.plugin.sync.configure.title": "Workspace",
-  "settings.plugin.sync.workspace.label": "Workspace ID",
-  "settings.plugin.sync.workspace.description":
-    "Leave blank to create a new encrypted sync workspace, or paste an existing workspace ID to join it.",
-  "settings.plugin.sync.workspace.placeholder": "New workspace or workspace_...",
-  "settings.plugin.sync.device.label": "Device ID",
-  "settings.plugin.sync.device.description":
-    "Assigned by the server when this device is registered.",
-  "settings.plugin.sync.passphrase.label": "Recovery passphrase",
+  "settings.plugin.sync.passphrase.label": "Recovery phrase",
   "settings.plugin.sync.passphrase.description":
-    "Used to recover the workspace key on another device. It is not shown in status.",
-  "settings.plugin.sync.passphrase.placeholder": "Enter passphrase",
-  "settings.plugin.sync.passphrase.hide": "Hide passphrase",
-  "settings.plugin.sync.passphrase.show": "Show passphrase",
-  "settings.plugin.sync.remember.label": "Remember key on this device",
-  "settings.plugin.sync.remember.description":
-    "Store the unlocked workspace key in local secure storage.",
+    "Paste your account recovery phrase to unlock encrypted sync on this device.",
+  "settings.plugin.sync.passphrase.create_description":
+    "Back up this generated phrase before enabling sync. It unlocks your encrypted sync workspaces on new devices.",
+  "settings.plugin.sync.passphrase.placeholder": "Enter recovery phrase",
+  "settings.plugin.sync.passphrase.generate": "Generate",
+  "settings.plugin.sync.passphrase.copy": "Copy phrase",
+  "settings.plugin.sync.passphrase.copied": "Copied",
+  "settings.plugin.sync.passphrase.save": "Save .md",
+  "settings.plugin.sync.passphrase.backup_confirm": "I saved this recovery phrase somewhere safe.",
+  "settings.plugin.sync.passphrase.hide": "Hide phrase",
+  "settings.plugin.sync.passphrase.show": "Show phrase",
   "settings.plugin.sync.enable.enabled_description": "Sync is enabled for this vault.",
   "settings.plugin.sync.enable.disabled_description": "Sync is disabled for this vault.",
   "settings.plugin.sync.enable.help":
@@ -150,6 +146,9 @@ export const EN_MESSAGES = {
     "Open conflicts created when automatic merge cannot preserve both edits in one file.",
   "settings.plugin.sync.conflicts.empty": "No open sync conflicts.",
   "settings.plugin.sync.conflicts.copy_prefix": "Copy:",
+  "settings.plugin.sync.conflicts.open_copy": "Open conflict copy",
+  "settings.plugin.sync.conflicts.missing": "The conflict copy no longer exists.",
+  "settings.plugin.sync.conflicts.open_failed": "Could not open the conflict copy.",
   "settings.plugin.sync.error.auth_required": "Sign in again before syncing.",
   "settings.plugin.sync.error.permission_required":
     "Allow Sync in Account settings before syncing.",
@@ -157,12 +156,14 @@ export const EN_MESSAGES = {
   "settings.plugin.sync.error.not_configured": "Configure this vault before syncing.",
   "settings.plugin.sync.error.offline":
     "Sync could not reach the server. It will be safe to retry.",
-  "settings.plugin.sync.error.passphrase": "The passphrase could not unlock this workspace.",
+  "settings.plugin.sync.error.passphrase": "The recovery phrase could not unlock this account.",
   "settings.plugin.sync.error.quota": "Encrypted sync storage quota has been reached.",
   "settings.plugin.sync.error.server": "The sync server returned an error. Try again in a moment.",
   "settings.plugin.sync.error.unknown": "Sync failed. Try again in a moment.",
   "settings.plugin.sync.error.vault_required": "Open a vault before configuring sync.",
-  "settings.plugin.sync.error.passphrase_required": "Recovery passphrase is required.",
+  "settings.plugin.sync.error.passphrase_required": "Recovery phrase is required.",
+  "settings.plugin.sync.error.recovery_backup_required":
+    "Confirm that you backed up the recovery phrase before enabling sync.",
   "settings.plugin.ai_chat.title": "AI Chat",
   "settings.plugin.ai_chat.description":
     "Hook up the side-panel assistant: pick a connection, save, then chat from the right side of the app.",

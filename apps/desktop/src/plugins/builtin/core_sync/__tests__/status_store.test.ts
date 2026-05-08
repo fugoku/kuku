@@ -202,6 +202,9 @@ describe("sync status store", () => {
       async getSavedRecoveryPhrase() {
         return null;
       },
+      async saveRecoveryPhraseFile() {
+        return true;
+      },
       async configureVault() {
         return refreshedStatus;
       },
@@ -291,6 +294,9 @@ describe("sync status store", () => {
       },
       async getSavedRecoveryPhrase() {
         return null;
+      },
+      async saveRecoveryPhraseFile() {
+        return true;
       },
       async configureVault() {
         return idleStatus;
