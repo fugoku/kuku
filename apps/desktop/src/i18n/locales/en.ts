@@ -137,6 +137,21 @@ export const EN_MESSAGES = {
   "settings.plugin.sync.passphrase.backup_confirm": "I saved this recovery phrase somewhere safe.",
   "settings.plugin.sync.passphrase.hide": "Hide phrase",
   "settings.plugin.sync.passphrase.show": "Show phrase",
+  "settings.plugin.sync.workspace.title": "Workspaces",
+  "settings.plugin.sync.workspace.description":
+    "Manage encrypted sync workspaces on this account by name.",
+  "settings.plugin.sync.workspace.loading": "Loading workspaces.",
+  "settings.plugin.sync.workspace.empty":
+    "No workspaces to show yet. For an existing account, enter the recovery phrase and refresh.",
+  "settings.plugin.sync.workspace.current": "Current",
+  "settings.plugin.sync.workspace.connect": "Use",
+  "settings.plugin.sync.workspace.rename": "Rename",
+  "settings.plugin.sync.workspace.save": "Save",
+  "settings.plugin.sync.workspace.cancel": "Cancel",
+  "settings.plugin.sync.workspace.delete": "Delete",
+  "settings.plugin.sync.workspace.confirm_delete": "Confirm delete",
+  "settings.plugin.sync.workspace.head_version": "Remote version",
+  "settings.plugin.sync.workspace.name_placeholder": "Workspace name",
   "settings.plugin.sync.enable.enabled_description": "Sync is enabled for this vault.",
   "settings.plugin.sync.enable.disabled_description": "Sync is disabled for this vault.",
   "settings.plugin.sync.enable.help":
@@ -164,6 +179,7 @@ export const EN_MESSAGES = {
   "settings.plugin.sync.error.passphrase_required": "Recovery phrase is required.",
   "settings.plugin.sync.error.recovery_backup_required":
     "Confirm that you backed up the recovery phrase before enabling sync.",
+  "settings.plugin.sync.error.workspace_name_required": "Enter a workspace name.",
   "settings.plugin.ai_chat.title": "AI Chat",
   "settings.plugin.ai_chat.description":
     "Hook up the side-panel assistant: pick a connection, save, then chat from the right side of the app.",

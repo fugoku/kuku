@@ -136,6 +136,21 @@ export const KO_MESSAGES = {
   "settings.plugin.sync.passphrase.backup_confirm": "이 복구 문구를 안전한 곳에 저장했어요.",
   "settings.plugin.sync.passphrase.hide": "문구 숨기기",
   "settings.plugin.sync.passphrase.show": "문구 보기",
+  "settings.plugin.sync.workspace.title": "워크스페이스",
+  "settings.plugin.sync.workspace.description":
+    "계정에 연결된 암호화 동기화 워크스페이스를 이름으로 관리해요.",
+  "settings.plugin.sync.workspace.loading": "워크스페이스를 불러오는 중이에요.",
+  "settings.plugin.sync.workspace.empty":
+    "아직 표시할 워크스페이스가 없어요. 기존 계정이라면 복구 문구를 입력한 뒤 새로고침해 주세요.",
+  "settings.plugin.sync.workspace.current": "현재",
+  "settings.plugin.sync.workspace.connect": "사용",
+  "settings.plugin.sync.workspace.rename": "이름 변경",
+  "settings.plugin.sync.workspace.save": "저장",
+  "settings.plugin.sync.workspace.cancel": "취소",
+  "settings.plugin.sync.workspace.delete": "삭제",
+  "settings.plugin.sync.workspace.confirm_delete": "삭제 확인",
+  "settings.plugin.sync.workspace.head_version": "원격 버전",
+  "settings.plugin.sync.workspace.name_placeholder": "워크스페이스 이름",
   "settings.plugin.sync.enable.enabled_description": "이 지식보관함의 동기화가 켜져 있어요.",
   "settings.plugin.sync.enable.disabled_description": "이 지식보관함의 동기화가 꺼져 있어요.",
   "settings.plugin.sync.enable.help":
@@ -163,6 +178,7 @@ export const KO_MESSAGES = {
   "settings.plugin.sync.error.passphrase_required": "복구 문구가 필요해요.",
   "settings.plugin.sync.error.recovery_backup_required":
     "동기화를 켜기 전에 복구 문구를 백업했는지 확인해 주세요.",
+  "settings.plugin.sync.error.workspace_name_required": "워크스페이스 이름을 입력해 주세요.",
   "settings.plugin.ai_chat.title": "AI 채팅",
   "settings.plugin.ai_chat.description":
     "오른쪽 패널 AI 도우미를 연결해요. 연결 방식을 고르고 저장하면 바로 대화할 수 있어요.",

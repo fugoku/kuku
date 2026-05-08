@@ -139,6 +139,21 @@ export const JA_MESSAGES = {
   "settings.plugin.sync.passphrase.backup_confirm": "この復旧フレーズを安全な場所に保存しました。",
   "settings.plugin.sync.passphrase.hide": "フレーズを隠す",
   "settings.plugin.sync.passphrase.show": "フレーズを表示",
+  "settings.plugin.sync.workspace.title": "ワークスペース",
+  "settings.plugin.sync.workspace.description":
+    "このアカウントの暗号化同期ワークスペースを名前で管理します。",
+  "settings.plugin.sync.workspace.loading": "ワークスペースを読み込み中です。",
+  "settings.plugin.sync.workspace.empty":
+    "表示できるワークスペースはまだありません。既存アカウントの場合は復旧フレーズを入力して更新してください。",
+  "settings.plugin.sync.workspace.current": "現在",
+  "settings.plugin.sync.workspace.connect": "使用",
+  "settings.plugin.sync.workspace.rename": "名前を変更",
+  "settings.plugin.sync.workspace.save": "保存",
+  "settings.plugin.sync.workspace.cancel": "キャンセル",
+  "settings.plugin.sync.workspace.delete": "削除",
+  "settings.plugin.sync.workspace.confirm_delete": "削除を確認",
+  "settings.plugin.sync.workspace.head_version": "リモートバージョン",
+  "settings.plugin.sync.workspace.name_placeholder": "ワークスペース名",
   "settings.plugin.sync.enable.enabled_description": "このボルトの同期は有効です。",
   "settings.plugin.sync.enable.disabled_description": "このボルトの同期は無効です。",
   "settings.plugin.sync.enable.help":
@@ -167,6 +182,7 @@ export const JA_MESSAGES = {
   "settings.plugin.sync.error.passphrase_required": "復旧フレーズが必要です。",
   "settings.plugin.sync.error.recovery_backup_required":
     "同期を有効化する前に復旧フレーズをバックアップしたことを確認してください。",
+  "settings.plugin.sync.error.workspace_name_required": "ワークスペース名を入力してください。",
   "settings.plugin.ai_chat.title": "AIチャット",
   "settings.plugin.ai_chat.description":
     "右パネルのアシスタントを接続します。接続方法を選んで保存すると、すぐにチャットできます。",
