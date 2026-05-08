@@ -307,9 +307,22 @@ type UpdateWorkspaceKeyParams struct {
 }
 
 func (s *Service) DeleteWorkspace(ctx context.Context, userID, workspaceID uuid.UUID) error {
-	return s.queries.SoftDeleteSyncWorkspace(ctx, sqlc.SoftDeleteSyncWorkspaceParams{
-		ID:          workspaceID,
-		OwnerUserID: userID,
+	return s.withTx(ctx, func(q *sqlc.Queries) error {
+		usage, err := q.EnsureSyncUsageAccount(ctx, userID)
+		if err != nil {
+			return err
+		}
+		if _, err := q.GetSyncUsageAccountForUpdate(ctx, usage.UserID); err != nil {
+			return err
+		}
+		if err := q.SoftDeleteSyncWorkspace(ctx, sqlc.SoftDeleteSyncWorkspaceParams{
+			ID:          workspaceID,
+			OwnerUserID: userID,
+		}); err != nil {
+			return err
+		}
+		_, err = q.RecalculateSyncUsageAccount(ctx, userID)
+		return err
 	})
 }
 
