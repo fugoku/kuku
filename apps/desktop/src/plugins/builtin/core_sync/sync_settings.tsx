@@ -16,11 +16,16 @@ import { authState, getAuthService } from "~/plugins/builtin/core_auth/auth_serv
 import { vaultState } from "~/stores/vault";
 
 import { ConflictList } from "./conflict_list";
-import { defaultVaultId, mapSyncError } from "./service";
+import { defaultVaultId, mapSyncError, type SyncService } from "./service";
 import { applySyncStatus, refreshSyncStatus, syncStatus } from "./status_store";
 import { getSyncService } from "./runtime";
 import { transferStatusLabel } from "./transfer_status";
-import type { SyncErrorCategory, SyncRuntimeStatus, SyncWorkspaceSummary } from "./types";
+import type {
+  SyncAccountRecoveryState,
+  SyncErrorCategory,
+  SyncRuntimeStatus,
+  SyncWorkspaceSummary,
+} from "./types";
 
 function formatTimestamp(ts?: number): string {
   if (!ts) return t("settings.plugin.sync.metrics.never");
@@ -114,10 +119,29 @@ function SyncSettings(): JSX.Element {
   const [workspaceDraftName, setWorkspaceDraftName] = createSignal("");
   const [confirmDeleteWorkspaceId, setConfirmDeleteWorkspaceId] = createSignal<string | null>(null);
   const [localError, setLocalError] = createSignal<string | null>(null);
+  const [accountRecoveryState, setAccountRecoveryState] =
+    createSignal<SyncAccountRecoveryState | null>(null);
   const [confirmDisable, setConfirmDisable] = createSignal(false);
   const [authMode, setAuthMode] = createSignal<"ready" | "loginRequired" | "permissionRequired">(
     "ready",
   );
+
+  const activeAccountKeyId = () => syncStatus.accountKeyId ?? accountRecoveryState()?.accountKeyId;
+  const accountRecoveryConfigured = () => Boolean(activeAccountKeyId());
+  const accountRecoveryApplied = () => accountRecoveryState()?.applied ?? false;
+
+  async function refreshAccountRecoveryState(
+    service: SyncService,
+  ): Promise<SyncAccountRecoveryState | null> {
+    if (!authState.authenticated || authMode() !== "ready") {
+      setAccountRecoveryState(null);
+      return null;
+    }
+
+    const state = await service.getAccountRecoveryState().catch(() => null);
+    setAccountRecoveryState(state);
+    return state;
+  }
 
   async function refresh(options?: { reloadAuth?: boolean }): Promise<void> {
     const service = getSyncService();
@@ -127,21 +151,23 @@ function SyncSettings(): JSX.Element {
     if (options?.reloadAuth) {
       setAuthMode(await service.authState());
     }
-    if (syncStatus.accountKeyId && !recoveryPhrase()) {
+    const accountRecovery = await refreshAccountRecoveryState(service);
+    const accountKeyId = syncStatus.accountKeyId ?? accountRecovery?.accountKeyId;
+    if (accountKeyId && !recoveryPhrase()) {
       const savedRecoveryPhrase = await service
-        .getSavedRecoveryPhrase(syncStatus.accountKeyId)
+        .getSavedRecoveryPhrase(accountKeyId)
         .catch(() => null);
       if (savedRecoveryPhrase) {
         setRecoveryPhrase(savedRecoveryPhrase);
       }
     }
-    if (!syncStatus.accountKeyId && !recoveryPhrase()) {
+    if (!accountKeyId && !recoveryPhrase()) {
       const generated = await service.generateRecoveryPhrase().catch(() => null);
       if (generated) {
         setRecoveryPhrase(generated);
       }
     }
-    if (syncStatus.configured || syncStatus.accountKeyId) {
+    if (syncStatus.configured || accountKeyId) {
       await loadWorkspaces({ quiet: true });
     } else {
       setWorkspaces([]);
@@ -165,7 +191,7 @@ function SyncSettings(): JSX.Element {
       setLocalError(t("settings.plugin.sync.error.vault_required"));
       return false;
     }
-    if (!syncStatus.configured && !recoveryPhrase().trim()) {
+    if (!syncStatus.configured && !accountRecoveryApplied() && !recoveryPhrase().trim()) {
       setLocalError(t("settings.plugin.sync.error.passphrase_required"));
       return false;
     }
@@ -177,7 +203,7 @@ function SyncSettings(): JSX.Element {
     const status = await service.configureVault({
       vaultId: syncStatus.vaultId ?? defaultVaultId(rootPath),
       rootPath,
-      accountKeyId: syncStatus.accountKeyId,
+      accountKeyId: activeAccountKeyId(),
       remoteWorkspaceId: syncStatus.configured ? (syncStatus.remoteWorkspaceId ?? "") : "",
       workspaceName: syncStatus.workspaceName ?? basename(rootPath),
       deviceId: syncStatus.deviceId ?? "",
@@ -248,7 +274,7 @@ function SyncSettings(): JSX.Element {
   const recoveryPhraseWords = createMemo(() =>
     recoveryPhrase().trim().split(/\s+/).filter(Boolean),
   );
-  const requiresRecoveryBackup = () => !syncStatus.configured && !syncStatus.accountKeyId;
+  const requiresRecoveryBackup = () => !syncStatus.configured && !accountRecoveryConfigured();
 
   async function generateRecoveryPhrase(): Promise<void> {
     const service = getSyncService();
@@ -328,7 +354,7 @@ function SyncSettings(): JSX.Element {
       await service.configureVault({
         vaultId: syncStatus.vaultId ?? defaultVaultId(rootPath),
         rootPath,
-        accountKeyId: syncStatus.accountKeyId,
+        accountKeyId: activeAccountKeyId(),
         remoteWorkspaceId: workspace.workspaceId,
         workspaceName: workspace.name,
         deviceId: syncStatus.deviceId ?? "",
@@ -665,7 +691,7 @@ function SyncSettings(): JSX.Element {
       <SettingsCard
         title={t("settings.plugin.sync.passphrase.label")}
         description={
-          syncStatus.accountKeyId
+          accountRecoveryConfigured()
             ? t("settings.plugin.sync.passphrase.description")
             : t("settings.plugin.sync.passphrase.create_description")
         }
@@ -673,7 +699,7 @@ function SyncSettings(): JSX.Element {
       >
         <div class="space-y-2">
           <div class="flex flex-wrap gap-2">
-            <Show when={!syncStatus.accountKeyId}>
+            <Show when={!accountRecoveryConfigured()}>
               <SettingsToolbarAction
                 disabled={busy()}
                 onClick={() => void generateRecoveryPhrase()}
@@ -721,7 +747,7 @@ function SyncSettings(): JSX.Element {
             }
           >
             <Show
-              when={!syncStatus.accountKeyId && recoveryPhraseWords().length > 0}
+              when={!accountRecoveryConfigured() && recoveryPhraseWords().length > 0}
               fallback={
                 <textarea
                   value={recoveryPhrase()}

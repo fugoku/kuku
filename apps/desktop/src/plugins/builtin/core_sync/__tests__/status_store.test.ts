@@ -210,6 +210,13 @@ describe("sync status store", () => {
       async getSavedRecoveryPhrase() {
         return null;
       },
+      async getAccountRecoveryState() {
+        return {
+          configured: false,
+          applied: false,
+          recoveryPhraseSaved: false,
+        };
+      },
       async listWorkspaces() {
         return [];
       },
@@ -311,6 +318,13 @@ describe("sync status store", () => {
       },
       async getSavedRecoveryPhrase() {
         return null;
+      },
+      async getAccountRecoveryState() {
+        return {
+          configured: false,
+          applied: false,
+          recoveryPhraseSaved: false,
+        };
       },
       async listWorkspaces() {
         return [];
