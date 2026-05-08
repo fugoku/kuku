@@ -77,9 +77,88 @@ func TestServiceIntegrationLocalMetadataRoundTrip(t *testing.T) {
 	}
 	service := NewService(pool, queries, cfg, store)
 
+	accountKeyState, err := service.GetAccountKeyState(ctx, user.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if accountKeyState != nil {
+		t.Fatalf("account key state = %+v, want nil before setup", accountKeyState)
+	}
+	accountSetup, err := service.CreateAccountKey(ctx, user.ID, CreateAccountKeyParams{
+		AccountKeyID:      "account-key-" + uuid.NewString(),
+		CryptoVersion:     "kuku-sync-v1",
+		EnvelopeID:        "recovery:v1",
+		RecipientType:     syncv1.SyncAccountKeyRecipientType_SYNC_ACCOUNT_KEY_RECIPIENT_TYPE_RECOVERY_PHRASE,
+		KeyVersion:        1,
+		KDFParamsJSON:     `{"name":"argon2id"}`,
+		EncryptedEnvelope: []byte("encrypted-account-root-key"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if accountSetup.AccountKey.AccountKeyID == "" || accountSetup.Envelope.EnvelopeID != "recovery:v1" {
+		t.Fatalf("account setup = %+v", accountSetup)
+	}
+	if _, err := service.CreateAccountKey(ctx, user.ID, CreateAccountKeyParams{
+		AccountKeyID:      "other-account-key",
+		CryptoVersion:     "kuku-sync-v1",
+		EnvelopeID:        "recovery:v1",
+		RecipientType:     syncv1.SyncAccountKeyRecipientType_SYNC_ACCOUNT_KEY_RECIPIENT_TYPE_RECOVERY_PHRASE,
+		KeyVersion:        1,
+		EncryptedEnvelope: []byte("encrypted-account-root-key"),
+	}); !errors.Is(err, ErrAccountKeyExists) {
+		t.Fatalf("duplicate account key error = %v, want ErrAccountKeyExists", err)
+	}
+	accountEnvelopes, err := service.ListAccountKeyEnvelopes(ctx, user.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(accountEnvelopes) != 1 {
+		t.Fatalf("len(accountEnvelopes) = %d, want 1", len(accountEnvelopes))
+	}
+
 	workspace, err := service.CreateWorkspace(ctx, user.ID, "kuku-sync-v1")
 	if err != nil {
 		t.Fatal(err)
+	}
+	workspace, err = service.UpdateWorkspaceMetadata(ctx, user.ID, UpdateWorkspaceMetadataParams{
+		WorkspaceID:             workspace.ID,
+		EncryptedMetadata:       []byte("encrypted-workspace-name"),
+		MetadataVersion:         1,
+		ExpectedMetadataVersion: 0,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if workspace.MetadataVersion != 1 || string(workspace.EncryptedMetadata) != "encrypted-workspace-name" {
+		t.Fatalf("workspace metadata = %+v", workspace)
+	}
+	workspace, err = service.UpdateWorkspaceKey(ctx, user.ID, UpdateWorkspaceKeyParams{
+		WorkspaceID:                 workspace.ID,
+		EncryptedWorkspaceKey:       []byte("encrypted-workspace-key"),
+		WorkspaceKeyVersion:         1,
+		ExpectedWorkspaceKeyVersion: 0,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if workspace.WorkspaceKeyVersion != 1 || string(workspace.EncryptedWorkspaceKey) != "encrypted-workspace-key" {
+		t.Fatalf("workspace key metadata = %+v", workspace)
+	}
+	if _, err := service.UpdateWorkspaceMetadata(ctx, user.ID, UpdateWorkspaceMetadataParams{
+		WorkspaceID:             workspace.ID,
+		EncryptedMetadata:       []byte("stale"),
+		MetadataVersion:         2,
+		ExpectedMetadataVersion: 0,
+	}); !errors.Is(err, ErrMetadataVersionConflict) {
+		t.Fatalf("stale workspace metadata error = %v, want ErrMetadataVersionConflict", err)
+	}
+	workspaces, err := service.ListWorkspaces(ctx, user.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(workspaces) != 1 || workspaces[0].ID != workspace.ID || string(workspaces[0].EncryptedMetadata) != "encrypted-workspace-name" {
+		t.Fatalf("workspaces = %+v", workspaces)
 	}
 	if _, err := service.GetWorkspace(ctx, otherUser.ID, workspace.ID); !errors.Is(err, ErrPermissionDenied) {
 		t.Fatalf("other user GetWorkspace error = %v, want ErrPermissionDenied", err)
@@ -91,6 +170,19 @@ func TestServiceIntegrationLocalMetadataRoundTrip(t *testing.T) {
 	device, err := service.RegisterDevice(ctx, user.ID, workspace.ID, signingPublicKey, nil, []byte("encrypted-name"))
 	if err != nil {
 		t.Fatal(err)
+	}
+	device, err = service.UpdateDeviceMetadata(ctx, user.ID, UpdateDeviceMetadataParams{
+		WorkspaceID:             workspace.ID,
+		DeviceID:                device.ID,
+		EncryptedDeviceName:     []byte("encrypted-device-label"),
+		MetadataVersion:         1,
+		ExpectedMetadataVersion: 0,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if device.MetadataVersion != 1 || string(device.EncryptedDeviceName) != "encrypted-device-label" {
+		t.Fatalf("device metadata = %+v", device)
 	}
 	envelope, err := service.PutKeyEnvelope(ctx, user.ID, PutKeyEnvelopeParams{
 		WorkspaceID:       workspace.ID,
@@ -433,6 +525,14 @@ func TestHandlerServiceErrorHeadConflictDetail(t *testing.T) {
 	}
 	if detail.GetWorkspaceId() != "workspace-1" || detail.GetCurrentHeadCommitId() != "commit-1" || detail.GetHeadVersion() != 7 {
 		t.Fatalf("detail = %+v", detail)
+	}
+}
+
+func TestHandlerServiceErrorMetadataVersionConflict(t *testing.T) {
+	err := (&Handler{}).serviceError(context.Background(), ErrMetadataVersionConflict)
+
+	if connect.CodeOf(err) != connect.CodeAborted {
+		t.Fatalf("code = %s, want %s", connect.CodeOf(err), connect.CodeAborted)
 	}
 }
 
