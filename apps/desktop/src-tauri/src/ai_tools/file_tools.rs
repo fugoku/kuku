@@ -772,15 +772,16 @@ mod tests {
     #[test]
     fn build_move_plan_rejects_protected_knowledge_paths_before_vault_io() {
         let root = temp_dir();
-        let error = async_runtime::block_on(build_move_plan(
-            &root,
-            &json!({ "from": "Knowledge/%6demory/mem_auth.md", "to": "archive/mem_auth.md" }),
-        ))
-        .unwrap_err();
+        for args in [
+            json!({ "from": "Knowledge/%6demory/mem_auth.md", "to": "archive/mem_auth.md" }),
+            json!({ "from": "notes/auth.md", "to": "Knowledge/%77iki/concepts/auth.md" }),
+        ] {
+            let error = async_runtime::block_on(build_move_plan(&root, &args)).unwrap_err();
 
-        assert!(
-            matches!(error, super::ToolError::InvalidArguments(message) if message.contains("protected Knowledge path"))
-        );
+            assert!(
+                matches!(error, super::ToolError::InvalidArguments(message) if message.contains("protected Knowledge path"))
+            );
+        }
         let _ = std::fs::remove_dir_all(root);
     }
 

@@ -83,6 +83,7 @@ pub struct KnowledgeStatusResult {
     pub memory_dir_exists: bool,
     pub proposals_dir_exists: bool,
     pub decisions_dir_exists: bool,
+    pub wiki_dir_exists: bool,
     pub cache_dir_exists: bool,
 }
 
@@ -93,6 +94,7 @@ pub struct KnowledgeInitResult {
     pub memory_dir_exists: bool,
     pub proposals_dir_exists: bool,
     pub decisions_dir_exists: bool,
+    pub wiki_dir_exists: bool,
     pub cache_dir_exists: bool,
     pub created_dirs: Vec<String>,
 }
@@ -369,6 +371,7 @@ impl KnowledgeInitResult {
             memory_dir_exists: status.memory_dir_exists,
             proposals_dir_exists: status.proposals_dir_exists,
             decisions_dir_exists: status.decisions_dir_exists,
+            wiki_dir_exists: status.wiki_dir_exists,
             cache_dir_exists: status.cache_dir_exists,
             created_dirs,
         }
