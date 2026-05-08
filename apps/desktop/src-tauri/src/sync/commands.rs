@@ -1,3 +1,4 @@
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -1627,20 +1628,46 @@ fn list_open_conflicts(
         return Ok(Vec::new());
     }
     let conn = db::open_sync_db(&path)?;
-    db::list_open_conflicts(&conn).map(|conflicts| {
-        conflicts
-            .into_iter()
-            .map(|conflict| SyncConflictSummary {
-                conflict_id: conflict.conflict_id,
-                path: conflict.path,
-                conflict_path: conflict.conflict_path,
-                base_commit_id: conflict.base_commit_id,
-                remote_commit_id: conflict.remote_commit_id,
-                status: conflict.status,
-                created_at_ms: conflict.created_at_ms,
-            })
-            .collect()
-    })
+    let conflicts = db::list_open_conflicts(&conn)?;
+    let vault_root = status
+        .root_path
+        .as_deref()
+        .map(PathBuf::from)
+        .filter(|root| root.is_dir());
+    let mut summaries = Vec::new();
+    for conflict in conflicts {
+        if let Some(vault_root) = vault_root.as_ref()
+            && !vault_relative_file_exists(vault_root, &conflict.conflict_path)?
+        {
+            db::mark_conflict_resolved(&conn, &conflict.conflict_id)?;
+            continue;
+        }
+        summaries.push(SyncConflictSummary {
+            conflict_id: conflict.conflict_id,
+            path: conflict.path,
+            conflict_path: conflict.conflict_path,
+            base_commit_id: conflict.base_commit_id,
+            remote_commit_id: conflict.remote_commit_id,
+            status: conflict.status,
+            created_at_ms: conflict.created_at_ms,
+        });
+    }
+    Ok(summaries)
+}
+
+fn vault_relative_file_exists(vault_root: &Path, relative_path: &str) -> SyncResult<bool> {
+    let path = match vault::resolve_vault_path(vault_root, relative_path) {
+        Ok(path) => path,
+        Err(_) => return Ok(false),
+    };
+    match fs::metadata(&path) {
+        Ok(metadata) => Ok(metadata.is_file()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(SyncError::Storage(format!(
+            "failed to inspect conflict copy {}: {error}",
+            path.display()
+        ))),
+    }
 }
 
 #[cfg(test)]
@@ -1814,6 +1841,19 @@ mod tests {
         assert!(!error_may_indicate_missing_current_workspace(
             &SyncError::QuotaExceeded("quota exceeded".into())
         ));
+    }
+
+    #[test]
+    fn vault_relative_file_exists_tracks_deleted_conflict_copy() {
+        let root = temp_vault("conflict-copy-exists");
+        write_file(&root.join("a.conflict-19700101-000000.md"), b"conflict");
+
+        assert!(vault_relative_file_exists(&root, "a.conflict-19700101-000000.md").unwrap());
+        fs::remove_file(root.join("a.conflict-19700101-000000.md")).unwrap();
+        assert!(!vault_relative_file_exists(&root, "a.conflict-19700101-000000.md").unwrap());
+        assert!(!vault_relative_file_exists(&root, "../outside.md").unwrap());
+
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

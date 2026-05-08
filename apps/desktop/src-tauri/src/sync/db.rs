@@ -522,6 +522,34 @@ pub fn list_open_conflicts(conn: &Connection) -> SyncResult<Vec<SyncConflictReco
         .map_err(|error| SyncError::Storage(format!("failed to read sync conflicts: {error}")))
 }
 
+pub fn mark_conflict_resolved(conn: &Connection, conflict_id: &str) -> SyncResult<()> {
+    conn.execute(
+        r#"
+        UPDATE sync_conflicts
+        SET status = 'resolved'
+        WHERE conflict_id = ?1
+          AND status = 'open'
+        "#,
+        params![conflict_id],
+    )
+    .map_err(|error| SyncError::Storage(format!("failed to resolve sync conflict: {error}")))?;
+    Ok(())
+}
+
+pub fn get_conflict_status(conn: &Connection, conflict_id: &str) -> SyncResult<Option<String>> {
+    match conn.query_row(
+        "SELECT status FROM sync_conflicts WHERE conflict_id = ?1",
+        params![conflict_id],
+        |row| row.get(0),
+    ) {
+        Ok(status) => Ok(Some(status)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(error) => Err(SyncError::Storage(format!(
+            "failed to read sync conflict status: {error}"
+        ))),
+    }
+}
+
 pub fn update_vault_after_publish(
     conn: &Connection,
     vault_id: &str,
@@ -1163,5 +1191,32 @@ mod tests {
 
         assert_eq!(conflicts.len(), 1);
         assert_eq!(conflicts[0].conflict_path, "a.conflict-19700101-000001.md");
+    }
+
+    #[test]
+    fn mark_conflict_resolved_removes_it_from_open_conflicts() {
+        let conn = open_memory_sync_db().unwrap();
+        upsert_conflict(
+            &conn,
+            &SyncConflictRecord {
+                conflict_id: "conflict-1".into(),
+                path: "a.md".into(),
+                conflict_path: "a.conflict-19700101-000001.md".into(),
+                base_commit_id: Some("base".into()),
+                local_commit_id: None,
+                remote_commit_id: Some("remote".into()),
+                status: "open".into(),
+                created_at_ms: 1,
+            },
+        )
+        .unwrap();
+
+        mark_conflict_resolved(&conn, "conflict-1").unwrap();
+
+        assert!(list_open_conflicts(&conn).unwrap().is_empty());
+        assert_eq!(
+            get_conflict_status(&conn, "conflict-1").unwrap().as_deref(),
+            Some("resolved")
+        );
     }
 }
