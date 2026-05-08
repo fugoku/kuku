@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use icu_normalizer::ComposingNormalizerBorrowed;
 
-const PROTECTED_PREFIXES: [&str; 2] = ["Knowledge/memory", "Knowledge/decisions"];
+const PROTECTED_PREFIXES: [&str; 3] = ["Knowledge/memory", "Knowledge/decisions", "Knowledge/wiki"];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProtectedPathError {
@@ -247,8 +247,10 @@ mod tests {
         for path in [
             "Knowledge/memory/mem_auth.md",
             "knowledge/decisions/doc_auth.md",
+            "Knowledge/wiki/concepts/authentication.md",
             "Knowledge/./memory/mem_auth.md",
             "Knowledge/%6demory/mem_auth.md",
+            "Knowledge/%77iki/concepts/authentication.md",
         ] {
             assert!(async_runtime::block_on(guard_ai_raw_mutation_path(&root, path)).is_err());
         }
@@ -280,13 +282,11 @@ mod tests {
     #[cfg(unix)]
     fn protected_path_guard_blocks_symlink_into_protected_path() {
         let root = temp_vault();
-        fs::create_dir_all(root.join("Knowledge/memory")).unwrap();
-        std::os::unix::fs::symlink(root.join("Knowledge/memory"), root.join("memory-link"))
-            .unwrap();
+        fs::create_dir_all(root.join("Knowledge/wiki")).unwrap();
+        std::os::unix::fs::symlink(root.join("Knowledge/wiki"), root.join("wiki-link")).unwrap();
 
-        let error =
-            async_runtime::block_on(guard_ai_raw_mutation_path(&root, "memory-link/mem_auth.md"))
-                .unwrap_err();
+        let error = async_runtime::block_on(guard_ai_raw_mutation_path(&root, "wiki-link/page.md"))
+            .unwrap_err();
         assert!(error.message.contains("protected Knowledge path"));
 
         let _ = fs::remove_dir_all(root);

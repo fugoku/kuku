@@ -7,6 +7,11 @@ const REQUIRED_DIRS: &[&str] = &[
     "Knowledge/memory",
     "Knowledge/proposals",
     "Knowledge/decisions",
+    "Knowledge/wiki",
+    "Knowledge/wiki/sources",
+    "Knowledge/wiki/concepts",
+    "Knowledge/wiki/entities",
+    "Knowledge/wiki/synthesis",
     ".kuku/knowledge",
     ".kuku/knowledge/apply-journal",
     ".kuku/knowledge/apply-tmp",
@@ -43,11 +48,13 @@ pub async fn knowledge_status_for_root(
     let memory_dir_exists = is_dir(root.join("Knowledge/memory")).await?;
     let proposals_dir_exists = is_dir(root.join("Knowledge/proposals")).await?;
     let decisions_dir_exists = is_dir(root.join("Knowledge/decisions")).await?;
+    let wiki_dir_exists = is_dir(root.join("Knowledge/wiki")).await?;
     let cache_dir_exists = is_dir(root.join(".kuku/knowledge")).await?;
     let initialized = root_exists
         && memory_dir_exists
         && proposals_dir_exists
         && decisions_dir_exists
+        && wiki_dir_exists
         && cache_dir_exists;
 
     Ok(KnowledgeStatusResult {
@@ -56,6 +63,7 @@ pub async fn knowledge_status_for_root(
         memory_dir_exists,
         proposals_dir_exists,
         decisions_dir_exists,
+        wiki_dir_exists,
         cache_dir_exists,
     })
 }
@@ -133,6 +141,7 @@ mod tests {
         assert!(!status.memory_dir_exists);
         assert!(!status.proposals_dir_exists);
         assert!(!status.decisions_dir_exists);
+        assert!(!status.wiki_dir_exists);
         assert!(!status.cache_dir_exists);
 
         let _ = fs::remove_dir_all(root);
@@ -148,6 +157,11 @@ mod tests {
         assert!(root.join("Knowledge/memory").is_dir());
         assert!(root.join("Knowledge/proposals").is_dir());
         assert!(root.join("Knowledge/decisions").is_dir());
+        assert!(root.join("Knowledge/wiki").is_dir());
+        assert!(root.join("Knowledge/wiki/sources").is_dir());
+        assert!(root.join("Knowledge/wiki/concepts").is_dir());
+        assert!(root.join("Knowledge/wiki/entities").is_dir());
+        assert!(root.join("Knowledge/wiki/synthesis").is_dir());
         assert!(root.join(".kuku/knowledge/apply-journal").is_dir());
         assert!(root.join(".kuku/knowledge/apply-tmp").is_dir());
         assert!(root.join(".kuku/knowledge/apply-lock").is_dir());
@@ -156,6 +170,19 @@ mod tests {
         let second = async_runtime::block_on(knowledge_init_for_root(&root)).unwrap();
         assert!(second.initialized);
         assert!(second.created_dirs.is_empty());
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn init_rejects_file_where_wiki_directory_is_required() {
+        let root = temp_vault();
+        fs::create_dir_all(root.join("Knowledge")).unwrap();
+        fs::write(root.join("Knowledge/wiki"), "not a directory").unwrap();
+
+        let error = async_runtime::block_on(knowledge_init_for_root(&root)).unwrap_err();
+        assert!(matches!(error.code, KnowledgeErrorCode::AlreadyExists));
+        assert!(error.message.contains("Knowledge/wiki"));
 
         let _ = fs::remove_dir_all(root);
     }

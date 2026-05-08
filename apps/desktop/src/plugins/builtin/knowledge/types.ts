@@ -68,6 +68,7 @@ interface KnowledgeStatusResult {
   memory_dir_exists: boolean;
   proposals_dir_exists: boolean;
   decisions_dir_exists: boolean;
+  wiki_dir_exists: boolean;
   cache_dir_exists: boolean;
 }
 

@@ -51,6 +51,7 @@ const STATUS_ITEMS: { key: keyof KnowledgeStatusResult; label: string }[] = [
   { key: "memory_dir_exists", label: "Memory" },
   { key: "proposals_dir_exists", label: "Proposals" },
   { key: "decisions_dir_exists", label: "Decisions" },
+  { key: "wiki_dir_exists", label: "Wiki" },
   { key: "cache_dir_exists", label: "Cache" },
 ];
 
