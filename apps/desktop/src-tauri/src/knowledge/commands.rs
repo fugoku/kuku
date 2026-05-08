@@ -269,6 +269,11 @@ pub async fn knowledge_apply_decision_document(
                     result.warnings.push(error);
                 }
             }
+            for path in &result.committed_wiki_paths {
+                if let Err(error) = search.notify_written_with_source(path, "knowledge-apply") {
+                    result.warnings.push(error);
+                }
+            }
             Ok(KnowledgeCommandResult::ok(result))
         }
         Err(error) => Ok(KnowledgeCommandResult::err_with_details(

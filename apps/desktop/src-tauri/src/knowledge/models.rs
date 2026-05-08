@@ -401,6 +401,7 @@ pub struct ApplyDecisionDocumentResult {
     pub path: String,
     pub status: ApplyDecisionDocumentStatus,
     pub committed_memory_paths: Vec<String>,
+    pub committed_wiki_paths: Vec<String>,
     pub rejected_decision_ids: Vec<String>,
     pub needs_revision_decision_ids: Vec<String>,
     pub recovered_from_journal: bool,

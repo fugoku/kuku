@@ -162,12 +162,14 @@ function applyError(state: KnowledgeEditorApplyState): KnowledgeError | undefine
 
 function ApplyResultSummary(props: { result?: ApplyDecisionDocumentResult }) {
   const result = () => props.result;
+  const committedCount = () =>
+    (result()?.committed_memory_paths.length ?? 0) + (result()?.committed_wiki_paths.length ?? 0);
   return (
     <Show when={result()}>
       {(value) => (
         <div>
           <span>{value().status}</span>
-          <span> · committed {value().committed_memory_paths.length}</span>
+          <span> · committed {committedCount()}</span>
           <span> · rejected {value().rejected_decision_ids.length}</span>
           <span> · revision {value().needs_revision_decision_ids.length}</span>
           <Show when={value().journal_cleanup_required}>
