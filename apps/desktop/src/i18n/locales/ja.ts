@@ -133,6 +133,13 @@ export const JA_MESSAGES = {
     "同期を有効化する前に、この生成されたフレーズをバックアップしてください。新しい端末で暗号化同期ワークスペースを解除するために使います。",
   "settings.plugin.sync.passphrase.placeholder": "復旧フレーズを入力",
   "settings.plugin.sync.passphrase.generate": "生成",
+  "settings.plugin.sync.passphrase.unlock": "フレーズを確認",
+  "settings.plugin.sync.passphrase.unlock_required":
+    "このアカウントの同期データを解除する前に復旧フレーズを確認してください。",
+  "settings.plugin.sync.passphrase.unlock_description":
+    "このアカウントにはすでに復旧フレーズが設定されています。この端末でワークスペース情報を開くには入力してください。",
+  "settings.plugin.sync.passphrase.reset_only":
+    "復旧フレーズを入力できない場合、既存のサーバー同期データは復旧できません。同期を初期化して最初からやり直す必要があり、既存のサーバー同期状態は削除されます。",
   "settings.plugin.sync.passphrase.copy": "フレーズをコピー",
   "settings.plugin.sync.passphrase.copied": "コピー済み",
   "settings.plugin.sync.passphrase.save": ".md に保存",

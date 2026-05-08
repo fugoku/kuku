@@ -131,6 +131,13 @@ export const EN_MESSAGES = {
     "Back up this generated phrase before enabling sync. It unlocks your encrypted sync workspaces on new devices.",
   "settings.plugin.sync.passphrase.placeholder": "Enter recovery phrase",
   "settings.plugin.sync.passphrase.generate": "Generate",
+  "settings.plugin.sync.passphrase.unlock": "Verify phrase",
+  "settings.plugin.sync.passphrase.unlock_required":
+    "Verify the recovery phrase before unlocking this account's sync data.",
+  "settings.plugin.sync.passphrase.unlock_description":
+    "This account already has a recovery phrase. Enter it to unlock workspace information on this device.",
+  "settings.plugin.sync.passphrase.reset_only":
+    "Without the recovery phrase, the existing server sync data cannot be recovered. The only path is to reset sync and start over, which deletes the existing server sync state.",
   "settings.plugin.sync.passphrase.copy": "Copy phrase",
   "settings.plugin.sync.passphrase.copied": "Copied",
   "settings.plugin.sync.passphrase.save": "Save .md",

@@ -129,6 +129,14 @@ function SyncSettings(): JSX.Element {
   const activeAccountKeyId = () => syncStatus.accountKeyId ?? accountRecoveryState()?.accountKeyId;
   const accountRecoveryConfigured = () => Boolean(activeAccountKeyId());
   const accountRecoveryApplied = () => accountRecoveryState()?.applied ?? false;
+  const requiresAccountUnlock = () => {
+    const state = accountRecoveryState();
+    return Boolean(state?.configured && state.recoveryPhraseConfigured && !state.applied);
+  };
+  const recoveryPhraseUnavailable = () => {
+    const state = accountRecoveryState();
+    return Boolean(state?.configured && !state.recoveryPhraseConfigured && !state.applied);
+  };
 
   async function refreshAccountRecoveryState(
     service: SyncService,
@@ -167,7 +175,9 @@ function SyncSettings(): JSX.Element {
         setRecoveryPhrase(generated);
       }
     }
-    if (syncStatus.configured || accountKeyId) {
+    if (accountRecovery?.configured && !accountRecovery.applied) {
+      setWorkspaces([]);
+    } else if (syncStatus.configured || accountKeyId) {
       await loadWorkspaces({ quiet: true });
     } else {
       setWorkspaces([]);
@@ -189,6 +199,10 @@ function SyncSettings(): JSX.Element {
     const rootPath = vaultState.rootPath;
     if (!service || !rootPath) {
       setLocalError(t("settings.plugin.sync.error.vault_required"));
+      return false;
+    }
+    if (!syncStatus.configured && requiresAccountUnlock()) {
+      setLocalError(t("settings.plugin.sync.passphrase.unlock_required"));
       return false;
     }
     if (!syncStatus.configured && !accountRecoveryApplied() && !recoveryPhrase().trim()) {
@@ -221,6 +235,14 @@ function SyncSettings(): JSX.Element {
     if (!service || busy()) return;
     setBusy(true);
     try {
+      if (requiresAccountUnlock()) {
+        setLocalError(t("settings.plugin.sync.passphrase.unlock_required"));
+        return;
+      }
+      if (recoveryPhraseUnavailable()) {
+        setLocalError(t("settings.plugin.sync.passphrase.reset_only"));
+        return;
+      }
       const configured = syncStatus.configured || (await configure());
       if (!configured) return;
       await service.setEnabled(true);
@@ -268,6 +290,7 @@ function SyncSettings(): JSX.Element {
   }
 
   const canSyncNow = () => syncStatus.configured && syncStatus.enabled && !busy();
+  const canEnableSync = () => !busy() && !requiresAccountUnlock() && !recoveryPhraseUnavailable();
   const workspaceActionBusy = () => workspaceLoading() || workspaceBusyId() !== null;
   const visibleError = () =>
     localError() ?? errorCopy(syncStatus.lastError, syncStatus.lastErrorCategory);
@@ -322,10 +345,42 @@ function SyncSettings(): JSX.Element {
     }
   }
 
+  async function verifyRecoveryPhrase(): Promise<void> {
+    const service = getSyncService();
+    const phrase = recoveryPhrase().trim();
+    if (!service || busy() || workspaceLoading()) return;
+    if (!phrase) {
+      setLocalError(t("settings.plugin.sync.error.passphrase_required"));
+      return;
+    }
+    setWorkspaceLoading(true);
+    try {
+      const rows = await service.listWorkspaces(phrase);
+      setWorkspaces(rows);
+      await refreshAccountRecoveryState(service);
+      setLocalError(null);
+      setShowRecoveryPhrase(false);
+    } catch (error) {
+      setWorkspaces([]);
+      setLocalError(errorCopy(error));
+    } finally {
+      setWorkspaceLoading(false);
+    }
+  }
+
   async function loadWorkspaces(options?: { quiet?: boolean }): Promise<void> {
     const service = getSyncService();
     if (!service || workspaceLoading()) return;
     if (!authState.authenticated || authMode() !== "ready") {
+      setWorkspaces([]);
+      return;
+    }
+    if (requiresAccountUnlock() && !recoveryPhrase().trim()) {
+      setWorkspaces([]);
+      if (!options?.quiet) setLocalError(t("settings.plugin.sync.error.passphrase_required"));
+      return;
+    }
+    if (options?.quiet && requiresAccountUnlock()) {
       setWorkspaces([]);
       return;
     }
@@ -502,7 +557,7 @@ function SyncSettings(): JSX.Element {
               fallback={
                 <SettingsToolbarAction
                   variant="primary"
-                  disabled={busy()}
+                  disabled={!canEnableSync()}
                   onClick={() => void handleEnable()}
                 >
                   {busy()
@@ -698,6 +753,18 @@ function SyncSettings(): JSX.Element {
         tone="subtle"
       >
         <div class="space-y-2">
+          <Show when={requiresAccountUnlock()}>
+            <SettingsBanner
+              tone="warning"
+              description={t("settings.plugin.sync.passphrase.unlock_description")}
+            />
+          </Show>
+          <Show when={recoveryPhraseUnavailable()}>
+            <SettingsBanner
+              tone="error"
+              description={t("settings.plugin.sync.passphrase.reset_only")}
+            />
+          </Show>
           <div class="flex flex-wrap gap-2">
             <Show when={!accountRecoveryConfigured()}>
               <SettingsToolbarAction
@@ -705,6 +772,17 @@ function SyncSettings(): JSX.Element {
                 onClick={() => void generateRecoveryPhrase()}
               >
                 {t("settings.plugin.sync.passphrase.generate")}
+              </SettingsToolbarAction>
+            </Show>
+            <Show when={requiresAccountUnlock()}>
+              <SettingsToolbarAction
+                variant="primary"
+                disabled={!recoveryPhrase().trim() || workspaceLoading()}
+                onClick={() => void verifyRecoveryPhrase()}
+              >
+                {workspaceLoading()
+                  ? t("settings.plugin.sync.action.working")
+                  : t("settings.plugin.sync.passphrase.unlock")}
               </SettingsToolbarAction>
             </Show>
             <SettingsToolbarAction
