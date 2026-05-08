@@ -234,18 +234,18 @@ function ChatInput(): JSX.Element {
             disabled={chatState.isCreatingSession}
             onChange={(event) => void toggleAutoApprove(event.currentTarget.checked)}
           />
-            <span
-              class="grid size-2.5 place-items-center border transition"
-              classList={{
-                "border-text-primary bg-text-primary text-bg-primary": autoApproveEnabled(),
-                "border-border-focused bg-bg-primary text-transparent hover:border-border-selected hover:bg-bg-secondary":
-                  !autoApproveEnabled(),
-              }}
+          <span
+            class="grid size-2.5 place-items-center border transition"
+            classList={{
+              "border-text-primary bg-text-primary text-bg-primary": autoApproveEnabled(),
+              "border-border-focused bg-bg-primary text-transparent hover:border-border-selected hover:bg-bg-secondary":
+                !autoApproveEnabled(),
+            }}
             aria-hidden="true"
           >
-                <svg
-                  width="7"
-                  height="7"
+            <svg
+              width="7"
+              height="7"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -364,7 +364,7 @@ function ChatInput(): JSX.Element {
                   {modeTitle(chatState.selectedMode)}
                 </span>
                 <svg
-                  class="translate-y-px shrink-0 text-text-muted"
+                  class="shrink-0 translate-y-px text-text-muted"
                   width="12"
                   height="12"
                   viewBox="0 0 24 24"
