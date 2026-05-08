@@ -146,6 +146,10 @@ export const JA_MESSAGES = {
   "settings.plugin.sync.passphrase.backup_confirm": "この復旧フレーズを安全な場所に保存しました。",
   "settings.plugin.sync.passphrase.hide": "フレーズを隠す",
   "settings.plugin.sync.passphrase.show": "フレーズを表示",
+  "settings.plugin.sync.passphrase.collapse": "折りたたむ",
+  "settings.plugin.sync.passphrase.edit": "編集",
+  "settings.plugin.sync.passphrase.verified":
+    "復旧フレーズが確認され、この端末でワークスペース情報を開けます。",
   "settings.plugin.sync.workspace.title": "ワークスペース",
   "settings.plugin.sync.workspace.description":
     "このアカウントの暗号化同期ワークスペースを名前で管理します。",

@@ -144,6 +144,10 @@ export const EN_MESSAGES = {
   "settings.plugin.sync.passphrase.backup_confirm": "I saved this recovery phrase somewhere safe.",
   "settings.plugin.sync.passphrase.hide": "Hide phrase",
   "settings.plugin.sync.passphrase.show": "Show phrase",
+  "settings.plugin.sync.passphrase.collapse": "Collapse",
+  "settings.plugin.sync.passphrase.edit": "Edit",
+  "settings.plugin.sync.passphrase.verified":
+    "The recovery phrase is verified, so this device can unlock workspace information.",
   "settings.plugin.sync.workspace.title": "Workspaces",
   "settings.plugin.sync.workspace.description":
     "Manage encrypted sync workspaces on this account by name.",
