@@ -1,6 +1,7 @@
 interface DecisionDocumentSummary {
   path: string;
   title: string;
+  targetKind: "memory" | "wiki" | "unknown";
   status: string;
   updatedAt?: string;
   decisionCount: number;
@@ -14,6 +15,16 @@ interface MemorySummary {
   status: string;
   updatedAt?: string;
   kind?: string;
+  tags: string[];
+}
+
+interface WikiSummary {
+  path: string;
+  id: string;
+  title: string;
+  pageType: string;
+  status: string;
+  updatedAt?: string;
   tags: string[];
 }
 
@@ -38,6 +49,7 @@ function parseDecisionDocumentSummary(
   return {
     path,
     title: frontmatter.scalars.title ?? baseName(path),
+    targetKind: parseTargetKind(frontmatter.scalars.target_kind),
     status: frontmatter.scalars.status ?? "unknown",
     updatedAt: frontmatter.scalars.updated_at,
     decisionCount: decisionBlocks.length,
@@ -61,6 +73,24 @@ function parseMemorySummary(path: string, markdown: string): MemorySummary | nul
     status: frontmatter.scalars.status ?? "unknown",
     updatedAt: frontmatter.scalars.updated_at,
     kind: frontmatter.scalars.kind,
+    tags: frontmatter.arrays.tags ?? [],
+  };
+}
+
+function parseWikiSummary(path: string, markdown: string): WikiSummary | null {
+  const frontmatter = parseFrontmatter(markdown);
+  if (!frontmatter) return null;
+  const id = frontmatter.scalars.id;
+  const title = frontmatter.scalars.title;
+  if (!id || !title) return null;
+
+  return {
+    path,
+    id,
+    title,
+    pageType: frontmatter.scalars.page_type ?? "unknown",
+    status: frontmatter.scalars.status ?? "unknown",
+    updatedAt: frontmatter.scalars.updated_at,
     tags: frontmatter.arrays.tags ?? [],
   };
 }
@@ -102,6 +132,13 @@ function sortDecisionDocuments(items: DecisionDocumentSummary[]): DecisionDocume
 }
 
 function sortRecentMemory(items: MemorySummary[]): MemorySummary[] {
+  return [...items].sort(
+    (left, right) =>
+      compareDescOptional(left.updatedAt, right.updatedAt) || left.path.localeCompare(right.path),
+  );
+}
+
+function sortRecentWiki(items: WikiSummary[]): WikiSummary[] {
   return [...items].sort(
     (left, right) =>
       compareDescOptional(left.updatedAt, right.updatedAt) || left.path.localeCompare(right.path),
@@ -197,6 +234,11 @@ function parseBooleanScalar(body: string, key: string): boolean | undefined {
   return undefined;
 }
 
+function parseTargetKind(value: string | undefined): DecisionDocumentSummary["targetKind"] {
+  if (value === "memory" || value === "wiki") return value;
+  return "unknown";
+}
+
 function unquoteScalar(value: string): string {
   const trimmed = value.trim();
   if (
@@ -230,8 +272,10 @@ export {
   parseApplyJournalSummary,
   parseDecisionDocumentSummary,
   parseMemorySummary,
+  parseWikiSummary,
   sortApplyJournals,
   sortDecisionDocuments,
   sortRecentMemory,
+  sortRecentWiki,
 };
-export type { ApplyJournalSummary, DecisionDocumentSummary, MemorySummary };
+export type { ApplyJournalSummary, DecisionDocumentSummary, MemorySummary, WikiSummary };

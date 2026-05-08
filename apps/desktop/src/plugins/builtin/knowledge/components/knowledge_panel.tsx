@@ -19,22 +19,26 @@ import {
   parseApplyJournalSummary,
   parseDecisionDocumentSummary,
   parseMemorySummary,
+  parseWikiSummary,
   sortApplyJournals,
   sortDecisionDocuments,
   sortRecentMemory,
+  sortRecentWiki,
   type ApplyJournalSummary,
   type DecisionDocumentSummary,
   type MemorySummary,
+  type WikiSummary,
 } from "../knowledge_panel_data";
 import { createKnowledgeService } from "../service";
 import type {
   CreateDecisionDocumentRequest,
   CreateDecisionDocumentResult,
+  KnowledgeContextResult,
   KnowledgeCommandResult,
   KnowledgeInitResult,
   KnowledgeStatusResult,
-  MemoryContextResult,
   MemorySearchHit,
+  WikiSearchHit,
 } from "../types";
 
 const BUTTON =
@@ -54,6 +58,8 @@ const STATUS_ITEMS: { key: keyof KnowledgeStatusResult; label: string }[] = [
   { key: "wiki_dir_exists", label: "Wiki" },
   { key: "cache_dir_exists", label: "Cache" },
 ];
+
+type ContextHit = { kind: "memory"; hit: MemorySearchHit } | { kind: "wiki"; hit: WikiSearchHit };
 
 function debugProposalRequest(label: string): CreateDecisionDocumentRequest {
   return {
@@ -78,9 +84,10 @@ function KnowledgePanel() {
   const [createdDoc, setCreatedDoc] = createSignal<CreateDecisionDocumentResult | null>(null);
   const [decisionDocs, setDecisionDocs] = createSignal<DecisionDocumentSummary[]>([]);
   const [recentMemory, setRecentMemory] = createSignal<MemorySummary[]>([]);
+  const [recentWiki, setRecentWiki] = createSignal<WikiSummary[]>([]);
   const [applyJournals, setApplyJournals] = createSignal<ApplyJournalSummary[]>([]);
   const [contextQuery, setContextQuery] = createSignal("");
-  const [contextResult, setContextResult] = createSignal<MemoryContextResult | null>(null);
+  const [contextResult, setContextResult] = createSignal<KnowledgeContextResult | null>(null);
   const [panelWarnings, setPanelWarnings] = createSignal<string[]>([]);
   const [busy, setBusy] = createSignal<string | null>(null);
   const [error, setError] = createSignal<string | null>(null);
@@ -92,7 +99,10 @@ function KnowledgePanel() {
       .slice(0, 8),
   );
   const recoveryJournals = createMemo(() => applyJournals().filter(hasRecoveryWarning).slice(0, 5));
-  const contextHits = createMemo(() => contextResult()?.memories ?? []);
+  const contextHits = createMemo<ContextHit[]>(() => [
+    ...(contextResult()?.memory_hits ?? []).map((hit) => ({ kind: "memory" as const, hit })),
+    ...(contextResult()?.wiki_hits ?? []).map((hit) => ({ kind: "wiki" as const, hit })),
+  ]);
   const warningCount = createMemo(
     () =>
       panelWarnings().length + recoveryJournals().length + (contextResult()?.warnings.length ?? 0),
@@ -134,14 +144,16 @@ function KnowledgePanel() {
         warnings.push(formatCommandError(statusResult));
       }
 
-      const [docs, memories, journals] = await Promise.all([
+      const [docs, memories, wikiPages, journals] = await Promise.all([
         loadDecisionDocuments(warnings),
         loadRecentMemory(warnings),
+        loadRecentWiki(warnings),
         loadApplyJournals(warnings),
       ]);
 
       setDecisionDocs(docs);
       setRecentMemory(memories);
+      setRecentWiki(wikiPages);
       setApplyJournals(journals);
       setPanelWarnings(warnings);
     } catch (loadError) {
@@ -194,13 +206,14 @@ function KnowledgePanel() {
       return;
     }
 
-    setBusy("memory_context");
+    setBusy("knowledge_context");
     setError(null);
     try {
-      const result = await service.memoryContext({
+      const result = await service.knowledgeContext({
         query,
         active_path: editorState.filePath ?? undefined,
         limit: 5,
+        include: ["memory", "wiki"],
       });
       if (result.ok) {
         setContextResult(result.value);
@@ -253,9 +266,10 @@ function KnowledgePanel() {
                 )}
               </Show>
             </div>
-            <div class="grid grid-cols-3 gap-2 p-3">
+            <div class="grid grid-cols-4 gap-2 p-3">
               <Metric label="Inbox" value={inboxDocs().length} />
               <Metric label="Memory" value={recentMemory().length} />
+              <Metric label="Wiki" value={recentWiki().length} />
               <Metric
                 label="Warnings"
                 value={warningCount()}
@@ -378,6 +392,22 @@ function KnowledgePanel() {
 
           <section class={SECTION}>
             <div class={SECTION_HEADER}>
+              <h3 class="text-[0.75rem] font-medium text-text-primary">Recent Wiki</h3>
+              <StatePill value={`${recentWiki().length}`} />
+            </div>
+            <Show when={recentWiki().length > 0} fallback={<EmptyLine text="No committed wiki" />}>
+              <div class="flex flex-col divide-y divide-border/60">
+                <For each={recentWiki().slice(0, 6)}>
+                  {(page) => (
+                    <WikiRow page={page} onOpen={() => openDocument(page.path, page.title)} />
+                  )}
+                </For>
+              </div>
+            </Show>
+          </section>
+
+          <section class={SECTION}>
+            <div class={SECTION_HEADER}>
               <h3 class="text-[0.75rem] font-medium text-text-primary">Context</h3>
               <button
                 type="button"
@@ -394,7 +424,7 @@ function KnowledgePanel() {
               <input
                 class={INPUT}
                 value={contextQuery()}
-                placeholder={deriveContextQuery(editorState.filePath) || "Memory query"}
+                placeholder={deriveContextQuery(editorState.filePath) || "Knowledge query"}
                 onInput={(event) => setContextQuery(event.currentTarget.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
@@ -410,7 +440,10 @@ function KnowledgePanel() {
               <div class="flex flex-col divide-y divide-border/60">
                 <For each={contextHits()}>
                   {(hit) => (
-                    <ContextRow hit={hit} onOpen={() => openDocument(hit.path, hit.title)} />
+                    <ContextRow
+                      item={hit}
+                      onOpen={() => openDocument(hit.hit.path, hit.hit.title)}
+                    />
                   )}
                 </For>
               </div>
@@ -522,6 +555,7 @@ function DocumentRow(props: { doc: DecisionDocumentSummary; onOpen: () => void }
           <StatePill value={props.doc.status} />
         </div>
         <div class="mt-1 flex items-center gap-2 text-[0.625rem] text-text-muted">
+          <StatePill value={props.doc.targetKind} />
           <span>{props.doc.decisionCount} decisions</span>
           <Show when={props.doc.missingRequiredCount > 0}>
             <span class="text-warning">{props.doc.missingRequiredCount} missing</span>
@@ -561,20 +595,50 @@ function MemoryRow(props: { memory: MemorySummary; onOpen: () => void }) {
   );
 }
 
-function ContextRow(props: { hit: MemorySearchHit; onOpen: () => void }) {
+function WikiRow(props: { page: WikiSummary; onOpen: () => void }) {
   return (
     <div class="flex items-start gap-2 px-3 py-2">
       <button type="button" class="min-w-0 flex-1 text-left" onClick={props.onOpen}>
         <div class="flex items-center gap-2">
           <span class="min-w-0 truncate text-[0.75rem] font-medium text-text-primary">
-            {props.hit.title}
+            {props.page.title}
           </span>
-          <StatePill value={`${props.hit.score}`} />
+          <StatePill value={props.page.pageType} />
+          <StatePill value={props.page.status} />
         </div>
-        <p class="mt-1 line-clamp-2 text-[0.6875rem] text-text-secondary">{props.hit.snippet}</p>
-        <p class="mt-0.5 truncate font-mono text-[0.625rem] text-text-muted">{props.hit.path}</p>
+        <div class="mt-1 flex min-w-0 items-center gap-1 text-[0.625rem] text-text-muted">
+          <For each={props.page.tags.slice(0, 2)}>
+            {(tag) => <span class="truncate">#{tag}</span>}
+          </For>
+        </div>
+        <p class="mt-0.5 truncate font-mono text-[0.625rem] text-text-muted">{props.page.path}</p>
       </button>
-      <button type="button" class={BUTTON} title="Open memory" onClick={props.onOpen}>
+      <button type="button" class={BUTTON} title="Open wiki page" onClick={props.onOpen}>
+        <EyeIcon />
+      </button>
+    </div>
+  );
+}
+
+function ContextRow(props: { item: ContextHit; onOpen: () => void }) {
+  return (
+    <div class="flex items-start gap-2 px-3 py-2">
+      <button type="button" class="min-w-0 flex-1 text-left" onClick={props.onOpen}>
+        <div class="flex items-center gap-2">
+          <span class="min-w-0 truncate text-[0.75rem] font-medium text-text-primary">
+            {props.item.hit.title}
+          </span>
+          <StatePill value={props.item.kind} />
+          <StatePill value={`${props.item.hit.score}`} />
+        </div>
+        <p class="mt-1 line-clamp-2 text-[0.6875rem] text-text-secondary">
+          {props.item.hit.snippet}
+        </p>
+        <p class="mt-0.5 truncate font-mono text-[0.625rem] text-text-muted">
+          {props.item.hit.path}
+        </p>
+      </button>
+      <button type="button" class={BUTTON} title="Open context result" onClick={props.onOpen}>
         <EyeIcon />
       </button>
     </div>
@@ -636,6 +700,17 @@ async function loadRecentMemory(warnings: string[]): Promise<MemorySummary[]> {
   return sortRecentMemory(summaries.filter(isPresent)).slice(0, 8);
 }
 
+async function loadRecentWiki(warnings: string[]): Promise<WikiSummary[]> {
+  const entries = await listDirectoryRecursive("Knowledge/wiki");
+  const summaries = await Promise.all(
+    markdownFiles(entries).map(async (entry) => {
+      const markdown = await safeReadFile(entry.path, warnings);
+      return markdown ? parseWikiSummary(entry.path, markdown) : null;
+    }),
+  );
+  return sortRecentWiki(summaries.filter(isPresent)).slice(0, 8);
+}
+
 async function loadApplyJournals(warnings: string[]): Promise<ApplyJournalSummary[]> {
   const entries = await safeListDirectory(".kuku/knowledge/apply-journal");
   const summaries = await Promise.all(
@@ -655,6 +730,16 @@ async function safeListDirectory(path: string): Promise<FileEntry[]> {
   } catch {
     return [];
   }
+}
+
+async function listDirectoryRecursive(path: string): Promise<FileEntry[]> {
+  const entries = await safeListDirectory(path);
+  const descendants = await Promise.all(
+    entries
+      .filter((entry) => entry.is_directory)
+      .map((entry) => listDirectoryRecursive(entry.path)),
+  );
+  return [...entries, ...descendants.flat()];
 }
 
 async function safeReadFile(path: string, warnings: string[]): Promise<string | null> {
