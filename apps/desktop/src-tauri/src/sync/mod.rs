@@ -54,6 +54,7 @@ impl SyncState {
             device_id: Some(config.device_id),
             remember_workspace_key: config.remember_workspace_key,
             last_error: None,
+            last_error_category: None,
             last_synced_at_ms: None,
             pending_uploads: 0,
             pending_downloads: 0,
@@ -76,6 +77,7 @@ impl SyncState {
         inner.status.enabled = enabled;
         inner.status.phase = SyncPhase::Disabled;
         inner.status.last_error = None;
+        inner.status.last_error_category = None;
         inner.status.updated_at_ms = now_ms();
         Ok(inner.status.clone())
     }
@@ -93,6 +95,7 @@ impl SyncState {
         let timestamp = now_ms();
         inner.status.phase = SyncPhase::Idle;
         inner.status.last_error = None;
+        inner.status.last_error_category = None;
         inner.status.last_synced_at_ms = Some(timestamp);
         inner.status.pending_uploads = 0;
         inner.status.pending_downloads = 0;
@@ -113,18 +116,20 @@ impl SyncState {
         }
         inner.status.phase = phase;
         inner.status.last_error = None;
+        inner.status.last_error_category = None;
         inner.status.updated_at_ms = now_ms();
         Ok(inner.status.clone())
     }
 
     #[allow(dead_code)]
-    pub fn set_error(&self, message: impl Into<String>) -> SyncResult<SyncRuntimeStatus> {
+    pub fn set_error(&self, error: &SyncError) -> SyncResult<SyncRuntimeStatus> {
         let mut inner = self.inner.lock();
         if !inner.status.configured {
             return Err(SyncError::NotConfigured);
         }
         inner.status.phase = SyncPhase::Error;
-        inner.status.last_error = Some(message.into());
+        inner.status.last_error = Some(error.to_string());
+        inner.status.last_error_category = Some(error.category());
         inner.status.updated_at_ms = now_ms();
         Ok(inner.status.clone())
     }
@@ -149,6 +154,7 @@ fn now_ms() -> i64 {
 
 #[cfg(test)]
 mod tests {
+    use super::errors::SyncErrorCategory;
     use super::*;
 
     fn config() -> SyncVaultConfig {
@@ -210,9 +216,15 @@ mod tests {
         let planning = state.set_phase(SyncPhase::Planning).unwrap();
         assert_eq!(planning.phase, SyncPhase::Planning);
 
-        let error = state.set_error("push failed").unwrap();
+        let error = state
+            .set_error(&SyncError::Transport("push failed".into()))
+            .unwrap();
         assert_eq!(error.phase, SyncPhase::Error);
-        assert_eq!(error.last_error.as_deref(), Some("push failed"));
+        assert_eq!(
+            error.last_error.as_deref(),
+            Some("sync transport error: push failed")
+        );
+        assert_eq!(error.last_error_category, Some(SyncErrorCategory::Unknown));
     }
 
     #[test]

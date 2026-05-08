@@ -122,13 +122,16 @@ export const EN_MESSAGES = {
   "settings.plugin.sync.conflicts.copy_prefix": "Copy:",
   "settings.plugin.sync.conflicts.open_copy": "Open",
   "settings.plugin.sync.error.auth_required": "Sign in again before syncing.",
+  "settings.plugin.sync.error.permission_required":
+    "Allow Sync in Account settings before syncing.",
+  "settings.plugin.sync.error.sync_disabled": "Sync is not enabled on this server.",
   "settings.plugin.sync.error.not_configured": "Configure this vault before syncing.",
   "settings.plugin.sync.error.offline":
     "Sync could not reach the server. It will be safe to retry.",
   "settings.plugin.sync.error.passphrase": "The passphrase could not unlock this workspace.",
   "settings.plugin.sync.error.quota": "Encrypted sync storage quota has been reached.",
-  "settings.plugin.sync.error.unknown":
-    "Sync failed. No plaintext file names were sent to the server.",
+  "settings.plugin.sync.error.server": "The sync server returned an error. Try again in a moment.",
+  "settings.plugin.sync.error.unknown": "Sync failed. Try again in a moment.",
   "settings.plugin.sync.error.vault_required": "Open a vault before configuring sync.",
   "settings.plugin.sync.error.workspace_required": "Workspace ID is required.",
   "settings.plugin.sync.error.device_required": "Device ID is required.",

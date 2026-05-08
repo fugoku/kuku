@@ -8,7 +8,7 @@ use tauri::{AppHandle, Emitter, Manager, State, command};
 
 use crate::search::SearchState;
 use crate::vault::VaultState;
-use crate::{auth_commands, vault};
+use crate::{auth, auth_commands, vault};
 
 use super::SyncState;
 use super::applier::{
@@ -21,7 +21,7 @@ use super::client::{ConnectSyncClient, PutKeyEnvelopeInput, SyncSetupApi, SyncTr
 use super::crypto::SymmetricKey;
 use super::db::{self, SyncVaultRecord};
 use super::errors::command_error;
-use super::errors::{SyncError, SyncResult};
+use super::errors::{SyncCommandError, SyncError, SyncResult};
 use super::keys;
 use super::planner::PlannerConfig;
 use super::transfer::{ObjectTransferQueue, ReqwestObjectTransferHttp, TransferQueueConfig};
@@ -33,7 +33,9 @@ use super::types::{
 const CORE_SYNC_PLUGIN_ID: &str = "core-sync";
 
 #[command]
-pub async fn sync_get_status(state: State<'_, SyncState>) -> Result<SyncRuntimeStatus, String> {
+pub async fn sync_get_status(
+    state: State<'_, SyncState>,
+) -> Result<SyncRuntimeStatus, SyncCommandError> {
     status_with_conflicts(&state).map_err(command_error)
 }
 
@@ -42,7 +44,7 @@ pub async fn sync_configure_vault(
     app: AppHandle,
     state: State<'_, SyncState>,
     config: SyncVaultConfig,
-) -> Result<SyncRuntimeStatus, String> {
+) -> Result<SyncRuntimeStatus, SyncCommandError> {
     let config = prepare_sync_config(config).await.map_err(command_error)?;
     let status = state.configure_vault(config).map_err(command_error)?;
     emit_status(&app, &status);
@@ -54,7 +56,7 @@ pub async fn sync_set_enabled(
     app: AppHandle,
     state: State<'_, SyncState>,
     enabled: bool,
-) -> Result<SyncRuntimeStatus, String> {
+) -> Result<SyncRuntimeStatus, SyncCommandError> {
     let status = state.set_enabled(enabled).map_err(command_error)?;
     emit_status(&app, &status);
     Ok(status)
@@ -64,13 +66,15 @@ pub async fn sync_set_enabled(
 pub async fn sync_run_once(
     app: AppHandle,
     passphrase: Option<String>,
-) -> Result<SyncRuntimeStatus, String> {
+) -> Result<SyncRuntimeStatus, SyncCommandError> {
     let worker_app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
-            .map_err(|error| format!("failed to create sync runtime: {error}"))?;
+            .map_err(|error| {
+                SyncCommandError::server(format!("failed to create sync runtime: {error}"))
+            })?;
         runtime.block_on(async move {
             let state = worker_app.state::<SyncState>();
             let vault_state = worker_app.state::<VaultState>();
@@ -78,7 +82,7 @@ pub async fn sync_run_once(
             match run_sync_once(&worker_app, &state, &vault_state, &search, passphrase).await {
                 Ok(status) => Ok(status),
                 Err(error) => {
-                    if let Ok(status) = state.set_error(error.to_string()) {
+                    if let Ok(status) = state.set_error(&error) {
                         emit_status(&worker_app, &status);
                     }
                     Err(command_error(error))
@@ -87,13 +91,13 @@ pub async fn sync_run_once(
         })
     })
     .await
-    .map_err(|error| format!("sync worker failed: {error}"))?
+    .map_err(|error| SyncCommandError::server(format!("sync worker failed: {error}")))?
 }
 
 #[command]
 pub async fn sync_list_conflicts(
     state: State<'_, SyncState>,
-) -> Result<Vec<SyncConflictSummary>, String> {
+) -> Result<Vec<SyncConflictSummary>, SyncCommandError> {
     list_open_conflicts_for_status(&state).map_err(command_error)
 }
 
@@ -453,10 +457,15 @@ fn sync_client_and_queue(
 }
 
 async fn authorization_header() -> SyncResult<String> {
+    let authorized = auth::is_plugin_authorized(CORE_SYNC_PLUGIN_ID)
+        .map_err(|error| SyncError::Transport(error.to_string()))?;
+    if !authorized {
+        return Err(SyncError::PermissionRequired);
+    }
     auth_commands::authorization_header_for_plugin(CORE_SYNC_PLUGIN_ID)
         .await
         .map_err(SyncError::Transport)?
-        .ok_or_else(|| SyncError::Transport("sync auth authorization is required".into()))
+        .ok_or(SyncError::LoginRequired)
 }
 
 fn open_sync_db_for_vault(vault_id: &str) -> SyncResult<Connection> {

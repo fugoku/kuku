@@ -123,12 +123,17 @@ export const JA_MESSAGES = {
   "settings.plugin.sync.conflicts.copy_prefix": "コピー:",
   "settings.plugin.sync.conflicts.open_copy": "開く",
   "settings.plugin.sync.error.auth_required": "同期する前に再度ログインしてください。",
+  "settings.plugin.sync.error.permission_required":
+    "同期する前にアカウント設定で同期の権限を許可してください。",
+  "settings.plugin.sync.error.sync_disabled": "このサーバーでは同期が有効になっていません。",
   "settings.plugin.sync.error.not_configured": "同期する前にこのボルトを設定してください。",
   "settings.plugin.sync.error.offline": "サーバーに接続できません。安全に再試行できます。",
   "settings.plugin.sync.error.passphrase": "パスフレーズでこのワークスペースを解除できません。",
   "settings.plugin.sync.error.quota": "暗号化同期ストレージの上限に達しました。",
+  "settings.plugin.sync.error.server":
+    "同期サーバーがエラーを返しました。しばらくしてからもう一度お試しください。",
   "settings.plugin.sync.error.unknown":
-    "同期に失敗しました。平文のファイル名はサーバーへ送信されていません。",
+    "同期に失敗しました。しばらくしてからもう一度お試しください。",
   "settings.plugin.sync.error.vault_required": "同期を設定する前にボルトを開いてください。",
   "settings.plugin.sync.error.workspace_required": "ワークスペース ID が必要です。",
   "settings.plugin.sync.error.device_required": "端末 ID が必要です。",

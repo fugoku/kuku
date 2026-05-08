@@ -37,6 +37,8 @@ describe("sync status store", () => {
       remoteWorkspaceId: "workspace_1",
       deviceId: "device_1",
       rememberWorkspaceKey: true,
+      lastError: "sync is disabled on this server",
+      lastErrorCategory: "syncDisabled",
       lastSyncedAtMs: 10,
       pendingUploads: 1,
       pendingDownloads: 2,
@@ -46,6 +48,7 @@ describe("sync status store", () => {
 
     expect(syncStatus.configured).toBe(true);
     expect(syncStatus.phase).toBe("idle");
+    expect(syncStatus.lastErrorCategory).toBe("syncDisabled");
     expect(syncStatus.conflictCount).toBe(3);
     expect(updates).toEqual([11]);
     stop();

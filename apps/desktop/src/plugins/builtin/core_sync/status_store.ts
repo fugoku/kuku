@@ -33,6 +33,7 @@ function applySyncStatus(status: SyncRuntimeStatus): void {
     deviceId: status.deviceId,
     rememberWorkspaceKey: status.rememberWorkspaceKey,
     lastError: status.lastError,
+    lastErrorCategory: status.lastErrorCategory,
     lastSyncedAtMs: status.lastSyncedAtMs,
     pendingUploads: status.pendingUploads,
     pendingDownloads: status.pendingDownloads,
