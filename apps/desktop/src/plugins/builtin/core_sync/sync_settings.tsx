@@ -1,17 +1,14 @@
-import { createEffect, createSignal, on, Show, type JSX } from "solid-js";
+import { createEffect, createMemo, createSignal, For, on, Show, type JSX } from "solid-js";
 
 import {
   SettingsBanner,
   SettingsCard,
-  SettingsFieldRow,
   SettingsInput,
   SettingsMetricRow,
   SettingsPanel,
   SettingsStatusBadge,
   SettingsToolbarAction,
 } from "~/components/settings/settings_blocks";
-import { EyeIcon, EyeOffIcon } from "~/components/icons";
-import Switch from "~/components/ui/switch";
 import { useSettingsRefreshToken } from "~/components/settings/settings_refresh";
 import { t } from "~/i18n";
 import { authState, getAuthService } from "~/plugins/builtin/core_auth/auth_service";
@@ -31,6 +28,13 @@ function formatTimestamp(ts?: number): string {
 
 function hasPendingWork(status: SyncRuntimeStatus): boolean {
   return status.pendingUploads > 0 || status.pendingDownloads > 0;
+}
+
+function basename(path?: string | null): string {
+  const trimmed = path?.trim();
+  if (!trimmed) return "";
+  const parts = trimmed.split(/[\\/]+/).filter(Boolean);
+  return parts.at(-1) ?? trimmed;
 }
 
 function phaseLabel(status: SyncRuntimeStatus): string {
@@ -96,11 +100,11 @@ function errorCopy(error: unknown, category?: SyncErrorCategory): string | null 
 
 function SyncSettings(): JSX.Element {
   const settingsRefreshToken = useSettingsRefreshToken();
-  const [remoteWorkspaceId, setRemoteWorkspaceId] = createSignal("");
-  const [deviceId, setDeviceId] = createSignal("");
-  const [passphrase, setPassphrase] = createSignal("");
-  const [showPassphrase, setShowPassphrase] = createSignal(false);
-  const [rememberWorkspaceKey, setRememberWorkspaceKey] = createSignal(true);
+  const [recoveryPhrase, setRecoveryPhrase] = createSignal("");
+  const [showRecoveryPhrase, setShowRecoveryPhrase] = createSignal(false);
+  const [recoveryPhraseCopied, setRecoveryPhraseCopied] = createSignal(false);
+  const [recoveryPhraseSaving, setRecoveryPhraseSaving] = createSignal(false);
+  const [recoveryPhraseBackedUp, setRecoveryPhraseBackedUp] = createSignal(false);
   const [busy, setBusy] = createSignal(false);
   const [localError, setLocalError] = createSignal<string | null>(null);
   const [confirmDisable, setConfirmDisable] = createSignal(false);
@@ -116,21 +120,20 @@ function SyncSettings(): JSX.Element {
     if (options?.reloadAuth) {
       setAuthMode(await service.authState());
     }
-    if (syncStatus.remoteWorkspaceId && !remoteWorkspaceId()) {
-      setRemoteWorkspaceId(syncStatus.remoteWorkspaceId);
-    }
-    if (syncStatus.deviceId && !deviceId()) {
-      setDeviceId(syncStatus.deviceId);
-    }
-    const vaultId =
-      syncStatus.vaultId ?? (vaultState.rootPath ? defaultVaultId(vaultState.rootPath) : null);
-    if (vaultId && !passphrase()) {
-      const savedPassphrase = await service.getSavedPassphrase(vaultId).catch(() => null);
-      if (savedPassphrase) {
-        setPassphrase(savedPassphrase);
+    if (syncStatus.accountKeyId && !recoveryPhrase()) {
+      const savedRecoveryPhrase = await service
+        .getSavedRecoveryPhrase(syncStatus.accountKeyId)
+        .catch(() => null);
+      if (savedRecoveryPhrase) {
+        setRecoveryPhrase(savedRecoveryPhrase);
       }
     }
-    setRememberWorkspaceKey(syncStatus.rememberWorkspaceKey);
+    if (!syncStatus.accountKeyId && !recoveryPhrase()) {
+      const generated = await service.generateRecoveryPhrase().catch(() => null);
+      if (generated) {
+        setRecoveryPhrase(generated);
+      }
+    }
   }
 
   createEffect(
@@ -150,18 +153,25 @@ function SyncSettings(): JSX.Element {
       setLocalError(t("settings.plugin.sync.error.vault_required"));
       return false;
     }
-    if (!syncStatus.configured && !passphrase().trim()) {
+    if (!syncStatus.configured && !recoveryPhrase().trim()) {
       setLocalError(t("settings.plugin.sync.error.passphrase_required"));
+      return false;
+    }
+    if (requiresRecoveryBackup() && !recoveryPhraseBackedUp()) {
+      setLocalError(t("settings.plugin.sync.error.recovery_backup_required"));
       return false;
     }
 
     const status = await service.configureVault({
       vaultId: syncStatus.vaultId ?? defaultVaultId(rootPath),
       rootPath,
-      remoteWorkspaceId: remoteWorkspaceId().trim(),
-      deviceId: deviceId().trim(),
-      rememberWorkspaceKey: rememberWorkspaceKey(),
-      passphrase: passphrase().trim() || undefined,
+      accountKeyId: syncStatus.accountKeyId,
+      remoteWorkspaceId: syncStatus.configured ? (syncStatus.remoteWorkspaceId ?? "") : "",
+      workspaceName: syncStatus.workspaceName ?? basename(rootPath),
+      deviceId: syncStatus.deviceId ?? "",
+      deviceName: syncStatus.deviceName,
+      rememberWorkspaceKey: true,
+      passphrase: recoveryPhrase().trim() || undefined,
     });
     setLocalError(null);
     await refreshSyncStatus(service, { scanLocal: true });
@@ -176,7 +186,6 @@ function SyncSettings(): JSX.Element {
       const configured = syncStatus.configured || (await configure());
       if (!configured) return;
       await service.setEnabled(true);
-      setPassphrase("");
       await refreshSyncStatus(service, { scanLocal: true });
     } catch (error) {
       setLocalError(errorCopy(error));
@@ -211,7 +220,7 @@ function SyncSettings(): JSX.Element {
     if (!service || busy()) return;
     setBusy(true);
     try {
-      await service.runOnce(passphrase().trim() || undefined);
+      await service.runOnce(recoveryPhrase().trim() || undefined);
       await refreshSyncStatus(service, { scanLocal: true });
     } catch (error) {
       setLocalError(errorCopy(error));
@@ -223,16 +232,61 @@ function SyncSettings(): JSX.Element {
   const canSyncNow = () => syncStatus.configured && syncStatus.enabled && !busy();
   const visibleError = () =>
     localError() ?? errorCopy(syncStatus.lastError, syncStatus.lastErrorCategory);
+  const recoveryPhraseWords = createMemo(() =>
+    recoveryPhrase().trim().split(/\s+/).filter(Boolean),
+  );
+  const requiresRecoveryBackup = () => !syncStatus.configured && !syncStatus.accountKeyId;
+
+  async function generateRecoveryPhrase(): Promise<void> {
+    const service = getSyncService();
+    if (!service || busy()) return;
+    setBusy(true);
+    try {
+      const generated = await service.generateRecoveryPhrase();
+      setRecoveryPhrase(generated);
+      setShowRecoveryPhrase(true);
+      setRecoveryPhraseBackedUp(false);
+      setLocalError(null);
+    } catch (error) {
+      setLocalError(errorCopy(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copyRecoveryPhrase(): Promise<void> {
+    const phrase = recoveryPhrase().trim();
+    if (!phrase) return;
+    try {
+      await navigator.clipboard.writeText(phrase);
+      setRecoveryPhraseCopied(true);
+      window.setTimeout(() => setRecoveryPhraseCopied(false), 1500);
+    } catch {
+      setLocalError(t("settings.plugin.sync.error.unknown"));
+    }
+  }
+
+  async function saveRecoveryPhrase(): Promise<void> {
+    const service = getSyncService();
+    const phrase = recoveryPhrase().trim();
+    if (!service || !phrase || recoveryPhraseSaving()) return;
+    setRecoveryPhraseSaving(true);
+    try {
+      const saved = await service.saveRecoveryPhraseFile(phrase);
+      if (saved) {
+        setRecoveryPhraseBackedUp(true);
+      }
+    } catch (error) {
+      setLocalError(errorCopy(error));
+    } finally {
+      setRecoveryPhraseSaving(false);
+    }
+  }
 
   return (
     <SettingsPanel
       title={t("settings.plugin.sync.title")}
       description={t("settings.plugin.sync.description")}
-      action={
-        <SettingsToolbarAction disabled={busy()} onClick={() => void refresh({ reloadAuth: true })}>
-          {t("settings.plugin.sync.action.refresh")}
-        </SettingsToolbarAction>
-      }
     >
       <Show when={!authState.authenticated || authMode() !== "ready"}>
         <SettingsBanner
@@ -264,118 +318,6 @@ function SyncSettings(): JSX.Element {
       <Show when={visibleError()}>
         {(message) => <SettingsBanner tone="error" description={message()} />}
       </Show>
-
-      <SettingsCard
-        title={t("settings.plugin.sync.status.title")}
-        tone="subtle"
-        action={
-          <SettingsStatusBadge tone={phaseTone(syncStatus)}>
-            {phaseLabel(syncStatus)}
-          </SettingsStatusBadge>
-        }
-      >
-        <div class="space-y-1.5">
-          <SettingsMetricRow
-            label={t("settings.plugin.sync.metrics.vault")}
-            value={
-              syncStatus.rootPath ?? vaultState.rootPath ?? t("settings.plugin.sync.metrics.none")
-            }
-            valueClass="max-w-80 truncate text-right"
-          />
-          <SettingsMetricRow
-            label={t("settings.plugin.sync.metrics.workspace")}
-            value={syncStatus.remoteWorkspaceId ?? t("settings.plugin.sync.metrics.none")}
-            valueClass="max-w-80 truncate text-right"
-          />
-          <SettingsMetricRow
-            label={t("settings.plugin.sync.metrics.device")}
-            value={syncStatus.deviceId ?? t("settings.plugin.sync.metrics.none")}
-            valueClass="max-w-80 truncate text-right"
-          />
-          <SettingsMetricRow
-            label={t("settings.plugin.sync.metrics.last_synced")}
-            value={formatTimestamp(syncStatus.lastSyncedAtMs)}
-          />
-          <SettingsMetricRow
-            label={t("settings.plugin.sync.metrics.transfer")}
-            value={transferStatusLabel(syncStatus.transfer)}
-          />
-          <SettingsMetricRow
-            label={t("settings.plugin.sync.metrics.conflicts")}
-            value={String(syncStatus.conflictCount)}
-          />
-          <SettingsMetricRow
-            label={t("settings.plugin.sync.metrics.pending")}
-            value={`${syncStatus.pendingUploads} / ${syncStatus.pendingDownloads}`}
-          />
-        </div>
-      </SettingsCard>
-
-      <SettingsCard title={t("settings.plugin.sync.configure.title")} tone="subtle">
-        <div class="space-y-3">
-          <SettingsFieldRow
-            label={t("settings.plugin.sync.workspace.label")}
-            description={t("settings.plugin.sync.workspace.description")}
-            control={
-              <SettingsInput
-                value={remoteWorkspaceId()}
-                onInput={(event) => setRemoteWorkspaceId(event.currentTarget.value)}
-                placeholder={t("settings.plugin.sync.workspace.placeholder")}
-              />
-            }
-            stacked
-          />
-          <SettingsFieldRow
-            label={t("settings.plugin.sync.device.label")}
-            description={t("settings.plugin.sync.device.description")}
-            control={
-              <SettingsInput
-                value={deviceId()}
-                onInput={(event) => setDeviceId(event.currentTarget.value)}
-              />
-            }
-            stacked
-          />
-          <SettingsFieldRow
-            label={t("settings.plugin.sync.passphrase.label")}
-            description={t("settings.plugin.sync.passphrase.description")}
-            control={
-              <div class="relative w-full">
-                <SettingsInput
-                  type={showPassphrase() ? "text" : "password"}
-                  value={passphrase()}
-                  onInput={(event) => setPassphrase(event.currentTarget.value)}
-                  placeholder={t("settings.plugin.sync.passphrase.placeholder")}
-                  class="pr-9"
-                  autocomplete="off"
-                  spellcheck={false}
-                />
-                <button
-                  type="button"
-                  class="absolute inset-y-0 right-0 flex items-center px-2.5 text-text-muted transition-colors hover:text-text-primary"
-                  onClick={() => setShowPassphrase((prev) => !prev)}
-                  tabIndex={-1}
-                  title={
-                    showPassphrase()
-                      ? t("settings.plugin.sync.passphrase.hide")
-                      : t("settings.plugin.sync.passphrase.show")
-                  }
-                >
-                  <Show when={showPassphrase()} fallback={<EyeIcon size={14} />}>
-                    <EyeOffIcon size={14} />
-                  </Show>
-                </button>
-              </div>
-            }
-            stacked
-          />
-          <SettingsFieldRow
-            label={t("settings.plugin.sync.remember.label")}
-            description={t("settings.plugin.sync.remember.description")}
-            control={<Switch checked={rememberWorkspaceKey()} onChange={setRememberWorkspaceKey} />}
-          />
-        </div>
-      </SettingsCard>
 
       <SettingsCard
         tone={syncStatus.enabled ? "muted" : "subtle"}
@@ -423,6 +365,166 @@ function SyncSettings(): JSX.Element {
         }
       >
         <div class="text-[0.6875rem] text-text-muted">{t("settings.plugin.sync.enable.help")}</div>
+      </SettingsCard>
+
+      <SettingsCard
+        title={t("settings.plugin.sync.status.title")}
+        tone="subtle"
+        action={
+          <SettingsStatusBadge tone={phaseTone(syncStatus)}>
+            {phaseLabel(syncStatus)}
+          </SettingsStatusBadge>
+        }
+      >
+        <div class="space-y-1.5">
+          <SettingsMetricRow
+            label={t("settings.plugin.sync.metrics.vault")}
+            value={
+              syncStatus.vaultName ||
+              basename(syncStatus.rootPath ?? vaultState.rootPath) ||
+              t("settings.plugin.sync.metrics.none")
+            }
+            valueClass="max-w-80 truncate text-right"
+          />
+          <SettingsMetricRow
+            label={t("settings.plugin.sync.metrics.workspace")}
+            value={syncStatus.workspaceName ?? t("settings.plugin.sync.metrics.none")}
+            valueClass="max-w-80 truncate text-right"
+          />
+          <SettingsMetricRow
+            label={t("settings.plugin.sync.metrics.device")}
+            value={syncStatus.deviceName ?? t("settings.plugin.sync.metrics.none")}
+            valueClass="max-w-80 truncate text-right"
+          />
+          <SettingsMetricRow
+            label={t("settings.plugin.sync.metrics.last_synced")}
+            value={formatTimestamp(syncStatus.lastSyncedAtMs)}
+          />
+          <SettingsMetricRow
+            label={t("settings.plugin.sync.metrics.transfer")}
+            value={transferStatusLabel(syncStatus.transfer)}
+          />
+          <SettingsMetricRow
+            label={t("settings.plugin.sync.metrics.conflicts")}
+            value={String(syncStatus.conflictCount)}
+          />
+          <SettingsMetricRow
+            label={t("settings.plugin.sync.metrics.pending")}
+            value={`${syncStatus.pendingUploads} / ${syncStatus.pendingDownloads}`}
+          />
+        </div>
+      </SettingsCard>
+
+      <SettingsCard
+        title={t("settings.plugin.sync.passphrase.label")}
+        description={
+          syncStatus.accountKeyId
+            ? t("settings.plugin.sync.passphrase.description")
+            : t("settings.plugin.sync.passphrase.create_description")
+        }
+        tone="subtle"
+      >
+        <div class="space-y-2">
+          <div class="flex flex-wrap gap-2">
+            <Show when={!syncStatus.accountKeyId}>
+              <SettingsToolbarAction
+                disabled={busy()}
+                onClick={() => void generateRecoveryPhrase()}
+              >
+                {t("settings.plugin.sync.passphrase.generate")}
+              </SettingsToolbarAction>
+            </Show>
+            <SettingsToolbarAction
+              disabled={!recoveryPhrase().trim()}
+              onClick={() => void copyRecoveryPhrase()}
+            >
+              {recoveryPhraseCopied()
+                ? t("settings.plugin.sync.passphrase.copied")
+                : t("settings.plugin.sync.passphrase.copy")}
+            </SettingsToolbarAction>
+            <SettingsToolbarAction
+              disabled={!recoveryPhrase().trim() || recoveryPhraseSaving()}
+              onClick={() => void saveRecoveryPhrase()}
+            >
+              {t("settings.plugin.sync.passphrase.save")}
+            </SettingsToolbarAction>
+            <SettingsToolbarAction
+              disabled={!recoveryPhrase().trim()}
+              onClick={() => setShowRecoveryPhrase((prev) => !prev)}
+            >
+              {showRecoveryPhrase()
+                ? t("settings.plugin.sync.passphrase.hide")
+                : t("settings.plugin.sync.passphrase.show")}
+            </SettingsToolbarAction>
+          </div>
+          <Show
+            when={showRecoveryPhrase()}
+            fallback={
+              <SettingsInput
+                type="password"
+                value={recoveryPhrase()}
+                onInput={(event) => {
+                  setRecoveryPhrase(event.currentTarget.value);
+                  setRecoveryPhraseBackedUp(false);
+                }}
+                placeholder={t("settings.plugin.sync.passphrase.placeholder")}
+                autocomplete="off"
+                spellcheck={false}
+              />
+            }
+          >
+            <Show
+              when={!syncStatus.accountKeyId && recoveryPhraseWords().length > 0}
+              fallback={
+                <textarea
+                  value={recoveryPhrase()}
+                  onInput={(event) => {
+                    setRecoveryPhrase(event.currentTarget.value);
+                    setRecoveryPhraseBackedUp(false);
+                  }}
+                  placeholder={t("settings.plugin.sync.passphrase.placeholder")}
+                  class="min-h-24 w-full resize-y rounded-xs border border-border bg-bg-secondary px-3 py-2 text-[0.75rem] text-text-primary transition-colors outline-none placeholder:text-text-muted focus:border-accent"
+                  autocomplete="off"
+                  spellcheck={false}
+                />
+              }
+            >
+              <div class="grid grid-cols-2 gap-1.5 rounded-xs border border-border/60 bg-bg-secondary p-2 sm:grid-cols-3">
+                <For each={recoveryPhraseWords()}>
+                  {(word, index) => (
+                    <div class="flex items-center gap-2 rounded-xs border border-border/50 bg-bg-primary px-2 py-1.5">
+                      <span class="w-5 shrink-0 text-right text-[0.625rem] text-text-muted tabular-nums">
+                        {index() + 1}
+                      </span>
+                      <span class="min-w-0 text-[0.75rem] break-all text-text-primary">{word}</span>
+                    </div>
+                  )}
+                </For>
+              </div>
+            </Show>
+          </Show>
+          <Show when={requiresRecoveryBackup()}>
+            <label
+              class={[
+                "flex cursor-pointer items-start gap-2 rounded-xs border px-3 py-2 text-[0.6875rem] transition-colors",
+                recoveryPhraseBackedUp()
+                  ? "border-border/70 bg-bg-secondary text-text-primary"
+                  : "border-border/60 bg-bg-primary/60 text-text-secondary hover:bg-bg-secondary",
+              ].join(" ")}
+            >
+              <span class="kuku-task-checkbox mt-0.5 text-[0.8125rem]">
+                <input
+                  type="checkbox"
+                  checked={recoveryPhraseBackedUp()}
+                  onChange={(event) => setRecoveryPhraseBackedUp(event.currentTarget.checked)}
+                  class="kuku-task-checkbox__input"
+                />
+                <span class="kuku-task-checkbox__control" />
+              </span>
+              <span class="leading-5">{t("settings.plugin.sync.passphrase.backup_confirm")}</span>
+            </label>
+          </Show>
+        </div>
       </SettingsCard>
 
       <SettingsCard

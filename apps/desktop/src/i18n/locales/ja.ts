@@ -126,22 +126,19 @@ export const JA_MESSAGES = {
   "sync.indicator.open_settings": "同期設定を開く",
   "sync.indicator.remote.current": "最新",
   "sync.indicator.remote.changed": "リモート変更あり",
-  "settings.plugin.sync.configure.title": "ワークスペース",
-  "settings.plugin.sync.workspace.label": "ワークスペース ID",
-  "settings.plugin.sync.workspace.description":
-    "空のままなら新しい暗号化同期ワークスペースを作成し、既存の ID を貼り付けるとそのワークスペースに参加します。",
-  "settings.plugin.sync.workspace.placeholder": "新規ワークスペースまたは workspace_...",
-  "settings.plugin.sync.device.label": "端末 ID",
-  "settings.plugin.sync.device.description": "この端末の登録時にサーバーが割り当てます。",
-  "settings.plugin.sync.passphrase.label": "復旧パスフレーズ",
+  "settings.plugin.sync.passphrase.label": "復旧フレーズ",
   "settings.plugin.sync.passphrase.description":
-    "別の端末でワークスペースキーを復旧するために使います。状態には表示されません。",
-  "settings.plugin.sync.passphrase.placeholder": "パスフレーズを入力",
-  "settings.plugin.sync.passphrase.hide": "パスフレーズを隠す",
-  "settings.plugin.sync.passphrase.show": "パスフレーズを表示",
-  "settings.plugin.sync.remember.label": "この端末でキーを記憶",
-  "settings.plugin.sync.remember.description":
-    "ロック解除済みワークスペースキーをローカルの安全な保存領域に保持します。",
+    "この端末で暗号化同期を解除するためにアカウント復旧フレーズを貼り付けます。",
+  "settings.plugin.sync.passphrase.create_description":
+    "同期を有効化する前に、この生成されたフレーズをバックアップしてください。新しい端末で暗号化同期ワークスペースを解除するために使います。",
+  "settings.plugin.sync.passphrase.placeholder": "復旧フレーズを入力",
+  "settings.plugin.sync.passphrase.generate": "生成",
+  "settings.plugin.sync.passphrase.copy": "フレーズをコピー",
+  "settings.plugin.sync.passphrase.copied": "コピー済み",
+  "settings.plugin.sync.passphrase.save": ".md に保存",
+  "settings.plugin.sync.passphrase.backup_confirm": "この復旧フレーズを安全な場所に保存しました。",
+  "settings.plugin.sync.passphrase.hide": "フレーズを隠す",
+  "settings.plugin.sync.passphrase.show": "フレーズを表示",
   "settings.plugin.sync.enable.enabled_description": "このボルトの同期は有効です。",
   "settings.plugin.sync.enable.disabled_description": "このボルトの同期は無効です。",
   "settings.plugin.sync.enable.help":
@@ -151,20 +148,25 @@ export const JA_MESSAGES = {
     "自動マージで両方の編集を 1 つのファイルに保持できない場合に作成された未解決の競合です。",
   "settings.plugin.sync.conflicts.empty": "未解決の同期競合はありません。",
   "settings.plugin.sync.conflicts.copy_prefix": "コピー:",
+  "settings.plugin.sync.conflicts.open_copy": "競合コピーを開く",
+  "settings.plugin.sync.conflicts.missing": "競合コピーはもう存在しません。",
+  "settings.plugin.sync.conflicts.open_failed": "競合コピーを開けませんでした。",
   "settings.plugin.sync.error.auth_required": "同期する前に再度ログインしてください。",
   "settings.plugin.sync.error.permission_required":
     "同期する前にアカウント設定で同期の権限を許可してください。",
   "settings.plugin.sync.error.sync_disabled": "このサーバーでは同期が有効になっていません。",
   "settings.plugin.sync.error.not_configured": "同期する前にこのボルトを設定してください。",
   "settings.plugin.sync.error.offline": "サーバーに接続できません。安全に再試行できます。",
-  "settings.plugin.sync.error.passphrase": "パスフレーズでこのワークスペースを解除できません。",
+  "settings.plugin.sync.error.passphrase": "復旧フレーズでこのアカウントを解除できません。",
   "settings.plugin.sync.error.quota": "暗号化同期ストレージの上限に達しました。",
   "settings.plugin.sync.error.server":
     "同期サーバーがエラーを返しました。しばらくしてからもう一度お試しください。",
   "settings.plugin.sync.error.unknown":
     "同期に失敗しました。しばらくしてからもう一度お試しください。",
   "settings.plugin.sync.error.vault_required": "同期を設定する前にボルトを開いてください。",
-  "settings.plugin.sync.error.passphrase_required": "復旧パスフレーズが必要です。",
+  "settings.plugin.sync.error.passphrase_required": "復旧フレーズが必要です。",
+  "settings.plugin.sync.error.recovery_backup_required":
+    "同期を有効化する前に復旧フレーズをバックアップしたことを確認してください。",
   "settings.plugin.ai_chat.title": "AIチャット",
   "settings.plugin.ai_chat.description":
     "右パネルのアシスタントを接続します。接続方法を選んで保存すると、すぐにチャットできます。",

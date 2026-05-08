@@ -353,13 +353,7 @@ function remoteStatusLabel(status: SyncRemoteStatus | null): string {
     ? t("sync.indicator.remote.changed")
     : t("sync.indicator.remote.current");
   const version = status.remoteHeadVersion > 0 ? `v${status.remoteHeadVersion}` : "";
-  const head = version || shortId(status.remoteHeadCommitId);
-  return head ? `${state} · ${head}` : state;
-}
-
-function shortId(value: string): string {
-  if (!value) return "";
-  return value.length <= 8 ? value : value.slice(0, 8);
+  return version ? `${state} · ${version}` : state;
 }
 
 function syncErrorLabel(category: SyncErrorCategory | null): string | null {
