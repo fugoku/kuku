@@ -120,12 +120,16 @@ export const KO_MESSAGES = {
   "settings.plugin.sync.conflicts.copy_prefix": "복사본:",
   "settings.plugin.sync.conflicts.open_copy": "열기",
   "settings.plugin.sync.error.auth_required": "동기화 전에 다시 로그인해 주세요.",
+  "settings.plugin.sync.error.permission_required":
+    "동기화 전에 계정 설정에서 동기화 권한을 허용해 주세요.",
+  "settings.plugin.sync.error.sync_disabled": "이 서버에서 동기화가 활성화되어 있지 않아요.",
   "settings.plugin.sync.error.not_configured": "동기화 전에 이 지식보관함을 설정해 주세요.",
   "settings.plugin.sync.error.offline": "서버에 연결할 수 없어요. 안전하게 다시 시도할 수 있어요.",
   "settings.plugin.sync.error.passphrase": "패스프레이즈로 이 워크스페이스를 열 수 없어요.",
   "settings.plugin.sync.error.quota": "암호화된 동기화 저장 용량 한도에 도달했어요.",
-  "settings.plugin.sync.error.unknown":
-    "동기화에 실패했어요. 평문 파일명은 서버로 보내지 않았어요.",
+  "settings.plugin.sync.error.server":
+    "동기화 서버에서 오류가 반환됐어요. 잠시 후 다시 시도해 주세요.",
+  "settings.plugin.sync.error.unknown": "동기화에 실패했어요. 잠시 후 다시 시도해 주세요.",
   "settings.plugin.sync.error.vault_required": "동기화를 설정하기 전에 지식보관함을 열어 주세요.",
   "settings.plugin.sync.error.workspace_required": "워크스페이스 ID가 필요해요.",
   "settings.plugin.sync.error.device_required": "기기 ID가 필요해요.",

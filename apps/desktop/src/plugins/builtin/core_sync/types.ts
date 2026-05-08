@@ -9,6 +9,22 @@ type SyncPhase =
   | "applying"
   | "error";
 
+type SyncErrorCategory =
+  | "notConfigured"
+  | "loginRequired"
+  | "permissionRequired"
+  | "syncDisabled"
+  | "offline"
+  | "quotaExceeded"
+  | "passphraseFailed"
+  | "server"
+  | "unknown";
+
+interface SyncCommandError {
+  category: SyncErrorCategory;
+  message: string;
+}
+
 interface SyncVaultConfig {
   vaultId: string;
   rootPath: string;
@@ -28,6 +44,7 @@ interface SyncRuntimeStatus {
   deviceId?: string;
   rememberWorkspaceKey: boolean;
   lastError?: string;
+  lastErrorCategory?: SyncErrorCategory;
   lastSyncedAtMs?: number;
   pendingUploads: number;
   pendingDownloads: number;
@@ -53,6 +70,8 @@ type SyncAuthState = "ready" | "loginRequired" | "permissionRequired";
 
 export type {
   SyncAuthState,
+  SyncCommandError,
+  SyncErrorCategory,
   SyncConflictSummary,
   SyncPhase,
   SyncRuntimeStatus,

@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use super::errors::SyncErrorCategory;
+
 pub const SYNC_STATUS_EVENT: &str = "sync:status-changed";
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -32,6 +34,8 @@ pub struct SyncRuntimeStatus {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_error: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_error_category: Option<SyncErrorCategory>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub last_synced_at_ms: Option<i64>,
     pub pending_uploads: i64,
     pub pending_downloads: i64,
@@ -51,6 +55,7 @@ impl SyncRuntimeStatus {
             device_id: None,
             remember_workspace_key: true,
             last_error: None,
+            last_error_category: None,
             last_synced_at_ms: None,
             pending_uploads: 0,
             pending_downloads: 0,
