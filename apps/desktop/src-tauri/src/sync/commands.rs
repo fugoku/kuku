@@ -35,6 +35,7 @@ use super::types::{
     SYNC_STATUS_EVENT, SyncConflictSummary, SyncPhase, SyncRemoteStatus, SyncRuntimeStatus,
     SyncStatusEvent, SyncVaultConfig,
 };
+use super::vault_config;
 
 const CORE_SYNC_PLUGIN_ID: &str = "core-sync";
 
@@ -80,6 +81,7 @@ pub async fn sync_set_enabled(
     enabled: bool,
 ) -> Result<SyncRuntimeStatus, SyncCommandError> {
     let status = state.set_enabled(enabled).map_err(command_error)?;
+    persist_runtime_status(&status).map_err(command_error)?;
     emit_status(&app, &status);
     Ok(status)
 }
@@ -137,7 +139,7 @@ pub async fn sync_list_conflicts(
     list_open_conflicts_for_status(&state).map_err(command_error)
 }
 
-fn emit_status(app: &AppHandle, status: &SyncRuntimeStatus) {
+pub(crate) fn emit_status(app: &AppHandle, status: &SyncRuntimeStatus) {
     let _ = app.emit(
         SYNC_STATUS_EVENT,
         SyncStatusEvent {
@@ -181,7 +183,13 @@ async fn prepare_sync_config(mut config: SyncVaultConfig) -> SyncResult<SyncVaul
     config.remote_workspace_id = prepared.workspace_id;
     config.device_id = prepared.device_id;
     let mut conn = open_sync_db_for_vault(&config.vault_id)?;
-    persist_configured_vault(&mut conn, &config)?;
+    persist_configured_vault(&mut conn, &config, false)?;
+    vault_config::write_sync_config(
+        Path::new(&config.root_path),
+        &config,
+        false,
+        super::now_ms(),
+    )?;
     Ok(config)
 }
 
@@ -309,7 +317,11 @@ fn persist_local_keys(
     keys::remember_device_signing_key(&config.vault_id, signing_key)
 }
 
-fn persist_configured_vault(conn: &mut Connection, config: &SyncVaultConfig) -> SyncResult<()> {
+fn persist_configured_vault(
+    conn: &mut Connection,
+    config: &SyncVaultConfig,
+    enabled: bool,
+) -> SyncResult<()> {
     let now_ms = super::now_ms();
     let existing = db::get_vault(conn, &config.vault_id)?;
     let vault = match existing {
@@ -317,7 +329,7 @@ fn persist_configured_vault(conn: &mut Connection, config: &SyncVaultConfig) -> 
             vault.root_path = config.root_path.clone();
             vault.remote_workspace_id = config.remote_workspace_id.clone();
             vault.device_id = config.device_id.clone();
-            vault.enabled = true;
+            vault.enabled = enabled;
             vault.updated_at_ms = now_ms;
             vault
         }
@@ -329,12 +341,64 @@ fn persist_configured_vault(conn: &mut Connection, config: &SyncVaultConfig) -> 
             local_head_commit_id: None,
             device_id: config.device_id.clone(),
             next_device_seq: 1,
-            enabled: true,
+            enabled,
             created_at_ms: now_ms,
             updated_at_ms: now_ms,
         },
     };
     db::upsert_vault(conn, &vault)
+}
+
+pub fn restore_vault_config_for_root(
+    app: &AppHandle,
+    state: &SyncState,
+    vault_root: &Path,
+) -> SyncResult<SyncRuntimeStatus> {
+    let Some(config_file) = vault_config::read_sync_config(vault_root)? else {
+        let status = state.reset();
+        emit_status(app, &status);
+        return Ok(status);
+    };
+
+    let config = vault_config::runtime_config_from_file(vault_root, &config_file);
+    let mut conn = open_sync_db_for_vault(&config.vault_id)?;
+    persist_configured_vault(&mut conn, &config, config_file.enabled)?;
+    let status = state.restore_vault(config, config_file.enabled)?;
+    emit_status(app, &status);
+    Ok(status)
+}
+
+pub fn reset_vault_config_runtime(app: &AppHandle, state: &SyncState) -> SyncRuntimeStatus {
+    let status = state.reset();
+    emit_status(app, &status);
+    status
+}
+
+fn persist_runtime_status(status: &SyncRuntimeStatus) -> SyncResult<()> {
+    if !status.configured {
+        return Ok(());
+    }
+    let config = config_from_status(status)?;
+    let root_path = PathBuf::from(&config.root_path);
+    let mut conn = open_sync_db_for_vault(&config.vault_id)?;
+    persist_configured_vault(&mut conn, &config, status.enabled)?;
+    vault_config::write_sync_config(&root_path, &config, status.enabled, status.updated_at_ms)?;
+    Ok(())
+}
+
+fn config_from_status(status: &SyncRuntimeStatus) -> SyncResult<SyncVaultConfig> {
+    Ok(SyncVaultConfig {
+        vault_id: required_status_value(status.vault_id.as_deref(), "vault_id")?.to_string(),
+        root_path: required_status_value(status.root_path.as_deref(), "root_path")?.to_string(),
+        remote_workspace_id: required_status_value(
+            status.remote_workspace_id.as_deref(),
+            "remote_workspace_id",
+        )?
+        .to_string(),
+        device_id: required_status_value(status.device_id.as_deref(), "device_id")?.to_string(),
+        remember_workspace_key: status.remember_workspace_key,
+        passphrase: None,
+    })
 }
 
 async fn run_sync_once(
