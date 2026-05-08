@@ -79,13 +79,15 @@ function resetSyncStatus(): void {
   applySyncConflicts([]);
 }
 
-async function refreshSyncStatus(service: SyncService): Promise<void> {
-  if (syncEmulationEnabled) return;
+async function refreshSyncStatus(service: SyncService): Promise<boolean> {
+  if (syncEmulationEnabled) return true;
   try {
     applySyncStatus(await service.getStatus());
     applySyncConflicts(await service.listConflicts());
+    return true;
   } catch {
     // The settings page has its own explicit error surface for user-triggered actions.
+    return false;
   }
 }
 

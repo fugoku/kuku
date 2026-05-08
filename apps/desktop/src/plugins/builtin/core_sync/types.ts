@@ -71,6 +71,17 @@ interface SyncRuntimeStatus {
   updatedAtMs: number;
 }
 
+interface SyncRemoteStatus {
+  workspaceId: string;
+  remoteHeadCommitId: string;
+  remoteHeadVersion: number;
+  latestCheckpointCommitId: string;
+  localRemoteHeadCommitId?: string;
+  localHeadCommitId?: string;
+  hasRemoteChanges: boolean;
+  checkedAtMs: number;
+}
+
 interface SyncStatusEvent {
   status: SyncRuntimeStatus;
 }
@@ -93,6 +104,7 @@ export type {
   SyncErrorCategory,
   SyncConflictSummary,
   SyncPhase,
+  SyncRemoteStatus,
   SyncRuntimeStatus,
   SyncStatusEvent,
   SyncTransferDirection,

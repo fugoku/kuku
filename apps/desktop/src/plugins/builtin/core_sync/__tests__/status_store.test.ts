@@ -129,6 +129,16 @@ describe("sync status store", () => {
         getStatus();
         return idleStatus;
       },
+      async getRemoteStatus() {
+        return {
+          workspaceId: "workspace",
+          remoteHeadCommitId: "commit-remote",
+          remoteHeadVersion: 1,
+          latestCheckpointCommitId: "commit-remote",
+          hasRemoteChanges: false,
+          checkedAtMs: 1,
+        };
+      },
       async configureVault() {
         return idleStatus;
       },

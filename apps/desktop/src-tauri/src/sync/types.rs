@@ -140,6 +140,21 @@ pub struct SyncStatusEvent {
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct SyncRemoteStatus {
+    pub workspace_id: String,
+    pub remote_head_commit_id: String,
+    pub remote_head_version: i64,
+    pub latest_checkpoint_commit_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub local_remote_head_commit_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub local_head_commit_id: Option<String>,
+    pub has_remote_changes: bool,
+    pub checked_at_ms: i64,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct SyncConflictSummary {
     pub conflict_id: String,
     pub path: String,
