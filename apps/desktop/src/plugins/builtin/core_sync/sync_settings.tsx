@@ -258,6 +258,7 @@ function SyncSettings(): JSX.Element {
       const configured = syncStatus.configured || (await configure());
       if (!configured) return;
       await service.setEnabled(true);
+      setLocalError(null);
       await refreshSyncStatus(service, { scanLocal: true });
     } catch (error) {
       setLocalError(errorCopy(error));
@@ -279,6 +280,7 @@ function SyncSettings(): JSX.Element {
     try {
       await service.setEnabled(false);
       setConfirmDisable(false);
+      setLocalError(null);
       await refreshSyncStatus(service, { scanLocal: true });
     } catch (error) {
       setLocalError(errorCopy(error));
@@ -293,6 +295,7 @@ function SyncSettings(): JSX.Element {
     setBusy(true);
     try {
       await service.runOnce(recoveryPhrase().trim() || undefined);
+      setLocalError(null);
       await refreshSyncStatus(service, { scanLocal: true });
     } catch (error) {
       setLocalError(errorCopy(error));
