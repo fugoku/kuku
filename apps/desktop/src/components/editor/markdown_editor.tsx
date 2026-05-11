@@ -31,6 +31,7 @@ import { setContextKey } from "~/plugins/context_keys";
 import { defineDiffSchemaExtension, defineReadonly } from "~/plugins/builtin/diff_view";
 import {
   consumeEditorFocusIfPendingForTab,
+  filesState,
   getActiveTab,
   getCachedChecksum,
   getCachedContent,
@@ -734,6 +735,11 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     });
   }
 
+  function isOwnTabDirty(): boolean {
+    const tab = untrack(() => filesState.tabs.find((candidate) => candidate.id === props.tabId));
+    return tab?.isDirty ?? false;
+  }
+
   async function loadEditableDocument(): Promise<void> {
     // Read caches outside the reactive tracking context.
     // These reads happen synchronously before the first `await`, so
@@ -743,6 +749,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     // updates the store during save.
     const cachedContent = untrack(() => getCachedContent(props.tabId));
     const cachedChecksum = untrack(() => getCachedChecksum(props.tabId));
+    const cachedDocumentIsDirty = cachedContent ? isOwnTabDirty() : false;
     if (cachedContent) {
       setEditorDocument(cachedContent);
       if (cachedChecksum) {
@@ -759,8 +766,10 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
       });
 
       if (cachedChecksum) {
-        tryFocusIfPendingForNewFile();
-        return;
+        if (cachedDocumentIsDirty) {
+          tryFocusIfPendingForNewFile();
+          return;
+        }
       }
     }
 
@@ -771,7 +780,12 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
       checksum = result.checksum;
       saveCachedChecksum(props.tabId, result.checksum);
 
-      if (cachedContent) {
+      if (cachedContent && (cachedDocumentIsDirty || isOwnTabDirty())) {
+        tryFocusIfPendingForNewFile();
+        return;
+      }
+
+      if (cachedContent && cachedChecksum === result.checksum) {
         tryFocusIfPendingForNewFile();
         return;
       }
@@ -923,13 +937,25 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
   }
 
   async function reloadDocumentFromDisk(): Promise<EditorSaveResult> {
+    if (isOwnTabDirty()) {
+      return { status: "skipped", reason: "dirty" };
+    }
+    if (saveInFlight) {
+      return { status: "skipped", reason: "saving" };
+    }
+
     clearAutoSaveTimer();
     queuedSaveContent = null;
+    saveCurrentViewportState();
+    const previousChecksum = checksum;
 
     try {
       const result = await readFileWithChecksum(props.filePath);
       if (disposed) {
         return { status: "skipped", reason: "disposed" };
+      }
+      if (isOwnTabDirty()) {
+        return { status: "skipped", reason: "dirty" };
       }
 
       const markdown = getMarkdownService();
@@ -938,11 +964,16 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
       }
 
       checksum = result.checksum;
+      saveCachedChecksum(props.tabId, result.checksum);
+      if (previousChecksum === result.checksum) {
+        markTabDirty(props.tabId, false);
+        return { status: "skipped", reason: "unchanged" };
+      }
+
       const parsed = markdown.parse(result.content);
       setEditorDocument(parsed);
-      saveCachedChecksum(props.tabId, result.checksum);
       saveCachedContent(props.tabId, parsed);
-      saveCurrentViewportState();
+      scheduleViewportAction(applyViewportRestore);
       markTabDirty(props.tabId, false);
       return { status: "saved", checksum: result.checksum, content: result.content };
     } catch (error) {
