@@ -501,6 +501,17 @@ export const JA_MESSAGES = {
   "editor.ai.summarize": "要約",
   "editor.ai.translate": "翻訳",
   "editor.ai.edit_with_ai": "AIで編集",
+  "editor.save_conflict.title": "ディスク上のファイルが変更されました",
+  "editor.save_conflict.description":
+    "エディターには未保存の変更があり、ファイルも別の場所で変更されています。残すバージョンを選んでください。",
+  "editor.save_conflict.use_disk": "ディスク版を使用",
+  "editor.save_conflict.keep_local": "自分の変更を保存",
+  "editor.save_conflict.loading_disk": "読み込み中...",
+  "editor.save_conflict.saving_local": "保存中...",
+  "editor.save_conflict.changed_again":
+    "ディスク版が再び変更されました。確認してもう一度選んでください。",
+  "editor.save_conflict.save_failed": "エディター版を保存できませんでした。",
+  "editor.save_conflict.load_failed": "ディスク版を読み込めませんでした。",
   "editor.tooltip.bold": "太字 (⌘B)",
   "editor.tooltip.italic": "斜体 (⌘I)",
   "editor.tooltip.strikethrough": "取り消し線",

@@ -53,6 +53,7 @@ import {
 } from "~/plugins/builtin/wikilink/wikilink_suggest";
 import { applyPendingSearchNavigation } from "~/plugins/builtin/search/navigation";
 import { registerEditorDocumentSession, type EditorSaveResult } from "~/stores/editor";
+import { t } from "~/i18n";
 
 import BacklinksPanel from "~/plugins/builtin/graph_view/backlinks_panel";
 
@@ -86,6 +87,13 @@ interface ResolvedWikilinkMenu {
   to: number;
   query: string;
   position: SlashMenuPosition;
+}
+
+interface SaveConflictState {
+  expected: string;
+  actual: string;
+  resolving: "local" | "disk" | null;
+  message: string | null;
 }
 
 function isLinkEditorElement(value: EventTarget | null): boolean {
@@ -220,6 +228,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     null,
   );
   const [wikilinkMenuSelectedIndex, setWikilinkMenuSelectedIndex] = createSignal(0);
+  const [saveConflict, setSaveConflict] = createSignal<SaveConflictState | null>(null);
 
   /** Returns the editor scroll viewport exposed by ScrollArea. */
   function getScrollViewport(): HTMLElement | undefined {
@@ -777,13 +786,13 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
       const result = await readFileWithChecksum(props.filePath);
       if (disposed) return;
 
-      checksum = result.checksum;
-      saveCachedChecksum(props.tabId, result.checksum);
-
       if (cachedContent && (cachedDocumentIsDirty || isOwnTabDirty())) {
         tryFocusIfPendingForNewFile();
         return;
       }
+
+      checksum = result.checksum;
+      saveCachedChecksum(props.tabId, result.checksum);
 
       if (cachedContent && cachedChecksum === result.checksum) {
         tryFocusIfPendingForNewFile();
@@ -807,6 +816,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
       });
 
       markTabDirty(props.tabId, false);
+      setSaveConflict(null);
       tryFocusIfPendingForNewFile();
     } catch (error) {
       if (disposed) return;
@@ -824,6 +834,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     saveCachedContent(props.tabId, content);
     scheduleViewportAction(applyViewportRestore);
     markTabDirty(props.tabId, false);
+    setSaveConflict(null);
   }
 
   function getSaveContent(): string | null {
@@ -890,6 +901,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
             checksum = result.checksum;
             lastResult = { status: "saved", checksum: result.checksum, content: contentToWrite };
             saveCachedChecksum(props.tabId, result.checksum);
+            setSaveConflict(null);
 
             // Only mark clean and snapshot cache when the document
             // has not been edited while the async write was in flight.
@@ -905,6 +917,12 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
             }
           } else {
             queuedSaveContent = null;
+            setSaveConflict({
+              expected: result.expected,
+              actual: result.actual,
+              resolving: null,
+              message: null,
+            });
             // oxlint-disable-next-line no-console -- intentional warning for save conflicts
             console.warn("Save conflict:", result);
             return {
@@ -967,6 +985,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
       saveCachedChecksum(props.tabId, result.checksum);
       if (previousChecksum === result.checksum) {
         markTabDirty(props.tabId, false);
+        setSaveConflict(null);
         return { status: "skipped", reason: "unchanged" };
       }
 
@@ -975,6 +994,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
       saveCachedContent(props.tabId, parsed);
       scheduleViewportAction(applyViewportRestore);
       markTabDirty(props.tabId, false);
+      setSaveConflict(null);
       return { status: "saved", checksum: result.checksum, content: result.content };
     } catch (error) {
       return {
@@ -995,6 +1015,93 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
     });
     onCleanup(dispose);
   });
+
+  async function keepLocalChangesAfterConflict(): Promise<void> {
+    const conflict = saveConflict();
+    if (!conflict || conflict.resolving) return;
+
+    const content = getSaveContent();
+    if (content === null) {
+      setSaveConflict({ ...conflict, message: t("editor.save_conflict.save_failed") });
+      return;
+    }
+
+    setSaveConflict({ ...conflict, resolving: "local", message: null });
+    saveCurrentViewportState();
+    const docBeforeSave = editor.view.state.doc;
+
+    try {
+      const result = await writeFileWithChecksum(props.filePath, content, conflict.actual);
+      if (disposed) return;
+
+      if (result.status === "Written") {
+        checksum = result.checksum;
+        saveCachedChecksum(props.tabId, result.checksum);
+        setSaveConflict(null);
+
+        if (editor.view.state.doc === docBeforeSave) {
+          saveCachedContent(props.tabId, editor.getDocJSON());
+          saveCurrentViewportState();
+          markTabDirty(props.tabId, false);
+        }
+        return;
+      }
+
+      setSaveConflict({
+        expected: result.expected,
+        actual: result.actual,
+        resolving: null,
+        message: t("editor.save_conflict.changed_again"),
+      });
+    } catch (error) {
+      if (disposed) return;
+      setSaveConflict({
+        ...conflict,
+        resolving: null,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  async function useDiskVersionAfterConflict(): Promise<void> {
+    const conflict = saveConflict();
+    if (!conflict || conflict.resolving) return;
+
+    setSaveConflict({ ...conflict, resolving: "disk", message: null });
+    clearAutoSaveTimer();
+    queuedSaveContent = null;
+
+    try {
+      const result = await readFileWithChecksum(props.filePath);
+      if (disposed) return;
+
+      const markdown = getMarkdownService();
+      if (!markdown) {
+        setSaveConflict({
+          ...conflict,
+          resolving: null,
+          message: t("editor.save_conflict.load_failed"),
+        });
+        return;
+      }
+
+      checksum = result.checksum;
+      const parsed = markdown.parse(result.content);
+      setEditorDocument(parsed);
+      saveCachedChecksum(props.tabId, result.checksum);
+      saveCachedContent(props.tabId, parsed);
+      saveCurrentViewportState();
+      markTabDirty(props.tabId, false);
+      setSaveConflict(null);
+    } catch (error) {
+      if (disposed) return;
+      setSaveConflict({
+        ...conflict,
+        resolving: null,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
 
   function handleFocusIn() {
     if (isDiffMode) return;
@@ -1099,7 +1206,9 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
         refreshWikilinkMenu();
       });
       if (settingsState.general.autoSave) {
-        scheduleAutoSave();
+        if (!saveConflict()) {
+          scheduleAutoSave();
+        }
       }
     },
     { editor },
@@ -1388,6 +1497,44 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
               onPointerMove={handleEditorPointerMove}
               onPointerLeave={handleEditorPointerLeave}
             >
+              <Show when={saveConflict()}>
+                {(conflict) => (
+                  <div class="sticky top-2 z-20 mx-4 mb-2 rounded-xs border border-border bg-[color-mix(in_srgb,var(--color-text-muted)_8%,var(--color-bg-elevated))] px-3 py-2 shadow-[0_2px_5px_rgba(0,0,0,0.08)]">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                      <div class="min-w-0">
+                        <div class="text-[0.8125rem] font-medium text-text-primary">
+                          {t("editor.save_conflict.title")}
+                        </div>
+                        <div class="text-xs/snug text-text-muted">
+                          {conflict().message ?? t("editor.save_conflict.description")}
+                        </div>
+                      </div>
+                      <div class="flex shrink-0 items-center gap-1.5">
+                        <button
+                          type="button"
+                          class="cursor-pointer rounded-xs border border-border bg-bg-secondary px-2.5 py-1 text-[0.75rem] text-text-secondary transition-colors hover:bg-ghost-hover disabled:cursor-wait disabled:text-text-disabled"
+                          disabled={conflict().resolving !== null}
+                          onClick={() => void useDiskVersionAfterConflict()}
+                        >
+                          {conflict().resolving === "disk"
+                            ? t("editor.save_conflict.loading_disk")
+                            : t("editor.save_conflict.use_disk")}
+                        </button>
+                        <button
+                          type="button"
+                          class="cursor-pointer rounded-xs border border-text-primary bg-text-primary px-2.5 py-1 text-[0.75rem] font-medium text-bg-primary transition-colors hover:border-text-secondary hover:bg-text-secondary disabled:cursor-wait disabled:border-border disabled:bg-bg-secondary disabled:text-text-muted"
+                          disabled={conflict().resolving !== null}
+                          onClick={() => void keepLocalChangesAfterConflict()}
+                        >
+                          {conflict().resolving === "local"
+                            ? t("editor.save_conflict.saving_local")
+                            : t("editor.save_conflict.keep_local")}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </Show>
               <div ref={editor.mount} />
               <Show when={showAiEditInput()}>
                 <AiEditInput onClose={closeAiEditInput} viewportEl={getScrollViewport()} />

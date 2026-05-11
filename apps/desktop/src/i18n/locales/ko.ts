@@ -494,6 +494,17 @@ export const KO_MESSAGES = {
   "editor.ai.summarize": "요약",
   "editor.ai.translate": "번역",
   "editor.ai.edit_with_ai": "AI로 편집",
+  "editor.save_conflict.title": "디스크에서 파일이 변경됐어요",
+  "editor.save_conflict.description":
+    "에디터에도 저장되지 않은 변경이 있고, 파일도 다른 곳에서 바뀌었어요. 어느 쪽을 남길지 선택해 주세요.",
+  "editor.save_conflict.use_disk": "디스크 버전 사용",
+  "editor.save_conflict.keep_local": "내 변경 저장",
+  "editor.save_conflict.loading_disk": "불러오는 중...",
+  "editor.save_conflict.saving_local": "저장 중...",
+  "editor.save_conflict.changed_again":
+    "디스크 버전이 다시 바뀌었어요. 확인하고 다시 선택해 주세요.",
+  "editor.save_conflict.save_failed": "에디터 버전을 저장할 수 없어요.",
+  "editor.save_conflict.load_failed": "디스크 버전을 불러올 수 없어요.",
   "editor.tooltip.bold": "굵게 (⌘B)",
   "editor.tooltip.italic": "기울임 (⌘I)",
   "editor.tooltip.strikethrough": "취소선",

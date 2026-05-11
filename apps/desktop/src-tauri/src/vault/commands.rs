@@ -133,16 +133,16 @@ fn plan_checksum_write(
     expected_checksum: &str,
 ) -> ChecksumWritePlan {
     let current_checksum = compute_checksum(current_content);
+    if current_content == next_content {
+        return ChecksumWritePlan::Unchanged {
+            checksum: current_checksum,
+        };
+    }
+
     if current_checksum != expected_checksum {
         return ChecksumWritePlan::Conflict {
             expected: expected_checksum.to_string(),
             actual: current_checksum,
-        };
-    }
-
-    if current_content == next_content {
-        return ChecksumWritePlan::Unchanged {
-            checksum: current_checksum,
         };
     }
 
@@ -663,6 +663,16 @@ mod tests {
         let checksum = compute_checksum(current);
 
         let plan = plan_checksum_write(current, current, &checksum);
+
+        assert_eq!(plan, ChecksumWritePlan::Unchanged { checksum });
+    }
+
+    #[test]
+    fn test_plan_checksum_write_accepts_unchanged_content_after_external_write() {
+        let current = "same";
+        let checksum = compute_checksum(current);
+
+        let plan = plan_checksum_write(current, current, &compute_checksum("old"));
 
         assert_eq!(plan, ChecksumWritePlan::Unchanged { checksum });
     }
