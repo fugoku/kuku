@@ -5,6 +5,8 @@ const mockVaultRename = vi.fn();
 const mockVaultDelete = vi.fn();
 const mockVaultGetTrashPath = vi.fn();
 const mockListen = vi.fn().mockResolvedValue(() => {});
+const mockGetActiveTab = vi.fn();
+const mockGetEditorDocumentSession = vi.fn();
 const mockRenameTabsForMovedPath = vi.fn();
 const mockCloseTabsForDeletedPath = vi.fn();
 const mockReconcileEditorTabsWithVault = vi.fn();
@@ -41,8 +43,17 @@ vi.mock("@tauri-apps/api/event", () => ({
 vi.mock("~/stores/files", () => ({
   clearEditorTabs: vi.fn(),
   closeTabsForDeletedPath: mockCloseTabsForDeletedPath,
+  filesState: { tabs: [], activeTabId: null },
+  getActiveEditorFolder: vi.fn(() => ""),
+  getActiveTab: mockGetActiveTab,
+  openTab: vi.fn(),
   reconcileEditorTabsWithVault: mockReconcileEditorTabsWithVault,
   renameTabsForMovedPath: mockRenameTabsForMovedPath,
+  requestEditorFocusForTab: vi.fn(),
+}));
+
+vi.mock("~/stores/editor", () => ({
+  getEditorDocumentSession: mockGetEditorDocumentSession,
 }));
 
 vi.mock("~/stores/settings", () => ({
@@ -70,12 +81,24 @@ async function loadVaultModule() {
   return import("~/stores/vault");
 }
 
+function emitVaultFileChanged(
+  handler: ((event: { payload: unknown }) => void) | null,
+  payload: unknown,
+): void {
+  if (!handler) {
+    throw new Error("vault:file-changed listener was not registered");
+  }
+  handler({ payload });
+}
+
 describe("vault actions", () => {
   beforeEach(() => {
     mockListVaultFiles.mockReset().mockResolvedValue(FILES);
     mockVaultRename.mockReset().mockResolvedValue(undefined);
     mockVaultDelete.mockReset().mockResolvedValue(undefined);
     mockVaultGetTrashPath.mockReset().mockResolvedValue("/tmp/vault/.trash");
+    mockGetActiveTab.mockReset().mockReturnValue(undefined);
+    mockGetEditorDocumentSession.mockReset().mockReturnValue(null);
     mockRenameTabsForMovedPath.mockReset();
     mockCloseTabsForDeletedPath.mockReset();
     mockReconcileEditorTabsWithVault.mockReset();
@@ -190,6 +213,72 @@ describe("vault actions", () => {
 
     expect(mockVaultDelete).toHaveBeenCalledWith("notes/a.md", "kuku-trash");
     expect(mockCloseTabsForDeletedPath).toHaveBeenCalledWith("notes/a.md", false);
+  });
+
+  it("reloads the clean active editor when a watcher event modifies its file", async () => {
+    const reloadFromDisk = vi.fn().mockResolvedValue({ status: "skipped", reason: "unchanged" });
+    let handleChange: ((event: { payload: unknown }) => void) | null = null;
+    mockListen.mockImplementationOnce(
+      async (_eventName: string, handler: (event: { payload: unknown }) => void) => {
+        handleChange = handler;
+        return () => {};
+      },
+    );
+    mockGetActiveTab.mockReturnValue({
+      id: "tab-1",
+      fileName: "a.md",
+      filePath: "notes/a.md",
+      type: "editor",
+      isDirty: false,
+    });
+    mockGetEditorDocumentSession.mockReturnValue({
+      tabId: "tab-1",
+      filePath: "notes/a.md",
+      save: vi.fn(),
+      reloadFromDisk,
+      getChecksum: vi.fn(),
+    });
+    const vault = await loadVaultModule();
+
+    await vault.startWatcher();
+    emitVaultFileChanged(handleChange, { kind: "modify", path: "notes/a.md", is_dir: false });
+    await vault.stopWatcher();
+
+    expect(mockGetEditorDocumentSession).toHaveBeenCalledWith("notes/a.md");
+    expect(reloadFromDisk).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reload the active editor when the tab is dirty", async () => {
+    const reloadFromDisk = vi.fn();
+    let handleChange: ((event: { payload: unknown }) => void) | null = null;
+    mockListen.mockImplementationOnce(
+      async (_eventName: string, handler: (event: { payload: unknown }) => void) => {
+        handleChange = handler;
+        return () => {};
+      },
+    );
+    mockGetActiveTab.mockReturnValue({
+      id: "tab-1",
+      fileName: "a.md",
+      filePath: "notes/a.md",
+      type: "editor",
+      isDirty: true,
+    });
+    mockGetEditorDocumentSession.mockReturnValue({
+      tabId: "tab-1",
+      filePath: "notes/a.md",
+      save: vi.fn(),
+      reloadFromDisk,
+      getChecksum: vi.fn(),
+    });
+    const vault = await loadVaultModule();
+
+    await vault.startWatcher();
+    emitVaultFileChanged(handleChange, { kind: "modify", path: "notes/a.md", is_dir: false });
+    await vault.stopWatcher();
+
+    expect(mockGetEditorDocumentSession).not.toHaveBeenCalled();
+    expect(reloadFromDisk).not.toHaveBeenCalled();
   });
 
   it("moves a file into another folder path", async () => {

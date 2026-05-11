@@ -12,7 +12,17 @@ interface EditorState {
 
 type EditorSaveResult =
   | { status: "saved"; checksum: string; content: string }
-  | { status: "skipped"; reason: "diff" | "not-ready" | "missing-checksum" | "disposed" }
+  | {
+      status: "skipped";
+      reason:
+        | "diff"
+        | "not-ready"
+        | "missing-checksum"
+        | "disposed"
+        | "dirty"
+        | "saving"
+        | "unchanged";
+    }
   | { status: "conflict"; expected: string; actual: string }
   | { status: "error"; message: string };
 

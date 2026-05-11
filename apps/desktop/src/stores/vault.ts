@@ -21,6 +21,7 @@ import {
 } from "~/stores/vault_status";
 import { buildVaultTreeIndex, reconcileVaultUiState } from "~/stores/vault_tree";
 import { createWatcherRefreshScheduler } from "~/stores/watcher_refresh";
+import { getEditorDocumentSession } from "~/stores/editor";
 import { emitEvent } from "~/plugins/events";
 import {
   buildNameFromEditable,
@@ -110,6 +111,24 @@ const watcherRefreshScheduler = createWatcherRefreshScheduler(async () => {
   }
 });
 
+function reloadCleanActiveEditorForWatcherEvent(event: FileChangeEvent): void {
+  if (event.is_dir || !["create", "modify", "rename"].includes(event.kind)) {
+    return;
+  }
+
+  const activeTab = getActiveTab();
+  if (activeTab?.type !== "editor" || !activeTab.filePath || activeTab.isDirty) {
+    return;
+  }
+
+  const session = getEditorDocumentSession(event.path);
+  if (!session || session.tabId !== activeTab.id) {
+    return;
+  }
+
+  void session.reloadFromDisk();
+}
+
 function rootNameFromPath(path: string): string {
   const parts = path.split("/").filter(Boolean);
   return parts.at(-1) ?? path;
@@ -160,7 +179,8 @@ async function startWatcher(): Promise<void> {
     watcherUnlisten = null;
   }
 
-  watcherUnlisten = await listen<FileChangeEvent>("vault:file-changed", () => {
+  watcherUnlisten = await listen<FileChangeEvent>("vault:file-changed", (event) => {
+    reloadCleanActiveEditorForWatcherEvent(event.payload);
     watcherRefreshScheduler.schedule();
   });
 
