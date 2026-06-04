@@ -181,6 +181,12 @@ function ChatPanel(): JSX.Element {
     return position.scrollHeight - position.top - position.height < threshold;
   }
 
+  function isAwaitingResponse(): boolean {
+    const activeId = chatState.activeSessionId;
+    const session = activeId ? (chatState.sessions[activeId] ?? null) : null;
+    return session?.status === "streaming" || session?.status === "applying";
+  }
+
   function scrollToBottom(behavior: ScrollBehavior = "smooth"): void {
     if (!scrollHandle) return;
     // Smooth scroll emits many onScrolls; do not let them clear "follow" mid-animation.
@@ -219,7 +225,7 @@ function ChatPanel(): JSX.Element {
       return;
     }
     const last = session.messages[session.messages.length - 1];
-    if (last.kind === "text" && last.role === "user") {
+    if (last.kind === "text" && last.role === "user" && !isAwaitingResponse()) {
       revealLatestUserToView();
     } else {
       scrollToBottom("smooth");
@@ -258,6 +264,16 @@ function ChatPanel(): JSX.Element {
     }
   }
 
+  function handleWheel(event: WheelEvent): void {
+    if (event.deltaY >= 0 || !scrollHandle) return;
+    const position = scrollHandle.getScrollPosition();
+    if (position.top <= 0 || position.scrollHeight <= position.height) return;
+    ignoreScrollEvents = 0;
+    userScrolledAway = true;
+    cancelPendingAutoscroll();
+    scrollHandle.scrollTo({ top: position.top, behavior: "auto" });
+  }
+
   // Structural + coarser streaming: last message is user → reveal; assistant reply → follow bottom (bucketed).
 
   createEffect(
@@ -267,6 +283,7 @@ function ChatPanel(): JSX.Element {
         const session = activeId ? (chatState.sessions[activeId] ?? null) : null;
         const count = session?.messages.length ?? 0;
         const last = count > 0 && session ? session.messages[count - 1] : null;
+        const status = session?.status ?? "idle";
         let hasFirstToken = false;
         let lastStreaming = false;
         let streamChunk = 0;
@@ -278,7 +295,7 @@ function ChatPanel(): JSX.Element {
             streamChunk = Math.floor(last.content.length / 96);
           }
         }
-        return `${activeId ?? ""}|${count}|${last?.id ?? ""}|${lastStreaming}|${hasFirstToken}|${streamChunk}`;
+        return `${activeId ?? ""}|${status}|${count}|${last?.id ?? ""}|${lastStreaming}|${hasFirstToken}|${streamChunk}`;
       },
       () => {
         const activeId = chatState.activeSessionId;
@@ -326,8 +343,16 @@ function ChatPanel(): JSX.Element {
             onViewportReady={() => {
               scheduleAutoscroll();
             }}
+            onLayout={(_, reason) => {
+              if (reason === "resize" || (reason === "content" && !isAwaitingResponse())) {
+                scheduleAutoscroll();
+              }
+            }}
             onScroll={() => {
               handleScroll();
+            }}
+            onWheel={(event) => {
+              handleWheel(event);
             }}
           >
             <ChatMessages />
