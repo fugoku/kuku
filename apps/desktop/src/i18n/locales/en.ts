@@ -401,6 +401,7 @@ export const EN_MESSAGES = {
   "settings.plugins.unavailable": "Plugin settings are unavailable.",
   "settings.plugins.status.failed": "Failed",
   "settings.plugins.status.disabled_next_launch": "Disabled next launch",
+  "settings.plugins.status.enabled_next_launch": "Enabled next launch",
   "settings.plugins.status.required": "Required",
   "settings.plugins.status.active": "Active",
   "settings.plugins.status.inactive": "Inactive",

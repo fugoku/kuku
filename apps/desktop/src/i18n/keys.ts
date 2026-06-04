@@ -341,6 +341,7 @@ export const MESSAGE_KEYS = [
   "settings.plugins.unavailable",
   "settings.plugins.status.failed",
   "settings.plugins.status.disabled_next_launch",
+  "settings.plugins.status.enabled_next_launch",
   "settings.plugins.status.required",
   "settings.plugins.status.active",
   "settings.plugins.status.inactive",

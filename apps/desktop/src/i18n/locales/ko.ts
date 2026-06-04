@@ -399,6 +399,7 @@ export const KO_MESSAGES = {
   "settings.plugins.unavailable": "플러그인 설정을 불러올 수 없어요.",
   "settings.plugins.status.failed": "오류",
   "settings.plugins.status.disabled_next_launch": "다음 실행 시 꺼짐",
+  "settings.plugins.status.enabled_next_launch": "다음 실행 시 켜짐",
   "settings.plugins.status.required": "기본 제공",
   "settings.plugins.status.active": "사용 중",
   "settings.plugins.status.inactive": "사용 안 함",

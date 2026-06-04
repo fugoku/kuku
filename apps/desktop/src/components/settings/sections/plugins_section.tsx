@@ -48,20 +48,25 @@ function PluginsSection(): JSX.Element {
     tone: "neutral" | "success" | "error";
   } {
     const disabled = isDisabled(plugin.id, plugin.canDisable);
+    const active = registryState.activated.includes(plugin.id);
 
     if (plugin.id in registryState.failed) {
       return { label: t("settings.plugins.status.failed"), tone: "error" };
-    }
-
-    if (disabled) {
-      return { label: t("settings.plugins.status.disabled_next_launch"), tone: "neutral" };
     }
 
     if (!plugin.canDisable) {
       return { label: t("settings.plugins.status.required"), tone: "neutral" };
     }
 
-    if (registryState.activated.includes(plugin.id)) {
+    if (disabled && active) {
+      return { label: t("settings.plugins.status.disabled_next_launch"), tone: "neutral" };
+    }
+
+    if (!disabled && !active) {
+      return { label: t("settings.plugins.status.enabled_next_launch"), tone: "neutral" };
+    }
+
+    if (active) {
       return { label: t("settings.plugins.status.active"), tone: "success" };
     }
 

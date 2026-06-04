@@ -405,6 +405,7 @@ export const JA_MESSAGES = {
   "settings.plugins.unavailable": "プラグイン設定を利用できません。",
   "settings.plugins.status.failed": "失敗",
   "settings.plugins.status.disabled_next_launch": "次回起動時に無効",
+  "settings.plugins.status.enabled_next_launch": "次回起動時に有効",
   "settings.plugins.status.required": "必須",
   "settings.plugins.status.active": "有効",
   "settings.plugins.status.inactive": "無効",
