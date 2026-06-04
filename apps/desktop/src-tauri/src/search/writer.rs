@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::fs;
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::mpsc::{self, Sender};
@@ -275,12 +276,21 @@ fn build_document(
     }
 
     let absolute = root.join(rel_path);
-    if !absolute.exists() {
+    let metadata = match fs::symlink_metadata(&absolute) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(format!("Failed to stat markdown file: {error}")),
+    };
+    let file_type = metadata.file_type();
+    if file_type.is_symlink() || !file_type.is_file() {
         return Ok(None);
     }
 
-    let markdown =
-        fs::read_to_string(&absolute).map_err(|e| format!("Failed to read markdown file: {e}"))?;
+    let markdown = match fs::read_to_string(&absolute) {
+        Ok(markdown) => markdown,
+        Err(error) if error.kind() == ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(format!("Failed to read markdown file: {error}")),
+    };
     let content_checksum = compute_checksum(&markdown);
     let extracted = kuku_indexer::extract_document(&markdown);
     let meta_json = serde_json::to_string(
@@ -743,6 +753,103 @@ mod tests {
 
         fs::remove_dir_all(root).unwrap();
         fs::remove_dir_all(outside).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn full_rebuild_does_not_index_symlinked_network_directory() {
+        let root = unique_path("kuku-index-root");
+        let outside = unique_path("kuku-index-network");
+        fs::create_dir_all(root.join("notes")).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(root.join("notes").join("Plan.md"), "# Plan").unwrap();
+        fs::write(outside.join("outside.md"), "# Outside").unwrap();
+        symlink(&outside, root.join("network-volume")).unwrap();
+
+        let db_path = unique_path("kuku-index-db").with_extension("sqlite3");
+        let mut conn = open_connection(&db_path).unwrap();
+        let status = Arc::new(Mutex::new(IndexerStatus::default()));
+        let rebuild_state = Arc::new(Mutex::new(RebuildQueueState::default()));
+        let debug_status = Arc::new(Mutex::new(IndexerDebugStatus::default()));
+        let (loop_tx, _loop_rx) = mpsc::channel();
+
+        handle_full_rebuild(
+            &mut conn,
+            &root,
+            &status,
+            &rebuild_state,
+            &debug_status,
+            &loop_tx,
+            "test",
+        )
+        .unwrap();
+
+        assert_eq!(list_indexed_doc_ids(&conn).unwrap(), vec!["notes/Plan.md"]);
+        assert_eq!(status.lock().total_docs, 1);
+
+        fs::remove_dir_all(root).unwrap();
+        fs::remove_dir_all(outside).unwrap();
+        let _ = fs::remove_file(db_path);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn index_file_skips_symlinked_markdown_file() {
+        let root = unique_path("kuku-index-root");
+        let outside = unique_path("kuku-index-network");
+        fs::create_dir_all(&root).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(outside.join("outside.md"), "# Outside").unwrap();
+        symlink(outside.join("outside.md"), root.join("linked.md")).unwrap();
+
+        let db_path = unique_path("kuku-index-db").with_extension("sqlite3");
+        let mut conn = open_connection(&db_path).unwrap();
+        let status = Arc::new(Mutex::new(IndexerStatus::default()));
+        let debug_status = Arc::new(Mutex::new(IndexerDebugStatus::default()));
+
+        handle_index_file(
+            &mut conn,
+            &root,
+            "linked.md",
+            "network-file-system",
+            &status,
+            &debug_status,
+        )
+        .unwrap();
+
+        assert!(list_indexed_doc_ids(&conn).unwrap().is_empty());
+        assert_eq!(status.lock().total_docs, 0);
+
+        fs::remove_dir_all(root).unwrap();
+        fs::remove_dir_all(outside).unwrap();
+        let _ = fs::remove_file(db_path);
+    }
+
+    #[test]
+    fn index_file_skips_markdown_directory_placeholder() {
+        let root = unique_path("kuku-index-root");
+        fs::create_dir_all(root.join("Package.md")).unwrap();
+
+        let db_path = unique_path("kuku-index-db").with_extension("sqlite3");
+        let mut conn = open_connection(&db_path).unwrap();
+        let status = Arc::new(Mutex::new(IndexerStatus::default()));
+        let debug_status = Arc::new(Mutex::new(IndexerDebugStatus::default()));
+
+        handle_index_file(
+            &mut conn,
+            &root,
+            "Package.md",
+            "network-file-system",
+            &status,
+            &debug_status,
+        )
+        .unwrap();
+
+        assert!(list_indexed_doc_ids(&conn).unwrap().is_empty());
+        assert_eq!(status.lock().total_docs, 0);
+
+        fs::remove_dir_all(root).unwrap();
+        let _ = fs::remove_file(db_path);
     }
 
     #[test]
