@@ -233,8 +233,18 @@ fn collect_markdown_files(dir: &Path, root: &Path, out: &mut Vec<String>) -> Res
         if should_ignore_path(rel) {
             continue;
         }
-        if path.is_dir() {
+
+        let file_type = entry
+            .file_type()
+            .map_err(|e| format!("Failed to read vault file type: {e}"))?;
+        if file_type.is_symlink() {
+            continue;
+        }
+        if file_type.is_dir() {
             collect_markdown_files(&path, root, out)?;
+            continue;
+        }
+        if !file_type.is_file() {
             continue;
         }
 
@@ -677,6 +687,9 @@ mod tests {
     use std::thread;
     use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+    #[cfg(unix)]
+    use std::os::unix::fs::symlink;
+
     use super::*;
 
     static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -688,6 +701,29 @@ mod tests {
             .as_nanos();
         let suffix = TEST_COUNTER.fetch_add(1, Ordering::Relaxed);
         std::env::temp_dir().join(format!("{prefix}-{now}-{suffix}"))
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn collect_markdown_files_skips_symlinked_files_and_directories() {
+        let root = unique_path("kuku-index-root");
+        let outside = unique_path("kuku-index-outside");
+        fs::create_dir_all(root.join("notes")).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(root.join("notes").join("Plan.md"), "# Plan").unwrap();
+        fs::write(outside.join("outside.md"), "# Outside").unwrap();
+
+        symlink(outside.join("outside.md"), root.join("linked-file.md")).unwrap();
+        symlink(&outside, root.join("linked-dir")).unwrap();
+
+        let mut files = Vec::new();
+        collect_markdown_files(&root, &root, &mut files).unwrap();
+        files.sort();
+
+        assert_eq!(files, vec!["notes/Plan.md"]);
+
+        fs::remove_dir_all(root).unwrap();
+        fs::remove_dir_all(outside).unwrap();
     }
 
     #[test]
