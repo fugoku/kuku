@@ -703,6 +703,25 @@ mod tests {
         std::env::temp_dir().join(format!("{prefix}-{now}-{suffix}"))
     }
 
+    #[test]
+    fn collect_markdown_files_skips_hidden_and_kuku_directories() {
+        let root = unique_path("kuku-index-root");
+        fs::create_dir_all(root.join("notes")).unwrap();
+        fs::create_dir_all(root.join(".hidden")).unwrap();
+        fs::create_dir_all(root.join(".kuku")).unwrap();
+        fs::write(root.join("notes").join("Plan.md"), "# Plan").unwrap();
+        fs::write(root.join(".hidden").join("hidden.md"), "# Hidden").unwrap();
+        fs::write(root.join(".kuku").join("search.md"), "# Index data").unwrap();
+
+        let mut files = Vec::new();
+        collect_markdown_files(&root, &root, &mut files).unwrap();
+        files.sort();
+
+        assert_eq!(files, vec!["notes/Plan.md"]);
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
     #[cfg(unix)]
     #[test]
     fn collect_markdown_files_skips_symlinked_files_and_directories() {
