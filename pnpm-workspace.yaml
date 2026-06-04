@@ -2,6 +2,9 @@ packages:
   - apps/*
   - packages/*
 
+allowBuilds:
+  msw: true
+
 minimumReleaseAge: 3333
 
 minimumReleaseAgeExclude:
@@ -13,7 +16,7 @@ minimumReleaseAgeExclude:
   - "@oxlint-tsgolint/*"
 
 onlyBuiltDependencies:
-  - '@bufbuild/buf'
+  - "@bufbuild/buf"
   - esbuild
   - msw
   - sharp
