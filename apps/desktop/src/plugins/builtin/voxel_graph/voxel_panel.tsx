@@ -21,7 +21,7 @@ function openGraphNode(node: GraphNode): void {
 }
 
 function openVoxelInCenterTab(): void {
-  openTab("Agent World", null, "voxel-graph", { focusFilePath: null });
+  openTab("Agent World", null, "voxel-graph", { focusFilePath: currentFilePathForGraph() });
   closeRightPanelView();
 }
 
