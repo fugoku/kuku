@@ -20,6 +20,7 @@ export {
   FolderIcon,
   FolderPlusIcon,
   GraphIcon,
+  OpenInTabIcon,
   PlusIcon,
   SearchIcon,
   SettingsIcon,
