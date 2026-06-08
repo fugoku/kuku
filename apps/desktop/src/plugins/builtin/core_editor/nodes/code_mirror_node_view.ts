@@ -1327,6 +1327,13 @@ function buildMermaidConfig(root: HTMLElement): MermaidConfig {
   const taskDoneBackground = readToken("--color-mermaid-task-done-bg", success);
   const taskActiveBackground = readToken("--color-mermaid-task-active-bg", warning);
   const taskCriticalBackground = readToken("--color-mermaid-task-critical-bg", danger);
+  const themeColorLimit = 12;
+  const radius = parsePositiveCssNumber(readToken("--radius-sm", "2px"), 2);
+  const strokeWidth = 1.5;
+  const tagFontSize = `${Math.max(10, Math.round(fontSize * 0.625))}px`;
+  const bodyFontSize = `${fontSize}px`;
+  const pieTitleFontSize = `${Math.max(20, Math.round(fontSize * 1.5))}px`;
+  const pieTextFontSize = `${Math.max(13, Math.round(fontSize))}px`;
   const journeyFills = [
     readToken("--color-mermaid-journey-fill-1", surfaceAlt),
     readToken("--color-mermaid-journey-fill-2", surface),
@@ -1344,6 +1351,17 @@ function buildMermaidConfig(root: HTMLElement): MermaidConfig {
     readToken("--color-mermaid-scale-5", danger),
     readToken("--color-mermaid-scale-6", info),
   ];
+  const scaleContrast = repeatPalette([background], themeColorLimit);
+  const scalePeer = repeatPalette([borderStrong, border, line, accentAlt], themeColorLimit);
+  const scaleLabels = repeatPalette([text], themeColorLimit);
+  const surfacePalette = [surface, surfaceAlt, clusterBackground, noteBackground, taskBackground];
+  const surfacePeerPalette = [borderStrong, border, line, mutedText, accentAlt];
+  const gitPalette = repeatPalette(
+    [accent, success, warning, danger, info, accentAlt, mutedText, borderStrong],
+    8,
+  );
+  const gitContrast = repeatPalette([background], 8);
+  const branchLabelPalette = repeatPalette([darkMode ? background : edgeLabelBackground], 8);
 
   return {
     fontFamily,
@@ -1368,6 +1386,7 @@ function buildMermaidConfig(root: HTMLElement): MermaidConfig {
     },
     theme: "base",
     themeVariables: {
+      THEME_COLOR_LIMIT: themeColorLimit,
       activationBkgColor: surfaceAlt,
       activationBorderColor: borderStrong,
       actorBkg: surface,
@@ -1378,9 +1397,18 @@ function buildMermaidConfig(root: HTMLElement): MermaidConfig {
       activeTaskBorderColor: warning,
       altBackground: surfaceAlt,
       altSectionBkgColor: surfaceAlt,
+      archEdgeArrowColor: line,
+      archEdgeColor: line,
+      archEdgeWidth: "3",
+      archGroupBorderColor: borderStrong,
+      archGroupBorderWidth: "2px",
       arrowheadColor: line,
+      attributeBackgroundColorEven: surface,
+      attributeBackgroundColorOdd: surfaceAlt,
       background,
       border2: borderStrong,
+      border1: border,
+      branchLabelColor: darkMode ? background : edgeLabelBackground,
       cScale0: scale[0],
       cScale1: scale[1],
       cScale2: scale[2],
@@ -1393,22 +1421,58 @@ function buildMermaidConfig(root: HTMLElement): MermaidConfig {
       cScale9: scale[3],
       cScale10: scale[4],
       cScale11: scale[5],
+      ...buildIndexedThemeVariables("cScaleInv", scaleContrast, themeColorLimit),
+      ...buildIndexedThemeVariables("cScaleLabel", scaleLabels, themeColorLimit),
+      ...buildIndexedThemeVariables("cScalePeer", scalePeer, themeColorLimit),
       classText: text,
       clusterBkg: clusterBackground,
       clusterBorder: border,
       commitLabelBackground: surfaceAlt,
       commitLabelColor: text,
+      commitLabelFontSize: tagFontSize,
       compositeBackground: surface,
       compositeBorder: border,
       compositeTitleBackground: surfaceAlt,
       critBkgColor: taskCriticalBackground,
       critBorderColor: danger,
+      cynefin: {
+        arrowColor: line,
+        arrowWidth: 2,
+        boundaryColor: border,
+        boundaryWidth: 2,
+        chaoticBg: taskCriticalBackground,
+        clearBg: taskActiveBackground,
+        cliffColor: danger,
+        cliffWidth: 4,
+        complexBg: taskDoneBackground,
+        complicatedBg: noteBackground,
+        confusionBg: surfaceAlt,
+        domainFontSize: Math.max(14, Math.round(fontSize)),
+        itemFontSize: Math.max(11, Math.round(fontSize * 0.75)),
+        labelColor: text,
+        textColor: text,
+      },
       darkTextColor: text,
       darkMode,
       defaultLinkColor: line,
       doneTaskBkgColor: taskDoneBackground,
       doneTaskBorderColor: success,
+      dropShadow: "none",
       edgeLabelBackground,
+      emArrowhead: line,
+      emCommandFill: noteBackground,
+      emCommandStroke: info,
+      emEventFill: taskActiveBackground,
+      emEventStroke: warning,
+      emProcessorFill: taskCriticalBackground,
+      emProcessorStroke: danger,
+      emReadModelFill: taskDoneBackground,
+      emReadModelStroke: success,
+      emRelationStroke: line,
+      emSwimlaneBackgroundOdd: surfaceAlt,
+      emSwimlaneBackgroundStroke: border,
+      emUiFill: surface,
+      emUiStroke: border,
       errorBkgColor: taskCriticalBackground,
       errorTextColor: text,
       excludeBkgColor: surfaceAlt,
@@ -1421,9 +1485,24 @@ function buildMermaidConfig(root: HTMLElement): MermaidConfig {
       fillType6: journeyFills[0],
       fillType7: journeyFills[1],
       fontFamily,
-      fontSize: `${fontSize}px`,
+      fontSize: bodyFontSize,
+      fontWeight: "400",
+      git0: gitPalette[0],
+      git1: gitPalette[1],
+      git2: gitPalette[2],
+      git3: gitPalette[3],
+      git4: gitPalette[4],
+      git5: gitPalette[5],
+      git6: gitPalette[6],
+      git7: gitPalette[7],
+      ...buildIndexedThemeVariables("gitBranchLabel", branchLabelPalette, 8),
+      ...buildIndexedThemeVariables("gitInv", gitContrast, 8),
+      gradientStart: borderStrong,
+      gradientStop: border,
       gridColor: border,
+      innerEndBackground: surfaceAlt,
       labelColor: text,
+      labelBackground: edgeLabelBackground,
       labelBackgroundColor: edgeLabelBackground,
       labelBoxBkgColor: surface,
       labelBoxBorderColor: border,
@@ -1436,6 +1515,7 @@ function buildMermaidConfig(root: HTMLElement): MermaidConfig {
       nodeTextColor: text,
       noteBkgColor: noteBackground,
       noteBorderColor: border,
+      noteFontWeight: "400",
       noteTextColor: text,
       personBkg: surface,
       personBorder: borderStrong,
@@ -1452,10 +1532,16 @@ function buildMermaidConfig(root: HTMLElement): MermaidConfig {
       pie11: scale[4],
       pie12: scale[5],
       pieLegendTextColor: text,
+      pieLegendTextSize: pieTextFontSize,
       pieOuterStrokeColor: background,
+      pieOuterStrokeWidth: "2px",
+      pieOpacity: "0.9",
       pieSectionTextColor: background,
+      pieSectionTextSize: pieTextFontSize,
       pieStrokeColor: background,
+      pieStrokeWidth: "2px",
       pieTitleTextColor: text,
+      pieTitleTextSize: pieTitleFontSize,
       primaryBorderColor: borderStrong,
       primaryColor: surface,
       primaryTextColor: text,
@@ -1477,8 +1563,23 @@ function buildMermaidConfig(root: HTMLElement): MermaidConfig {
       relationColor: line,
       relationLabelBackground: edgeLabelBackground,
       relationLabelColor: text,
+      radar: {
+        axisColor: line,
+        axisLabelFontSize: Math.max(11, Math.round(fontSize * 0.75)),
+        axisStrokeWidth: 2,
+        curveOpacity: 0.55,
+        curveStrokeWidth: 2,
+        graticuleColor: border,
+        graticuleOpacity: 0.35,
+        graticuleStrokeWidth: 1,
+        legendBoxSize: Math.max(10, Math.round(fontSize * 0.75)),
+        legendFontSize: Math.max(11, Math.round(fontSize * 0.75)),
+      },
+      radius,
+      rectBkgColor: surfaceAlt,
       requirementBackground: surface,
       requirementBorderColor: border,
+      requirementBorderSize: "1",
       requirementTextColor: text,
       rowEven: surface,
       rowOdd: surfaceAlt,
@@ -1489,14 +1590,19 @@ function buildMermaidConfig(root: HTMLElement): MermaidConfig {
       sectionBkgColor: sectionBackground,
       sectionBkgColor2: surfaceAlt,
       sequenceNumberColor: background,
+      secondBkg: surfaceAlt,
       signalColor: line,
       signalTextColor: text,
       specialStateColor: warning,
       stateBkg: surface,
       stateLabelColor: text,
+      strokeWidth,
+      ...buildIndexedThemeVariables("surface", surfacePalette, surfacePalette.length),
+      ...buildIndexedThemeVariables("surfacePeer", surfacePeerPalette, surfacePeerPalette.length),
       tagLabelBackground: surfaceAlt,
       tagLabelBorder: accentAlt,
       tagLabelColor: text,
+      tagLabelFontSize: tagFontSize,
       taskBkgColor: taskBackground,
       taskBorderColor: border,
       taskTextClickableColor: accentAlt,
@@ -1512,6 +1618,7 @@ function buildMermaidConfig(root: HTMLElement): MermaidConfig {
       todayLineColor: danger,
       transitionColor: line,
       transitionLabelColor: text,
+      useGradient: false,
       venn1: scale[0],
       venn2: scale[1],
       venn3: scale[2],
@@ -1523,8 +1630,24 @@ function buildMermaidConfig(root: HTMLElement): MermaidConfig {
       vennSetTextColor: text,
       vennTitleTextColor: text,
       vertLineColor: border,
+      wardley: {
+        annotationFill: surface,
+        annotationStroke: border,
+        annotationTextColor: text,
+        axisColor: line,
+        axisTextColor: text,
+        backgroundColor: background,
+        componentFill: surface,
+        componentLabelColor: text,
+        componentStroke: borderStrong,
+        evolutionStroke: danger,
+        gridColor: border,
+        linkStroke: line,
+      },
+      wardleyEvolutionColor: danger,
       xyChart: {
         backgroundColor: background,
+        dataLabelColor: text,
         plotColorPalette: scale.join(","),
         titleColor: text,
         xAxisLabelColor: mutedText,
@@ -1549,6 +1672,25 @@ function createCssTokenReader(root: HTMLElement): (name: string, fallback: strin
 
 function normalizeCssTokenValue(value: string): string {
   return value.replace(/\s+/g, " ").trim();
+}
+
+function parsePositiveCssNumber(value: string, fallback: number): number {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function repeatPalette(values: string[], count: number): string[] {
+  return Array.from({ length: count }, (_, index) => values[index % values.length] ?? "");
+}
+
+function buildIndexedThemeVariables(
+  prefix: string,
+  values: string[],
+  count: number,
+): Record<string, string> {
+  return Object.fromEntries(
+    Array.from({ length: count }, (_, index) => [prefix + index, values[index] ?? ""]),
+  );
 }
 
 function createMermaidRenderContainer(previewBody: HTMLElement): HTMLElement {
