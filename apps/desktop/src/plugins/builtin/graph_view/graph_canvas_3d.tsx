@@ -991,7 +991,6 @@ export default function GraphCanvas3D(props: GraphCanvas3DProps) {
           </span>
         </div>
       </Show>
-
     </div>
   );
 }

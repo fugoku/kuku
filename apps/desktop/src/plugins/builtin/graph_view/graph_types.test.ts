@@ -81,20 +81,14 @@ describe("filterGraphState", () => {
   });
 
   it("can preserve original cluster indexes so filtered nodes keep their colors", () => {
-    const filtered = filterGraphState(
-      graphState(),
-      (node) => node.folder === "Projects",
-      { preserveClusterIndices: true },
-    );
+    const filtered = filterGraphState(graphState(), (node) => node.folder === "Projects", {
+      preserveClusterIndices: true,
+    });
 
     expect(filtered.nodes).toHaveLength(1);
     expect(filtered.nodes[0].folder).toBe("Projects");
     expect(filtered.nodes[0].clusterIndex).toBe(2);
-    expect(filtered.clusters).toEqual([
-      "Knowledge/wiki/concepts",
-      "Knowledge/memory",
-      "Projects",
-    ]);
+    expect(filtered.clusters).toEqual(["Knowledge/wiki/concepts", "Knowledge/memory", "Projects"]);
   });
 });
 

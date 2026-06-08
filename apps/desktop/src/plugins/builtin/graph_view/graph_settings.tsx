@@ -54,8 +54,7 @@ function updateGraphSetting<K extends keyof GraphSettings>(
 ): void {
   const scope = maybeValue === undefined ? "2d" : (scopeOrKey as GraphSettingsScope);
   const key = maybeValue === undefined ? (scopeOrKey as K) : (keyOrValue as K);
-  const value =
-    maybeValue === undefined ? (keyOrValue as GraphSettings[K]) : (maybeValue as GraphSettings[K]);
+  const value = maybeValue === undefined ? keyOrValue : maybeValue;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (setSettings as any)(scopeKey(scope), key, value);
@@ -346,7 +345,7 @@ function RangeRow(props: { mode: GraphSettingsScope; field: RangeFieldDesc }): J
   return (
     <div
       data-kuku-graph-settings-row
-      class="rounded-xs px-1.5 py-1.5 transition-colors hover:bg-ghost-hover/60"
+      class="rounded-xs p-1.5 transition-colors hover:bg-ghost-hover/60"
     >
       <div class="mb-1.5 flex min-w-0 items-center justify-between gap-3">
         <span
@@ -392,7 +391,7 @@ function ToggleRow(props: { mode: GraphSettingsScope; field: ToggleFieldDesc }):
   return (
     <div
       data-kuku-graph-settings-row
-      class="flex items-center gap-3 rounded-xs px-1.5 py-1.5 transition-colors hover:bg-ghost-hover/60"
+      class="flex items-center gap-3 rounded-xs p-1.5 transition-colors hover:bg-ghost-hover/60"
     >
       <span class="min-w-0 flex-1 truncate text-[0.6875rem] text-text-muted">
         {t(props.field.labelKey)}

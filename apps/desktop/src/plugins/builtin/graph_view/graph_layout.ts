@@ -69,7 +69,10 @@ export function graphNodePairRepulsionRadius(
     huge: 0.62,
   });
 
-  return Math.max(settings.nodeMaxSize * settings.nodeSize * 2.35 + 5, localGap * scale * budgetScale);
+  return Math.max(
+    settings.nodeMaxSize * settings.nodeSize * 2.35 + 5,
+    localGap * scale * budgetScale,
+  );
 }
 
 export function graphNodePairRepulsionStrength(

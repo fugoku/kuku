@@ -1,3 +1,5 @@
+/// <reference types="node" />
+
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -45,12 +47,10 @@ describe("GraphTab layout", () => {
     expect(source).toContain("legendButtonEl?.contains(target)");
     expect(source).toContain("legendPopoverEl?.contains(target)");
     expect(source).toContain("setLegendOpen(false)");
-    expect(source).toContain(
-      '"bg-element-selected text-text-primary": isLegendClusterSelected(',
-    );
-    expect(source).toContain('aria-pressed={isLegendClusterSelected(i())}');
-    expect(source).toContain("isLegendClusterSelected(i()) ? \"true\" : \"false\"");
-    expect(source).toContain("kuku-scrollbar-hidden");
+    expect(source).toContain('"bg-element-selected text-text-primary": isLegendClusterSelected(');
+    expect(source).toContain("aria-pressed={isLegendClusterSelected(i())}");
+    expect(source).toContain('isLegendClusterSelected(i()) ? "true" : "false"');
+    expect(source).toContain('data-kuku-scrollbar-hidden="true"');
     expect(source).toContain("absolute top-3 right-3 z-30 flex w-10 flex-col items-center gap-1");
     expect(source).toContain("absolute top-3 right-16 z-20 flex max-h-[min(70vh,28rem)] w-64");
     expect(source).toContain("bg-bg-elevated/85 p-1 shadow-soft-2 backdrop-blur-sm");
@@ -59,8 +59,12 @@ describe("GraphTab layout", () => {
     expect(source).not.toContain("SettingsIcon");
     expect(source).not.toContain("GraphSettingsPanel");
     expect(source).not.toContain("settingsOpen");
-    expect(source).not.toContain('"bg-element-selected text-text-primary shadow-soft-1": legendOpen()');
-    expect(source).not.toContain('"bg-element-selected text-text-primary shadow-soft-1": isLegendClusterSelected(');
+    expect(source).not.toContain(
+      '"bg-element-selected text-text-primary shadow-soft-1": legendOpen()',
+    );
+    expect(source).not.toContain(
+      '"bg-element-selected text-text-primary shadow-soft-1": isLegendClusterSelected(',
+    );
     expect(source).not.toContain("rounded-full bg-element-active");
     expect(source).not.toContain("ring-1 ring-border-selected");
     expect(source).not.toContain("setSelectedLegendClusterIndex(");
@@ -68,7 +72,9 @@ describe("GraphTab layout", () => {
     expect(source).not.toContain("createSignal<number | null>");
     expect(source).not.toContain("settings.plugin.graph_view.title");
     expect(source).not.toContain("bg-bg-primary/75");
-    expect(source).not.toContain("overflow-hidden border-t border-border/70 bg-bg-secondary/40 px-4 py-2");
+    expect(source).not.toContain(
+      "overflow-hidden border-t border-border/70 bg-bg-secondary/40 px-4 py-2",
+    );
     expect(source).not.toContain("legendRef");
     expect(source).not.toContain("visibleCount");
     expect(source).not.toContain("graph.tab.metric.");
@@ -78,9 +84,9 @@ describe("GraphTab layout", () => {
   it("defines the hidden scrollbar utility used by the legend list", () => {
     const source = readFileSync(scrollbarSourcePath, "utf8");
 
-    expect(source).toContain(".kuku-scrollbar-hidden");
+    expect(source).toContain('[data-kuku-scrollbar-hidden="true"]');
     expect(source).toContain("scrollbar-width: none");
-    expect(source).toContain(".kuku-scrollbar-hidden::-webkit-scrollbar");
+    expect(source).toContain('[data-kuku-scrollbar-hidden="true"]::-webkit-scrollbar');
     expect(source).toContain("display: none");
   });
 });
