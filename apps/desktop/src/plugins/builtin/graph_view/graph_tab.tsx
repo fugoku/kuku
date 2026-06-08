@@ -9,9 +9,18 @@
 //     inside JSX expressions for fine-grained tracking
 //   - GraphCanvas handle stored in a signal for zoom control access
 
-import { type JSX, createMemo, createSignal, For, lazy, Show, Suspense } from "solid-js";
+import {
+  type JSX,
+  createEffect,
+  createMemo,
+  createSignal,
+  For,
+  lazy,
+  Show,
+  Suspense,
+} from "solid-js";
 
-import { ClustersIcon } from "~/components/icons";
+import { ListIcon } from "~/components/icons";
 import { t } from "~/i18n";
 import { getActiveTab, openTab } from "~/stores/files";
 
@@ -23,6 +32,7 @@ import {
   getGraphSummary,
   type GraphCanvasHandle,
   type GraphNode,
+  type GraphNodeFilter,
 } from "./graph_types";
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -44,6 +54,9 @@ export default function GraphTab() {
   // Currently only `setHandle` is used as the onHandle callback.
   const [, setHandle] = createSignal<GraphCanvasHandle | null>(null);
   const [legendOpen, setLegendOpen] = createSignal(false);
+  const [selectedLegendClusterIndex, setSelectedLegendClusterIndex] = createSignal<number | null>(
+    null,
+  );
 
   // ── Reactive derivations ────────────────────────────────
   //
@@ -64,6 +77,17 @@ export default function GraphTab() {
   });
 
   const clusters = createMemo(() => store()?.state.clusters ?? []);
+  const legendNodeFilter = createMemo<GraphNodeFilter | undefined>(() => {
+    const clusterIndex = selectedLegendClusterIndex();
+    return clusterIndex === null ? undefined : (node) => node.clusterIndex === clusterIndex;
+  });
+
+  createEffect(() => {
+    const selected = selectedLegendClusterIndex();
+    if (selected !== null && selected >= clusters().length) {
+      setSelectedLegendClusterIndex(null);
+    }
+  });
 
   return (
     <div class="relative flex h-full min-h-0 flex-col overflow-hidden bg-bg-primary">
@@ -77,15 +101,25 @@ export default function GraphTab() {
               currentFilePath={currentFilePath()}
               onNodeClick={openGraphNode}
               onHandle={setHandle}
+              nodeFilter={legendNodeFilter()}
             />
           }
         >
-          <Suspense fallback={<GraphCanvas variant="full" currentFilePath={currentFilePath()} />}>
+          <Suspense
+            fallback={
+              <GraphCanvas
+                variant="full"
+                currentFilePath={currentFilePath()}
+                nodeFilter={legendNodeFilter()}
+              />
+            }
+          >
             <GraphCanvas3D
               variant="full"
               currentFilePath={currentFilePath()}
               onNodeClick={openGraphNode}
               onHandle={setHandle}
+              nodeFilter={legendNodeFilter()}
             />
           </Suspense>
         </Show>
@@ -121,7 +155,7 @@ export default function GraphTab() {
                 setLegendOpen((open) => !open);
               }}
             >
-              <ClustersIcon size={14} />
+              <ListIcon size={14} />
             </button>
           </Show>
         </div>
@@ -130,16 +164,33 @@ export default function GraphTab() {
             data-kuku-graph-legend-popover="true"
             class="absolute top-3 right-16 z-20 flex max-h-[min(70vh,28rem)] w-64 flex-col overflow-hidden rounded-xs border border-border/70 bg-bg-elevated/95 shadow-popover backdrop-blur-sm"
           >
-            <div class="flex min-h-0 flex-col gap-1 overflow-y-auto p-2">
+            <div
+              data-kuku-graph-legend-list="true"
+              class="kuku-scrollbar-hidden flex min-h-0 flex-col gap-1 overflow-y-auto p-2"
+            >
               <For each={clusters()}>
                 {(cluster, i) => (
-                  <div class="flex min-h-7 items-center gap-2 rounded-xs px-2 text-[0.75rem] text-text-secondary hover:bg-ghost-hover/60">
+                  <button
+                    type="button"
+                    aria-pressed={selectedLegendClusterIndex() === i()}
+                    class="flex min-h-7 cursor-pointer items-center gap-2 rounded-xs border-none bg-transparent px-2 text-left text-[0.75rem] text-text-secondary transition-colors hover:bg-ghost-hover/60 hover:text-text-primary"
+                    classList={{
+                      "bg-element-selected text-text-primary shadow-soft-1":
+                        selectedLegendClusterIndex() === i(),
+                    }}
+                    onClick={() => {
+                      const index = i();
+                      setSelectedLegendClusterIndex((current) =>
+                        current === index ? null : index,
+                      );
+                    }}
+                  >
                     <span
                       class="inline-block size-2.5 shrink-0 rounded-full ring-1 ring-border"
                       style={{ background: clusterColor(i()) }}
                     />
                     <span class="min-w-0 truncate">{cluster.split("/").pop() ?? cluster}</span>
-                  </div>
+                  </button>
                 )}
               </For>
             </div>

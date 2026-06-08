@@ -35,12 +35,14 @@ import { getGraphSettings } from "./graph_settings";
 import {
   GRAPH_3D_SCROLL_ZOOM_SPEED,
   clusterColor,
+  filterGraphState,
   getGraphSummary,
   hasGraphPointerTarget,
   type FGLink,
   type FGNode,
   type GraphCanvasHandle,
   type GraphNode,
+  type GraphNodeFilter,
   type GraphVariant,
 } from "./graph_types";
 
@@ -51,6 +53,7 @@ interface GraphCanvas3DProps {
   onBackgroundClick?: () => void;
   onHandle?: (handle: GraphCanvasHandle) => void;
   initialFollowMode?: boolean;
+  nodeFilter?: GraphNodeFilter;
   class?: string;
 }
 
@@ -187,25 +190,30 @@ export default function GraphCanvas3D(props: GraphCanvas3DProps) {
   const store = createMemo(() => getGraphStore());
   const isCompact = () => props.variant === "compact";
   const currentFilePath = () => props.currentFilePath ?? null;
+  const graphState = createMemo(() => {
+    const state = store()?.state;
+    return state ? filterGraphState(state, props.nodeFilter) : null;
+  });
 
   const focusedFilePath = () => hoveredNode()?.filePath ?? selectedNode() ?? currentFilePath();
 
   const connectedToFocus = createMemo(() => {
     const fp = focusedFilePath();
-    const s = store()?.state;
+    const s = graphState();
     if (!fp || !s) return new Set<string>();
     return new Set(s.adjacencyMap[fp]);
   });
 
   const status = createMemo((): "loading" | "error" | "empty" | "ready" => {
-    const s = store()?.state;
-    if (!s || s.isIndexing) return "loading";
-    if (s.error) return "error";
-    if (s.nodes.length === 0) return "empty";
+    const rawState = store()?.state;
+    const s = graphState();
+    if (!rawState || rawState.isIndexing) return "loading";
+    if (rawState.error) return "error";
+    if (!s || s.nodes.length === 0) return "empty";
     return "ready";
   });
 
-  const summary = createMemo(() => getGraphSummary(store()?.state ?? null));
+  const summary = createMemo(() => getGraphSummary(graphState()));
   const renderBudget = createMemo<RenderBudget>(() => {
     const { nodeCount, linkCount } = summary();
     if (nodeCount >= HUGE_GRAPH_NODE_COUNT || linkCount > nodeCount * HUGE_LINK_RATIO) {
@@ -507,7 +515,7 @@ export default function GraphCanvas3D(props: GraphCanvas3DProps) {
       ?.strength?.(() => Math.max(0, cfg.linkStrength) * (dense ? 0.42 : 0.68));
     graphEl.d3Force("link")?.iterations?.(dense ? 1 : 2);
 
-    const clusters = store()?.state.clusters ?? [];
+    const clusters = graphState()?.clusters ?? [];
     if (clusters.length > 1 && !large && !huge) {
       const { width, height } = dimensions();
       const clusterRadius = Math.min(width, height) * cfg.clusterRadiusFactor * 0.7;
@@ -749,10 +757,15 @@ export default function GraphCanvas3D(props: GraphCanvas3DProps) {
 
   createEffect(
     on(
-      () => store()?.state.lastIndexedAt,
+      () => {
+        const state = graphState();
+        return state
+          ? [state.lastIndexedAt, state.nodes.length, state.links.length, state.clusters.length]
+          : [null, 0, 0, 0];
+      },
       () => {
         if (!graphEl) return;
-        const s = store()?.state;
+        const s = graphState();
         if (!s || s.nodes.length === 0) return;
 
         const nodes: FGNode[] = s.nodes.map((n) => ({ ...n }));
