@@ -12,17 +12,12 @@
   "plugins": {
     "deep-link": {
       "desktop": {
-        "schemes": [
-          "kuku",
-          "com.kuku.app"
-        ]
+        "schemes": ["kuku", "com.kuku.app"]
       }
     },
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE0NzY0NDQ1NUU2RDI4QzIKUldUQ0tHMWVSVVIycExseTkyWGEyeU1CTHdadXBVVTh1aDkzYTVtOUVFRFBCTGMvVGRGVGhVZGUK",
-      "endpoints": [
-        "https://www.kuku.mom/release.json"
-      ]
+      "endpoints": ["https://www.kuku.mom/release.json"]
     }
   },
   "app": {
@@ -50,10 +45,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": [
-      "dmg",
-      "app"
-    ],
+    "targets": ["dmg", "app"],
     "createUpdaterArtifacts": true,
     "icon": [
       "icons/release/32x32.png",
