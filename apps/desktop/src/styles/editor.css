@@ -454,6 +454,7 @@ prosekit-table-handle-drop-indicator {
   flex: 1 1 auto;
   min-width: 3rem;
   color: inherit;
+  caret-color: var(--color-text-primary);
   background: transparent;
   border: 0;
   outline: 0;
@@ -469,6 +470,11 @@ prosekit-table-handle-drop-indicator {
   color: var(--color-text-muted);
 }
 
+[data-kuku-code-block-language-input]::selection {
+  background-color: var(--color-accent-dim);
+  color: inherit;
+}
+
 [data-kuku-code-mirror-host] {
   color: var(--color-editor-code-fg);
   background: transparent;
@@ -477,6 +483,7 @@ prosekit-table-handle-drop-indicator {
 [data-kuku-code-mirror-host] .cm-editor {
   color: var(--color-editor-code-fg);
   background: transparent;
+  caret-color: var(--color-text-primary);
   font-family: var(--font-mono);
   font-size: 0.875rem;
   line-height: 1.6;
@@ -486,6 +493,7 @@ prosekit-table-handle-drop-indicator {
 
 [data-kuku-code-mirror-host] .cm-content {
   padding: 0 1rem;
+  caret-color: var(--color-text-primary);
 }
 
 [data-kuku-code-mirror-host] .cm-line {
@@ -496,9 +504,17 @@ prosekit-table-handle-drop-indicator {
   outline: 0;
 }
 
+[data-kuku-code-mirror-host] .cm-focused .cm-cursor,
+[data-kuku-code-mirror-host] .cm-cursor,
+[data-kuku-code-mirror-host] .cm-dropCursor {
+  border-left-color: var(--color-text-primary);
+}
+
+[data-kuku-code-mirror-host] .cm-focused .cm-selectionBackground,
 [data-kuku-code-mirror-host] .cm-selectionBackground,
 [data-kuku-code-mirror-host] .cm-content ::selection {
-  background: color-mix(in srgb, var(--color-accent) 28%, transparent);
+  background-color: var(--color-accent-dim);
+  color: inherit;
 }
 
 [data-kuku-code-block-preview] {
@@ -744,76 +760,120 @@ prosekit-table-handle-drop-indicator {
 .kuku-md-code-fence > pre :is(.token.tag, .token.namespace) {
   color: var(--syntax-tag);
 }
+.ProseMirror pre :is(.hljs),
+.kuku-md-code-fence > pre :is(.hljs),
+[data-kuku-code-mirror-host] :is(.hljs) {
+  color: var(--syntax-default);
+  background: transparent;
+}
 .ProseMirror pre :is(.hljs-comment, .hljs-quote),
 .kuku-md-code-fence > pre :is(.hljs-comment, .hljs-quote),
 [data-kuku-code-mirror-host] :is(.hljs-comment, .hljs-quote) {
   color: var(--syntax-comment);
+  font-style: italic;
 }
-.ProseMirror pre :is(.hljs-keyword, .hljs-selector-tag, .hljs-literal),
-.kuku-md-code-fence > pre :is(.hljs-keyword, .hljs-selector-tag, .hljs-literal),
-[data-kuku-code-mirror-host] :is(.hljs-keyword, .hljs-selector-tag, .hljs-literal) {
+.ProseMirror pre :is(.hljs-doctag, .hljs-keyword, .hljs-formula),
+.kuku-md-code-fence > pre :is(.hljs-doctag, .hljs-keyword, .hljs-formula),
+[data-kuku-code-mirror-host] :is(.hljs-doctag, .hljs-keyword, .hljs-formula) {
   color: var(--syntax-keyword);
+}
+.ProseMirror pre :is(.hljs-section, .hljs-name, .hljs-selector-tag, .hljs-deletion, .hljs-subst),
+.kuku-md-code-fence
+  > pre
+  :is(.hljs-section, .hljs-name, .hljs-selector-tag, .hljs-deletion, .hljs-subst),
+[data-kuku-code-mirror-host]
+  :is(.hljs-section, .hljs-name, .hljs-selector-tag, .hljs-deletion, .hljs-subst) {
+  color: var(--syntax-tag);
+}
+.ProseMirror pre :is(.hljs-literal),
+.kuku-md-code-fence > pre :is(.hljs-literal),
+[data-kuku-code-mirror-host] :is(.hljs-literal) {
+  color: var(--syntax-literal, var(--syntax-constant));
+}
+.ProseMirror pre :is(.hljs-string, .hljs-regexp, .hljs-addition, .hljs-attribute),
+.ProseMirror pre :is(.hljs-meta .hljs-string),
+.kuku-md-code-fence > pre :is(.hljs-string, .hljs-regexp, .hljs-addition, .hljs-attribute),
+.kuku-md-code-fence > pre :is(.hljs-meta .hljs-string),
+[data-kuku-code-mirror-host] :is(.hljs-string, .hljs-regexp, .hljs-addition, .hljs-attribute),
+[data-kuku-code-mirror-host] :is(.hljs-meta .hljs-string) {
+  color: var(--syntax-string);
+}
+.ProseMirror
+  pre
+  :is(
+    .hljs-attr,
+    .hljs-variable,
+    .hljs-template-variable,
+    .hljs-type,
+    .hljs-selector-class,
+    .hljs-selector-attr,
+    .hljs-selector-pseudo,
+    .hljs-number
+  ),
+.kuku-md-code-fence
+  > pre
+  :is(
+    .hljs-attr,
+    .hljs-variable,
+    .hljs-template-variable,
+    .hljs-type,
+    .hljs-selector-class,
+    .hljs-selector-attr,
+    .hljs-selector-pseudo,
+    .hljs-number
+  ),
+[data-kuku-code-mirror-host]
+  :is(
+    .hljs-attr,
+    .hljs-variable,
+    .hljs-template-variable,
+    .hljs-type,
+    .hljs-selector-class,
+    .hljs-selector-attr,
+    .hljs-selector-pseudo,
+    .hljs-number
+  ) {
+  color: var(--syntax-number);
+}
+.ProseMirror
+  pre
+  :is(.hljs-symbol, .hljs-bullet, .hljs-link, .hljs-meta, .hljs-selector-id, .hljs-title),
+.kuku-md-code-fence
+  > pre
+  :is(.hljs-symbol, .hljs-bullet, .hljs-link, .hljs-meta, .hljs-selector-id, .hljs-title),
+[data-kuku-code-mirror-host]
+  :is(.hljs-symbol, .hljs-bullet, .hljs-link, .hljs-meta, .hljs-selector-id, .hljs-title) {
+  color: var(--syntax-title);
+}
+.ProseMirror pre :is(.hljs-built_in, .hljs-title.class_, .hljs-class .hljs-title),
+.kuku-md-code-fence > pre :is(.hljs-built_in, .hljs-title.class_, .hljs-class .hljs-title),
+[data-kuku-code-mirror-host] :is(.hljs-built_in, .hljs-title.class_, .hljs-class .hljs-title) {
+  color: var(--syntax-builtin);
+}
+.ProseMirror pre :is(.hljs-function .hljs-title),
+.kuku-md-code-fence > pre :is(.hljs-function .hljs-title),
+[data-kuku-code-mirror-host] :is(.hljs-function .hljs-title) {
+  color: var(--syntax-function);
 }
 .ProseMirror pre :is(.hljs-operator),
 .kuku-md-code-fence > pre :is(.hljs-operator),
 [data-kuku-code-mirror-host] :is(.hljs-operator) {
   color: var(--syntax-operator);
 }
-.ProseMirror pre :is(.hljs-string, .hljs-doctag, .hljs-section),
-.kuku-md-code-fence > pre :is(.hljs-string, .hljs-doctag, .hljs-section),
-[data-kuku-code-mirror-host] :is(.hljs-string, .hljs-doctag, .hljs-section) {
-  color: var(--syntax-string);
+.ProseMirror pre :is(.hljs-emphasis),
+.kuku-md-code-fence > pre :is(.hljs-emphasis),
+[data-kuku-code-mirror-host] :is(.hljs-emphasis) {
+  font-style: italic;
 }
-.ProseMirror pre :is(.hljs-title, .hljs-name, .hljs-type, .hljs-attribute),
-.kuku-md-code-fence > pre :is(.hljs-title, .hljs-name, .hljs-type, .hljs-attribute),
-[data-kuku-code-mirror-host] :is(.hljs-title, .hljs-name, .hljs-type, .hljs-attribute) {
-  color: var(--syntax-type);
+.ProseMirror pre :is(.hljs-strong),
+.kuku-md-code-fence > pre :is(.hljs-strong),
+[data-kuku-code-mirror-host] :is(.hljs-strong) {
+  font-weight: 700;
 }
-.ProseMirror pre :is(.hljs-function .hljs-title, .hljs-title.class_, .hljs-title.class),
-.kuku-md-code-fence > pre :is(.hljs-function .hljs-title, .hljs-title.class_, .hljs-title.class),
-[data-kuku-code-mirror-host]
-  :is(.hljs-function .hljs-title, .hljs-title.class_, .hljs-title.class) {
-  color: var(--syntax-function);
-}
-.ProseMirror pre :is(.hljs-number, .hljs-symbol, .hljs-bullet),
-.kuku-md-code-fence > pre :is(.hljs-number, .hljs-symbol, .hljs-bullet),
-[data-kuku-code-mirror-host] :is(.hljs-number, .hljs-symbol, .hljs-bullet) {
-  color: var(--syntax-number);
-}
-.ProseMirror pre :is(.hljs-built_in, .hljs-builtin-name),
-.kuku-md-code-fence > pre :is(.hljs-built_in, .hljs-builtin-name),
-[data-kuku-code-mirror-host] :is(.hljs-built_in, .hljs-builtin-name) {
-  color: var(--syntax-builtin);
-}
-.ProseMirror pre :is(.hljs-variable, .hljs-template-variable),
-.kuku-md-code-fence > pre :is(.hljs-variable, .hljs-template-variable),
-[data-kuku-code-mirror-host] :is(.hljs-variable, .hljs-template-variable) {
-  color: var(--syntax-variable);
-}
-.ProseMirror pre :is(.hljs-addition),
-.kuku-md-code-fence > pre :is(.hljs-addition),
-[data-kuku-code-mirror-host] :is(.hljs-addition) {
-  color: var(--syntax-addition);
-}
-.ProseMirror pre :is(.hljs-deletion),
-.kuku-md-code-fence > pre :is(.hljs-deletion),
-[data-kuku-code-mirror-host] :is(.hljs-deletion) {
-  color: var(--syntax-deletion);
-}
-.ProseMirror pre :is(.hljs-meta, .hljs-meta .hljs-string, .hljs-meta .hljs-keyword),
-.kuku-md-code-fence > pre :is(.hljs-meta, .hljs-meta .hljs-string, .hljs-meta .hljs-keyword),
-[data-kuku-code-mirror-host] :is(.hljs-meta, .hljs-meta .hljs-string, .hljs-meta .hljs-keyword) {
-  color: var(--syntax-meta);
-}
-.ProseMirror pre :is(.hljs-subst),
-.kuku-md-code-fence > pre :is(.hljs-subst),
-[data-kuku-code-mirror-host] :is(.hljs-subst) {
-  color: var(--syntax-punctuation);
-}
-.ProseMirror pre :is(.hljs-regexp),
-.kuku-md-code-fence > pre :is(.hljs-regexp),
-[data-kuku-code-mirror-host] :is(.hljs-regexp) {
-  color: var(--syntax-regexp);
+.ProseMirror pre :is(.hljs-link),
+.kuku-md-code-fence > pre :is(.hljs-link),
+[data-kuku-code-mirror-host] :is(.hljs-link) {
+  text-decoration: underline;
 }
 
 /*

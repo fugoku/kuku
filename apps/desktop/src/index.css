@@ -196,27 +196,28 @@
   /* Backtick / inline `code` — never link-accent (blue); neutral chip */
   --color-editor-inline-code-fg: #e4e4e4;
   --color-editor-inline-code-bg: #303030;
-  /* Syntax (dark) — no blue/cyan; neutrals + existing warm hues */
-  --syntax-default: #d4d4d4;
-  --syntax-comment: #6a6d72;
+  /* Syntax (Atom One Dark) */
+  --syntax-default: #abb2bf;
+  --syntax-comment: #5c6370;
   --syntax-keyword: #c678dd;
   --syntax-string: #98c379;
-  --syntax-function: #9a9a9a;
+  --syntax-function: #61aeee;
   --syntax-number: #d19a66;
-  --syntax-operator: #7a7a7a;
-  --syntax-punctuation: #9a9a9a;
-  --syntax-type: #e5c07b;
-  --syntax-variable: #e06c75;
-  --syntax-property: #e06c75;
-  --syntax-namespace: #e5c07b;
+  --syntax-operator: #abb2bf;
+  --syntax-punctuation: #abb2bf;
+  --syntax-type: #d19a66;
+  --syntax-variable: #d19a66;
+  --syntax-property: #d19a66;
+  --syntax-namespace: #e06c75;
   --syntax-tag: #e06c75;
   --syntax-attr: #d19a66;
-  --syntax-attr-name: #98c379;
-  --syntax-meta: #6a6a6a;
-  --syntax-builtin: #c678dd;
-  --syntax-constant: #d19a66;
+  --syntax-attr-name: #d19a66;
+  --syntax-meta: #61aeee;
+  --syntax-builtin: #e6c07b;
+  --syntax-constant: #56b6c2;
+  --syntax-literal: #56b6c2;
   --syntax-regexp: #98c379;
-  --syntax-title: #9a9a9a;
+  --syntax-title: #61aeee;
   --syntax-selector: #e06c75;
   --syntax-deletion: #e06c75;
   --syntax-addition: #98c379;
@@ -369,30 +370,31 @@
   --shadow-editor-code-inset: inset 0 1px 0 0 rgba(0, 0, 0, 0.06);
   --color-editor-inline-code-fg: #1a1a1a;
   --color-editor-inline-code-bg: #e6e6e6;
-  /* Syntax (light) — no blue; hljs / future highlighter */
-  --syntax-default: #2a2a2a;
-  --syntax-comment: #8a8a8a;
-  --syntax-keyword: #7a3d6a;
-  --syntax-string: #3d6b3d;
-  --syntax-function: #3a3a3a;
-  --syntax-number: #7a5a1a;
-  --syntax-operator: #5a5a5a;
-  --syntax-punctuation: #3a3a3a;
-  --syntax-type: #8a5a1a;
-  --syntax-variable: #a04040;
-  --syntax-property: #a04040;
-  --syntax-namespace: #8a5a1a;
-  --syntax-tag: #a04040;
-  --syntax-attr: #6a4a0a;
-  --syntax-attr-name: #3d6b3d;
-  --syntax-meta: #8a8a8a;
-  --syntax-builtin: #7a3d6a;
-  --syntax-constant: #7a5a1a;
-  --syntax-regexp: #3d6b3d;
-  --syntax-title: #2a2a2a;
-  --syntax-selector: #a04040;
-  --syntax-deletion: #a04040;
-  --syntax-addition: #3d6b3d;
+  /* Syntax (Atom One Light) */
+  --syntax-default: #383a42;
+  --syntax-comment: #a0a1a7;
+  --syntax-keyword: #a626a4;
+  --syntax-string: #50a14f;
+  --syntax-function: #4078f2;
+  --syntax-number: #986801;
+  --syntax-operator: #383a42;
+  --syntax-punctuation: #383a42;
+  --syntax-type: #986801;
+  --syntax-variable: #986801;
+  --syntax-property: #986801;
+  --syntax-namespace: #e45649;
+  --syntax-tag: #e45649;
+  --syntax-attr: #986801;
+  --syntax-attr-name: #986801;
+  --syntax-meta: #4078f2;
+  --syntax-builtin: #c18401;
+  --syntax-constant: #0184bb;
+  --syntax-literal: #0184bb;
+  --syntax-regexp: #50a14f;
+  --syntax-title: #4078f2;
+  --syntax-selector: #e45649;
+  --syntax-deletion: #e45649;
+  --syntax-addition: #50a14f;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
