@@ -741,6 +741,11 @@ prosekit-table-handle-drop-indicator {
 [data-kuku-code-mirror-host] :is(.hljs-keyword, .hljs-selector-tag, .hljs-literal) {
   color: var(--syntax-keyword);
 }
+.ProseMirror pre :is(.hljs-operator),
+.kuku-md-code-fence > pre :is(.hljs-operator),
+[data-kuku-code-mirror-host] :is(.hljs-operator) {
+  color: var(--syntax-operator);
+}
 .ProseMirror pre :is(.hljs-string, .hljs-doctag, .hljs-section),
 .kuku-md-code-fence > pre :is(.hljs-string, .hljs-doctag, .hljs-section),
 [data-kuku-code-mirror-host] :is(.hljs-string, .hljs-doctag, .hljs-section) {
