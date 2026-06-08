@@ -1,13 +1,21 @@
 import { defaultKeymap } from "@codemirror/commands";
-import { EditorState as CodeMirrorState } from "@codemirror/state";
 import {
+  EditorState as CodeMirrorState,
+  RangeSetBuilder,
+  StateEffect,
+  StateField,
+  type Extension as CodeMirrorExtension,
+} from "@codemirror/state";
+import {
+  Decoration as CodeMirrorDecoration,
+  type DecorationSet as CodeMirrorDecorationSet,
   drawSelection,
   EditorView as CodeMirrorView,
   keymap as codeMirrorKeymap,
   type KeyBinding,
   type ViewUpdate,
 } from "@codemirror/view";
-import type highlighter from "highlight.js";
+import highlighter from "highlight.js";
 import type mermaid from "mermaid";
 import { defineNodeView, definePlugin, union, type Extension } from "prosekit/core";
 import { exitCode } from "prosekit/pm/commands";
@@ -15,7 +23,7 @@ import { redo, undo } from "prosekit/pm/history";
 import type { Node as ProseMirrorNode } from "prosekit/pm/model";
 import { Plugin, Selection, TextSelection } from "prosekit/pm/state";
 import type {
-  Decoration,
+  Decoration as ProseMirrorDecoration,
   DecorationSource,
   EditorView as ProseMirrorView,
   NodeView,
@@ -23,16 +31,17 @@ import type {
 
 type GetPos = () => number | undefined;
 type ArrowDirection = "left" | "right" | "up" | "down";
-type Highlighter = typeof highlighter;
+type CodeBlockBehavior = "plain" | "renderable";
 type Mermaid = typeof mermaid;
 
 let mermaidLoader: Promise<Mermaid> | null = null;
-let highlightLoader: Promise<Highlighter> | null = null;
 let nextMermaidId = 0;
 let pendingCodeBlockEntrySide: -1 | 1 | null = null;
+const setCodeHighlightLanguage = StateEffect.define<string>();
 
 class CodeMirrorCodeBlockView implements NodeView {
   readonly dom: HTMLElement;
+  private behavior: CodeBlockBehavior;
   private readonly cm: CodeMirrorView;
   private readonly editorChrome: HTMLElement;
   private editing: boolean;
@@ -49,10 +58,12 @@ class CodeMirrorCodeBlockView implements NodeView {
     this.node = node;
     this.view = view;
     this.getPos = getPos;
+    this.behavior = resolveCodeBlockBehavior(node);
     this.dom = document.createElement("div");
     this.dom.dataset.kukuCodeBlock = "";
     this.dom.dataset.kukuCodeMirrorBlock = "";
-    this.editing = false;
+    this.editing = this.behavior === "plain";
+    this.syncBehaviorDataset();
 
     this.editorChrome = document.createElement("div");
     this.editorChrome.dataset.kukuCodeBlockEditor = "";
@@ -119,6 +130,7 @@ class CodeMirrorCodeBlockView implements NodeView {
       extensions: [
         codeMirrorKeymap.of([...this.codeMirrorKeymap(), ...defaultKeymap]),
         drawSelection(),
+        defineCodeHighlightExtension(readLanguage(node)),
         CodeMirrorView.lineWrapping,
         CodeMirrorView.updateListener.of((update) => this.forwardUpdate(update)),
         CodeMirrorState.tabSize.of(2),
@@ -166,12 +178,21 @@ class CodeMirrorCodeBlockView implements NodeView {
 
   update(
     node: ProseMirrorNode,
-    _decorations: readonly Decoration[],
+    _decorations: readonly ProseMirrorDecoration[],
     _innerDecorations: DecorationSource,
   ): boolean {
     if (node.type !== this.node.type) return false;
+    const previousLanguage = readLanguage(this.node);
     this.node = node;
+    this.behavior = resolveCodeBlockBehavior(node);
+    this.syncBehaviorDataset();
+    if (this.behavior === "plain") {
+      this.editing = true;
+    }
     this.syncLanguageInput();
+    if (previousLanguage !== readLanguage(this.node)) {
+      this.syncCodeHighlightLanguage();
+    }
     this.syncRenderedMode();
     if (this.updating) return true;
 
@@ -331,16 +352,30 @@ class CodeMirrorCodeBlockView implements NodeView {
   }
 
   private exitEditMode(): void {
+    if (this.behavior === "plain") {
+      this.editing = true;
+      this.syncRenderedMode();
+      return;
+    }
     this.editing = false;
     this.syncRenderedMode();
   }
 
   private syncRenderedMode(): void {
-    this.editorChrome.hidden = !this.editing;
-    this.preview.hidden = this.editing;
-    if (!this.editing) {
+    const showEditor = this.behavior === "plain" || this.editing;
+    this.editorChrome.hidden = !showEditor;
+    this.preview.hidden = showEditor;
+    if (!showEditor) {
       this.renderPreview();
     }
+  }
+
+  private syncBehaviorDataset(): void {
+    this.dom.dataset.kukuCodeBlockBehavior = this.behavior;
+  }
+
+  private syncCodeHighlightLanguage(): void {
+    this.cm.dispatch({ effects: setCodeHighlightLanguage.of(readLanguage(this.node)) });
   }
 
   private syncLanguageInput(): void {
@@ -379,20 +414,20 @@ class CodeMirrorCodeBlockView implements NodeView {
 
     if (!language) return;
 
-    loadHighlighter()
-      .then((highlighter) => {
-        if (token !== this.previewRenderToken) return;
-        const highlightLanguage = resolveHighlightLanguage(highlighter, language);
-        if (!highlightLanguage) return;
-        code.className = `hljs language-${language}`;
+    window.queueMicrotask(() => {
+      if (token !== this.previewRenderToken) return;
+      const highlightLanguage = resolveHighlightLanguage(language);
+      if (!highlightLanguage) return;
+      code.className = `hljs language-${language}`;
+      try {
         code.innerHTML = highlighter.highlight(this.node.textContent, {
           ignoreIllegals: true,
           language: highlightLanguage,
         }).value;
-      })
-      .catch(() => {
+      } catch {
         // Keep the already-rendered plain code preview if highlighting fails.
-      });
+      }
+    });
   }
 
   private renderMermaidPreview(): void {
@@ -490,8 +525,103 @@ function isMermaidNode(node: ProseMirrorNode): boolean {
   return readLanguage(node).trim().toLowerCase() === "mermaid";
 }
 
+function resolveCodeBlockBehavior(node: ProseMirrorNode): CodeBlockBehavior {
+  return isMermaidNode(node) ? "renderable" : "plain";
+}
+
 function normalizeLanguage(value: string): string {
   return value.replace(/[\s`]+/g, "");
+}
+
+interface CodeHighlightState {
+  decorations: CodeMirrorDecorationSet;
+  language: string;
+}
+
+function defineCodeHighlightExtension(initialLanguage: string): CodeMirrorExtension {
+  return StateField.define<CodeHighlightState>({
+    create(state) {
+      return {
+        decorations: buildCodeHighlightDecorations(state.doc.toString(), initialLanguage),
+        language: initialLanguage,
+      };
+    },
+    update(value, transaction) {
+      let language = value.language;
+      for (const effect of transaction.effects) {
+        if (effect.is(setCodeHighlightLanguage)) {
+          language = effect.value;
+        }
+      }
+
+      if (language === value.language && !transaction.docChanged) {
+        return value;
+      }
+
+      return {
+        decorations: buildCodeHighlightDecorations(transaction.state.doc.toString(), language),
+        language,
+      };
+    },
+    provide: (field) => CodeMirrorView.decorations.from(field, (value) => value.decorations),
+  });
+}
+
+function buildCodeHighlightDecorations(source: string, language: string): CodeMirrorDecorationSet {
+  const highlightLanguage = resolveHighlightLanguage(language);
+  if (!source || !highlightLanguage) return CodeMirrorDecoration.none;
+
+  const template = document.createElement("template");
+  try {
+    template.innerHTML = highlighter.highlight(source, {
+      ignoreIllegals: true,
+      language: highlightLanguage,
+    }).value;
+  } catch {
+    return CodeMirrorDecoration.none;
+  }
+
+  const builder = new RangeSetBuilder<CodeMirrorDecoration>();
+  let offset = 0;
+  appendHighlightDecorations(
+    template.content,
+    [],
+    builder,
+    () => offset,
+    (next) => {
+      offset = next;
+    },
+  );
+  return builder.finish();
+}
+
+function appendHighlightDecorations(
+  node: Node,
+  inheritedClasses: string[],
+  builder: RangeSetBuilder<CodeMirrorDecoration>,
+  readOffset: () => number,
+  writeOffset: (offset: number) => void,
+): void {
+  if (node.nodeType === Node.TEXT_NODE) {
+    const value = node.textContent ?? "";
+    const from = readOffset();
+    const to = from + value.length;
+    if (to > from && inheritedClasses.length > 0) {
+      builder.add(
+        from,
+        to,
+        CodeMirrorDecoration.mark({ class: [...new Set(inheritedClasses)].join(" ") }),
+      );
+    }
+    writeOffset(to);
+    return;
+  }
+
+  const nextClasses =
+    node instanceof HTMLElement ? [...inheritedClasses, ...node.classList] : inheritedClasses;
+  for (const child of node.childNodes) {
+    appendHighlightDecorations(child, nextClasses, builder, readOffset, writeOffset);
+  }
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -513,14 +643,7 @@ function loadMermaid(): Promise<Mermaid> {
   return mermaidLoader;
 }
 
-function loadHighlighter(): Promise<Highlighter> {
-  if (!highlightLoader) {
-    highlightLoader = import("highlight.js").then(({ default: highlighter }) => highlighter);
-  }
-  return highlightLoader;
-}
-
-function resolveHighlightLanguage(highlighter: Highlighter, language: string): string | null {
+function resolveHighlightLanguage(language: string): string | null {
   const normalized = language.trim().toLowerCase();
   if (!normalized) return null;
   if (highlighter.getLanguage(normalized)) return normalized;

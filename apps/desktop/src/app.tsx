@@ -11,8 +11,8 @@ import { currentLocale, t } from "~/i18n";
 import {
   FONT_SANS_FALLBACK,
   FONT_SANS_JA_FALLBACK,
-  FONT_MONO_FALLBACK,
   buildFontFamily,
+  buildMonoFontFamily,
   resolveLocaleSansFontName,
 } from "~/lib/font_fallback";
 import { installAccessibilitySuppression } from "~/lib/disable_accessibility";
@@ -66,10 +66,7 @@ export default function App() {
       "--font-editor",
       buildFontFamily(effectiveEditorSansFont, sansFallback),
     );
-    document.documentElement.style.setProperty(
-      "--font-mono",
-      buildFontFamily(fontMono, FONT_MONO_FALLBACK),
-    );
+    document.documentElement.style.setProperty("--font-mono", buildMonoFontFamily(fontMono));
     document.documentElement.style.setProperty("--editor-font-size", `${fontSize / 16}rem`);
     document.documentElement.style.setProperty("--editor-tab-size", String(tabSize));
     // Indent scales with tab size, but clamps to a minimum wide enough for
