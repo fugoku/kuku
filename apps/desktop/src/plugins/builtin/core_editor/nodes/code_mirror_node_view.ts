@@ -36,6 +36,9 @@ type ArrowDirection = "left" | "right" | "up" | "down";
 type CodeBlockBehavior = "plain" | "renderable";
 type Mermaid = typeof mermaid;
 
+const MERMAID_FONT_PRELOAD_SAMPLE_TEXT =
+  "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789가나다라마바사아자차카타파하한글테스트あいうえおアイウエオ日本語";
+
 let mermaidLoader: Promise<Mermaid> | null = null;
 let nextMermaidId = 0;
 let pendingCodeBlockEntrySide: -1 | 1 | null = null;
@@ -477,17 +480,21 @@ class CodeMirrorCodeBlockView implements NodeView {
       return;
     }
 
+    const config = buildMermaidConfig(this.dom);
     loadMermaid()
-      .then((mermaid) => {
-        mermaid.initialize(buildMermaidConfig(this.dom));
-        return mermaid.render(`kuku-editor-mermaid-${nextMermaidId++}`, source);
+      .then(async (mermaid) => {
+        await waitForMermaidFonts(this.dom, source, config);
+        if (token !== this.previewRenderToken) return null;
+        mermaid.initialize(config);
+        return mermaid.render(`kuku-editor-mermaid-${nextMermaidId++}`, source, this.previewBody);
       })
-      .then(({ svg }) => {
+      .then((result) => {
+        if (!result) return;
         if (token !== this.previewRenderToken) return;
         this.previewBody.removeAttribute("data-kuku-code-block-mermaid-placeholder");
         delete this.previewBody.dataset.kukuCodeBlockMermaidError;
         this.previewBody.dataset.kukuCodeBlockMermaidSvg = "";
-        this.previewBody.innerHTML = svg;
+        this.previewBody.innerHTML = result.svg;
       })
       .catch((error: unknown) => {
         if (token !== this.previewRenderToken) return;
@@ -1196,6 +1203,9 @@ function buildMermaidConfig(root: HTMLElement): MermaidConfig {
       '"Emoji", "Goorm Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     ),
   );
+  const fontSize = readComputedPixelValue(root, "fontSize", 16);
+  const stateFontSize = Math.max(16, Math.round(fontSize * 1.5));
+  const stateLabelHeight = Math.ceil(stateFontSize * 0.7);
   const background = readToken("--color-mermaid-bg", "#1e1e1e");
   const surface = readToken("--color-mermaid-surface", "#262626");
   const surfaceAlt = readToken("--color-mermaid-surface-alt", "#303030");
@@ -1238,16 +1248,25 @@ function buildMermaidConfig(root: HTMLElement): MermaidConfig {
 
   return {
     fontFamily,
+    fontSize,
     journey: {
       actorColours: journeyActors,
       sectionColours: [text],
       sectionFills: journeyFills,
       taskFontFamily: fontFamily,
+      taskFontSize: Math.max(12, Math.round(fontSize * 0.875)),
       titleColor: text,
       titleFontFamily: fontFamily,
+      titleFontSize: `${Math.round(fontSize * 2)}px`,
     },
     securityLevel: "strict",
     startOnLoad: false,
+    state: {
+      fontSize: stateFontSize,
+      fontSizeFactor: Math.max(5.02, fontSize * 0.9),
+      labelHeight: stateLabelHeight,
+      textHeight: Math.ceil(stateFontSize * 0.65),
+    },
     theme: "base",
     themeVariables: {
       activationBkgColor: surfaceAlt,
@@ -1303,6 +1322,7 @@ function buildMermaidConfig(root: HTMLElement): MermaidConfig {
       fillType6: journeyFills[0],
       fillType7: journeyFills[1],
       fontFamily,
+      fontSize: `${fontSize}px`,
       gridColor: border,
       labelColor: text,
       labelBackgroundColor: edgeLabelBackground,
@@ -1430,6 +1450,59 @@ function createCssTokenReader(root: HTMLElement): (name: string, fallback: strin
 
 function normalizeCssTokenValue(value: string): string {
   return value.replace(/\s+/g, " ").trim();
+}
+
+function readComputedPixelValue(
+  root: HTMLElement,
+  propertyName: "fontSize",
+  fallback: number,
+): number {
+  const style = root.ownerDocument.defaultView?.getComputedStyle(root);
+  const rawValue = style?.[propertyName] ?? "";
+  const value = Number.parseFloat(rawValue);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+async function waitForMermaidFonts(
+  root: HTMLElement,
+  source: string,
+  config: MermaidConfig,
+): Promise<void> {
+  const fonts = root.ownerDocument.fonts;
+  const fontFamily = normalizeCssTokenValue(config.fontFamily ?? "");
+  if (!fonts || !fontFamily) return;
+
+  const fontSize =
+    typeof config.fontSize === "number" && config.fontSize > 0 ? config.fontSize : 16;
+  const sample = `${source.slice(0, 512)} ${MERMAID_FONT_PRELOAD_SAMPLE_TEXT}`;
+  const loadSpecs = [
+    `${fontSize}px ${fontFamily}`,
+    `500 ${fontSize}px ${fontFamily}`,
+    `700 ${fontSize}px ${fontFamily}`,
+  ];
+
+  await Promise.allSettled(loadSpecs.map((spec) => loadFontFace(fonts, spec, sample)));
+  await fonts.ready.catch(() => undefined);
+  await waitForNextAnimationFrame(root.ownerDocument);
+}
+
+function loadFontFace(fonts: FontFaceSet, spec: string, sample: string): Promise<FontFace[]> {
+  try {
+    return fonts.load(spec, sample);
+  } catch {
+    return Promise.resolve([]);
+  }
+}
+
+function waitForNextAnimationFrame(doc: Document): Promise<void> {
+  return new Promise((resolve) => {
+    const win = doc.defaultView;
+    if (!win) {
+      resolve();
+      return;
+    }
+    win.requestAnimationFrame(() => resolve());
+  });
 }
 
 function loadMermaid(): Promise<Mermaid> {

@@ -592,6 +592,7 @@ prosekit-table-handle-drop-indicator {
   max-width: 100%;
   height: auto;
   font-family: var(--font-editor) !important;
+  font-size: var(--editor-font-size, 1rem);
 }
 
 [data-kuku-code-block-mermaid-svg] > svg text,
@@ -701,6 +702,7 @@ prosekit-table-handle-drop-indicator {
   max-width: 100%;
   height: auto;
   font-family: var(--font-editor) !important;
+  font-size: var(--editor-font-size, 1rem);
 }
 
 .kuku-md-mermaid__svg > svg text,
