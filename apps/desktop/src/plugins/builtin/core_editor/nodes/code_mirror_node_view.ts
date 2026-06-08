@@ -46,6 +46,9 @@ type Mermaid = typeof mermaid;
 
 const MERMAID_FONT_PRELOAD_SAMPLE_TEXT =
   "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789가나다라마바사아자차카타파하한글테스트あいうえおアイウエオ日本語";
+const MERMAID_RENDER_FALLBACK_WIDTH = 1280;
+const MERMAID_RENDER_LAYOUT_FRAME_LIMIT = 4;
+const MERMAID_RENDER_MIN_WIDTH = 1280;
 
 let mermaidLoader: Promise<Mermaid> | null = null;
 let nextMermaidId = 0;
@@ -476,7 +479,7 @@ class CodeMirrorCodeBlockView implements NodeView {
     });
   }
 
-  private renderMermaidPreview(options: MermaidPreviewRenderOptions = {}): Promise<void> {
+  private async renderMermaidPreview(options: MermaidPreviewRenderOptions = {}): Promise<void> {
     const token = ++this.previewRenderToken;
     const source = this.node.textContent.trim();
     const preserveCurrent =
@@ -497,41 +500,46 @@ class CodeMirrorCodeBlockView implements NodeView {
         this.previewBody.textContent = "Empty Mermaid diagram";
       }
       releaseHeightLock?.();
-      return Promise.resolve();
+      return;
     }
 
-    const config = buildMermaidConfig(this.dom);
-    const renderContainer = createMermaidRenderContainer(this.previewBody);
-    return loadMermaid()
-      .then(async (mermaid) => {
-        await waitForMermaidFonts(this.dom, source, config);
-        if (token !== this.previewRenderToken) return null;
-        mermaid.initialize(config);
-        return mermaid.render(`kuku-editor-mermaid-${nextMermaidId++}`, source, renderContainer);
-      })
-      .then((result) => {
-        if (!result) return;
-        if (token !== this.previewRenderToken) return;
-        this.previewBody.removeAttribute("data-kuku-code-block-mermaid-placeholder");
-        delete this.previewBody.dataset.kukuCodeBlockMermaidError;
-        this.previewBody.dataset.kukuCodeBlockMermaidSvg = "";
-        this.previewBody.innerHTML = result.svg;
-      })
-      .catch((error: unknown) => {
-        if (token !== this.previewRenderToken) return;
-        if (preserveCurrent && this.previewBody.dataset.kukuCodeBlockMermaidSvg !== undefined) {
-          return;
-        }
-        this.previewBody.removeAttribute("data-kuku-code-block-mermaid-placeholder");
-        delete this.previewBody.dataset.kukuCodeBlockMermaidSvg;
-        this.previewBody.dataset.kukuCodeBlockMermaidError = "";
-        this.previewBody.textContent =
-          error instanceof Error ? error.message : "Unable to render diagram";
-      })
-      .finally(() => {
-        renderContainer.remove();
-        releaseHeightLock?.();
-      });
+    let renderContainer: HTMLElement | null = null;
+    try {
+      const renderWidth = await waitForMermaidRenderWidth(this.previewBody, this.view.dom);
+      if (token !== this.previewRenderToken) return;
+
+      const config = buildMermaidConfig(this.dom);
+      renderContainer = createMermaidRenderContainer(this.previewBody, renderWidth);
+      const mermaid = await loadMermaid();
+      await waitForMermaidFonts(this.dom, source, config);
+      if (token !== this.previewRenderToken) return;
+
+      mermaid.initialize(config);
+      const result = await mermaid.render(
+        `kuku-editor-mermaid-${nextMermaidId++}`,
+        source,
+        renderContainer,
+      );
+
+      if (token !== this.previewRenderToken) return;
+      this.previewBody.removeAttribute("data-kuku-code-block-mermaid-placeholder");
+      delete this.previewBody.dataset.kukuCodeBlockMermaidError;
+      this.previewBody.dataset.kukuCodeBlockMermaidSvg = "";
+      this.previewBody.innerHTML = result.svg;
+    } catch (error: unknown) {
+      if (token !== this.previewRenderToken) return;
+      if (preserveCurrent && this.previewBody.dataset.kukuCodeBlockMermaidSvg !== undefined) {
+        return;
+      }
+      this.previewBody.removeAttribute("data-kuku-code-block-mermaid-placeholder");
+      delete this.previewBody.dataset.kukuCodeBlockMermaidSvg;
+      this.previewBody.dataset.kukuCodeBlockMermaidError = "";
+      this.previewBody.textContent =
+        error instanceof Error ? error.message : "Unable to render diagram";
+    } finally {
+      renderContainer?.remove();
+      releaseHeightLock?.();
+    }
   }
 
   requestRepaint(): void {
@@ -1693,19 +1701,50 @@ function buildIndexedThemeVariables(
   );
 }
 
-function createMermaidRenderContainer(previewBody: HTMLElement): HTMLElement {
+function createMermaidRenderContainer(previewBody: HTMLElement, width: number): HTMLElement {
   const container = previewBody.ownerDocument.createElement("div");
   container.dataset.kukuCodeBlockMermaidRenderContainer = "";
   container.style.position = "absolute";
   container.style.left = "0";
   container.style.top = "0";
-  container.style.width = `${Math.max(previewBody.clientWidth, 1)}px`;
+  container.style.width = `${width}px`;
   container.style.height = "1px";
   container.style.overflow = "visible";
   container.style.opacity = "0";
   container.style.pointerEvents = "none";
   previewBody.append(container);
   return container;
+}
+
+async function waitForMermaidRenderWidth(
+  previewBody: HTMLElement,
+  fallbackRoot: HTMLElement,
+): Promise<number> {
+  const win = previewBody.ownerDocument.defaultView ?? window;
+  for (let attempt = 0; attempt < MERMAID_RENDER_LAYOUT_FRAME_LIMIT; attempt += 1) {
+    const measuredWidth = getMeasuredMermaidRenderWidth(previewBody, fallbackRoot);
+    if (measuredWidth > 0) {
+      return Math.max(Math.ceil(measuredWidth), MERMAID_RENDER_MIN_WIDTH);
+    }
+    await new Promise<void>((resolve) => win.requestAnimationFrame(() => resolve()));
+  }
+
+  return MERMAID_RENDER_FALLBACK_WIDTH;
+}
+
+function getMeasuredMermaidRenderWidth(
+  previewBody: HTMLElement,
+  fallbackRoot: HTMLElement,
+): number {
+  const codeBlock = previewBody.closest<HTMLElement>("[data-kuku-code-block]");
+  return Math.max(
+    previewBody.clientWidth,
+    previewBody.getBoundingClientRect().width,
+    previewBody.parentElement?.clientWidth ?? 0,
+    codeBlock?.clientWidth ?? 0,
+    fallbackRoot.clientWidth,
+    fallbackRoot.getBoundingClientRect().width,
+  );
 }
 
 function readComputedPixelValue(
