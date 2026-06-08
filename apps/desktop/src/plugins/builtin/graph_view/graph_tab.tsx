@@ -193,7 +193,7 @@ export default function GraphTab() {
               aria-expanded={legendOpen()}
               class="flex size-8 cursor-pointer items-center justify-center rounded-xs border-none bg-transparent text-text-muted transition-colors hover:bg-ghost-hover hover:text-text-primary"
               classList={{
-                "bg-element-selected text-text-primary shadow-soft-1": legendOpen(),
+                "bg-element-selected text-text-primary": legendOpen(),
               }}
               onClick={() => {
                 setLegendOpen((open) => !open);
@@ -224,9 +224,7 @@ export default function GraphTab() {
                     aria-pressed={isLegendClusterSelected(i())}
                     class="flex min-h-7 cursor-pointer items-center gap-2 rounded-xs border-none bg-transparent px-2 text-left text-[0.75rem] text-text-secondary transition-colors hover:bg-ghost-hover/60 hover:text-text-primary"
                     classList={{
-                      "bg-element-selected text-text-primary shadow-soft-1": isLegendClusterSelected(
-                        i(),
-                      ),
+                      "bg-element-selected text-text-primary": isLegendClusterSelected(i()),
                     }}
                     onClick={() => {
                       toggleLegendCluster(i());

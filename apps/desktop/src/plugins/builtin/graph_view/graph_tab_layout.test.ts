@@ -35,6 +35,7 @@ describe("GraphTab layout", () => {
     expect(source).toContain("legendButtonEl");
     expect(source).toContain("legendPopoverEl");
     expect(source).toContain("handleLegendOutsidePointerDown");
+    expect(source).toContain('"bg-element-selected text-text-primary": legendOpen()');
     expect(source).toContain(
       'document.addEventListener("pointerdown", handleLegendOutsidePointerDown, true)',
     );
@@ -44,6 +45,9 @@ describe("GraphTab layout", () => {
     expect(source).toContain("legendButtonEl?.contains(target)");
     expect(source).toContain("legendPopoverEl?.contains(target)");
     expect(source).toContain("setLegendOpen(false)");
+    expect(source).toContain(
+      '"bg-element-selected text-text-primary": isLegendClusterSelected(',
+    );
     expect(source).toContain('aria-pressed={isLegendClusterSelected(i())}');
     expect(source).toContain("isLegendClusterSelected(i()) ? \"true\" : \"false\"");
     expect(source).toContain("kuku-scrollbar-hidden");
@@ -55,6 +59,8 @@ describe("GraphTab layout", () => {
     expect(source).not.toContain("SettingsIcon");
     expect(source).not.toContain("GraphSettingsPanel");
     expect(source).not.toContain("settingsOpen");
+    expect(source).not.toContain('"bg-element-selected text-text-primary shadow-soft-1": legendOpen()');
+    expect(source).not.toContain('"bg-element-selected text-text-primary shadow-soft-1": isLegendClusterSelected(');
     expect(source).not.toContain("rounded-full bg-element-active");
     expect(source).not.toContain("ring-1 ring-border-selected");
     expect(source).not.toContain("setSelectedLegendClusterIndex(");
