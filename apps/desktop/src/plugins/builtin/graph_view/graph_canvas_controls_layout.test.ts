@@ -1,3 +1,5 @@
+/// <reference types="node" />
+
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -40,13 +42,13 @@ describe("graph canvas controls layout", () => {
 
     expect(pixiSource).toContain("selected || current || hovered");
     expect(pixiSource).toContain("(selected || current || hovered)");
-    expect(pixiSource).not.toContain('Show when={hoveredNode()}');
+    expect(pixiSource).not.toContain("Show when={hoveredNode()}");
     expect(pixiSource).not.toContain("bottom-12 left-3");
     expect(pixiSource).not.toContain("graph.tooltip.");
 
     expect(threeSource).toContain("const hoverOnly = hovered && !selected && !current");
     expect(threeSource).toContain("!hoverOnly &&");
-    expect(threeSource).not.toContain('Show when={hoveredNode()}');
+    expect(threeSource).not.toContain("Show when={hoveredNode()}");
     expect(threeSource).not.toContain("bottom-14 left-3");
     expect(threeSource).not.toContain("connectedToHovered");
   });

@@ -196,7 +196,10 @@ function nodeRadius(node: GraphNode, compact = false): number {
   const settings = getGraphSettings();
   const minSize = compact ? Math.max(settings.nodeMinSize, 10) : settings.nodeMinSize;
   if (node.isOrphan)
-    return (compact ? Math.max(settings.orphanNodeSize, 10) : settings.orphanNodeSize) * settings.nodeSize;
+    return (
+      (compact ? Math.max(settings.orphanNodeSize, 10) : settings.orphanNodeSize) *
+      settings.nodeSize
+    );
   const degreeBoost = Math.sqrt(Math.max(0, node.linkCount)) * settings.nodeSizeScale * 1.65;
   const radiusCap = Math.max(settings.nodeMaxSize, minSize * 2.8, 16);
   return Math.max(minSize, Math.min(radiusCap, minSize + degreeBoost)) * settings.nodeSize;
@@ -1963,7 +1966,6 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
           </Show>
         </div>
       </Show>
-
     </div>
   );
 }

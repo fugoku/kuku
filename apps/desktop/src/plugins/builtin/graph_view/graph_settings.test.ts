@@ -1,12 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { GRAPH_SETTINGS_DEFAULTS } from "./graph_types";
-
-vi.mock("~/plugins/settings_store", () => ({
-  loadPluginSettings: vi.fn(async ({ defaults }) => defaults),
-  savePluginSettings: vi.fn(async () => undefined),
-}));
-
+import { loadPluginSettings, savePluginSettings } from "~/plugins/settings_store";
 import {
   controlValueForGraphSetting,
   getGraphSettings,
@@ -16,7 +10,12 @@ import {
   restoreGraphSettingsDefaults,
   updateGraphSetting,
 } from "./graph_settings";
-import { loadPluginSettings, savePluginSettings } from "~/plugins/settings_store";
+import { GRAPH_SETTINGS_DEFAULTS, GRAPH_VIEW_SETTINGS_DEFAULTS } from "./graph_types";
+
+vi.mock("~/plugins/settings_store", () => ({
+  loadPluginSettings: vi.fn(async ({ defaults }) => defaults),
+  savePluginSettings: vi.fn(async () => undefined),
+}));
 
 const loadPluginSettingsMock = vi.mocked(loadPluginSettings);
 const savePluginSettingsMock = vi.mocked(savePluginSettings);
@@ -64,8 +63,12 @@ describe("renderer scoped graph settings", () => {
   });
 
   it("persists legacy settings as renderer-scoped settings after load", async () => {
-    loadPluginSettingsMock.mockImplementationOnce(async ({ normalize }) =>
-      normalize?.({ ...GRAPH_SETTINGS_DEFAULTS, chargeStrength: -500 }) as never,
+    loadPluginSettingsMock.mockImplementationOnce(
+      async ({ normalize }) =>
+        normalize?.(
+          { ...GRAPH_SETTINGS_DEFAULTS, chargeStrength: -500 },
+          GRAPH_VIEW_SETTINGS_DEFAULTS,
+        ) as never,
     );
 
     await loadGraphSettings();

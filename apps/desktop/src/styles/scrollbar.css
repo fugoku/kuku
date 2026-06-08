@@ -65,12 +65,12 @@
 
 /* ── Native scroll area without visible rails ── */
 
-.kuku-scrollbar-hidden {
+[data-kuku-scrollbar-hidden="true"] {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
 
-.kuku-scrollbar-hidden::-webkit-scrollbar {
+[data-kuku-scrollbar-hidden="true"]::-webkit-scrollbar {
   display: none;
   width: 0;
   height: 0;

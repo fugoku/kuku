@@ -211,7 +211,8 @@ export default function GraphTab() {
           >
             <div
               data-kuku-graph-legend-list="true"
-              class="kuku-scrollbar-hidden flex min-h-0 flex-col gap-1 overflow-y-auto p-2"
+              data-kuku-scrollbar-hidden="true"
+              class="flex min-h-0 flex-col gap-1 overflow-y-auto p-2"
             >
               <For each={clusters()}>
                 {(cluster, i) => (
@@ -266,7 +267,7 @@ function ModeBtn(props: {
     <button
       type="button"
       title={props.title}
-      class="size-8 text-[0.625rem] cursor-pointer rounded-xs border-none px-1 font-medium leading-none transition-colors duration-100 hover:bg-ghost-hover hover:text-text-primary"
+      class="size-8 cursor-pointer rounded-xs border-none px-1 text-[0.625rem] leading-none font-medium transition-colors duration-100 hover:bg-ghost-hover hover:text-text-primary"
       classList={{
         "bg-element-selected text-text-primary shadow-soft-1": props.active,
         "bg-transparent text-text-muted": !props.active,

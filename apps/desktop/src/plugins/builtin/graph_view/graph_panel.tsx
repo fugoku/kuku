@@ -119,7 +119,7 @@ function PanelModeBtn(props: {
     <button
       type="button"
       title={props.title}
-      class="size-6 cursor-pointer rounded-xs border-none px-0 text-[0.5625rem] font-medium leading-none transition-colors duration-100 hover:bg-ghost-hover hover:text-text-primary"
+      class="size-6 cursor-pointer rounded-xs border-none px-0 text-[0.5625rem] leading-none font-medium transition-colors duration-100 hover:bg-ghost-hover hover:text-text-primary"
       classList={{
         "bg-element-selected text-text-primary": props.active,
         "bg-transparent text-text-muted": !props.active,
