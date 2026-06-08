@@ -27,6 +27,14 @@ function buildFontFamily(fontName: string, fallback: string): string {
   return trimmed ? `"Emoji", "${trimmed}", ${fallback}` : `"Emoji", ${fallback}`;
 }
 
+function buildMonoFontFamily(fontName: string): string {
+  const trimmed = fontName.trim();
+  // Keep emoji after mono so ASCII punctuation like code fences uses the mono face.
+  return trimmed
+    ? `"${trimmed}", ${FONT_MONO_FALLBACK}, "Emoji"`
+    : `${FONT_MONO_FALLBACK}, "Emoji"`;
+}
+
 function resolveLocaleSansFontName(fontName: string, locale: "en" | "ko" | "ja"): string {
   const trimmed = fontName.trim();
 
@@ -44,5 +52,6 @@ export {
   FONT_SANS_JA_FALLBACK,
   FONT_MONO_FALLBACK,
   buildFontFamily,
+  buildMonoFontFamily,
   resolveLocaleSansFontName,
 };
