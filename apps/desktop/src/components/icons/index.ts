@@ -12,6 +12,7 @@ export {
 } from "./graph_icons";
 export {
   ChevronIcon,
+  CheckIcon,
   CloseIcon,
   EyeIcon,
   EyeOffIcon,
@@ -20,6 +21,7 @@ export {
   FolderIcon,
   FolderPlusIcon,
   GraphIcon,
+  OpenInTabIcon,
   PlusIcon,
   SearchIcon,
   SettingsIcon,

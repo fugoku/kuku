@@ -1,5 +1,6 @@
-// Based on lucide/file, lucide/x, lucide/plus, lucide/ellipsis-vertical, lucide/search, lucide/settings,
-// lucide/sparkles, lucide/eye, lucide/eye-off, lucide/message-square
+// Based on lucide/file, lucide/x, lucide/check, lucide/plus, lucide/ellipsis-vertical,
+// lucide/search, lucide/settings, lucide/sparkles, lucide/eye, lucide/eye-off,
+// lucide/message-square, lucide/square-arrow-out-up-right
 // GraphIcon from kuku-oss (custom node-graph icon)
 
 interface IconProps {
@@ -66,6 +67,25 @@ export function CloseIcon(props: IconProps) {
   );
 }
 
+export function CheckIcon(props: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      width={props.size ?? 12}
+      height={props.size ?? 12}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2.2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      class={props.class}
+    >
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
+
 export function PlusIcon(props: IconProps) {
   return (
     <svg
@@ -82,6 +102,28 @@ export function PlusIcon(props: IconProps) {
     >
       <path d="M5 12h14" />
       <path d="M12 5v14" />
+    </svg>
+  );
+}
+
+export function OpenInTabIcon(props: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      width={props.size ?? 14}
+      height={props.size ?? 14}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.8"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      class={props.class}
+    >
+      <path d="M21 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6" />
+      <path d="M21 3h-6" />
+      <path d="M21 3v6" />
+      <path d="m10 14 11-11" />
     </svg>
   );
 }

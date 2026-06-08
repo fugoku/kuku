@@ -9,9 +9,20 @@
 //     inside JSX expressions for fine-grained tracking
 //   - GraphCanvas handle stored in a signal for zoom control access
 
-import { type JSX, createMemo, createSignal, For, lazy, onCleanup, Show, Suspense } from "solid-js";
+import {
+  type JSX,
+  createEffect,
+  createMemo,
+  createSignal,
+  For,
+  lazy,
+  onCleanup,
+  Show,
+  Suspense,
+} from "solid-js";
 
-import { t, tf } from "~/i18n";
+import { CheckIcon, ListIcon } from "~/components/icons";
+import { t } from "~/i18n";
 import { getActiveTab, openTab } from "~/stores/files";
 
 import GraphCanvas from "./graph_canvas_pixi";
@@ -22,6 +33,7 @@ import {
   getGraphSummary,
   type GraphCanvasHandle,
   type GraphNode,
+  type GraphNodeFilter,
 } from "./graph_types";
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -39,9 +51,16 @@ const GraphCanvas3D = lazy(() => import("./graph_canvas_3d"));
 // ── Component ────────────────────────────────────────────────
 
 export default function GraphTab() {
+  let legendButtonEl: HTMLButtonElement | undefined;
+  let legendPopoverEl: HTMLDivElement | undefined;
+
   // Handle is stored for future toolbar integration (e.g. external zoom buttons).
   // Currently only `setHandle` is used as the onHandle callback.
   const [, setHandle] = createSignal<GraphCanvasHandle | null>(null);
+  const [legendOpen, setLegendOpen] = createSignal(false);
+  const [selectedLegendClusterIndexes, setSelectedLegendClusterIndexes] = createSignal<Set<number>>(
+    new Set(),
+  );
 
   // ── Reactive derivations ────────────────────────────────
   //
@@ -61,94 +80,59 @@ export default function GraphTab() {
     return null;
   });
 
-  // ── Dynamic legend overflow ─────────────────────────────
-
   const clusters = createMemo(() => store()?.state.clusters ?? []);
-  const [legendWidth, setLegendWidth] = createSignal(0);
-
-  const visibleCount = createMemo(() => {
-    const width = legendWidth();
-    const all = clusters();
-    if (width === 0 || all.length === 0) return all.length;
-
-    const itemGap = 12; // gap-3
-    const moreBadgeWidth = 72;
-    let used = 0;
-
-    for (let i = 0; i < all.length; i++) {
-      const label = all[i].split("/").pop() ?? all[i];
-      // Estimate: dot(10) + dot-text gap(6) + text(~7px per char @ 12px)
-      const itemWidth = 16 + label.length * 7;
-      const step = i > 0 ? itemGap + itemWidth : itemWidth;
-      const remaining = all.length - (i + 1);
-      const moreCost = remaining > 0 ? itemGap + moreBadgeWidth : 0;
-
-      if (used + step + moreCost > width) return Math.max(1, i);
-      used += step;
-    }
-    return all.length;
+  const legendNodeFilter = createMemo<GraphNodeFilter | undefined>(() => {
+    const selected = selectedLegendClusterIndexes();
+    if (selected.size === 0) return undefined;
+    return (node) => selected.has(node.clusterIndex);
   });
 
-  const hiddenCount = createMemo(() => clusters().length - visibleCount());
-
-  function legendRef(el: HTMLDivElement): void {
-    const ro = new ResizeObserver((entries) => {
-      for (const e of entries) setLegendWidth(e.contentRect.width);
-    });
-    ro.observe(el);
-    onCleanup(() => ro.disconnect());
+  function isLegendClusterSelected(index: number): boolean {
+    return selectedLegendClusterIndexes().has(index);
   }
 
+  function toggleLegendCluster(index: number): void {
+    setSelectedLegendClusterIndexes((current) => {
+      const next = new Set(current);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
+  }
+
+  createEffect(() => {
+    const clusterCount = clusters().length;
+    const selected = selectedLegendClusterIndexes();
+    if ([...selected].some((index) => index >= clusterCount)) {
+      setSelectedLegendClusterIndexes(
+        new Set([...selected].filter((index) => index < clusterCount)),
+      );
+    }
+  });
+
+  createEffect(() => {
+    if (!legendOpen()) return;
+
+    const handleLegendOutsidePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (legendButtonEl?.contains(target) || legendPopoverEl?.contains(target)) return;
+      setLegendOpen(false);
+    };
+
+    document.addEventListener("pointerdown", handleLegendOutsidePointerDown, true);
+    onCleanup(() => {
+      document.removeEventListener("pointerdown", handleLegendOutsidePointerDown, true);
+    });
+  });
+
   return (
-    <div class="flex h-full min-h-0 flex-col overflow-hidden bg-bg-primary">
-      {/* ── Header ── */}
-      <div class="flex items-center justify-between gap-4 border-b border-border/70 bg-bg-secondary/60 px-4 py-3">
-        <div class="min-w-0 space-y-0.5">
-          <p class="text-sm font-medium text-text-primary">{t("graph.title")}</p>
-          <p class="truncate text-xs text-text-muted">{t("graph.tab.subtitle")}</p>
-        </div>
-
-        <div class="flex shrink-0 items-center gap-3 font-mono text-[0.6875rem] text-text-muted tabular-nums">
-          <span>{tf("graph.tab.metric.nodes", { count: summary().nodeCount })}</span>
-          <span aria-hidden="true" class="h-2.5 w-px bg-border" />
-          <span>{tf("graph.tab.metric.links", { count: summary().linkCount })}</span>
-          <span aria-hidden="true" class="h-2.5 w-px bg-border" />
-          <span>{tf("graph.tab.metric.clusters", { count: summary().clusterCount })}</span>
-
-          <Show when={summary().orphanCount > 0}>
-            <span aria-hidden="true" class="h-2.5 w-px bg-border" />
-            <span>
-              {summary().orphanCount > 1
-                ? tf("graph.tab.metric.orphan_other", { count: summary().orphanCount })
-                : tf("graph.tab.metric.orphan_one", { count: summary().orphanCount })}
-            </span>
-          </Show>
-
-          <div
-            class="ml-1 flex items-center rounded-xs border border-border/70 bg-bg-primary/65 p-0.5 font-ui text-[0.6875rem] text-text-muted shadow-soft-1"
-            role="group"
-            aria-label={t("graph.tab.view_mode")}
-          >
-            <ModeBtn
-              active={graphViewMode() === "2d"}
-              title={t("graph.tab.view_2d")}
-              onClick={() => setGraphViewMode("2d")}
-            >
-              2D
-            </ModeBtn>
-            <ModeBtn
-              active={graphViewMode() === "3d"}
-              title={t("graph.tab.view_3d")}
-              onClick={() => setGraphViewMode("3d")}
-            >
-              3D
-            </ModeBtn>
-          </div>
-        </div>
-      </div>
-
+    <div class="relative flex h-full min-h-0 flex-col overflow-hidden bg-bg-primary">
       {/* ── Canvas ── */}
-      <div class="flex min-h-0 flex-1">
+      <div class="relative flex min-h-0 flex-1">
         <Show
           when={graphViewMode() === "3d"}
           fallback={
@@ -157,44 +141,118 @@ export default function GraphTab() {
               currentFilePath={currentFilePath()}
               onNodeClick={openGraphNode}
               onHandle={setHandle}
+              nodeFilter={legendNodeFilter()}
+              preserveFilteredClusterColors
             />
           }
         >
-          <Suspense fallback={<GraphCanvas variant="full" currentFilePath={currentFilePath()} />}>
+          <Suspense
+            fallback={
+              <GraphCanvas
+                variant="full"
+                currentFilePath={currentFilePath()}
+                nodeFilter={legendNodeFilter()}
+                preserveFilteredClusterColors
+              />
+            }
+          >
             <GraphCanvas3D
               variant="full"
               currentFilePath={currentFilePath()}
               onNodeClick={openGraphNode}
               onHandle={setHandle}
+              nodeFilter={legendNodeFilter()}
+              preserveFilteredClusterColors
             />
           </Suspense>
         </Show>
-      </div>
-
-      {/* ── Legend (clusters — dynamically overflows based on width) ── */}
-      <Show when={summary().clusterCount > 0}>
         <div
-          ref={legendRef}
-          class="flex items-center gap-3 overflow-hidden border-t border-border/70 bg-bg-secondary/40 px-4 py-2"
+          data-kuku-graph-view-controls="true"
+          class="absolute top-3 right-3 z-30 flex w-10 flex-col items-center gap-1 rounded-xs border border-border/70 bg-bg-elevated/85 p-1 shadow-soft-2 backdrop-blur-sm"
         >
-          <For each={clusters().slice(0, visibleCount())}>
-            {(cluster, i) => (
-              <div class="flex shrink-0 items-center gap-1.5 text-[0.75rem] text-text-secondary">
-                <span
-                  class="inline-block size-2.5 shrink-0 rounded-full ring-1 ring-border"
-                  style={{ background: clusterColor(i()) }}
-                />
-                <span class="whitespace-nowrap">{cluster.split("/").pop() ?? cluster}</span>
-              </div>
-            )}
-          </For>
-          <Show when={hiddenCount() > 0}>
-            <span class="shrink-0 font-mono text-[0.6875rem] text-text-muted tabular-nums">
-              {tf("graph.tab.more", { count: hiddenCount() })}
-            </span>
+          <ModeBtn
+            active={graphViewMode() === "2d"}
+            title={t("graph.tab.view_2d")}
+            onClick={() => setGraphViewMode("2d")}
+          >
+            2D
+          </ModeBtn>
+          <ModeBtn
+            active={graphViewMode() === "3d"}
+            title={t("graph.tab.view_3d")}
+            onClick={() => setGraphViewMode("3d")}
+          >
+            3D
+          </ModeBtn>
+          <Show when={summary().clusterCount > 0}>
+            <button
+              ref={legendButtonEl}
+              type="button"
+              title={t("graph.legend")}
+              aria-label={t("graph.legend")}
+              aria-expanded={legendOpen()}
+              class="flex size-8 cursor-pointer items-center justify-center rounded-xs border-none bg-transparent text-text-muted transition-colors hover:bg-ghost-hover hover:text-text-primary"
+              classList={{
+                "bg-element-selected text-text-primary": legendOpen(),
+              }}
+              onClick={() => {
+                setLegendOpen((open) => !open);
+              }}
+            >
+              <ListIcon size={14} />
+            </button>
           </Show>
         </div>
-      </Show>
+        <Show when={legendOpen() && summary().clusterCount > 0}>
+          <div
+            ref={legendPopoverEl}
+            data-kuku-graph-legend-popover="true"
+            class="absolute top-3 right-16 z-20 flex max-h-[min(70vh,28rem)] w-64 flex-col overflow-hidden rounded-xs border border-border/70 bg-bg-elevated/95 shadow-popover backdrop-blur-sm"
+          >
+            <div
+              data-kuku-graph-legend-list="true"
+              data-kuku-scrollbar-hidden="true"
+              class="flex min-h-0 flex-col gap-1 overflow-y-auto p-2"
+            >
+              <For each={clusters()}>
+                {(cluster, i) => (
+                  <button
+                    type="button"
+                    data-kuku-graph-legend-item="true"
+                    data-kuku-graph-legend-filtered={
+                      isLegendClusterSelected(i()) ? "true" : "false"
+                    }
+                    aria-pressed={isLegendClusterSelected(i())}
+                    class="flex min-h-7 cursor-pointer items-center gap-2 rounded-xs border-none bg-transparent px-2 text-left text-[0.75rem] text-text-secondary transition-colors hover:bg-ghost-hover/60 hover:text-text-primary"
+                    classList={{
+                      "bg-element-selected text-text-primary": isLegendClusterSelected(i()),
+                    }}
+                    onClick={() => {
+                      toggleLegendCluster(i());
+                    }}
+                  >
+                    <span
+                      class="inline-block size-2.5 shrink-0 rounded-full ring-1 ring-border"
+                      style={{ background: clusterColor(i()) }}
+                    />
+                    <span class="min-w-0 flex-1 truncate">
+                      {cluster.split("/").pop() ?? cluster}
+                    </span>
+                    <Show when={isLegendClusterSelected(i())}>
+                      <span
+                        data-kuku-graph-legend-active-indicator="true"
+                        class="flex size-4 shrink-0 items-center justify-center text-text-primary"
+                      >
+                        <CheckIcon size={11} />
+                      </span>
+                    </Show>
+                  </button>
+                )}
+              </For>
+            </div>
+          </div>
+        </Show>
+      </div>
     </div>
   );
 }
@@ -209,7 +267,7 @@ function ModeBtn(props: {
     <button
       type="button"
       title={props.title}
-      class="h-6 min-w-8 cursor-pointer rounded-xs border-none px-2 font-medium transition-colors duration-100 hover:bg-ghost-hover hover:text-text-primary"
+      class="size-8 cursor-pointer rounded-xs border-none px-1 text-[0.625rem] leading-none font-medium transition-colors duration-100 hover:bg-ghost-hover hover:text-text-primary"
       classList={{
         "bg-element-selected text-text-primary shadow-soft-1": props.active,
         "bg-transparent text-text-muted": !props.active,

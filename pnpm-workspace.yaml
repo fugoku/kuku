@@ -11,12 +11,12 @@ minimumReleaseAgeExclude:
   - oxlint
   - oxfmt
   - oxlint-tsgolint
-  - "@oxlint/*"
-  - "@oxfmt/*"
-  - "@oxlint-tsgolint/*"
+  - '@oxlint/*'
+  - '@oxfmt/*'
+  - '@oxlint-tsgolint/*'
 
 onlyBuiltDependencies:
-  - "@bufbuild/buf"
+  - '@bufbuild/buf'
   - esbuild
   - msw
   - sharp
