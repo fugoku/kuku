@@ -2,6 +2,7 @@ import { createEffect, onCleanup, onMount } from "solid-js";
 
 import { PanelLeftIcon, PanelRightIcon } from "~/components/icons";
 import PanelLayout from "~/components/layout/panel_layout";
+import SettingsDialog from "~/components/settings/settings_dialog";
 import TitleBar from "~/components/layout/title_bar";
 import UpdateIndicator from "~/components/layout/update_indicator";
 import VaultBrowser from "~/components/vault/vault_browser";
@@ -10,8 +11,8 @@ import { currentLocale, t } from "~/i18n";
 import {
   FONT_SANS_FALLBACK,
   FONT_SANS_JA_FALLBACK,
-  FONT_MONO_FALLBACK,
   buildFontFamily,
+  buildMonoFontFamily,
   resolveLocaleSansFontName,
 } from "~/lib/font_fallback";
 import { installAccessibilitySuppression } from "~/lib/disable_accessibility";
@@ -65,10 +66,7 @@ export default function App() {
       "--font-editor",
       buildFontFamily(effectiveEditorSansFont, sansFallback),
     );
-    document.documentElement.style.setProperty(
-      "--font-mono",
-      buildFontFamily(fontMono, FONT_MONO_FALLBACK),
-    );
+    document.documentElement.style.setProperty("--font-mono", buildMonoFontFamily(fontMono));
     document.documentElement.style.setProperty("--editor-font-size", `${fontSize / 16}rem`);
     document.documentElement.style.setProperty("--editor-tab-size", String(tabSize));
     // Indent scales with tab size, but clamps to a minimum wide enough for
@@ -206,6 +204,7 @@ export default function App() {
         left={<VaultBrowser />}
         bottom={<p class="p-3 text-xs text-text-muted">{t("app.bottom_panel.placeholder")}</p>}
       />
+      <SettingsDialog />
       <div class="pointer-events-none fixed inset-0 z-50">
         <Slot name="overlay" />
       </div>

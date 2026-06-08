@@ -394,6 +394,229 @@ prosekit-table-handle-drop-indicator {
   margin-bottom: 0;
 }
 
+/* ── Editable fenced code block chrome ────────────────────────────────── */
+
+[data-kuku-code-block] {
+  margin: 0.75em 0;
+}
+
+[data-kuku-code-block-editor][hidden],
+[data-kuku-code-block-preview][hidden] {
+  display: none;
+}
+
+[data-kuku-code-block-editor] {
+  color: var(--color-editor-code-fg);
+  background: var(--color-editor-code-bg);
+  border: 1px solid var(--color-editor-code-border);
+  border-radius: var(--radius-sm);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+[data-kuku-code-block-fence-line] {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+  color: var(--color-editor-code-fg);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+  padding: 0.125rem 1rem 0;
+  white-space: pre;
+}
+
+[data-kuku-code-block-closing-fence] {
+  padding: 0 1rem 0.125rem;
+}
+
+[data-kuku-code-mirror-block] [data-kuku-code-block-fence-line] {
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+[data-kuku-code-mirror-block][data-kuku-code-block-fence-visible]
+  [data-kuku-code-block-fence-line] {
+  opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
+}
+
+[data-kuku-code-block-fence-marker] {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  user-select: none;
+}
+
+[data-kuku-code-block-language-input] {
+  flex: 1 1 auto;
+  min-width: 3rem;
+  color: inherit;
+  caret-color: var(--color-text-primary);
+  background: transparent;
+  border: 0;
+  outline: 0;
+  padding: 0;
+  font-family: var(--font-mono);
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+}
+
+[data-kuku-code-block-language-input]::placeholder {
+  color: var(--color-text-muted);
+}
+
+[data-kuku-code-block-language-input]::selection {
+  background-color: var(--color-accent-dim);
+  color: inherit;
+}
+
+[data-kuku-code-mirror-host] {
+  color: var(--color-editor-code-fg);
+  background: transparent;
+}
+
+[data-kuku-code-mirror-host] .cm-editor {
+  color: var(--color-editor-code-fg);
+  background: transparent;
+  caret-color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+  outline: 0;
+}
+
+[data-kuku-code-mirror-host] .cm-content {
+  padding: 0 1rem;
+  caret-color: var(--color-text-primary);
+}
+
+[data-kuku-code-mirror-host] .cm-line {
+  padding: 0;
+}
+
+[data-kuku-code-mirror-host] .cm-focused {
+  outline: 0;
+}
+
+[data-kuku-code-mirror-host] .cm-focused .cm-cursor,
+[data-kuku-code-mirror-host] .cm-cursor,
+[data-kuku-code-mirror-host] .cm-dropCursor {
+  border-left-color: var(--color-text-primary);
+}
+
+[data-kuku-code-mirror-host] .cm-focused .cm-selectionBackground,
+[data-kuku-code-mirror-host] .cm-selectionBackground,
+[data-kuku-code-mirror-host] .cm-content ::selection {
+  background-color: var(--color-accent-dim);
+  color: inherit;
+}
+
+[data-kuku-code-block-preview] {
+  position: relative;
+  color: var(--color-editor-code-fg);
+  background: var(--color-editor-code-bg);
+  border: 1px solid var(--color-editor-code-border);
+  border-radius: var(--radius-sm);
+  box-sizing: border-box;
+  padding: 1rem;
+}
+
+[data-kuku-code-block-preview]:has([data-kuku-code-block-rendered-code]) {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
+[data-kuku-code-block-preview-toolbar] {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 1;
+  display: flex;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+[data-kuku-code-block-preview]:hover [data-kuku-code-block-preview-toolbar],
+[data-kuku-code-block-preview]:focus-within [data-kuku-code-block-preview-toolbar] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+[data-kuku-code-block-edit-button] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  color: var(--color-text-primary);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  padding: 0;
+  line-height: 1;
+  cursor: pointer;
+}
+
+[data-kuku-code-block-edit-button] > svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+[data-kuku-code-block-edit-button]:hover {
+  background: var(--color-ghost-hover);
+}
+
+[data-kuku-code-block-mermaid-placeholder] {
+  min-height: 7rem;
+}
+
+[data-kuku-code-block-mermaid-svg] {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+  font-family: var(--font-editor);
+  color: var(--color-mermaid-text);
+  overflow-x: auto;
+}
+
+[data-kuku-code-block-mermaid-svg] > svg {
+  max-width: 100%;
+  height: auto;
+  font-family: var(--font-editor) !important;
+  font-size: var(--editor-font-size, 1rem);
+}
+
+[data-kuku-code-block-mermaid-svg] > svg text,
+[data-kuku-code-block-mermaid-svg] > svg foreignObject,
+[data-kuku-code-block-mermaid-svg] > svg foreignObject * {
+  font-family: var(--font-editor) !important;
+}
+
+[data-kuku-code-block-mermaid-svg] > svg text.task,
+[data-kuku-code-block-mermaid-svg] > svg text.journey-section,
+[data-kuku-code-block-mermaid-svg] > svg foreignObject .label {
+  color: var(--color-mermaid-text) !important;
+  fill: var(--color-mermaid-text) !important;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+[data-kuku-code-block-mermaid-error] {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+}
+
 /* ── Fenced code blocks (editor + chat `.kuku-md-code-fence`)
    Do not use :where() on the `pre` parent here — it drops selector specificity
    below `.ProseMirror code`, so inline “chip” styles (background, padding,
@@ -430,12 +653,71 @@ prosekit-table-handle-drop-indicator {
   font-feature-settings: "calt" 0;
 }
 
+[data-kuku-code-block] > pre {
+  margin: 0;
+  border-radius: 0;
+}
+
+[data-kuku-code-block-rendered-code] > pre {
+  margin: 0;
+  min-width: 0;
+  width: 100%;
+}
+
 .kuku-md-code-fence > pre {
   margin: 0;
   width: 100%;
   min-width: 0;
   white-space: pre-wrap;
   overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.kuku-md-mermaid {
+  color: var(--color-mermaid-text);
+  background: var(--color-mermaid-bg);
+  border: 1px solid var(--color-mermaid-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-editor-code-inset, none);
+  box-sizing: border-box;
+  margin: 0.75em 0;
+  padding: 1rem;
+}
+
+.kuku-md-mermaid__placeholder {
+  min-height: 7rem;
+}
+
+.kuku-md-mermaid__svg {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+  font-family: var(--font-editor);
+  color: var(--color-mermaid-text);
+  overflow-x: auto;
+}
+
+.kuku-md-mermaid__svg > svg {
+  max-width: 100%;
+  height: auto;
+  font-family: var(--font-editor) !important;
+  font-size: var(--editor-font-size, 1rem);
+}
+
+.kuku-md-mermaid__svg > svg text,
+.kuku-md-mermaid__svg > svg foreignObject,
+.kuku-md-mermaid__svg > svg foreignObject * {
+  font-family: var(--font-editor) !important;
+}
+
+.kuku-md-mermaid__svg > svg text.task,
+.kuku-md-mermaid__svg > svg text.journey-section,
+.kuku-md-mermaid__svg > svg foreignObject .label {
+  color: var(--color-mermaid-text) !important;
+  fill: var(--color-mermaid-text) !important;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
   word-break: break-word;
 }
 
@@ -518,57 +800,120 @@ prosekit-table-handle-drop-indicator {
 .kuku-md-code-fence > pre :is(.token.tag, .token.namespace) {
   color: var(--syntax-tag);
 }
-.ProseMirror pre :is(.hljs-comment, .hljs-quote),
-.kuku-md-code-fence > pre :is(.hljs-comment, .hljs-quote) {
-  color: var(--syntax-comment);
+.ProseMirror pre :is(.hljs),
+.kuku-md-code-fence > pre :is(.hljs),
+[data-kuku-code-mirror-host] :is(.hljs) {
+  color: var(--syntax-default);
+  background: transparent;
 }
-.ProseMirror pre :is(.hljs-keyword, .hljs-selector-tag, .hljs-literal),
-.kuku-md-code-fence > pre :is(.hljs-keyword, .hljs-selector-tag, .hljs-literal) {
+.ProseMirror pre :is(.hljs-comment, .hljs-quote),
+.kuku-md-code-fence > pre :is(.hljs-comment, .hljs-quote),
+[data-kuku-code-mirror-host] :is(.hljs-comment, .hljs-quote) {
+  color: var(--syntax-comment);
+  font-style: italic;
+}
+.ProseMirror pre :is(.hljs-doctag, .hljs-keyword, .hljs-formula),
+.kuku-md-code-fence > pre :is(.hljs-doctag, .hljs-keyword, .hljs-formula),
+[data-kuku-code-mirror-host] :is(.hljs-doctag, .hljs-keyword, .hljs-formula) {
   color: var(--syntax-keyword);
 }
-.ProseMirror pre :is(.hljs-string, .hljs-doctag, .hljs-section),
-.kuku-md-code-fence > pre :is(.hljs-string, .hljs-doctag, .hljs-section) {
+.ProseMirror pre :is(.hljs-section, .hljs-name, .hljs-selector-tag, .hljs-deletion, .hljs-subst),
+.kuku-md-code-fence
+  > pre
+  :is(.hljs-section, .hljs-name, .hljs-selector-tag, .hljs-deletion, .hljs-subst),
+[data-kuku-code-mirror-host]
+  :is(.hljs-section, .hljs-name, .hljs-selector-tag, .hljs-deletion, .hljs-subst) {
+  color: var(--syntax-tag);
+}
+.ProseMirror pre :is(.hljs-literal),
+.kuku-md-code-fence > pre :is(.hljs-literal),
+[data-kuku-code-mirror-host] :is(.hljs-literal) {
+  color: var(--syntax-literal, var(--syntax-constant));
+}
+.ProseMirror pre :is(.hljs-string, .hljs-regexp, .hljs-addition, .hljs-attribute),
+.ProseMirror pre :is(.hljs-meta .hljs-string),
+.kuku-md-code-fence > pre :is(.hljs-string, .hljs-regexp, .hljs-addition, .hljs-attribute),
+.kuku-md-code-fence > pre :is(.hljs-meta .hljs-string),
+[data-kuku-code-mirror-host] :is(.hljs-string, .hljs-regexp, .hljs-addition, .hljs-attribute),
+[data-kuku-code-mirror-host] :is(.hljs-meta .hljs-string) {
   color: var(--syntax-string);
 }
-.ProseMirror pre :is(.hljs-title, .hljs-name, .hljs-type, .hljs-attribute),
-.kuku-md-code-fence > pre :is(.hljs-title, .hljs-name, .hljs-type, .hljs-attribute) {
-  color: var(--syntax-type);
-}
-.ProseMirror pre :is(.hljs-function .hljs-title, .hljs-title.class_, .hljs-title.class),
-.kuku-md-code-fence > pre :is(.hljs-function .hljs-title, .hljs-title.class_, .hljs-title.class) {
-  color: var(--syntax-function);
-}
-.ProseMirror pre :is(.hljs-number, .hljs-symbol, .hljs-bullet),
-.kuku-md-code-fence > pre :is(.hljs-number, .hljs-symbol, .hljs-bullet) {
+.ProseMirror
+  pre
+  :is(
+    .hljs-attr,
+    .hljs-variable,
+    .hljs-template-variable,
+    .hljs-type,
+    .hljs-selector-class,
+    .hljs-selector-attr,
+    .hljs-selector-pseudo,
+    .hljs-number
+  ),
+.kuku-md-code-fence
+  > pre
+  :is(
+    .hljs-attr,
+    .hljs-variable,
+    .hljs-template-variable,
+    .hljs-type,
+    .hljs-selector-class,
+    .hljs-selector-attr,
+    .hljs-selector-pseudo,
+    .hljs-number
+  ),
+[data-kuku-code-mirror-host]
+  :is(
+    .hljs-attr,
+    .hljs-variable,
+    .hljs-template-variable,
+    .hljs-type,
+    .hljs-selector-class,
+    .hljs-selector-attr,
+    .hljs-selector-pseudo,
+    .hljs-number
+  ) {
   color: var(--syntax-number);
 }
-.ProseMirror pre :is(.hljs-built_in, .hljs-builtin-name),
-.kuku-md-code-fence > pre :is(.hljs-built_in, .hljs-builtin-name) {
+.ProseMirror
+  pre
+  :is(.hljs-symbol, .hljs-bullet, .hljs-link, .hljs-meta, .hljs-selector-id, .hljs-title),
+.kuku-md-code-fence
+  > pre
+  :is(.hljs-symbol, .hljs-bullet, .hljs-link, .hljs-meta, .hljs-selector-id, .hljs-title),
+[data-kuku-code-mirror-host]
+  :is(.hljs-symbol, .hljs-bullet, .hljs-link, .hljs-meta, .hljs-selector-id, .hljs-title) {
+  color: var(--syntax-title);
+}
+.ProseMirror pre :is(.hljs-built_in, .hljs-title.class_, .hljs-class .hljs-title),
+.kuku-md-code-fence > pre :is(.hljs-built_in, .hljs-title.class_, .hljs-class .hljs-title),
+[data-kuku-code-mirror-host] :is(.hljs-built_in, .hljs-title.class_, .hljs-class .hljs-title) {
   color: var(--syntax-builtin);
 }
-.ProseMirror pre :is(.hljs-variable, .hljs-template-variable),
-.kuku-md-code-fence > pre :is(.hljs-variable, .hljs-template-variable) {
-  color: var(--syntax-variable);
+.ProseMirror pre :is(.hljs-function .hljs-title),
+.kuku-md-code-fence > pre :is(.hljs-function .hljs-title),
+[data-kuku-code-mirror-host] :is(.hljs-function .hljs-title) {
+  color: var(--syntax-function);
 }
-.ProseMirror pre :is(.hljs-addition),
-.kuku-md-code-fence > pre :is(.hljs-addition) {
-  color: var(--syntax-addition);
+.ProseMirror pre :is(.hljs-operator),
+.kuku-md-code-fence > pre :is(.hljs-operator),
+[data-kuku-code-mirror-host] :is(.hljs-operator) {
+  color: var(--syntax-operator);
 }
-.ProseMirror pre :is(.hljs-deletion),
-.kuku-md-code-fence > pre :is(.hljs-deletion) {
-  color: var(--syntax-deletion);
+.ProseMirror pre :is(.hljs-emphasis),
+.kuku-md-code-fence > pre :is(.hljs-emphasis),
+[data-kuku-code-mirror-host] :is(.hljs-emphasis) {
+  font-style: italic;
 }
-.ProseMirror pre :is(.hljs-meta, .hljs-meta .hljs-string, .hljs-meta .hljs-keyword),
-.kuku-md-code-fence > pre :is(.hljs-meta, .hljs-meta .hljs-string, .hljs-meta .hljs-keyword) {
-  color: var(--syntax-meta);
+.ProseMirror pre :is(.hljs-strong),
+.kuku-md-code-fence > pre :is(.hljs-strong),
+[data-kuku-code-mirror-host] :is(.hljs-strong) {
+  font-weight: 700;
 }
-.ProseMirror pre :is(.hljs-subst),
-.kuku-md-code-fence > pre :is(.hljs-subst) {
-  color: var(--syntax-punctuation);
-}
-.ProseMirror pre :is(.hljs-regexp),
-.kuku-md-code-fence > pre :is(.hljs-regexp) {
-  color: var(--syntax-regexp);
+.ProseMirror pre :is(.hljs-link),
+.kuku-md-code-fence > pre :is(.hljs-link),
+[data-kuku-code-mirror-host] :is(.hljs-link) {
+  text-decoration: underline;
 }
 
 /*

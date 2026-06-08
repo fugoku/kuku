@@ -107,8 +107,8 @@
     "Emoji", "Goorm Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
     Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
   --font-mono:
-    "Emoji", "Goorm Sans Code", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier,
-    monospace;
+    "Goorm Sans Code", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace,
+    "Emoji";
 
   /* ── 12. Radius (Zed-style: tight, near-flat) ── */
   --radius-xs: 2px;
@@ -196,27 +196,69 @@
   /* Backtick / inline `code` — never link-accent (blue); neutral chip */
   --color-editor-inline-code-fg: #e4e4e4;
   --color-editor-inline-code-bg: #303030;
-  /* Syntax (dark) — no blue/cyan; neutrals + existing warm hues */
-  --syntax-default: #d4d4d4;
-  --syntax-comment: #6a6d72;
+  /* Mermaid (dark) */
+  --color-mermaid-bg: #1e1e1e;
+  --color-mermaid-surface: #262626;
+  --color-mermaid-surface-alt: #303030;
+  --color-mermaid-border: #5a5a5a;
+  --color-mermaid-border-strong: #8a8a8a;
+  --color-mermaid-text: #d4d4d4;
+  --color-mermaid-text-muted: #969696;
+  --color-mermaid-line: #8a8a8a;
+  --color-mermaid-accent: #d4d4d4;
+  --color-mermaid-accent-alt: #c0c0c0;
+  --color-mermaid-success: #6bc46d;
+  --color-mermaid-warning: #e5a644;
+  --color-mermaid-danger: #e55561;
+  --color-mermaid-info: #8a8a8a;
+  --color-mermaid-note-bg: #303030;
+  --color-mermaid-cluster-bg: #222222;
+  --color-mermaid-edge-label-bg: #1e1e1e;
+  --color-mermaid-section-bg: #262626;
+  --color-mermaid-task-bg: #303030;
+  --color-mermaid-task-done-bg: #245f3f;
+  --color-mermaid-task-active-bg: #4f3b1d;
+  --color-mermaid-task-critical-bg: #4f2428;
+  --color-mermaid-journey-fill-1: #2f2f2f;
+  --color-mermaid-journey-fill-2: #353535;
+  --color-mermaid-journey-fill-3: #25372a;
+  --color-mermaid-journey-fill-4: #3b3324;
+  --color-mermaid-journey-fill-5: #3b282b;
+  --color-mermaid-journey-fill-6: #2b3438;
+  --color-mermaid-diagram-scale-1: #303030;
+  --color-mermaid-diagram-scale-2: #3a3a3a;
+  --color-mermaid-diagram-scale-3: #245f3f;
+  --color-mermaid-diagram-scale-4: #4f3b1d;
+  --color-mermaid-diagram-scale-5: #4f2428;
+  --color-mermaid-diagram-scale-6: #2b3438;
+  --color-mermaid-scale-1: #d4d4d4;
+  --color-mermaid-scale-2: #969696;
+  --color-mermaid-scale-3: #6bc46d;
+  --color-mermaid-scale-4: #e5a644;
+  --color-mermaid-scale-5: #e55561;
+  --color-mermaid-scale-6: #8a8a8a;
+  /* Syntax (Atom One Dark) */
+  --syntax-default: #abb2bf;
+  --syntax-comment: #5c6370;
   --syntax-keyword: #c678dd;
   --syntax-string: #98c379;
-  --syntax-function: #9a9a9a;
+  --syntax-function: #61aeee;
   --syntax-number: #d19a66;
-  --syntax-operator: #7a7a7a;
-  --syntax-punctuation: #9a9a9a;
-  --syntax-type: #e5c07b;
-  --syntax-variable: #e06c75;
-  --syntax-property: #e06c75;
-  --syntax-namespace: #e5c07b;
+  --syntax-operator: #abb2bf;
+  --syntax-punctuation: #abb2bf;
+  --syntax-type: #d19a66;
+  --syntax-variable: #d19a66;
+  --syntax-property: #d19a66;
+  --syntax-namespace: #e06c75;
   --syntax-tag: #e06c75;
   --syntax-attr: #d19a66;
-  --syntax-attr-name: #98c379;
-  --syntax-meta: #6a6a6a;
-  --syntax-builtin: #c678dd;
-  --syntax-constant: #d19a66;
+  --syntax-attr-name: #d19a66;
+  --syntax-meta: #61aeee;
+  --syntax-builtin: #e6c07b;
+  --syntax-constant: #56b6c2;
+  --syntax-literal: #56b6c2;
   --syntax-regexp: #98c379;
-  --syntax-title: #9a9a9a;
+  --syntax-title: #61aeee;
   --syntax-selector: #e06c75;
   --syntax-deletion: #e06c75;
   --syntax-addition: #98c379;
@@ -369,30 +411,72 @@
   --shadow-editor-code-inset: inset 0 1px 0 0 rgba(0, 0, 0, 0.06);
   --color-editor-inline-code-fg: #1a1a1a;
   --color-editor-inline-code-bg: #e6e6e6;
-  /* Syntax (light) — no blue; hljs / future highlighter */
-  --syntax-default: #2a2a2a;
-  --syntax-comment: #8a8a8a;
-  --syntax-keyword: #7a3d6a;
-  --syntax-string: #3d6b3d;
-  --syntax-function: #3a3a3a;
-  --syntax-number: #7a5a1a;
-  --syntax-operator: #5a5a5a;
-  --syntax-punctuation: #3a3a3a;
-  --syntax-type: #8a5a1a;
-  --syntax-variable: #a04040;
-  --syntax-property: #a04040;
-  --syntax-namespace: #8a5a1a;
-  --syntax-tag: #a04040;
-  --syntax-attr: #6a4a0a;
-  --syntax-attr-name: #3d6b3d;
-  --syntax-meta: #8a8a8a;
-  --syntax-builtin: #7a3d6a;
-  --syntax-constant: #7a5a1a;
-  --syntax-regexp: #3d6b3d;
-  --syntax-title: #2a2a2a;
-  --syntax-selector: #a04040;
-  --syntax-deletion: #a04040;
-  --syntax-addition: #3d6b3d;
+  /* Mermaid (light) */
+  --color-mermaid-bg: #f0f0f0;
+  --color-mermaid-surface: #ffffff;
+  --color-mermaid-surface-alt: #e6e6e6;
+  --color-mermaid-border: #8a8a8a;
+  --color-mermaid-border-strong: #3a3a3a;
+  --color-mermaid-text: #262626;
+  --color-mermaid-text-muted: #5a5a5a;
+  --color-mermaid-line: #5a5a5a;
+  --color-mermaid-accent: #262626;
+  --color-mermaid-accent-alt: #525252;
+  --color-mermaid-success: #50a14f;
+  --color-mermaid-warning: #c18401;
+  --color-mermaid-danger: #e45649;
+  --color-mermaid-info: #525252;
+  --color-mermaid-note-bg: #e6e6e6;
+  --color-mermaid-cluster-bg: #f5f5f5;
+  --color-mermaid-edge-label-bg: #f0f0f0;
+  --color-mermaid-section-bg: #e8e8e8;
+  --color-mermaid-task-bg: #ffffff;
+  --color-mermaid-task-done-bg: #dcebdc;
+  --color-mermaid-task-active-bg: #f3e3bf;
+  --color-mermaid-task-critical-bg: #f4d7d4;
+  --color-mermaid-journey-fill-1: #e6e6e6;
+  --color-mermaid-journey-fill-2: #dddddd;
+  --color-mermaid-journey-fill-3: #dcebdc;
+  --color-mermaid-journey-fill-4: #f3e3bf;
+  --color-mermaid-journey-fill-5: #f4d7d4;
+  --color-mermaid-journey-fill-6: #dfe5e8;
+  --color-mermaid-diagram-scale-1: #e2e2e2;
+  --color-mermaid-diagram-scale-2: #d0d0d0;
+  --color-mermaid-diagram-scale-3: #dcebdc;
+  --color-mermaid-diagram-scale-4: #f3e3bf;
+  --color-mermaid-diagram-scale-5: #f4d7d4;
+  --color-mermaid-diagram-scale-6: #dfe5e8;
+  --color-mermaid-scale-1: #262626;
+  --color-mermaid-scale-2: #5a5a5a;
+  --color-mermaid-scale-3: #50a14f;
+  --color-mermaid-scale-4: #c18401;
+  --color-mermaid-scale-5: #e45649;
+  --color-mermaid-scale-6: #525252;
+  /* Syntax (Atom One Light) */
+  --syntax-default: #383a42;
+  --syntax-comment: #a0a1a7;
+  --syntax-keyword: #a626a4;
+  --syntax-string: #50a14f;
+  --syntax-function: #4078f2;
+  --syntax-number: #986801;
+  --syntax-operator: #383a42;
+  --syntax-punctuation: #383a42;
+  --syntax-type: #986801;
+  --syntax-variable: #986801;
+  --syntax-property: #986801;
+  --syntax-namespace: #e45649;
+  --syntax-tag: #e45649;
+  --syntax-attr: #986801;
+  --syntax-attr-name: #986801;
+  --syntax-meta: #4078f2;
+  --syntax-builtin: #c18401;
+  --syntax-constant: #0184bb;
+  --syntax-literal: #0184bb;
+  --syntax-regexp: #50a14f;
+  --syntax-title: #4078f2;
+  --syntax-selector: #e45649;
+  --syntax-deletion: #e45649;
+  --syntax-addition: #50a14f;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
