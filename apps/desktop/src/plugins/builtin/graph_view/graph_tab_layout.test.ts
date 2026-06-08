@@ -54,7 +54,8 @@ describe("GraphTab layout", () => {
     expect(source).toContain("absolute top-3 right-3 z-30 flex w-10 flex-col items-center gap-1");
     expect(source).toContain("absolute top-3 right-16 z-20 flex max-h-[min(70vh,28rem)] w-64");
     expect(source).toContain("bg-bg-elevated/85 p-1 shadow-soft-2 backdrop-blur-sm");
-    expect(source).toContain("size-8 text-[0.625rem]");
+    expect(source).toContain("size-8");
+    expect(source).toContain("text-[0.625rem]");
     expect(source).not.toContain("import { ClustersIcon }");
     expect(source).not.toContain("SettingsIcon");
     expect(source).not.toContain("GraphSettingsPanel");
