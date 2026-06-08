@@ -30,8 +30,15 @@ import { Application, Container, Graphics, Text } from "pixi.js";
 import { t, tf } from "~/i18n";
 import { getEffectiveTheme } from "~/stores/theme";
 
+import { graphAnimationReplayRevision } from "./graph_animation";
 import { getGraphSettings, updateGraphSetting } from "./graph_settings";
 import { getGraphStore } from "./graph_store";
+import {
+  graphNodeLocalGap,
+  graphNodePairRepulsionRadius,
+  graphNodePairRepulsionStrength,
+  type GraphRenderBudget,
+} from "./graph_layout";
 import {
   clusterBgColor,
   clusterColor,
@@ -45,7 +52,7 @@ import {
   type GraphVariant,
 } from "./graph_types";
 
-type RenderBudget = "normal" | "dense" | "large" | "huge";
+type RenderBudget = GraphRenderBudget;
 
 interface GraphCanvasProps {
   variant: GraphVariant;
@@ -188,10 +195,10 @@ function nodeRadius(node: GraphNode, compact = false): number {
   const settings = getGraphSettings();
   const minSize = compact ? Math.max(settings.nodeMinSize, 10) : settings.nodeMinSize;
   if (node.isOrphan)
-    return compact ? Math.max(settings.orphanNodeSize, 10) : settings.orphanNodeSize;
+    return (compact ? Math.max(settings.orphanNodeSize, 10) : settings.orphanNodeSize) * settings.nodeSize;
   const degreeBoost = Math.sqrt(Math.max(0, node.linkCount)) * settings.nodeSizeScale * 1.65;
   const radiusCap = Math.max(settings.nodeMaxSize, minSize * 2.8, 16);
-  return Math.max(minSize, Math.min(radiusCap, minSize + degreeBoost));
+  return Math.max(minSize, Math.min(radiusCap, minSize + degreeBoost)) * settings.nodeSize;
 }
 
 function shortLabel(name: string, max = 14): string {
@@ -424,16 +431,8 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
     const clusterCount = Math.max(1, clusterEntries.length, clusters.length);
     const settings = getGraphSettings();
     const budget = renderBudget();
-    const distanceScale = settings.linkDistanceCrossFolder / 320;
-    const localGap = Math.max(
-      settings.nodeMaxSize * 2.25 + 3,
-      budgetNumber(budget, {
-        normal: 15,
-        dense: 13,
-        large: 10.5,
-        huge: 8.6,
-      }),
-    );
+    const distanceScale = settings.linkDistance / 180;
+    const localGap = graphNodeLocalGap(settings, budget);
     const clusterGap =
       budgetNumber(budget, {
         normal: 88,
@@ -703,7 +702,8 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
 
   function relaxLayoutStep(pinnedNode?: LayoutNode, cooling = 1): number {
     const settings = getGraphSettings();
-    const cellSize = Math.max(20, settings.nodeMaxSize * 2.8 + 8);
+    const repulsionRadius = graphNodePairRepulsionRadius(settings, renderBudget(), false, false);
+    const cellSize = Math.max(20, settings.nodeMaxSize * 2.8 + 8, repulsionRadius);
     const grid = new Map<string, LayoutNode[]>();
 
     for (const node of currentLayout.nodes) {
@@ -737,8 +737,19 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
               dist = Math.hypot(dx, dy) || 1;
             }
             const minDist = nodeRadius(node, isCompact()) + nodeRadius(other, isCompact()) + 3.5;
-            if (dist >= minDist) continue;
-            const push = (minDist - dist) * 0.072 * cooling;
+            const spacingRadius = graphNodePairRepulsionRadius(
+              settings,
+              renderBudget(),
+              node.isOrphan,
+              other.isOrphan,
+            );
+            const targetDist = Math.max(minDist, spacingRadius);
+            if (dist >= targetDist) continue;
+            const collisionPush = Math.max(0, minDist - dist) * 0.072;
+            const spacingPush =
+              Math.max(0, targetDist - dist) *
+              graphNodePairRepulsionStrength(settings, node.isOrphan, other.isOrphan);
+            const push = (collisionPush + spacingPush) * cooling;
             const nx = dx / dist;
             const ny = dy / dist;
             if (node !== pinnedNode) {
@@ -759,11 +770,8 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
       const dx = link.target.x - link.source.x;
       const dy = link.target.y - link.source.y;
       const dist = Math.hypot(dx, dy) || 1;
-      const sameFolder = link.source.folder === link.target.folder;
-      const target = sameFolder
-        ? settings.linkDistanceSameFolder
-        : settings.linkDistanceCrossFolder;
-      const strength = (isFocusedLink(link) ? 0.0028 : 0.00115) * cooling;
+      const target = settings.linkDistance;
+      const strength = (isFocusedLink(link) ? 0.0028 : 0.00115) * settings.linkStrength * cooling;
       const pull = (dist - target) * strength;
       const nx = dx / dist;
       const ny = dy / dist;
@@ -987,6 +995,7 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
   }
 
   function linkArrowLength(link: LayoutLink): number {
+    if (!getGraphSettings().showArrows) return 0;
     if (isDenseGraph() && !isLinkFocusLink(link)) return 0;
     return getGraphSettings().arrowLength;
   }
@@ -1196,15 +1205,18 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
         });
       }
 
+      const labelThreshold = getGraphSettings().labelVisibilityThreshold;
       const showLabel =
         selected ||
         current ||
         hovered ||
         (neighborhood &&
           !isCompact() &&
-          (renderBudget() === "normal" || view.scale > 2.4 || node.linkCount >= 8)) ||
+          (renderBudget() === "normal" ||
+            view.scale > labelThreshold + 0.3 ||
+            node.linkCount >= 8)) ||
         (neighborhood && isCompact() && (selected || current || hovered)) ||
-        (renderBudget() === "normal" && view.scale > 2.1);
+        (renderBudget() === "normal" && view.scale > labelThreshold);
       if (showLabel) {
         let maxLabelLength = 12;
         if (selected || current) maxLabelLength = 18;
@@ -1746,6 +1758,8 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
         [
           getGraphSettings().linkOpacity,
           getGraphSettings().linkWidthScale,
+          getGraphSettings().showArrows,
+          getGraphSettings().labelVisibilityThreshold,
           getGraphSettings().hoverFadeOpacity,
           getGraphSettings().linkCurvature,
           getGraphSettings().arrowLength,
@@ -1761,15 +1775,16 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
     void [
       settings.chargeStrength,
       settings.chargeStrengthOrphan,
-      settings.linkDistanceSameFolder,
-      settings.linkDistanceCrossFolder,
+      settings.linkDistance,
       settings.centerStrength,
       settings.clusterStrength,
       settings.clusterRadiusFactor,
+      settings.linkStrength,
       settings.alphaDecay,
       settings.velocityDecay,
       settings.warmupTicks,
       settings.cooldownTicks,
+      settings.nodeSize,
       settings.nodeMinSize,
       settings.nodeMaxSize,
       settings.nodeSizeScale,
@@ -1783,6 +1798,21 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
     if (selected) pinFocusNode(selected);
     requestDraw({ links: true, clusters: true });
   });
+
+  createEffect(
+    on(
+      () => graphAnimationReplayRevision(),
+      () => {
+        const s = graphState();
+        if (!s || s.nodes.length === 0) return;
+        buildLayout(s.nodes, s.links, s.clusters);
+        const selected = untrack(() => selectedNode());
+        if (selected) pinFocusNode(selected);
+        requestDraw({ links: true, clusters: true });
+      },
+      { defer: true },
+    ),
+  );
 
   onCleanup(() => {
     destroyed = true;
@@ -1846,8 +1876,9 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
 
       <Show when={status() === "ready"}>
         <div
-          class="absolute right-3 bottom-3 flex items-center gap-0.5 rounded-xs border border-border/70 bg-bg-elevated/85 p-1 shadow-soft-2 backdrop-blur-sm"
-          classList={{ "right-2! bottom-2! gap-0! p-0.5!": isCompact() }}
+          data-kuku-graph-canvas-controls="true"
+          class="absolute top-32 right-3 flex w-10 flex-col items-center gap-1 rounded-xs border border-border/70 bg-bg-elevated/85 p-1 shadow-soft-2 backdrop-blur-sm"
+          classList={{ "top-28! right-2! w-7! gap-0! p-0.5!": isCompact() }}
         >
           <CtrlBtn title={t("graph.ctrl.zoom_in")} onClick={zoomIn} compact={isCompact()}>
             <ZoomInIcon />
@@ -1855,7 +1886,6 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
           <CtrlBtn title={t("graph.ctrl.zoom_out")} onClick={zoomOut} compact={isCompact()}>
             <ZoomOutIcon />
           </CtrlBtn>
-          <div class="mx-1 h-4 w-px bg-border" />
           <Show
             when={isCompact()}
             fallback={
@@ -1915,14 +1945,12 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
             <CtrlBtn title={t("graph.ctrl.reset_view")} onClick={resetView}>
               <ResetViewIcon />
             </CtrlBtn>
-            <div class="mx-1 h-4 w-px bg-border" />
           </Show>
           <Show when={showZoomLabel()}>
             <span
-              class="px-1 text-center font-mono text-[0.6875rem] text-text-muted tabular-nums"
+              class="flex h-6 w-8 items-center justify-center px-0 text-center font-mono text-[0.625rem] text-text-muted tabular-nums"
               classList={{
-                "min-w-11": !isCompact(),
-                "min-w-8 text-[0.625rem]": isCompact(),
+                "h-5 w-6 text-[0.5625rem]": isCompact(),
               }}
             >
               {Math.round(zoomLevel() * 100)}%
@@ -1931,41 +1959,6 @@ export default function GraphCanvasPixi(props: GraphCanvasProps): JSX.Element {
         </div>
       </Show>
 
-      <Show when={hoveredNode()}>
-        {(node) => (
-          <div class="pointer-events-none absolute bottom-12 left-3 max-w-56 rounded-xs border border-border/70 bg-bg-elevated/90 px-3 py-2 shadow-popover backdrop-blur-sm">
-            <p
-              class="truncate text-[0.8125rem] font-medium"
-              style={{ color: clusterColor(node().clusterIndex) }}
-            >
-              {node().name}
-            </p>
-            <div class="mt-1 flex flex-wrap items-center gap-2 text-[0.6875rem] text-text-muted">
-              <span>
-                {node().linkCount === 1
-                  ? tf("graph.tooltip.connection_one", { count: node().linkCount })
-                  : tf("graph.tooltip.connection_other", { count: node().linkCount })}
-              </span>
-              <Show when={node().isOrphan}>
-                <span class="rounded-xs bg-ghost-hover px-1.5 py-0.5 text-[0.625rem]">
-                  {t("graph.badge.unlinked")}
-                </span>
-              </Show>
-              <span
-                class="rounded-xs px-1.5 py-0.5 text-[0.625rem]"
-                style={{
-                  background: clusterColor(node().clusterIndex, 0.13),
-                  color: clusterColor(node().clusterIndex),
-                }}
-              >
-                {graphState()?.clusters[node().clusterIndex]?.split("/").pop() ||
-                  t("graph.cluster.root") ||
-                  "Root"}
-              </span>
-            </div>
-          </div>
-        )}
-      </Show>
     </div>
   );
 }
@@ -1983,7 +1976,7 @@ function CtrlBtn(props: {
       title={props.title}
       class="flex cursor-pointer items-center justify-center rounded-xs border-none bg-transparent text-[0.75rem] text-text-muted transition-colors duration-100 hover:bg-ghost-hover hover:text-text-primary"
       classList={{
-        "size-7": !props.compact,
+        "size-8": !props.compact,
         "size-6": props.compact,
         "bg-ghost-active! text-text-accent!": props.active,
       }}

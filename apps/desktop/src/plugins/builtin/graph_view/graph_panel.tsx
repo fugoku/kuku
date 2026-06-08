@@ -7,14 +7,16 @@
 //   - Store properties accessed inside JSX / createMemo are granular
 //   - No intermediate wrappers or manual subscriptions needed
 
-import { createMemo, lazy, Show, Suspense, type JSX } from "solid-js";
+import { createMemo, createSignal, lazy, Show, Suspense, type JSX } from "solid-js";
 
+import { OpenInTabIcon, SettingsIcon } from "~/components/icons";
 import { t } from "~/i18n";
 import { getActiveTab, openTab } from "~/stores/files";
 import { closeRightPanelView } from "~/stores/layout";
 
 import { type GraphNode } from "./graph_types";
 import GraphCanvas from "./graph_canvas_pixi";
+import { GraphSettingsPanel } from "./graph_settings";
 import { graphViewMode, setGraphViewMode } from "./graph_view_mode";
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -40,46 +42,12 @@ const GraphCanvas3D = lazy(() => import("./graph_canvas_3d"));
 export default function GraphPanel() {
   // Derived state — reads signal inside tracking scope
   const currentFilePath = createMemo(() => getActiveTab()?.filePath ?? null);
+  const [settingsOpen, setSettingsOpen] = createSignal(false);
 
   return (
-    <div class="flex h-full min-h-0 flex-col overflow-hidden bg-bg-secondary/60">
-      <div class="flex shrink-0 items-center justify-between gap-2 border-b border-border/70 bg-bg-primary/50 px-2 py-1.5">
-        <p class="min-w-0 truncate text-[0.75rem] font-medium text-text-primary">
-          {t("graph.title")}
-        </p>
-        <div class="flex shrink-0 items-center gap-1">
-          <div
-            class="flex items-center rounded-xs border border-border/70 bg-bg-secondary/70 p-0.5 text-[0.625rem] text-text-muted"
-            role="group"
-            aria-label={t("graph.tab.view_mode")}
-          >
-            <PanelModeBtn
-              active={graphViewMode() === "2d"}
-              title={t("graph.tab.view_2d")}
-              onClick={() => setGraphViewMode("2d")}
-            >
-              2D
-            </PanelModeBtn>
-            <PanelModeBtn
-              active={graphViewMode() === "3d"}
-              title={t("graph.tab.view_3d")}
-              onClick={() => setGraphViewMode("3d")}
-            >
-              3D
-            </PanelModeBtn>
-          </div>
-          <button
-            type="button"
-            class="cursor-pointer rounded-xs border-none bg-transparent px-1 py-0.5 text-[0.6875rem] text-text-muted transition-colors hover:bg-ghost-hover hover:text-text-primary"
-            title={t("graph.action.open_center_title")}
-            onClick={openGraphInCenterTab}
-          >
-            {t("graph.action.open_in_tab")}
-          </button>
-        </div>
-      </div>
+    <div class="relative flex h-full min-h-0 flex-col overflow-hidden bg-bg-primary">
       {/* ── Canvas ── */}
-      <div class="flex min-h-0 flex-1">
+      <div class="relative flex min-h-0 flex-1">
         <Show
           when={graphViewMode() === "3d"}
           fallback={
@@ -108,6 +76,57 @@ export default function GraphPanel() {
             />
           </Suspense>
         </Show>
+        <div
+          data-kuku-graph-panel-controls="true"
+          class="absolute top-2 right-2 z-30 flex w-7 flex-col items-center gap-0 rounded-xs border border-border/70 bg-bg-elevated/85 p-0.5 shadow-soft-2 backdrop-blur-sm"
+          role="group"
+          aria-label={t("graph.tab.view_mode")}
+        >
+          <button
+            type="button"
+            class="flex size-6 cursor-pointer items-center justify-center rounded-xs border-none bg-transparent text-text-muted transition-colors hover:bg-ghost-hover hover:text-text-primary"
+            classList={{
+              "bg-element-selected text-text-primary": settingsOpen(),
+            }}
+            title={`${graphViewMode().toUpperCase()} ${t("settings.plugin.graph_view.title")}`}
+            aria-label={`${graphViewMode().toUpperCase()} ${t("settings.plugin.graph_view.title")}`}
+            onClick={() => setSettingsOpen((open) => !open)}
+          >
+            <SettingsIcon size={12} />
+          </button>
+          <PanelModeBtn
+            active={graphViewMode() === "2d"}
+            title={t("graph.tab.view_2d")}
+            onClick={() => setGraphViewMode("2d")}
+          >
+            2D
+          </PanelModeBtn>
+          <PanelModeBtn
+            active={graphViewMode() === "3d"}
+            title={t("graph.tab.view_3d")}
+            onClick={() => setGraphViewMode("3d")}
+          >
+            3D
+          </PanelModeBtn>
+          <button
+            type="button"
+            class="flex size-6 cursor-pointer items-center justify-center rounded-xs border-none bg-transparent text-text-muted transition-colors hover:bg-ghost-hover hover:text-text-primary"
+            title={t("graph.action.open_center_title")}
+            aria-label={t("graph.action.open_in_tab")}
+            onClick={openGraphInCenterTab}
+          >
+            <OpenInTabIcon size={12} />
+          </button>
+        </div>
+        <Show when={settingsOpen()}>
+          <div class="absolute top-2 right-10 bottom-2 left-2 z-10">
+            <GraphSettingsPanel
+              mode={graphViewMode()}
+              onClose={() => setSettingsOpen(false)}
+              class="w-full max-w-none"
+            />
+          </div>
+        </Show>
       </div>
     </div>
   );
@@ -123,7 +142,7 @@ function PanelModeBtn(props: {
     <button
       type="button"
       title={props.title}
-      class="h-5 min-w-7 cursor-pointer rounded-xs border-none px-1.5 font-medium transition-colors duration-100 hover:bg-ghost-hover hover:text-text-primary"
+      class="size-6 cursor-pointer rounded-xs border-none px-0 text-[0.5625rem] font-medium leading-none transition-colors duration-100 hover:bg-ghost-hover hover:text-text-primary"
       classList={{
         "bg-element-selected text-text-primary": props.active,
         "bg-transparent text-text-muted": !props.active,

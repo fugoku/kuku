@@ -16,7 +16,6 @@ import { lazy } from "solid-js";
 
 import type { AiProxyToolRegistry } from "~/plugins/builtin/core_tool_registry/types";
 import type { SearchService } from "~/plugins/builtin/core_indexer/service";
-import { registerFill } from "~/plugins/slots";
 import type { KukuPlugin } from "~/plugins/types";
 import { closeTab, filesState, openTab } from "~/stores/files";
 import { closeRightPanelView, layoutState, openRightPanelView } from "~/stores/layout";
@@ -27,11 +26,7 @@ import {
   buildSuggestLinksQuery,
   buildVaultStatsPayload,
 } from "./graph_proxy_tools";
-import {
-  GraphSettingsPanel,
-  loadGraphSettings,
-  restoreGraphSettingsDefaults,
-} from "./graph_settings";
+import { loadGraphSettings, restoreGraphSettingsDefaults } from "./graph_settings";
 import { createGraphStore, getGraphStore, setGraphStore } from "./graph_store";
 
 // ── Lazy-loaded view components ──
@@ -105,18 +100,6 @@ const graphViewPlugin: KukuPlugin = {
   async activate(ctx) {
     // ── Load persisted graph settings ───────────────────────
     await loadGraphSettings();
-
-    // ── Register settings section fill ──────────────────────
-    const disposeFill = registerFill({
-      id: "graph-view.settings",
-      pluginId: "graph-view",
-      slot: "settingsSection",
-      label: "Graph View",
-      order: 30,
-      isActive: () => true,
-      component: GraphSettingsPanel,
-    });
-    ctx.track(disposeFill);
 
     const search = ctx.services.get("core-indexer.search") as SearchService | undefined;
     if (!search) {

@@ -158,6 +158,12 @@ export function filterGraphState(
   };
 }
 
+export function hasGraphPointerTarget(target: unknown): boolean {
+  return target !== null && target !== undefined;
+}
+
+export const GRAPH_3D_SCROLL_ZOOM_SPEED = 0.85;
+
 // ── Graph Settings ────────────────────────────────────────────
 
 export interface GraphSettings {
@@ -169,6 +175,8 @@ export interface GraphSettings {
   centerStrength: number;
   clusterStrength: number;
   clusterRadiusFactor: number;
+  linkStrength: number;
+  linkDistance: number;
 
   // ── Simulation ──
   alphaDecay: number;
@@ -177,6 +185,7 @@ export interface GraphSettings {
   cooldownTicks: number;
 
   // ── Node sizing ──
+  nodeSize: number;
   nodeMinSize: number;
   nodeMaxSize: number;
   nodeSizeScale: number;
@@ -187,6 +196,8 @@ export interface GraphSettings {
   arrowLength: number;
 
   // ── Display ──
+  showArrows: boolean;
+  labelVisibilityThreshold: number;
   linkOpacity: number;
   linkWidthScale: number;
   hoverFadeOpacity: number;
@@ -199,6 +210,13 @@ export interface GraphSettings {
   showBacklinks: boolean;
 }
 
+export type GraphSettingsScope = "2d" | "3d";
+
+export interface GraphViewSettings {
+  twoD: GraphSettings;
+  threeD: GraphSettings;
+}
+
 export const GRAPH_SETTINGS_DEFAULTS: GraphSettings = {
   // Forces
   chargeStrength: -255,
@@ -208,6 +226,8 @@ export const GRAPH_SETTINGS_DEFAULTS: GraphSettings = {
   centerStrength: 0.016,
   clusterStrength: 0.5,
   clusterRadiusFactor: 0.68,
+  linkStrength: 1,
+  linkDistance: 180,
 
   // Simulation
   alphaDecay: 0.01,
@@ -216,6 +236,7 @@ export const GRAPH_SETTINGS_DEFAULTS: GraphSettings = {
   cooldownTicks: 300,
 
   // Node sizing
+  nodeSize: 1,
   nodeMinSize: 3.5,
   nodeMaxSize: 11,
   nodeSizeScale: 0.7,
@@ -226,6 +247,8 @@ export const GRAPH_SETTINGS_DEFAULTS: GraphSettings = {
   arrowLength: 3,
 
   // Display
+  showArrows: false,
+  labelVisibilityThreshold: 1.6,
   linkOpacity: 1,
   linkWidthScale: 1,
   hoverFadeOpacity: 0.46,
@@ -236,6 +259,11 @@ export const GRAPH_SETTINGS_DEFAULTS: GraphSettings = {
 
   // Backlinks
   showBacklinks: true,
+};
+
+export const GRAPH_VIEW_SETTINGS_DEFAULTS: GraphViewSettings = {
+  twoD: { ...GRAPH_SETTINGS_DEFAULTS },
+  threeD: { ...GRAPH_SETTINGS_DEFAULTS },
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -256,6 +284,29 @@ function mergeGraphSettings(raw: unknown): GraphSettings {
     }
   }
   return merged as GraphSettings;
+}
+
+function mergeGraphViewSettings(raw: unknown): GraphViewSettings {
+  if (!isRecord(raw)) {
+    return {
+      twoD: { ...GRAPH_SETTINGS_DEFAULTS },
+      threeD: { ...GRAPH_SETTINGS_DEFAULTS },
+    };
+  }
+
+  const hasScopedSettings = isRecord(raw.twoD) || isRecord(raw.threeD);
+  if (!hasScopedSettings) {
+    const legacy = mergeGraphSettings(raw);
+    return {
+      twoD: { ...legacy },
+      threeD: { ...legacy },
+    };
+  }
+
+  return {
+    twoD: mergeGraphSettings(raw.twoD),
+    threeD: mergeGraphSettings(raw.threeD),
+  };
 }
 
 // ── Cluster Palette ───────────────────────────────────────────
@@ -352,4 +403,4 @@ export function clusterTextColor(index: number, lightness = "71%"): string {
   return `hsl(${h}, ${s}%, ${lightness})`;
 }
 
-export { mergeGraphSettings };
+export { mergeGraphSettings, mergeGraphViewSettings };
