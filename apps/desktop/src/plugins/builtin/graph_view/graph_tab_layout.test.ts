@@ -19,14 +19,33 @@ describe("GraphTab layout", () => {
     expect(source).toContain('data-kuku-graph-legend-list="true"');
     expect(source).toContain('data-kuku-graph-legend-item="true"');
     expect(source).toContain('data-kuku-graph-legend-active-indicator="true"');
+    expect(source).toContain(
+      'class="flex size-4 shrink-0 items-center justify-center text-text-primary"',
+    );
     expect(source).toContain("CheckIcon");
     expect(source).toContain("ListIcon");
-    expect(source).toContain("selectedLegendClusterIndex");
+    expect(source).toContain("selectedLegendClusterIndexes");
+    expect(source).toContain("toggleLegendCluster");
+    expect(source).toContain("isLegendClusterSelected");
     expect(source).toContain("legendNodeFilter");
+    expect(source).toContain("selected.size === 0");
+    expect(source).toContain("selected.has(node.clusterIndex)");
     expect(source).toContain("nodeFilter={legendNodeFilter()}");
     expect(source).toContain("preserveFilteredClusterColors");
-    expect(source).toContain('aria-pressed={selectedLegendClusterIndex() === i()}');
-    expect(source).toContain("selectedLegendClusterIndex() === i() ? \"true\" : \"false\"");
+    expect(source).toContain("legendButtonEl");
+    expect(source).toContain("legendPopoverEl");
+    expect(source).toContain("handleLegendOutsidePointerDown");
+    expect(source).toContain(
+      'document.addEventListener("pointerdown", handleLegendOutsidePointerDown, true)',
+    );
+    expect(source).toContain(
+      'document.removeEventListener("pointerdown", handleLegendOutsidePointerDown, true)',
+    );
+    expect(source).toContain("legendButtonEl?.contains(target)");
+    expect(source).toContain("legendPopoverEl?.contains(target)");
+    expect(source).toContain("setLegendOpen(false)");
+    expect(source).toContain('aria-pressed={isLegendClusterSelected(i())}');
+    expect(source).toContain("isLegendClusterSelected(i()) ? \"true\" : \"false\"");
     expect(source).toContain("kuku-scrollbar-hidden");
     expect(source).toContain("absolute top-3 right-3 z-30 flex w-10 flex-col items-center gap-1");
     expect(source).toContain("absolute top-3 right-16 z-20 flex max-h-[min(70vh,28rem)] w-64");
@@ -36,6 +55,11 @@ describe("GraphTab layout", () => {
     expect(source).not.toContain("SettingsIcon");
     expect(source).not.toContain("GraphSettingsPanel");
     expect(source).not.toContain("settingsOpen");
+    expect(source).not.toContain("rounded-full bg-element-active");
+    expect(source).not.toContain("ring-1 ring-border-selected");
+    expect(source).not.toContain("setSelectedLegendClusterIndex(");
+    expect(source).not.toContain("selectedLegendClusterIndex()");
+    expect(source).not.toContain("createSignal<number | null>");
     expect(source).not.toContain("settings.plugin.graph_view.title");
     expect(source).not.toContain("bg-bg-primary/75");
     expect(source).not.toContain("overflow-hidden border-t border-border/70 bg-bg-secondary/40 px-4 py-2");
