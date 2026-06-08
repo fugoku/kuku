@@ -26,12 +26,6 @@ type ArrowDirection = "left" | "right" | "up" | "down";
 type Highlighter = typeof highlighter;
 type Mermaid = typeof mermaid;
 
-interface ParsedCodeMirrorDoc {
-  code: string;
-  codeStart: number;
-  language: string;
-}
-
 let mermaidLoader: Promise<Mermaid> | null = null;
 let highlightLoader: Promise<Highlighter> | null = null;
 let nextMermaidId = 0;
@@ -43,6 +37,7 @@ class CodeMirrorCodeBlockView implements NodeView {
   private readonly editorChrome: HTMLElement;
   private editing: boolean;
   private readonly getPos: GetPos;
+  private readonly languageInput: HTMLInputElement;
   private node: ProseMirrorNode;
   private readonly preview: HTMLElement;
   private readonly previewBody: HTMLElement;
@@ -62,8 +57,32 @@ class CodeMirrorCodeBlockView implements NodeView {
     this.editorChrome = document.createElement("div");
     this.editorChrome.dataset.kukuCodeBlockEditor = "";
 
+    const openingFence = document.createElement("div");
+    openingFence.dataset.kukuCodeBlockFenceLine = "";
+    const openingMarker = document.createElement("span");
+    openingMarker.dataset.kukuCodeBlockFenceMarker = "";
+    openingMarker.contentEditable = "false";
+    openingMarker.textContent = "```";
+    this.languageInput = document.createElement("input");
+    this.languageInput.type = "text";
+    this.languageInput.autocomplete = "off";
+    this.languageInput.autocapitalize = "off";
+    this.languageInput.spellcheck = false;
+    this.languageInput.ariaLabel = "Code language";
+    this.languageInput.dataset.kukuCodeBlockLanguageInput = "";
+    this.languageInput.value = readLanguage(node);
+    this.languageInput.addEventListener("input", () => this.forwardLanguageUpdate());
+    this.languageInput.addEventListener("keydown", (event) => this.handleLanguageKeyDown(event));
+    openingFence.append(openingMarker, this.languageInput);
+
     const editorHost = document.createElement("div");
     editorHost.dataset.kukuCodeMirrorHost = "";
+
+    const closingFence = document.createElement("div");
+    closingFence.dataset.kukuCodeBlockFenceLine = "";
+    closingFence.dataset.kukuCodeBlockClosingFence = "";
+    closingFence.contentEditable = "false";
+    closingFence.textContent = "```";
 
     this.preview = document.createElement("div");
     this.preview.dataset.kukuCodeBlockPreview = "";
@@ -85,7 +104,7 @@ class CodeMirrorCodeBlockView implements NodeView {
     this.preview.addEventListener("dblclick", () => this.enterEditMode(true));
     this.preview.append(previewToolbar, this.previewBody);
 
-    this.editorChrome.append(editorHost);
+    this.editorChrome.append(openingFence, editorHost, closingFence);
     this.dom.append(this.preview, this.editorChrome);
     this.dom.addEventListener("focusout", () => {
       window.setTimeout(() => {
@@ -96,7 +115,7 @@ class CodeMirrorCodeBlockView implements NodeView {
     });
 
     this.cm = new CodeMirrorView({
-      doc: formatCodeMirrorDoc(node),
+      doc: node.textContent,
       extensions: [
         codeMirrorKeymap.of([...this.codeMirrorKeymap(), ...defaultKeymap]),
         drawSelection(),
@@ -127,11 +146,10 @@ class CodeMirrorCodeBlockView implements NodeView {
     this.cm.focus();
     if (this.updating) return;
 
-    const codeStart = codeStartOffset(this.node);
     const entrySide = pendingCodeBlockEntrySide;
     pendingCodeBlockEntrySide = null;
-    const anchorOffset = this.toCodeMirrorSelectionOffset(anchor, entrySide, codeStart);
-    const headOffset = this.toCodeMirrorSelectionOffset(head, entrySide, codeStart);
+    const anchorOffset = this.toCodeMirrorSelectionOffset(anchor, entrySide);
+    const headOffset = this.toCodeMirrorSelectionOffset(head, entrySide);
     this.updating = true;
     this.cm.dispatch({
       selection: {
@@ -153,10 +171,11 @@ class CodeMirrorCodeBlockView implements NodeView {
   ): boolean {
     if (node.type !== this.node.type) return false;
     this.node = node;
+    this.syncLanguageInput();
     this.syncRenderedMode();
     if (this.updating) return true;
 
-    const nextText = formatCodeMirrorDoc(node);
+    const nextText = node.textContent;
     const currentText = this.cm.state.doc.toString();
     if (nextText !== currentText) {
       let start = 0;
@@ -217,41 +236,64 @@ class CodeMirrorCodeBlockView implements NodeView {
     if (this.updating || !this.cm.hasFocus) return;
     const pos = this.getPos();
     if (typeof pos !== "number") return;
-    const parsed = parseCodeMirrorDoc(update.state.doc.toString());
-    if (!parsed) return;
+    const code = update.state.doc.toString();
 
     const { main } = update.state.selection;
-    const selectionFrom = pos + 1 + clamp(main.from - parsed.codeStart, 0, parsed.code.length);
-    const selectionTo = pos + 1 + clamp(main.to - parsed.codeStart, 0, parsed.code.length);
+    const selectionFrom = pos + 1 + clamp(main.from, 0, code.length);
+    const selectionTo = pos + 1 + clamp(main.to, 0, code.length);
     const currentSelection = this.view.state.selection;
-    const attrsChanged = parsed.language !== readLanguage(this.node);
-    const codeChanged = parsed.code !== this.node.textContent;
+    const codeChanged = code !== this.node.textContent;
     const selectionChanged =
       currentSelection.from !== selectionFrom || currentSelection.to !== selectionTo;
 
-    if (!attrsChanged && !codeChanged && !selectionChanged) {
+    if (!codeChanged && !selectionChanged) {
       return;
     }
 
     let tr = this.view.state.tr;
-    if (attrsChanged) {
-      tr = tr.setNodeMarkup(pos, undefined, {
-        ...this.node.attrs,
-        language: parsed.language,
-      });
-    }
     if (codeChanged) {
       const from = pos + 1;
       const to = pos + 1 + this.node.content.size;
-      tr = parsed.code
-        ? tr.replaceWith(from, to, this.view.state.schema.text(parsed.code))
-        : tr.delete(from, to);
+      tr = code ? tr.replaceWith(from, to, this.view.state.schema.text(code)) : tr.delete(from, to);
     }
 
     tr = tr.setSelection(TextSelection.create(tr.doc, selectionFrom, selectionTo));
     this.updating = true;
     this.view.dispatch(tr);
     this.updating = false;
+  }
+
+  private forwardLanguageUpdate(): void {
+    if (this.updating) return;
+    const pos = this.getPos();
+    if (typeof pos !== "number") return;
+
+    const language = normalizeLanguage(this.languageInput.value);
+    if (language !== this.languageInput.value) {
+      const cursor = this.languageInput.selectionStart ?? language.length;
+      this.languageInput.value = language;
+      this.languageInput.setSelectionRange(
+        Math.min(cursor, language.length),
+        Math.min(cursor, language.length),
+      );
+    }
+    if (language === readLanguage(this.node)) return;
+
+    const tr = this.view.state.tr.setNodeMarkup(pos, undefined, {
+      ...this.node.attrs,
+      language,
+    });
+    this.updating = true;
+    this.view.dispatch(tr);
+    this.updating = false;
+  }
+
+  private handleLanguageKeyDown(event: KeyboardEvent): void {
+    if (event.key === "Enter" || event.key === "ArrowDown") {
+      event.preventDefault();
+      this.cm.focus();
+      this.cm.dispatch({ selection: { anchor: 0 } });
+    }
   }
 
   private maybeEscape(unit: "char" | "line", direction: -1 | 1): boolean {
@@ -269,18 +311,14 @@ class CodeMirrorCodeBlockView implements NodeView {
     return true;
   }
 
-  private toCodeMirrorSelectionOffset(
-    offset: number,
-    entrySide: -1 | 1 | null,
-    codeStart: number,
-  ): number {
+  private toCodeMirrorSelectionOffset(offset: number, entrySide: -1 | 1 | null): number {
     if (entrySide === 1 || offset <= 0) {
       return 0;
     }
     if (entrySide === -1 || offset >= this.node.content.size) {
       return this.cm.state.doc.length;
     }
-    return codeStart + offset;
+    return clamp(offset, 0, this.cm.state.doc.length);
   }
 
   private enterEditMode(focus: boolean): void {
@@ -302,6 +340,13 @@ class CodeMirrorCodeBlockView implements NodeView {
     this.preview.hidden = this.editing;
     if (!this.editing) {
       this.renderPreview();
+    }
+  }
+
+  private syncLanguageInput(): void {
+    const language = readLanguage(this.node);
+    if (this.languageInput.value !== language) {
+      this.languageInput.value = language;
     }
   }
 
@@ -445,47 +490,8 @@ function isMermaidNode(node: ProseMirrorNode): boolean {
   return readLanguage(node).trim().toLowerCase() === "mermaid";
 }
 
-function formatOpeningFence(language: string): string {
-  return `\`\`\`${language}`;
-}
-
-function formatCodeMirrorDoc(node: ProseMirrorNode): string {
-  return `${formatOpeningFence(readLanguage(node))}\n${node.textContent}\n\`\`\``;
-}
-
-function codeStartOffset(node: ProseMirrorNode): number {
-  return formatOpeningFence(readLanguage(node)).length + 1;
-}
-
-function parseCodeMirrorDoc(value: string): ParsedCodeMirrorDoc | null {
-  const firstLineEnd = value.indexOf("\n");
-  if (firstLineEnd === -1) return null;
-
-  const opening = parseOpeningFence(value.slice(0, firstLineEnd));
-  if (!opening) return null;
-
-  const codeStart = firstLineEnd + 1;
-  const lastLineStart = value.lastIndexOf("\n");
-  const closing = lastLineStart >= codeStart && isClosingFence(value.slice(lastLineStart + 1));
-  const codeEnd = closing ? lastLineStart : value.length;
-
-  return {
-    code: value.slice(codeStart, codeEnd),
-    codeStart,
-    language: opening.language,
-  };
-}
-
-function parseOpeningFence(value: string): { language: string } | null {
-  const match = /^```(?<language>[^\s`]*)\s*$/.exec(value.trim());
-  if (!match?.groups) return null;
-  return {
-    language: match.groups.language ?? "",
-  };
-}
-
-function isClosingFence(value: string): boolean {
-  return value.trim() === "```";
+function normalizeLanguage(value: string): string {
+  return value.replace(/[\s`]+/g, "");
 }
 
 function clamp(value: number, min: number, max: number): number {
