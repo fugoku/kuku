@@ -16,6 +16,7 @@ import {
   createSignal,
   For,
   lazy,
+  onCleanup,
   Show,
   Suspense,
 } from "solid-js";
@@ -50,12 +51,15 @@ const GraphCanvas3D = lazy(() => import("./graph_canvas_3d"));
 // ── Component ────────────────────────────────────────────────
 
 export default function GraphTab() {
+  let legendButtonEl: HTMLButtonElement | undefined;
+  let legendPopoverEl: HTMLDivElement | undefined;
+
   // Handle is stored for future toolbar integration (e.g. external zoom buttons).
   // Currently only `setHandle` is used as the onHandle callback.
   const [, setHandle] = createSignal<GraphCanvasHandle | null>(null);
   const [legendOpen, setLegendOpen] = createSignal(false);
-  const [selectedLegendClusterIndex, setSelectedLegendClusterIndex] = createSignal<number | null>(
-    null,
+  const [selectedLegendClusterIndexes, setSelectedLegendClusterIndexes] = createSignal<Set<number>>(
+    new Set(),
   );
 
   // ── Reactive derivations ────────────────────────────────
@@ -78,15 +82,51 @@ export default function GraphTab() {
 
   const clusters = createMemo(() => store()?.state.clusters ?? []);
   const legendNodeFilter = createMemo<GraphNodeFilter | undefined>(() => {
-    const clusterIndex = selectedLegendClusterIndex();
-    return clusterIndex === null ? undefined : (node) => node.clusterIndex === clusterIndex;
+    const selected = selectedLegendClusterIndexes();
+    if (selected.size === 0) return undefined;
+    return (node) => selected.has(node.clusterIndex);
+  });
+
+  function isLegendClusterSelected(index: number): boolean {
+    return selectedLegendClusterIndexes().has(index);
+  }
+
+  function toggleLegendCluster(index: number): void {
+    setSelectedLegendClusterIndexes((current) => {
+      const next = new Set(current);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
+  }
+
+  createEffect(() => {
+    const clusterCount = clusters().length;
+    const selected = selectedLegendClusterIndexes();
+    if ([...selected].some((index) => index >= clusterCount)) {
+      setSelectedLegendClusterIndexes(
+        new Set([...selected].filter((index) => index < clusterCount)),
+      );
+    }
   });
 
   createEffect(() => {
-    const selected = selectedLegendClusterIndex();
-    if (selected !== null && selected >= clusters().length) {
-      setSelectedLegendClusterIndex(null);
-    }
+    if (!legendOpen()) return;
+
+    const handleLegendOutsidePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (legendButtonEl?.contains(target) || legendPopoverEl?.contains(target)) return;
+      setLegendOpen(false);
+    };
+
+    document.addEventListener("pointerdown", handleLegendOutsidePointerDown, true);
+    onCleanup(() => {
+      document.removeEventListener("pointerdown", handleLegendOutsidePointerDown, true);
+    });
   });
 
   return (
@@ -146,6 +186,7 @@ export default function GraphTab() {
           </ModeBtn>
           <Show when={summary().clusterCount > 0}>
             <button
+              ref={legendButtonEl}
               type="button"
               title={t("graph.legend")}
               aria-label={t("graph.legend")}
@@ -164,6 +205,7 @@ export default function GraphTab() {
         </div>
         <Show when={legendOpen() && summary().clusterCount > 0}>
           <div
+            ref={legendPopoverEl}
             data-kuku-graph-legend-popover="true"
             class="absolute top-3 right-16 z-20 flex max-h-[min(70vh,28rem)] w-64 flex-col overflow-hidden rounded-xs border border-border/70 bg-bg-elevated/95 shadow-popover backdrop-blur-sm"
           >
@@ -177,19 +219,17 @@ export default function GraphTab() {
                     type="button"
                     data-kuku-graph-legend-item="true"
                     data-kuku-graph-legend-filtered={
-                      selectedLegendClusterIndex() === i() ? "true" : "false"
+                      isLegendClusterSelected(i()) ? "true" : "false"
                     }
-                    aria-pressed={selectedLegendClusterIndex() === i()}
+                    aria-pressed={isLegendClusterSelected(i())}
                     class="flex min-h-7 cursor-pointer items-center gap-2 rounded-xs border-none bg-transparent px-2 text-left text-[0.75rem] text-text-secondary transition-colors hover:bg-ghost-hover/60 hover:text-text-primary"
                     classList={{
-                      "bg-element-selected text-text-primary ring-1 ring-border-selected shadow-soft-1":
-                        selectedLegendClusterIndex() === i(),
+                      "bg-element-selected text-text-primary shadow-soft-1": isLegendClusterSelected(
+                        i(),
+                      ),
                     }}
                     onClick={() => {
-                      const index = i();
-                      setSelectedLegendClusterIndex((current) =>
-                        current === index ? null : index,
-                      );
+                      toggleLegendCluster(i());
                     }}
                   >
                     <span
@@ -199,10 +239,10 @@ export default function GraphTab() {
                     <span class="min-w-0 flex-1 truncate">
                       {cluster.split("/").pop() ?? cluster}
                     </span>
-                    <Show when={selectedLegendClusterIndex() === i()}>
+                    <Show when={isLegendClusterSelected(i())}>
                       <span
                         data-kuku-graph-legend-active-indicator="true"
-                        class="flex size-4 shrink-0 items-center justify-center rounded-full bg-element-active text-text-primary"
+                        class="flex size-4 shrink-0 items-center justify-center text-text-primary"
                       >
                         <CheckIcon size={11} />
                       </span>
