@@ -423,12 +423,12 @@ prosekit-table-handle-drop-indicator {
   font-size: 0.875rem;
   line-height: 1.6;
   letter-spacing: 0.01em;
-  padding: 0.75rem 1rem 0;
+  padding: 0.125rem 1rem 0;
   white-space: pre;
 }
 
 [data-kuku-code-block-closing-fence] {
-  padding-block: 0 0.75rem;
+    padding: 0 1rem 0.125rem;
 }
 
 [data-kuku-code-block-fence-marker] {
