@@ -5,6 +5,7 @@ import {
   StateEffect,
   StateField,
   type Extension as CodeMirrorExtension,
+  type Text as CodeMirrorText,
 } from "@codemirror/state";
 import {
   Decoration as CodeMirrorDecoration,
@@ -37,6 +38,10 @@ type Mermaid = typeof mermaid;
 let mermaidLoader: Promise<Mermaid> | null = null;
 let nextMermaidId = 0;
 let pendingCodeBlockEntrySide: -1 | 1 | null = null;
+const codeBlockFenceSyncDocuments = new WeakSet<Document>();
+const codeBlockFenceSyncFrames = new WeakMap<Document, number>();
+const codeBlockFenceRepairViews = new WeakSet<ProseMirrorView>();
+const codeBlockViewsByEditor = new WeakMap<ProseMirrorView, Set<CodeMirrorCodeBlockView>>();
 const setCodeHighlightLanguage = StateEffect.define<string>();
 
 class CodeMirrorCodeBlockView implements NodeView {
@@ -64,17 +69,11 @@ class CodeMirrorCodeBlockView implements NodeView {
     this.dom.dataset.kukuCodeMirrorBlock = "";
     this.editing = this.behavior === "plain";
     this.syncBehaviorDataset();
+    ensureCodeBlockFenceSync(this.dom.ownerDocument);
+    registerCodeBlockView(this.view, this);
 
     this.editorChrome = document.createElement("div");
     this.editorChrome.dataset.kukuCodeBlockEditor = "";
-    this.editorChrome.addEventListener("focusin", () => this.setFenceChromeVisible(true));
-    this.editorChrome.addEventListener("focusout", () => {
-      window.setTimeout(() => {
-        if (!this.editorChrome.contains(this.dom.ownerDocument.activeElement)) {
-          this.setFenceChromeVisible(false);
-        }
-      });
-    });
 
     const openingFence = document.createElement("div");
     openingFence.dataset.kukuCodeBlockFenceLine = "";
@@ -146,6 +145,7 @@ class CodeMirrorCodeBlockView implements NodeView {
         codeMirrorKeymap.of([...this.codeMirrorKeymap(), ...defaultKeymap]),
         drawSelection(),
         defineCodeHighlightExtension(readLanguage(node)),
+        defineEmbeddedFenceHiderExtension(readLanguage(node)),
         CodeMirrorView.lineWrapping,
         CodeMirrorView.updateListener.of((update) => this.forwardUpdate(update)),
         CodeMirrorState.tabSize.of(2),
@@ -153,10 +153,13 @@ class CodeMirrorCodeBlockView implements NodeView {
       parent: editorHost,
     });
     this.syncRenderedMode();
+    scheduleEmbeddedFenceContentRepair(this.view);
+    scheduleCodeBlockViewRepaint(this);
   }
 
   destroy(): void {
     this.previewRenderToken += 1;
+    unregisterCodeBlockView(this.view, this);
     this.cm.destroy();
   }
 
@@ -236,6 +239,7 @@ class CodeMirrorCodeBlockView implements NodeView {
           to: currentEnd,
         },
       });
+      this.requestRepaint();
       this.updating = false;
     }
     if (!this.editing) {
@@ -382,6 +386,7 @@ class CodeMirrorCodeBlockView implements NodeView {
     this.preview.hidden = showEditor;
     if (!showEditor) {
       this.renderPreview();
+      this.setFenceChromeVisible(false);
     }
   }
 
@@ -391,11 +396,9 @@ class CodeMirrorCodeBlockView implements NodeView {
 
   private setFenceChromeVisible(visible: boolean): void {
     if (visible) {
-      this.dom.dataset.kukuCodeBlockFenceVisible = "";
-      this.languageInput.tabIndex = 0;
+      showCodeBlockFenceChrome(this.dom);
     } else {
-      delete this.dom.dataset.kukuCodeBlockFenceVisible;
-      this.languageInput.tabIndex = -1;
+      hideCodeBlockFenceChrome(this.dom);
     }
   }
 
@@ -487,6 +490,323 @@ class CodeMirrorCodeBlockView implements NodeView {
           error instanceof Error ? error.message : "Unable to render diagram";
       });
   }
+
+  requestRepaint(): void {
+    this.cm.requestMeasure();
+    forceCodeBlockRepaint(this.dom);
+  }
+}
+
+function scheduleEmbeddedFenceContentRepair(view: ProseMirrorView): void {
+  if (codeBlockFenceRepairViews.has(view)) return;
+  codeBlockFenceRepairViews.add(view);
+  window.queueMicrotask(() => {
+    codeBlockFenceRepairViews.delete(view);
+    repairEmbeddedFenceContent(view);
+  });
+}
+
+function repairEmbeddedFenceContent(view: ProseMirrorView): void {
+  const repairs: { from: number; normalized: string; to: number }[] = [];
+  view.state.doc.descendants((node, pos) => {
+    if (node.type.name !== "codeBlock") return;
+    const normalized = unwrapAccidentalEmbeddedFence(node.textContent, readLanguage(node));
+    if (normalized === null) return;
+    repairs.push({
+      from: pos + 1,
+      normalized,
+      to: pos + 1 + node.content.size,
+    });
+  });
+
+  if (repairs.length === 0) return;
+
+  let tr = view.state.tr;
+  for (const repair of repairs.sort((a, b) => b.from - a.from)) {
+    tr = repair.normalized
+      ? tr.replaceWith(repair.from, repair.to, view.state.schema.text(repair.normalized))
+      : tr.delete(repair.from, repair.to);
+  }
+  tr.setMeta("addToHistory", false);
+  view.dispatch(tr);
+  scheduleCodeBlockViewRepaints(view);
+}
+
+function registerCodeBlockView(
+  view: ProseMirrorView,
+  codeBlockView: CodeMirrorCodeBlockView,
+): void {
+  const codeBlockViews = codeBlockViewsByEditor.get(view);
+  if (codeBlockViews) {
+    codeBlockViews.add(codeBlockView);
+    return;
+  }
+  codeBlockViewsByEditor.set(view, new Set([codeBlockView]));
+}
+
+function unregisterCodeBlockView(
+  view: ProseMirrorView,
+  codeBlockView: CodeMirrorCodeBlockView,
+): void {
+  const codeBlockViews = codeBlockViewsByEditor.get(view);
+  if (!codeBlockViews) return;
+  codeBlockViews.delete(codeBlockView);
+  if (codeBlockViews.size === 0) {
+    codeBlockViewsByEditor.delete(view);
+  }
+}
+
+function scheduleCodeBlockViewRepaints(view: ProseMirrorView): void {
+  window.requestAnimationFrame(() => {
+    for (const codeBlockView of codeBlockViewsByEditor.get(view) ?? []) {
+      codeBlockView.requestRepaint();
+    }
+  });
+}
+
+function scheduleCodeBlockViewRepaint(codeBlockView: CodeMirrorCodeBlockView): void {
+  window.requestAnimationFrame(() => codeBlockView.requestRepaint());
+}
+
+function forceCodeBlockRepaint(root: HTMLElement): void {
+  const previousTransform = root.style.transform;
+  root.style.transform = previousTransform ? `${previousTransform} translateZ(0)` : "translateZ(0)";
+  void root.offsetHeight;
+  window.requestAnimationFrame(() => {
+    root.style.transform = previousTransform;
+  });
+}
+
+function unwrapAccidentalEmbeddedFence(source: string, language: string): string | null {
+  if (!source.includes("```")) return null;
+
+  const lines = source.split("\n");
+  const firstLineIndex = lines.findIndex((line) => line.trim());
+  const lastLineIndex = findLastNonEmptyLineIndex(lines);
+  if (firstLineIndex === -1 || lastLineIndex === -1 || firstLineIndex >= lastLineIndex) {
+    return null;
+  }
+
+  const firstLine = lines[firstLineIndex]?.trim() ?? "";
+  const lastLine = lines[lastLineIndex]?.trim() ?? "";
+  if (lastLine !== "```") return null;
+
+  const openingFence = /^```([^\s`]*)\s*$/.exec(firstLine);
+  if (!openingFence) return null;
+
+  const embeddedLanguage = normalizeLanguage(openingFence[1] ?? "").toLowerCase();
+  const blockLanguage = normalizeLanguage(language).toLowerCase();
+  if (embeddedLanguage && blockLanguage && embeddedLanguage !== blockLanguage) return null;
+
+  return lines.slice(firstLineIndex + 1, lastLineIndex).join("\n");
+}
+
+function findLastNonEmptyLineIndex(lines: readonly string[]): number {
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    if (lines[index]?.trim()) return index;
+  }
+  return -1;
+}
+
+function ensureCodeBlockFenceSync(doc: Document): void {
+  if (codeBlockFenceSyncDocuments.has(doc)) return;
+  doc.addEventListener("pointerdown", syncCodeBlockFenceChromeFromPointer, true);
+  doc.addEventListener("focusin", scheduleCodeBlockFenceChromeSync, true);
+  doc.addEventListener("focusout", scheduleCodeBlockFenceChromeSync, true);
+  doc.addEventListener("selectionchange", scheduleCodeBlockFenceChromeSync);
+  codeBlockFenceSyncDocuments.add(doc);
+}
+
+function syncCodeBlockFenceChromeFromPointer(event: PointerEvent): void {
+  const targetElement = eventTargetElement(event.target);
+  if (!targetElement) return;
+
+  const doc = targetElement.ownerDocument;
+  const activeEditor = targetElement.closest<HTMLElement>("[data-kuku-code-block-editor]");
+  const activeBlock = activeEditor?.closest<HTMLElement>("[data-kuku-code-mirror-block]") ?? null;
+  syncCodeBlockFenceChromeFromActiveBlock(doc, activeBlock, false);
+
+  const activeElement = doc.activeElement;
+  if (
+    !activeBlock &&
+    activeElement instanceof HTMLElement &&
+    activeElement.closest("[data-kuku-code-block-editor]")
+  ) {
+    activeElement.blur();
+  }
+}
+
+function scheduleCodeBlockFenceChromeSync(event: Event): void {
+  const doc = eventDocument(event);
+  const win = doc?.defaultView;
+  if (!doc || !win || codeBlockFenceSyncFrames.has(doc)) return;
+
+  const frame = win.requestAnimationFrame(() => {
+    codeBlockFenceSyncFrames.delete(doc);
+    syncCodeBlockFenceChromeFromDocument(doc);
+  });
+  codeBlockFenceSyncFrames.set(doc, frame);
+}
+
+function syncCodeBlockFenceChromeFromDocument(doc: Document): void {
+  const activeElement = doc.activeElement;
+  const activeEditor =
+    activeElement instanceof Element
+      ? activeElement.closest<HTMLElement>("[data-kuku-code-block-editor]")
+      : null;
+  const activeBlock = activeEditor?.closest<HTMLElement>("[data-kuku-code-mirror-block]") ?? null;
+  syncCodeBlockFenceChromeFromActiveBlock(doc, activeBlock, true);
+}
+
+function syncCodeBlockFenceChromeFromActiveBlock(
+  doc: Document,
+  activeBlock: HTMLElement | null,
+  requireEditorActive: boolean,
+): void {
+  for (const block of doc.querySelectorAll<HTMLElement>("[data-kuku-code-mirror-block]")) {
+    const show =
+      block === activeBlock &&
+      (requireEditorActive ? isCodeBlockEditorActive(block) : !isCodeBlockEditorHidden(block));
+    if (show) {
+      showCodeBlockFenceChrome(block);
+    } else {
+      hideCodeBlockFenceChrome(block);
+    }
+  }
+}
+
+function eventDocument(event: Event): Document | null {
+  const target = event.target;
+  if (target instanceof Document) return target;
+  if (target instanceof Node) return target.ownerDocument;
+  return null;
+}
+
+function eventTargetElement(target: EventTarget | null): Element | null {
+  if (target instanceof Element) return target;
+  if (target instanceof Node) return target.parentElement;
+  return null;
+}
+
+function showCodeBlockFenceChrome(root: HTMLElement): void {
+  root.dataset.kukuCodeBlockFenceVisible = "";
+  const languageInput = root.querySelector<HTMLInputElement>(
+    "[data-kuku-code-block-language-input]",
+  );
+  if (languageInput) {
+    languageInput.tabIndex = 0;
+  }
+}
+
+function hideCodeBlockFenceChrome(root: HTMLElement): void {
+  delete root.dataset.kukuCodeBlockFenceVisible;
+  const languageInput = root.querySelector<HTMLInputElement>(
+    "[data-kuku-code-block-language-input]",
+  );
+  if (languageInput) {
+    languageInput.tabIndex = -1;
+  }
+}
+
+function isCodeBlockEditorHidden(root: HTMLElement): boolean {
+  return (
+    root.querySelector<HTMLElement>("[data-kuku-code-block-editor]")?.hasAttribute("hidden") ?? true
+  );
+}
+
+function isCodeBlockEditorActive(root: HTMLElement): boolean {
+  const activeElement = root.ownerDocument.activeElement;
+  return (
+    !isCodeBlockEditorHidden(root) &&
+    ((activeElement instanceof Element && root.contains(activeElement)) ||
+      root.matches(":focus-within") ||
+      root.querySelector(".cm-focused") !== null)
+  );
+}
+
+interface CodeBlockDebugSnapshot {
+  index: number;
+  language: string;
+  behavior: string;
+  fenceVisibleAttr: boolean;
+  activeInside: boolean;
+  activeElement: string;
+  focusWithin: boolean;
+  cmFocused: boolean;
+  editorHidden: boolean;
+  previewHidden: boolean;
+  openingLineOpacity: string;
+  openingMarkerOpacity: string;
+  languageInputOpacity: string;
+  closingLineOpacity: string;
+  closingMarkerOpacity: string;
+  rootTop: number;
+  chromeText: string;
+  cmText: string;
+}
+
+function installCodeBlockDebugHelper(targetWindow: Window & typeof globalThis): void {
+  Object.assign(targetWindow, {
+    __kukuCodeBlocks: {
+      dump: () => dumpCodeBlockDebugState(targetWindow.document),
+    },
+  });
+}
+
+function dumpCodeBlockDebugState(doc: Document): CodeBlockDebugSnapshot[] {
+  const activeElement = doc.activeElement;
+  return [...doc.querySelectorAll<HTMLElement>("[data-kuku-code-mirror-block]")].map(
+    (block, index): CodeBlockDebugSnapshot => {
+      const fenceLines = [
+        ...block.querySelectorAll<HTMLElement>("[data-kuku-code-block-fence-line]"),
+      ];
+      const markers = [
+        ...block.querySelectorAll<HTMLElement>("[data-kuku-code-block-fence-marker]"),
+      ];
+      const editor = block.querySelector<HTMLElement>("[data-kuku-code-block-editor]");
+      const preview = block.querySelector<HTMLElement>("[data-kuku-code-block-preview]");
+      const languageInput = block.querySelector<HTMLInputElement>(
+        "[data-kuku-code-block-language-input]",
+      );
+      const cmEditor = block.querySelector<HTMLElement>(".cm-editor");
+      const cmContent = block.querySelector<HTMLElement>(".cm-content");
+      const rootRect = block.getBoundingClientRect();
+
+      return {
+        index,
+        language: languageInput?.value ?? "",
+        behavior: block.dataset.kukuCodeBlockBehavior ?? "",
+        fenceVisibleAttr: block.dataset.kukuCodeBlockFenceVisible !== undefined,
+        activeInside: activeElement ? block.contains(activeElement) : false,
+        activeElement: activeElement ? describeDebugElement(activeElement) : "",
+        focusWithin: block.matches(":focus-within"),
+        cmFocused: cmEditor?.classList.contains("cm-focused") ?? false,
+        editorHidden: editor?.hasAttribute("hidden") ?? false,
+        previewHidden: preview?.hasAttribute("hidden") ?? false,
+        openingLineOpacity: readComputedOpacity(fenceLines[0]),
+        openingMarkerOpacity: readComputedOpacity(markers[0]),
+        languageInputOpacity: readComputedOpacity(languageInput),
+        closingLineOpacity: readComputedOpacity(fenceLines.at(-1)),
+        closingMarkerOpacity: readComputedOpacity(markers.at(-1)),
+        rootTop: Math.round(rootRect.top),
+        chromeText: fenceLines.map((line) => line.textContent ?? "").join(" / "),
+        cmText: (cmContent?.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 140),
+      };
+    },
+  );
+}
+
+function readComputedOpacity(element: HTMLElement | null | undefined): string {
+  return element
+    ? (element.ownerDocument.defaultView?.getComputedStyle(element).opacity ?? "")
+    : "";
+}
+
+function describeDebugElement(element: Element): string {
+  const tag = element.tagName.toLowerCase();
+  const className = typeof element.className === "string" ? element.className.trim() : "";
+  if (!className) return tag;
+  return `${tag}.${className.split(/\s+/).slice(0, 3).join(".")}`;
 }
 
 function defineCodeMirrorCodeBlockView(): Extension {
@@ -619,6 +939,11 @@ interface CodeHighlightState {
   language: string;
 }
 
+interface EmbeddedFenceHiderState {
+  decorations: CodeMirrorDecorationSet;
+  language: string;
+}
+
 function defineCodeHighlightExtension(initialLanguage: string): CodeMirrorExtension {
   return StateField.define<CodeHighlightState>({
     create(state) {
@@ -646,6 +971,101 @@ function defineCodeHighlightExtension(initialLanguage: string): CodeMirrorExtens
     },
     provide: (field) => CodeMirrorView.decorations.from(field, (value) => value.decorations),
   });
+}
+
+function defineEmbeddedFenceHiderExtension(initialLanguage: string): CodeMirrorExtension {
+  return StateField.define<EmbeddedFenceHiderState>({
+    create(state) {
+      return {
+        decorations: buildEmbeddedFenceHiderDecorations(state.doc, initialLanguage),
+        language: initialLanguage,
+      };
+    },
+    update(value, transaction) {
+      let language = value.language;
+      for (const effect of transaction.effects) {
+        if (effect.is(setCodeHighlightLanguage)) {
+          language = effect.value;
+        }
+      }
+
+      if (language === value.language && !transaction.docChanged) {
+        return value;
+      }
+
+      return {
+        decorations: buildEmbeddedFenceHiderDecorations(transaction.state.doc, language),
+        language,
+      };
+    },
+    provide: (field) => CodeMirrorView.decorations.from(field, (value) => value.decorations),
+  });
+}
+
+function buildEmbeddedFenceHiderDecorations(
+  doc: CodeMirrorText,
+  language: string,
+): CodeMirrorDecorationSet {
+  const ranges = findEmbeddedFenceLineRanges(doc, language);
+  if (ranges.length === 0) return CodeMirrorDecoration.none;
+
+  const hiddenLine = CodeMirrorDecoration.replace({ block: true });
+  const builder = new RangeSetBuilder<CodeMirrorDecoration>();
+  for (const range of ranges) {
+    builder.add(range.from, range.to, hiddenLine);
+  }
+  return builder.finish();
+}
+
+function findEmbeddedFenceLineRanges(
+  doc: CodeMirrorText,
+  language: string,
+): { from: number; to: number }[] {
+  if (doc.lines < 2) return [];
+
+  const firstLine = firstNonEmptyCodeMirrorLine(doc);
+  const lastLine = lastNonEmptyCodeMirrorLine(doc);
+  if (!firstLine || !lastLine || firstLine.number >= lastLine.number) return [];
+
+  const openingFence = /^```([^\s`]*)\s*$/.exec(firstLine.text.trim());
+  if (!openingFence || lastLine.text.trim() !== "```") return [];
+
+  const embeddedLanguage = normalizeLanguage(openingFence[1] ?? "").toLowerCase();
+  const blockLanguage = normalizeLanguage(language).toLowerCase();
+  if (embeddedLanguage && blockLanguage && embeddedLanguage !== blockLanguage) return [];
+
+  return [
+    { from: firstLine.from, to: lineEndIncludingBreak(doc, firstLine.number) },
+    { from: lineStartIncludingPreviousBreak(doc, lastLine.number), to: doc.length },
+  ];
+}
+
+function firstNonEmptyCodeMirrorLine(
+  doc: CodeMirrorText,
+): { from: number; number: number; text: string } | null {
+  for (let lineNumber = 1; lineNumber <= doc.lines; lineNumber += 1) {
+    const line = doc.line(lineNumber);
+    if (line.text.trim()) return { from: line.from, number: line.number, text: line.text };
+  }
+  return null;
+}
+
+function lastNonEmptyCodeMirrorLine(doc: CodeMirrorText): { number: number; text: string } | null {
+  for (let lineNumber = doc.lines; lineNumber >= 1; lineNumber -= 1) {
+    const line = doc.line(lineNumber);
+    if (line.text.trim()) return { number: line.number, text: line.text };
+  }
+  return null;
+}
+
+function lineEndIncludingBreak(doc: CodeMirrorText, lineNumber: number): number {
+  const line = doc.line(lineNumber);
+  return line.to < doc.length ? line.to + 1 : line.to;
+}
+
+function lineStartIncludingPreviousBreak(doc: CodeMirrorText, lineNumber: number): number {
+  if (lineNumber <= 1) return 0;
+  return doc.line(lineNumber - 1).to;
 }
 
 function buildCodeHighlightDecorations(source: string, language: string): CodeMirrorDecorationSet {
@@ -765,6 +1185,10 @@ function createEditIcon(): SVGSVGElement {
   svg.append(editPath);
 
   return svg;
+}
+
+if (import.meta.env.DEV && typeof window !== "undefined") {
+  installCodeBlockDebugHelper(window);
 }
 
 export { CodeMirrorCodeBlockView, defineCodeMirrorCodeBlockView };

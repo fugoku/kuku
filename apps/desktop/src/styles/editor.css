@@ -431,29 +431,17 @@ prosekit-table-handle-drop-indicator {
   padding: 0 1rem 0.125rem;
 }
 
-[data-kuku-code-mirror-block]
-  :is(
-    [data-kuku-code-block-fence-chrome],
-    [data-kuku-code-block-fence-marker],
-    [data-kuku-code-block-language-input],
-    [data-kuku-code-block-closing-fence]
-  ) {
+[data-kuku-code-mirror-block] [data-kuku-code-block-fence-line] {
   opacity: 0;
   pointer-events: none;
-  transition: opacity 300ms ease-out;
+  visibility: hidden;
 }
 
 [data-kuku-code-mirror-block][data-kuku-code-block-fence-visible]
-  :is(
-    [data-kuku-code-block-fence-chrome],
-    [data-kuku-code-block-fence-marker],
-    [data-kuku-code-block-language-input],
-    [data-kuku-code-block-closing-fence]
-  ) {
+  [data-kuku-code-block-fence-line] {
   opacity: 1;
   pointer-events: auto;
-  transition-duration: 120ms;
-  transition-timing-function: ease-out;
+  visibility: visible;
 }
 
 [data-kuku-code-block-fence-marker] {
