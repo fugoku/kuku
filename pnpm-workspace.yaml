@@ -2,9 +2,6 @@ packages:
   - apps/*
   - packages/*
 
-allowBuilds:
-  msw: true
-
 minimumReleaseAge: 3333
 
 minimumReleaseAgeExclude:
@@ -15,11 +12,11 @@ minimumReleaseAgeExclude:
   - '@oxfmt/*'
   - '@oxlint-tsgolint/*'
 
-onlyBuiltDependencies:
-  - '@bufbuild/buf'
-  - esbuild
-  - msw
-  - sharp
+allowBuilds:
+  '@bufbuild/buf': true
+  esbuild: true
+  msw: true
+  sharp: true
 
 patchedDependencies:
   three-forcegraph@1.43.4: patches/three-forcegraph.patch
