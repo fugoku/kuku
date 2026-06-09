@@ -139,6 +139,30 @@ describe("code block preview scheduler", () => {
     expect(observers[0]?.disconnected).toBe(true);
   });
 
+  it("does not render many deferred previews before intersection", () => {
+    const editorRoot = document.createElement("div");
+    const renders = Array.from({ length: 50 }, () => vi.fn());
+    const targets = renders.map(() => document.createElement("div"));
+
+    for (const [index, target] of targets.entries()) {
+      scheduleDeferredCodeBlockPreview({
+        editorRoot,
+        target,
+        isCurrent: () => true,
+        render: renders[index]!,
+      });
+    }
+
+    expect(observers).toHaveLength(50);
+    expect(renders.reduce((count, render) => count + render.mock.calls.length, 0)).toBe(0);
+
+    triggerIntersection(observers[0]!, true);
+    triggerIntersection(observers[1]!, true);
+    triggerIntersection(observers[2]!, true);
+
+    expect(renders.reduce((count, render) => count + render.mock.calls.length, 0)).toBe(3);
+  });
+
   it("cancels stale observed previews without rendering", () => {
     const editorRoot = document.createElement("div");
     const target = document.createElement("div");
