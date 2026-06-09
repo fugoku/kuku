@@ -12,11 +12,20 @@ interface CodeBlockPreviewRenderContext {
   lockHeight(): (() => void) | null;
 }
 
+interface CodeBlockPreviewEstimateContext {
+  editorRoot: HTMLElement;
+  language: string;
+  source: string;
+  width: number;
+}
+
 interface CodeBlockPreviewRenderer {
   id: string;
   matches(language: string): boolean;
   render(ctx: CodeBlockPreviewRenderContext): void | Promise<void>;
   clear?(previewBody: HTMLElement): void;
+  deferUntilVisible?: boolean;
+  estimateHeight?(ctx: CodeBlockPreviewEstimateContext): number | null;
   preserveOnRefresh?: boolean;
   refreshOnThemeChange?: boolean;
 }
@@ -83,4 +92,8 @@ export {
   registerCodeBlockPreviewRenderer,
   resolveCodeBlockPreviewRenderer,
 };
-export type { CodeBlockPreviewRenderContext, CodeBlockPreviewRenderer };
+export type {
+  CodeBlockPreviewEstimateContext,
+  CodeBlockPreviewRenderContext,
+  CodeBlockPreviewRenderer,
+};

@@ -27,6 +27,12 @@ describe("code block preview renderers", () => {
     expect(normalizeCodeBlockLanguage("MMD")).toBe("mmd");
   });
 
+  it("does not resolve renderers for blank languages", () => {
+    registerCodeBlockPreviewRenderer(renderer("mermaid", ["mermaid"]));
+
+    expect(resolveCodeBlockPreviewRenderer(" ")).toBeNull();
+  });
+
   it("resolves the first matching renderer in registration order", () => {
     const first = renderer("first", ["mermaid"]);
     const second = renderer("second", ["mermaid"]);
@@ -63,10 +69,22 @@ describe("code block preview renderers", () => {
     expect(resolveCodeBlockPreviewRenderer("mmd")).toBe(replacement);
   });
 
+  it("preserves scheduling hints on renderer entries", () => {
+    const hinted: CodeBlockPreviewRenderer = {
+      ...renderer("hinted", ["mermaid"]),
+      deferUntilVisible: true,
+      estimateHeight: () => 240,
+    };
+
+    registerCodeBlockPreviewRenderer(hinted);
+
+    expect(resolveCodeBlockPreviewRenderer("mermaid")).toBe(hinted);
+    expect(listCodeBlockPreviewRenderers()).toEqual([hinted]);
+  });
+
   it("rejects blank renderer ids", () => {
     expect(() => registerCodeBlockPreviewRenderer(renderer(" ", ["mermaid"]))).toThrow(
       "Code block preview renderer id is required.",
     );
   });
 });
-
