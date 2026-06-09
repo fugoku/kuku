@@ -70,7 +70,10 @@ describe("mermaid code block preview renderer", () => {
     expect(mermaidCodeBlockPreviewRenderer.matches("mermaid")).toBe(true);
     expect(mermaidCodeBlockPreviewRenderer.matches("mmd")).toBe(true);
     expect(mermaidCodeBlockPreviewRenderer.matches("MERMAID")).toBe(true);
-    expect(mermaidCodeBlockPreviewRenderer.deferUntilVisible).toBe(true);
+    expect(mermaidCodeBlockPreviewRenderer.deferUntilVisible).not.toBe(true);
+    expect(mermaidCodeBlockPreviewRenderer.deferThemeRefreshUntilVisible).toBe(true);
+    expect(mermaidCodeBlockPreviewRenderer.preserveScrollAnchorOnRender).toBe(true);
+    expect(mermaidCodeBlockPreviewRenderer.reserveEstimatedHeight).toBe(true);
   });
 
   it("does not match unrelated code fence languages", () => {
@@ -127,6 +130,37 @@ describe("mermaid code block preview renderer", () => {
         width: 640,
       }),
     ).toBe(360);
+  });
+
+  it("changes preview cache signature when width or theme changes", () => {
+    const ctx = createRenderContext("graph TD\nA-->B");
+    const base = mermaidCodeBlockPreviewRenderer.getCacheSignature?.({
+      root: ctx.root,
+      editorRoot: ctx.editorRoot,
+      language: ctx.language,
+      source: ctx.source,
+      width: 1280,
+    });
+    const wider = mermaidCodeBlockPreviewRenderer.getCacheSignature?.({
+      root: ctx.root,
+      editorRoot: ctx.editorRoot,
+      language: ctx.language,
+      source: ctx.source,
+      width: 1536,
+    });
+
+    document.documentElement.dataset.theme = "light";
+    const light = mermaidCodeBlockPreviewRenderer.getCacheSignature?.({
+      root: ctx.root,
+      editorRoot: ctx.editorRoot,
+      language: ctx.language,
+      source: ctx.source,
+      width: 1280,
+    });
+
+    expect(base).toBeTruthy();
+    expect(wider).not.toBe(base);
+    expect(light).not.toBe(base);
   });
 
   it("renders Mermaid errors as preview text", async () => {
