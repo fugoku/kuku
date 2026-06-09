@@ -26,8 +26,9 @@ function defineKnowledgeEditorExtension(): Extension {
 const knowledgePlugin: KukuPlugin = {
   id: "knowledge",
   name: "Second Brain",
-  version: "0.1.0",
+  version: "0.1.0-alpha",
   description: "Knowledge memory proposal, review, apply, and search",
+  canDisable: true,
   dependencies: ["core-tool-registry", "core-editor", "core-indexer"],
 
   views: [
