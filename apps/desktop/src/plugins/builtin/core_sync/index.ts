@@ -15,9 +15,9 @@ const SyncSettingsView = lazy(() =>
 const coreSyncPlugin: KukuPlugin = {
   id: "core-sync",
   name: "Sync",
-  version: "0.1.0",
+  version: "0.1.0-alpha",
   description: "End-to-end encrypted sync settings and status",
-  canDisable: false,
+  canDisable: true,
   dependencies: ["core-auth"],
 
   views: [
