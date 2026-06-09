@@ -3,9 +3,20 @@ import type { MermaidConfig } from "mermaid";
 
 import {
   normalizeCodeBlockLanguage,
+  type CodeBlockPreviewEstimateContext,
   type CodeBlockPreviewRenderContext,
   type CodeBlockPreviewRenderer,
 } from "~/plugins/builtin/core_editor/code_block_preview_renderers";
+
+import {
+  createMermaidRenderCacheKey,
+  getCachedMermaidConfig,
+  getCachedMermaidFontReady,
+  hashStableValue,
+  readCachedMermaidHeight,
+  writeCachedMermaidHeight,
+  type MermaidRenderCacheKeyResult,
+} from "./runtime_cache";
 
 type Mermaid = typeof mermaid;
 
@@ -14,6 +25,8 @@ const MERMAID_FONT_PRELOAD_SAMPLE_TEXT =
 const MERMAID_RENDER_FALLBACK_WIDTH = 1280;
 const MERMAID_RENDER_LAYOUT_FRAME_LIMIT = 4;
 const MERMAID_RENDER_MIN_WIDTH = 1280;
+const MERMAID_ESTIMATE_MIN_HEIGHT = 160;
+const MERMAID_ESTIMATE_MAX_HEIGHT = 720;
 
 let mermaidLoader: Promise<Mermaid> | null = null;
 let nextMermaidId = 0;
@@ -26,6 +39,7 @@ const mermaidCodeBlockPreviewRenderer: CodeBlockPreviewRenderer = {
   },
   render: renderMermaidPreview,
   clear: clearMermaidPreviewState,
+  estimateHeight: estimateMermaidPreviewHeight,
   preserveOnRefresh: true,
   refreshOnThemeChange: true,
 };
@@ -56,7 +70,12 @@ async function renderMermaidPreview(ctx: CodeBlockPreviewRenderContext): Promise
     const renderWidth = await waitForMermaidRenderWidth(ctx.previewBody, ctx.editorRoot);
     if (!ctx.isCurrent()) return;
 
-    const config = buildMermaidConfig(ctx.root);
+    const { cacheKey, config } = getMermaidRenderInputs(
+      ctx.root,
+      ctx.language,
+      source,
+      renderWidth,
+    );
     renderContainer = createMermaidRenderContainer(ctx.previewBody, renderWidth);
     const mermaid = await loadMermaid();
     await waitForMermaidFonts(ctx.root, source, config);
@@ -74,6 +93,7 @@ async function renderMermaidPreview(ctx: CodeBlockPreviewRenderContext): Promise
     delete ctx.previewBody.dataset.kukuCodeBlockMermaidError;
     ctx.previewBody.dataset.kukuCodeBlockMermaidSvg = "";
     ctx.previewBody.innerHTML = result.svg;
+    rememberRenderedMermaidHeight(ctx.previewBody, cacheKey);
   } catch (error: unknown) {
     if (!ctx.isCurrent()) return;
     if (preserveCurrent && ctx.previewBody.dataset.kukuCodeBlockMermaidSvg !== undefined) {
@@ -90,10 +110,108 @@ async function renderMermaidPreview(ctx: CodeBlockPreviewRenderContext): Promise
   }
 }
 
+function estimateMermaidPreviewHeight(ctx: CodeBlockPreviewEstimateContext): number | null {
+  const source = ctx.source.trim();
+  if (!source) return MERMAID_ESTIMATE_MIN_HEIGHT;
+
+  const width = Math.max(ctx.width, MERMAID_RENDER_MIN_WIDTH);
+  const { cacheKey } = getMermaidRenderInputs(ctx.root, ctx.language, source, width);
+  const cachedHeight = readCachedMermaidHeight(cacheKey.key);
+  if (cachedHeight !== null) return cachedHeight;
+
+  return estimateMermaidHeightFromSource(source, cacheKey.parts.widthBucket);
+}
+
 function clearMermaidPreviewState(previewBody: HTMLElement): void {
   delete previewBody.dataset.kukuCodeBlockMermaidSvg;
   delete previewBody.dataset.kukuCodeBlockMermaidError;
   delete previewBody.dataset.kukuCodeBlockMermaidPlaceholder;
+}
+
+function getMermaidRenderInputs(
+  root: HTMLElement,
+  language: string,
+  source: string,
+  width: number,
+): {
+  cacheKey: MermaidRenderCacheKeyResult;
+  config: MermaidConfig;
+} {
+  const builtConfig = buildMermaidConfig(root);
+  const configSignature = hashStableValue(builtConfig);
+  const config = getCachedMermaidConfig(configSignature, () => builtConfig);
+  const fontSignature = getMermaidFontSignature(config);
+  const securitySignature = getMermaidSecuritySignature(config);
+  const cacheKey = createMermaidRenderCacheKey({
+    configSignature,
+    fontSignature,
+    language,
+    securitySignature,
+    source,
+    width,
+  });
+
+  return { cacheKey, config };
+}
+
+function getMermaidFontSignature(config: MermaidConfig): string {
+  return hashStableValue({
+    fontFamily: config.fontFamily ?? "",
+    fontSize: config.fontSize ?? "",
+    themeFontFamily: config.themeVariables?.fontFamily ?? "",
+    themeFontSize: config.themeVariables?.fontSize ?? "",
+  });
+}
+
+function getMermaidSecuritySignature(config: MermaidConfig): string {
+  return hashStableValue({
+    securityLevel: config.securityLevel ?? "",
+    startOnLoad: config.startOnLoad ?? "",
+  });
+}
+
+function rememberRenderedMermaidHeight(
+  previewBody: HTMLElement,
+  cacheKey: MermaidRenderCacheKeyResult,
+): void {
+  const measuredHeight = Math.max(
+    previewBody.offsetHeight,
+    previewBody.getBoundingClientRect().height,
+    previewBody.firstElementChild?.getBoundingClientRect().height ?? 0,
+  );
+  writeCachedMermaidHeight(cacheKey.key, measuredHeight, cacheKey.parts.widthBucket);
+}
+
+function estimateMermaidHeightFromSource(source: string, widthBucket: number): number {
+  const lines = Math.max(1, source.split("\n").length);
+  const firstLine = source
+    .split("\n")
+    .find((line) => line.trim())
+    ?.trim()
+    .toLowerCase();
+  let multiplier = 1;
+
+  if (firstLine?.startsWith("sequencediagram")) {
+    multiplier = 1.3;
+  } else if (
+    firstLine?.startsWith("classdiagram") ||
+    firstLine?.startsWith("statediagram") ||
+    firstLine?.startsWith("erdiagram")
+  ) {
+    multiplier = 1.2;
+  } else if (firstLine?.startsWith("gantt") || firstLine?.startsWith("journey")) {
+    multiplier = 1.35;
+  }
+
+  if (widthBucket < 896) {
+    multiplier *= 1.15;
+  }
+
+  return clampNumber(
+    Math.round((140 + lines * 18) * multiplier),
+    MERMAID_ESTIMATE_MIN_HEIGHT,
+    MERMAID_ESTIMATE_MAX_HEIGHT,
+  );
 }
 
 function buildMermaidConfig(root: HTMLElement): MermaidConfig {
@@ -589,9 +707,11 @@ async function waitForMermaidFonts(
     `700 ${fontSize}px ${fontFamily}`,
   ];
 
-  await Promise.allSettled(loadSpecs.map((spec) => loadFontFace(fonts, spec, sample)));
-  await fonts.ready.catch(() => undefined);
-  await waitForNextAnimationFrame(root.ownerDocument);
+  await getCachedMermaidFontReady(root.ownerDocument, getMermaidFontSignature(config), async () => {
+    await Promise.allSettled(loadSpecs.map((spec) => loadFontFace(fonts, spec, sample)));
+    await fonts.ready.catch(() => undefined);
+    await waitForNextAnimationFrame(root.ownerDocument);
+  });
 }
 
 function loadFontFace(fonts: FontFaceSet, spec: string, sample: string): Promise<FontFace[]> {
@@ -621,6 +741,10 @@ function loadMermaid(): Promise<Mermaid> {
     });
   }
   return mermaidLoader;
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }
 
 export { mermaidCodeBlockPreviewRenderer };
