@@ -1,6 +1,7 @@
 import type { Disposer } from "~/plugins/types";
 
 const CODE_BLOCK_PREVIEW_INTERSECTION_ROOT_MARGIN = "1000px 0px";
+const CODE_BLOCK_PREVIEW_INTERSECTION_MARGIN_PX = 1000;
 
 interface DeferredCodeBlockPreviewOptions {
   editorRoot: HTMLElement;
@@ -59,6 +60,23 @@ function findCodeBlockPreviewObserverRoot(editorRoot: HTMLElement): HTMLElement 
   );
 }
 
+function isCodeBlockPreviewNearViewport(
+  target: HTMLElement,
+  editorRoot: HTMLElement,
+  margin = CODE_BLOCK_PREVIEW_INTERSECTION_MARGIN_PX,
+): boolean {
+  const win = target.ownerDocument.defaultView;
+  if (!win) return true;
+
+  const targetRect = target.getBoundingClientRect();
+  const root = findCodeBlockPreviewObserverRoot(editorRoot);
+  const rootRect = root?.getBoundingClientRect();
+  const viewportTop = rootRect?.top ?? 0;
+  const viewportBottom = rootRect?.bottom ?? win.innerHeight;
+
+  return targetRect.bottom >= viewportTop - margin && targetRect.top <= viewportBottom + margin;
+}
+
 function scheduleDeferredPreviewFrameFallback(options: DeferredCodeBlockPreviewOptions): Disposer {
   const win = options.target.ownerDocument.defaultView;
   let disposed = false;
@@ -90,5 +108,6 @@ function scheduleDeferredPreviewFrameFallback(options: DeferredCodeBlockPreviewO
 export {
   CODE_BLOCK_PREVIEW_INTERSECTION_ROOT_MARGIN,
   findCodeBlockPreviewObserverRoot,
+  isCodeBlockPreviewNearViewport,
   scheduleDeferredCodeBlockPreview,
 };

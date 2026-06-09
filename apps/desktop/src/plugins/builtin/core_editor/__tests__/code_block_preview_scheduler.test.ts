@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CODE_BLOCK_PREVIEW_INTERSECTION_ROOT_MARGIN,
   findCodeBlockPreviewObserverRoot,
+  isCodeBlockPreviewNearViewport,
   scheduleDeferredCodeBlockPreview,
 } from "../code_block_preview_scheduler";
 
@@ -85,6 +86,32 @@ describe("code block preview scheduler", () => {
     document.body.append(scrollRoot);
 
     expect(findCodeBlockPreviewObserverRoot(editorRoot)).toBe(viewport);
+  });
+
+  it("detects previews near the editor scroll viewport", () => {
+    const viewport = document.createElement("div");
+    const editorRoot = document.createElement("div");
+    const visibleTarget = document.createElement("div");
+    const offscreenTarget = document.createElement("div");
+    viewport.dataset.scrollAreaViewport = "";
+    viewport.append(editorRoot, visibleTarget, offscreenTarget);
+    document.body.append(viewport);
+
+    Object.defineProperty(viewport, "getBoundingClientRect", {
+      configurable: true,
+      value: () => ({ bottom: 600, top: 100 }),
+    });
+    Object.defineProperty(visibleTarget, "getBoundingClientRect", {
+      configurable: true,
+      value: () => ({ bottom: 720, top: 640 }),
+    });
+    Object.defineProperty(offscreenTarget, "getBoundingClientRect", {
+      configurable: true,
+      value: () => ({ bottom: 1900, top: 1800 }),
+    });
+
+    expect(isCodeBlockPreviewNearViewport(visibleTarget, editorRoot, 200)).toBe(true);
+    expect(isCodeBlockPreviewNearViewport(offscreenTarget, editorRoot, 200)).toBe(false);
   });
 
   it("observes deferred previews until they enter the near viewport", () => {
