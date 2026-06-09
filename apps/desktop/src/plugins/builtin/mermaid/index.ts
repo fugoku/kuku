@@ -10,9 +10,9 @@ import "./mermaid.css";
 // Keep Mermaid fences syntax-highlighted when diagram rendering is disabled.
 registerMermaidHighlightLanguage();
 
-const mermaidPlugin: KukuPlugin = {
-  id: "mermaid",
-  name: "Mermaid",
+const mermaidPreviewPlugin: KukuPlugin = {
+  id: "mermaid-preview",
+  name: "Mermaid Preview",
   version: "0.1.0",
   description: "Mermaid diagram preview rendering for fenced code blocks",
   canDisable: true,
@@ -23,4 +23,4 @@ const mermaidPlugin: KukuPlugin = {
   },
 };
 
-export { mermaidPlugin };
+export { mermaidPreviewPlugin };
