@@ -4,6 +4,7 @@ import mermaid from "mermaid";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { CodeBlockPreviewRenderContext } from "~/plugins/builtin/core_editor/code_block_preview_renderers";
+import { clearMermaidPreviewRuntimeCache } from "./runtime_cache";
 import { mermaidCodeBlockPreviewRenderer } from "./renderer";
 
 vi.mock("mermaid", () => ({
@@ -51,6 +52,7 @@ function createRenderContext(
 describe("mermaid code block preview renderer", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearMermaidPreviewRuntimeCache();
     document.body.innerHTML = "";
     document.documentElement.removeAttribute("data-theme");
     Object.defineProperty(window, "requestAnimationFrame", {
@@ -101,6 +103,27 @@ describe("mermaid code block preview renderer", () => {
     expect(ctx.previewBody.dataset.kukuCodeBlockMermaidSvg).toBe("");
     expect(ctx.previewBody.dataset.kukuCodeBlockMermaidError).toBeUndefined();
     expect(ctx.previewBody.innerHTML).toContain("<svg");
+  });
+
+  it("uses the rendered height cache for later estimates", async () => {
+    vi.mocked(mermaid.render).mockResolvedValue({
+      svg: '<svg role="img"><text>diagram</text></svg>',
+      bindFunctions: undefined,
+    } as Awaited<ReturnType<typeof mermaid.render>>);
+    const ctx = createRenderContext("graph TD\nA-->B");
+    Object.defineProperty(ctx.previewBody, "offsetHeight", { configurable: true, value: 360 });
+
+    await mermaidCodeBlockPreviewRenderer.render(ctx);
+
+    expect(
+      mermaidCodeBlockPreviewRenderer.estimateHeight?.({
+        root: ctx.root,
+        editorRoot: ctx.editorRoot,
+        language: ctx.language,
+        source: ctx.source,
+        width: 640,
+      }),
+    ).toBe(360);
   });
 
   it("renders Mermaid errors as preview text", async () => {

@@ -13,6 +13,7 @@ interface CodeBlockPreviewRenderContext {
 }
 
 interface CodeBlockPreviewEstimateContext {
+  root: HTMLElement;
   editorRoot: HTMLElement;
   language: string;
   source: string;
