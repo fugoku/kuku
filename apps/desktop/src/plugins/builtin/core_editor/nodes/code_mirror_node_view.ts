@@ -33,7 +33,10 @@ import {
   resolveCodeBlockPreviewRenderer,
   type CodeBlockPreviewRenderer,
 } from "../code_block_preview_renderers";
-import { scheduleDeferredCodeBlockPreview } from "../code_block_preview_scheduler";
+import {
+  isCodeBlockPreviewNearViewport,
+  scheduleDeferredCodeBlockPreview,
+} from "../code_block_preview_scheduler";
 import type { Disposer } from "~/plugins/types";
 
 type GetPos = () => number | undefined;
@@ -572,6 +575,13 @@ class CodeMirrorCodeBlockView implements NodeView {
   refreshPreviewTheme(): Promise<void> | null {
     const renderer = this.resolvePreviewRenderer();
     if (renderer?.refreshOnThemeChange && this.behavior === "renderable" && !this.editing) {
+      if (
+        renderer.deferUntilVisible === true &&
+        !isCodeBlockPreviewNearViewport(this.previewBody, this.view.dom)
+      ) {
+        this.renderDeferredCustomPreview(renderer);
+        return null;
+      }
       return this.renderCustomPreview(renderer, {
         preserveCurrent: renderer.preserveOnRefresh === true,
       });
