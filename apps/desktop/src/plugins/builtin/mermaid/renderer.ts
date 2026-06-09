@@ -17,10 +17,7 @@ import {
   writeCachedMermaidHeight,
   type MermaidRenderCacheKeyResult,
 } from "./runtime_cache";
-import {
-  enqueueMermaidRenderJob,
-  isMermaidRenderQueueClearedError,
-} from "./render_queue";
+import { enqueueMermaidRenderJob, isMermaidRenderQueueClearedError } from "./render_queue";
 
 type Mermaid = typeof mermaid;
 
@@ -48,17 +45,19 @@ const mermaidCodeBlockPreviewRenderer: CodeBlockPreviewRenderer = {
   },
   render: renderMermaidPreview,
   clear: clearMermaidPreviewState,
-  deferUntilVisible: true,
+  deferThemeRefreshUntilVisible: true,
   estimateHeight: estimateMermaidPreviewHeight,
+  getCacheSignature: getMermaidPreviewCacheSignature,
   preserveOnRefresh: true,
+  preserveScrollAnchorOnRender: true,
   refreshOnThemeChange: true,
+  reserveEstimatedHeight: true,
 };
 
 async function renderMermaidPreview(ctx: CodeBlockPreviewRenderContext): Promise<void> {
   const source = ctx.source.trim();
   const preserveCurrent =
-    ctx.preserveCurrent === true &&
-    ctx.previewBody.dataset.kukuCodeBlockMermaidSvg !== undefined;
+    ctx.preserveCurrent === true && ctx.previewBody.dataset.kukuCodeBlockMermaidSvg !== undefined;
   const releaseHeightLock = preserveCurrent ? ctx.lockHeight() : null;
 
   if (!preserveCurrent) {
@@ -151,6 +150,14 @@ function estimateMermaidPreviewHeight(ctx: CodeBlockPreviewEstimateContext): num
   if (cachedHeight !== null) return cachedHeight;
 
   return estimateMermaidHeightFromSource(source, cacheKey.parts.widthBucket);
+}
+
+function getMermaidPreviewCacheSignature(ctx: CodeBlockPreviewEstimateContext): string | null {
+  const source = ctx.source.trim();
+  if (!source) return null;
+
+  const width = Math.max(ctx.width, MERMAID_RENDER_MIN_WIDTH);
+  return getMermaidRenderInputs(ctx.root, ctx.language, source, width).cacheKey.key;
 }
 
 function clearMermaidPreviewState(previewBody: HTMLElement): void {
