@@ -7,7 +7,7 @@
 
 import { Group, Vector3, type MeshBasicMaterial } from "three";
 
-import { BLOCK, PLAZA_RADIUS, type IslandSpec, type PlotSpec } from "../voxel_layout";
+import { BLOCK, PLAZA_RADIUS, stableNoise, type IslandSpec, type PlotSpec } from "../voxel_layout";
 import type { GraphLink } from "~/plugins/builtin/graph_view/graph_types";
 
 import { glowBatch, solidBatch, type BoxWrite, type VoxelBatch } from "./batch";
@@ -70,21 +70,27 @@ function pushWalkway(
   if (span <= 0 || total === 0) return;
 
   direction.normalize();
-  const rotY = Math.atan2(direction.x, direction.z);
-  const steps = Math.min(40, Math.floor(span / (BLOCK * 0.8)));
+  // Lateral axis for a gentle meander, so paths read as worn trails rather
+  // than machine-laid tile carpets.
+  const lateralX = direction.z;
+  const lateralZ = -direction.x;
+  const steps = Math.min(30, Math.floor(span / (BLOCK * 1.15)));
   for (let step = 0; step <= steps; step++) {
+    const seed = `walk:${plot.node.id}:${step}`;
     const at = door.clone().addScaledVector(direction, (step / Math.max(1, steps)) * span);
-    // Alternate tile heights so overlapping neighbours never share a
+    const drift = (stableNoise(`${seed}:d`) - 0.5) * 1.6;
+    const size = step % 2 === 0 ? 1.7 : 1.25;
+    // Alternate stone heights so overlapping neighbours never share a
     // coplanar top face (which shimmered at grazing angles).
     writes.push({
-      x: at.x,
-      y: at.y + (step % 2 === 0 ? 0.24 : 0.34),
-      z: at.z,
-      sx: 2.3,
-      sy: 0.5,
-      sz: 2.6,
-      rotY,
-      color: palette.path,
+      x: at.x + lateralX * drift,
+      y: at.y + (step % 2 === 0 ? 0.22 : 0.3),
+      z: at.z + lateralZ * drift,
+      sx: size + stableNoise(`${seed}:w`) * 0.5,
+      sy: 0.45,
+      sz: size * 1.1 + stableNoise(`${seed}:l`) * 0.5,
+      rotY: Math.atan2(direction.x, direction.z) + (stableNoise(`${seed}:r`) - 0.5) * 0.7,
+      color: stableNoise(`${seed}:c`) > 0.4 ? palette.path : palette.plazaAlt,
     });
   }
 }
