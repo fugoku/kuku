@@ -9,6 +9,7 @@ import type { EditorView } from "prosekit/pm/view";
 import { describe, expect, it } from "vitest";
 
 import {
+  convertEmptyCodeBlockToParagraphForTest,
   moveSelectionAfterCodeBlockForTest,
   moveSelectionBeforeCodeBlockForTest,
 } from "../nodes/code_mirror_node_view";
@@ -223,6 +224,43 @@ describe("code block escape helpers", () => {
 
     expect(moveSelectionBeforeCodeBlockForTest(view, block.pos, block.node)).toBe(true);
     expect(view.state.selection.$from.parent.type.name).toBe("paragraph");
+
+    host.remove();
+  });
+
+  it("converts an empty code block to a paragraph", () => {
+    const { editor, host, view } = mountEditor({
+      type: "doc",
+      content: [{ type: "codeBlock" }],
+    });
+    const block = findCodeBlock(view);
+
+    expect(convertEmptyCodeBlockToParagraphForTest(view, block.pos, block.node)).toBe(true);
+
+    expect(editor.getDocJSON()).toEqual({
+      type: "doc",
+      content: [{ type: "paragraph" }],
+    });
+    expect(view.state.selection.$from.parent.type.name).toBe("paragraph");
+
+    host.remove();
+  });
+
+  it("does not convert a non-empty code block to a paragraph", () => {
+    const { editor, host, view } = mountEditor({
+      type: "doc",
+      content: [
+        {
+          type: "codeBlock",
+          content: [{ type: "text", text: "code" }],
+        },
+      ],
+    });
+    const before = editor.getDocJSON();
+    const block = findCodeBlock(view);
+
+    expect(convertEmptyCodeBlockToParagraphForTest(view, block.pos, block.node)).toBe(false);
+    expect(editor.getDocJSON()).toEqual(before);
 
     host.remove();
   });
