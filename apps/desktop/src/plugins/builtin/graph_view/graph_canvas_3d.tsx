@@ -120,7 +120,7 @@ const GALAXY_HALO_RADIUS_RATIO = 1.45;
 const GALAXY_INITIAL_CAMERA: CameraPoint = { x: 0, y: -300, z: 440 };
 
 /** Pixel size multiplier from node visual radius to star point size. */
-const STAR_SIZE_BASE = 6.5;
+const STAR_SIZE_BASE = 7.5;
 /** Hubs with at least this many links get diffraction spikes. */
 const STAR_SPIKE_MIN_LINKS = 5;
 
@@ -184,7 +184,7 @@ const NODE_STAR_VERTEX = /* glsl */ `
     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
     // Slight distance dimming sells volumetric depth without a fog pass.
     vAlpha = aAlpha * clamp(1.35 - (-mvPosition.z) / 3200.0, 0.7, 1.0);
-    gl_PointSize = clamp(aSize * uPixelRatio * (1100.0 / -mvPosition.z), 2.5, 84.0 * uPixelRatio);
+    gl_PointSize = clamp(aSize * uPixelRatio * (1100.0 / -mvPosition.z), 2.5, 96.0 * uPixelRatio);
     gl_Position = projectionMatrix * mvPosition;
   }
 `;
@@ -199,13 +199,17 @@ const NODE_STAR_FRAGMENT = /* glsl */ `
   void main() {
     vec2 uv = gl_PointCoord * 2.0 - 1.0;
     float d = length(uv);
-    // Star point-spread function: hot core, tight halo, and faint
-    // diffraction spikes on bright stars only.
-    float core = exp(-d * d * 9.0);
-    float halo = 0.45 * exp(-d * d * 2.4);
-    float spike = vSpike * 0.5 * exp(-min(abs(uv.x), abs(uv.y)) * 16.0) * exp(-d * 2.2);
+    // Star point-spread function: hot core, soft halo, and faint
+    // diffraction spikes on bright stars only. Every term is windowed to
+    // zero before the sprite quad edge so the square frame never shows
+    // through, even on large hub stars.
+    float window = 1.0 - smoothstep(0.5, 0.92, d);
+    float core = exp(-d * d * 10.0);
+    float halo = 0.55 * exp(-d * d * 3.0) * window;
+    float arm = exp(-min(abs(uv.x), abs(uv.y)) * 14.0);
+    float spike = vSpike * 0.55 * arm * exp(-d * 2.6) * window;
     float alpha = (core + halo + spike) * vAlpha * uOpacity;
-    if (alpha < 0.012) discard;
+    if (alpha < 0.01) discard;
     vec3 color = mix(vColor, vec3(1.0), core * uHot);
     gl_FragColor = vec4(color, alpha);
   }
