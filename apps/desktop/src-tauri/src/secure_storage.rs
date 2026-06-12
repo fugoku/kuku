@@ -1,3 +1,4 @@
+#[cfg(debug_assertions)]
 use std::path::PathBuf;
 
 use base64::{Engine as _, engine::general_purpose::STANDARD};
@@ -5,12 +6,14 @@ use base64::{Engine as _, engine::general_purpose::STANDARD};
 #[cfg(debug_assertions)]
 use crate::variant;
 
+#[cfg(debug_assertions)]
 pub const INSECURE_DEBUG_SECURE_STORE_ENV: &str = "KUKU_ALLOW_INSECURE_DEBUG_SECURE_STORE";
 
 const KEYRING_VALUE_PREFIX: &str = "kuku-secure:v1:";
 
 #[derive(Debug)]
 pub enum SecureStorageError {
+    #[cfg(debug_assertions)]
     State(String),
     Store(String),
     NotFound,
@@ -19,6 +22,7 @@ pub enum SecureStorageError {
 impl std::fmt::Display for SecureStorageError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            #[cfg(debug_assertions)]
             SecureStorageError::State(message) => write!(f, "{message}"),
             SecureStorageError::Store(message) => write!(f, "{message}"),
             SecureStorageError::NotFound => write!(f, "secure value not found"),
@@ -28,6 +32,7 @@ impl std::fmt::Display for SecureStorageError {
 
 impl std::error::Error for SecureStorageError {}
 
+#[cfg(debug_assertions)]
 pub fn read_bytes(service: &str, account: &str) -> Result<Option<Vec<u8>>, SecureStorageError> {
     if should_use_insecure_debug_fallback() {
         return read_debug_file(service, account);
@@ -35,6 +40,12 @@ pub fn read_bytes(service: &str, account: &str) -> Result<Option<Vec<u8>>, Secur
     read_keyring(service, account)
 }
 
+#[cfg(not(debug_assertions))]
+pub fn read_bytes(service: &str, account: &str) -> Result<Option<Vec<u8>>, SecureStorageError> {
+    read_keyring(service, account)
+}
+
+#[cfg(debug_assertions)]
 pub fn write_bytes(service: &str, account: &str, content: &[u8]) -> Result<(), SecureStorageError> {
     if should_use_insecure_debug_fallback() {
         return write_debug_file(service, account, content);
@@ -42,10 +53,21 @@ pub fn write_bytes(service: &str, account: &str, content: &[u8]) -> Result<(), S
     write_keyring(service, account, content)
 }
 
+#[cfg(not(debug_assertions))]
+pub fn write_bytes(service: &str, account: &str, content: &[u8]) -> Result<(), SecureStorageError> {
+    write_keyring(service, account, content)
+}
+
+#[cfg(debug_assertions)]
 pub fn delete(service: &str, account: &str) -> Result<(), SecureStorageError> {
     if should_use_insecure_debug_fallback() {
         return delete_debug_file(service, account);
     }
+    delete_keyring(service, account)
+}
+
+#[cfg(not(debug_assertions))]
+pub fn delete(service: &str, account: &str) -> Result<(), SecureStorageError> {
     delete_keyring(service, account)
 }
 
@@ -58,11 +80,7 @@ fn should_use_insecure_debug_fallback() -> bool {
     )
 }
 
-#[cfg(not(debug_assertions))]
-fn should_use_insecure_debug_fallback() -> bool {
-    false
-}
-
+#[cfg(debug_assertions)]
 fn insecure_debug_fallback_enabled(value: Option<&str>) -> bool {
     matches!(
         value,
@@ -81,11 +99,6 @@ fn read_debug_file(service: &str, account: &str) -> Result<Option<Vec<u8>>, Secu
             "failed to read insecure debug secure store: {error}"
         ))
     })
-}
-
-#[cfg(not(debug_assertions))]
-fn read_debug_file(_service: &str, _account: &str) -> Result<Option<Vec<u8>>, SecureStorageError> {
-    unreachable!("debug secure store fallback is unavailable in release builds")
 }
 
 #[cfg(debug_assertions)]
@@ -109,15 +122,6 @@ fn write_debug_file(
     })
 }
 
-#[cfg(not(debug_assertions))]
-fn write_debug_file(
-    _service: &str,
-    _account: &str,
-    _content: &[u8],
-) -> Result<(), SecureStorageError> {
-    unreachable!("debug secure store fallback is unavailable in release builds")
-}
-
 #[cfg(debug_assertions)]
 fn delete_debug_file(service: &str, account: &str) -> Result<(), SecureStorageError> {
     let path = debug_store_path(service, account)?;
@@ -129,11 +133,6 @@ fn delete_debug_file(service: &str, account: &str) -> Result<(), SecureStorageEr
             "failed to delete insecure debug secure store: {error}"
         ))
     })
-}
-
-#[cfg(not(debug_assertions))]
-fn delete_debug_file(_service: &str, _account: &str) -> Result<(), SecureStorageError> {
-    unreachable!("debug secure store fallback is unavailable in release builds")
 }
 
 #[cfg(debug_assertions)]
@@ -195,6 +194,7 @@ fn decode_keyring_value(content: &str) -> Result<Vec<u8>, SecureStorageError> {
 mod tests {
     use super::*;
 
+    #[cfg(debug_assertions)]
     #[test]
     fn insecure_debug_fallback_env_is_opt_in() {
         assert!(!insecure_debug_fallback_enabled(None));

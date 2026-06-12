@@ -430,6 +430,7 @@ fn decode_fixed<const N: usize>(value: &str, field: &str) -> SyncResult<[u8; N]>
 
 fn secure_storage_error(error: secure_storage::SecureStorageError) -> SyncError {
     match error {
+        #[cfg(debug_assertions)]
         secure_storage::SecureStorageError::State(message) => SyncError::Storage(message),
         secure_storage::SecureStorageError::Store(message) => SyncError::Storage(message),
         secure_storage::SecureStorageError::NotFound => SyncError::Storage("key not found".into()),

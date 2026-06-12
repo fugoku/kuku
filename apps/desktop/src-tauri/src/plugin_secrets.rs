@@ -30,6 +30,7 @@ impl std::error::Error for PluginSecretError {}
 impl From<secure_storage::SecureStorageError> for PluginSecretError {
     fn from(value: secure_storage::SecureStorageError) -> Self {
         match value {
+            #[cfg(debug_assertions)]
             secure_storage::SecureStorageError::State(message) => Self::State(message),
             secure_storage::SecureStorageError::Store(message) => Self::Store(message),
             secure_storage::SecureStorageError::NotFound => Self::NotFound,
