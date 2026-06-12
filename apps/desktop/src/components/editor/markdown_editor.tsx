@@ -8,8 +8,10 @@ import {
   focusOrCreateEditorEndParagraph,
   isEditorEndBlankPointerDown,
 } from "~/components/editor/editor_end_affordance";
+import { isStructuralTabTargetNodeName } from "~/components/editor/editor_tab_behavior";
 import { installWebKitCompositionWorkaround } from "~/components/editor/system/ime_composition_workaround";
 import EditorContextMenu from "~/components/editor/editor_context_menu";
+import EditorTableHandle from "~/components/editor/editor_table_handle";
 import AiEditInput from "~/components/editor/ai_edit_input";
 import AnchorEditInput from "~/components/editor/anchor_edit_input";
 import EditorSlashMenu from "~/components/editor/editor_slash_menu";
@@ -1418,9 +1420,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
 
     for (let depth = $from.depth; depth >= 0; depth -= 1) {
       const nodeName = $from.node(depth).type.name;
-      if (nodeName === "list" || nodeName === "tableCell" || nodeName === "tableHeader") {
-        return true;
-      }
+      if (isStructuralTabTargetNodeName(nodeName)) return true;
     }
 
     return false;
@@ -1563,6 +1563,7 @@ export default function MarkdownEditor(props: MarkdownEditorProps) {
                 )}
               </Show>
               <div ref={editor.mount} />
+              <EditorTableHandle editor={editor} />
               <Show when={showAiEditInput()}>
                 <AiEditInput onClose={closeAiEditInput} viewportEl={getScrollViewport()} />
               </Show>
