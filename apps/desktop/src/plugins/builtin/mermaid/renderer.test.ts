@@ -128,6 +128,47 @@ describe("mermaid code block preview renderer", () => {
     expect(second.previewBody.innerHTML).toContain("cached diagram");
   });
 
+  it("does not share svg ids across cached preview instances", async () => {
+    vi.mocked(mermaid.render).mockResolvedValue({
+      svg: [
+        '<svg id="diagram" role="img" aria-labelledby="label">',
+        "<style>#diagram .edge{marker-end:url(#arrow)}</style>",
+        '<defs><marker id="arrow"></marker></defs>',
+        '<title id="label">cached diagram</title>',
+        '<path class="edge" marker-end="url(#arrow)"></path>',
+        '<use href="#arrow"></use>',
+        "</svg>",
+      ].join(""),
+      bindFunctions: undefined,
+    } as Awaited<ReturnType<typeof mermaid.render>>);
+
+    const first = createRenderContext("graph TD\nA-->B");
+    await mermaidCodeBlockPreviewRenderer.render(first);
+    const second = createRenderContext("graph TD\nA-->B");
+    await mermaidCodeBlockPreviewRenderer.render(second);
+
+    expect(mermaid.render).toHaveBeenCalledTimes(1);
+
+    const firstSvg = first.previewBody.querySelector("svg");
+    const secondSvg = second.previewBody.querySelector("svg");
+    const secondMarker = second.previewBody.querySelector("marker");
+    const secondTitle = second.previewBody.querySelector("title");
+    const secondPath = second.previewBody.querySelector("path");
+    const secondUse = second.previewBody.querySelector("use");
+    const secondStyle = second.previewBody.querySelector("style");
+    const ids = [...document.querySelectorAll("[id]")].map((element) => element.id);
+
+    expect(firstSvg?.id).toBeTruthy();
+    expect(secondSvg?.id).toBeTruthy();
+    expect(firstSvg?.id).not.toBe(secondSvg?.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(secondSvg?.getAttribute("aria-labelledby")).toBe(secondTitle?.id);
+    expect(secondPath?.getAttribute("marker-end")).toBe(`url(#${secondMarker?.id})`);
+    expect(secondUse?.getAttribute("href")).toBe(`#${secondMarker?.id}`);
+    expect(secondStyle?.textContent).toContain(`#${secondSvg?.id}`);
+    expect(secondStyle?.textContent).toContain(`url(#${secondMarker?.id})`);
+  });
+
   it("does not reuse cached svg after the theme changes", async () => {
     vi.mocked(mermaid.render)
       .mockResolvedValueOnce({

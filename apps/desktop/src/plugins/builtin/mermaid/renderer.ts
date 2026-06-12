@@ -30,9 +30,11 @@ const MERMAID_RENDER_LAYOUT_FRAME_LIMIT = 4;
 const MERMAID_RENDER_MIN_WIDTH = 1280;
 const MERMAID_ESTIMATE_MIN_HEIGHT = 160;
 const MERMAID_ESTIMATE_MAX_HEIGHT = 720;
+const MERMAID_SVG_ID_REFERENCE_ATTRIBUTES = new Set(["aria-describedby", "aria-labelledby"]);
 
 let mermaidLoader: Promise<Mermaid> | null = null;
 let nextMermaidId = 0;
+let nextMermaidSvgInstanceId = 0;
 
 interface MermaidRenderedSvg {
   cacheKey: MermaidRenderCacheKeyResult;
@@ -182,8 +184,103 @@ function applyMermaidRenderResult(previewBody: HTMLElement, result: MermaidRende
   previewBody.removeAttribute("data-kuku-code-block-mermaid-placeholder");
   delete previewBody.dataset.kukuCodeBlockMermaidError;
   previewBody.dataset.kukuCodeBlockMermaidSvg = "";
-  previewBody.innerHTML = result.svg;
+  previewBody.innerHTML = instantiateMermaidSvg(previewBody.ownerDocument, result.svg);
   rememberRenderedMermaidHeight(previewBody, result.cacheKey);
+}
+
+function instantiateMermaidSvg(doc: Document, svg: string): string {
+  const template = doc.createElement("template");
+  template.innerHTML = svg.trim();
+  const svgElement = template.content.firstElementChild;
+  if (!svgElement) return svg;
+
+  const idPrefix = `kuku-mermaid-svg-${nextMermaidSvgInstanceId++}-`;
+  const idMap = new Map<string, string>();
+  const elements = [svgElement, ...svgElement.querySelectorAll("*")];
+  for (const element of elements) {
+    const id = element.getAttribute("id");
+    if (!id || idMap.has(id)) continue;
+    idMap.set(id, `${idPrefix}${id}`);
+  }
+  if (idMap.size === 0) return svg;
+
+  for (const element of elements) {
+    const id = element.getAttribute("id");
+    if (id) {
+      element.setAttribute("id", idMap.get(id) ?? id);
+    }
+
+    for (const attributeName of element.getAttributeNames()) {
+      if (attributeName === "id") continue;
+      const value = element.getAttribute(attributeName);
+      if (value === null) continue;
+      const nextValue = rewriteMermaidSvgReferenceValue(attributeName, value, idMap);
+      if (nextValue !== value) {
+        element.setAttribute(attributeName, nextValue);
+      }
+    }
+  }
+
+  for (const styleElement of svgElement.querySelectorAll("style")) {
+    const text = styleElement.textContent;
+    if (!text) continue;
+    styleElement.textContent = rewriteMermaidSvgStyleText(text, idMap);
+  }
+
+  return svgElement.outerHTML;
+}
+
+function rewriteMermaidSvgReferenceValue(
+  attributeName: string,
+  value: string,
+  idMap: Map<string, string>,
+): string {
+  let nextValue = value;
+  if (MERMAID_SVG_ID_REFERENCE_ATTRIBUTES.has(attributeName)) {
+    nextValue = nextValue
+      .split(/(\s+)/)
+      .map((part) => idMap.get(part) ?? part)
+      .join("");
+  }
+
+  for (const [id, nextId] of idMap) {
+    nextValue = rewriteMermaidSvgUrlReference(nextValue, id, nextId);
+    if (nextValue === `#${id}`) {
+      nextValue = `#${nextId}`;
+    }
+  }
+  return nextValue;
+}
+
+function rewriteMermaidSvgStyleText(text: string, idMap: Map<string, string>): string {
+  let nextText = text;
+  for (const [id, nextId] of idMap) {
+    nextText = rewriteMermaidSvgUrlReference(nextText, id, nextId);
+    nextText = replaceDelimitedMermaidSvgHashReference(nextText, id, nextId);
+  }
+  return nextText;
+}
+
+function rewriteMermaidSvgUrlReference(value: string, id: string, nextId: string): string {
+  return value.replace(
+    new RegExp(`url\\(\\s*(['"]?)#${escapeRegExp(id)}\\1\\s*\\)`, "g"),
+    `url(#${nextId})`,
+  );
+}
+
+function replaceDelimitedMermaidSvgHashReference(
+  value: string,
+  id: string,
+  nextId: string,
+): string {
+  return value.replace(
+    new RegExp(`#${escapeRegExp(id)}(?=([\\s,.#:{>~+\\[\\)\"';]|$))`, "g"),
+    `#${nextId}`,
+  );
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function estimateMermaidPreviewHeight(ctx: CodeBlockPreviewEstimateContext): number | null {
