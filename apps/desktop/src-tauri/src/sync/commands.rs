@@ -25,14 +25,15 @@ use super::checkpoint::{
     CRYPTO_VERSION, PushLocalChangesInput, PushMergeCommitInput, SyncPushPipeline,
 };
 use super::client::{
-    ConnectSyncClient, CreateAccountKeyInput, SyncAccountKeyEnvelopeMetadata, SyncCommitApi,
-    SyncHead, SyncSetupApi, SyncTransferApi, SyncWorkspaceMetadata, UpdateDeviceMetadataInput,
-    UpdateWorkspaceKeyInput, UpdateWorkspaceMetadataInput,
+    ConnectSyncClient, CreateAccountKeyInput, RefreshAuthorizationHeader,
+    SyncAccountKeyEnvelopeMetadata, SyncCommitApi, SyncHead, SyncSetupApi, SyncTransferApi,
+    SyncWorkspaceMetadata, UpdateDeviceMetadataInput, UpdateWorkspaceKeyInput,
+    UpdateWorkspaceMetadataInput,
 };
 use super::crypto::SymmetricKey;
 use super::db::{self, SyncVaultRecord};
 use super::errors::command_error;
-use super::errors::{SyncCommandError, SyncError, SyncResult};
+use super::errors::{SyncCommandError, SyncError, SyncErrorCategory, SyncResult};
 use super::keys;
 use super::planner::PlannerConfig;
 use super::scanner::{ScannedFile, normalize_vault_relative_path, scan_vault};
@@ -413,7 +414,7 @@ impl TransferProgressSink for RuntimeTransferProgressSink {
 async fn probe_sync_config(mut config: SyncVaultConfig) -> SyncResult<SyncConfigProbe> {
     validate_config_for_command(&config)?;
     let authorization = authorization_header().await?;
-    let client = Arc::new(ConnectSyncClient::with_authorization_header(authorization));
+    let client = Arc::new(connect_sync_client(authorization));
 
     let workspace_id = config.remote_workspace_id.trim().to_string();
     let local_vault = if workspace_id.is_empty() {
@@ -665,7 +666,7 @@ async fn unlock_existing_account_key(
 
 async fn get_account_recovery_state() -> SyncResult<SyncAccountRecoveryState> {
     let authorization = authorization_header().await?;
-    let client = ConnectSyncClient::with_authorization_header(authorization);
+    let client = connect_sync_client(authorization);
     let Some(account_key) = client.get_account_key_state().await? else {
         return Ok(SyncAccountRecoveryState::default());
     };
@@ -783,7 +784,7 @@ async fn list_account_workspaces(
     recovery_phrase: Option<&str>,
 ) -> SyncResult<Vec<SyncWorkspaceSummary>> {
     let authorization = authorization_header().await?;
-    let client = Arc::new(ConnectSyncClient::with_authorization_header(authorization));
+    let client = Arc::new(connect_sync_client(authorization));
     let Some(account) = unlock_existing_account_key(&client, recovery_phrase).await? else {
         return Ok(Vec::new());
     };
@@ -800,7 +801,7 @@ async fn create_account_workspace(
     current_workspace_id: Option<&str>,
 ) -> SyncResult<SyncWorkspaceSummary> {
     let authorization = authorization_header().await?;
-    let client = Arc::new(ConnectSyncClient::with_authorization_header(authorization));
+    let client = Arc::new(connect_sync_client(authorization));
     let account_config = SyncVaultConfig {
         vault_id: String::new(),
         root_path: String::new(),
@@ -840,7 +841,7 @@ async fn rename_account_workspace(
     let workspace_id = normalized_workspace_id(&request.workspace_id)?;
     let workspace_name = normalized_workspace_name(&request.name)?;
     let authorization = authorization_header().await?;
-    let client = Arc::new(ConnectSyncClient::with_authorization_header(authorization));
+    let client = Arc::new(connect_sync_client(authorization));
     let account = unlock_existing_account_key(&client, request.passphrase.as_deref())
         .await?
         .ok_or(SyncError::NotConfigured)?;
@@ -868,13 +869,13 @@ async fn rename_account_workspace(
 
 async fn delete_account_workspace(workspace_id: &str) -> SyncResult<()> {
     let authorization = authorization_header().await?;
-    let client = ConnectSyncClient::with_authorization_header(authorization);
+    let client = connect_sync_client(authorization);
     client.delete_workspace(workspace_id).await
 }
 
 async fn current_workspace_exists_for_account(workspace_id: &str) -> SyncResult<bool> {
     let authorization = authorization_header().await?;
-    let client = ConnectSyncClient::with_authorization_header(authorization);
+    let client = connect_sync_client(authorization);
     Ok(client
         .list_workspaces()
         .await?
@@ -1488,7 +1489,7 @@ fn sync_client_and_queue(
     run_id: u64,
     authorization: String,
 ) -> SyncResult<(Arc<ConnectSyncClient>, ObjectTransferQueue)> {
-    let client = Arc::new(ConnectSyncClient::with_authorization_header(authorization));
+    let client = Arc::new(connect_sync_client(authorization));
     let transfer_api: Arc<dyn SyncTransferApi> = client.clone();
     let queue = ObjectTransferQueue::new(
         transfer_api,
@@ -1502,6 +1503,30 @@ fn sync_client_and_queue(
     Ok((client, queue))
 }
 
+fn connect_sync_client(authorization: String) -> ConnectSyncClient {
+    ConnectSyncClient::with_authorization_header(authorization)
+        .with_authorization_refresh(sync_refresh_authorization_header())
+}
+
+fn sync_refresh_authorization_header() -> RefreshAuthorizationHeader {
+    Arc::new(|| {
+        Box::pin(async {
+            auth_commands::refresh_authorization_header_for_plugin(CORE_SYNC_PLUGIN_ID)
+                .await
+                .map_err(map_auth_header_error)
+        })
+    })
+}
+
+fn map_auth_header_error(error: String) -> SyncError {
+    let transport = SyncError::Transport(error);
+    if transport.category() == SyncErrorCategory::LoginRequired {
+        SyncError::LoginRequired
+    } else {
+        transport
+    }
+}
+
 async fn authorization_header() -> SyncResult<String> {
     let authorized = auth::is_plugin_authorized(CORE_SYNC_PLUGIN_ID)
         .map_err(|error| SyncError::Transport(error.to_string()))?;
@@ -1510,7 +1535,7 @@ async fn authorization_header() -> SyncResult<String> {
     }
     auth_commands::authorization_header_for_plugin(CORE_SYNC_PLUGIN_ID)
         .await
-        .map_err(SyncError::Transport)?
+        .map_err(map_auth_header_error)?
         .ok_or(SyncError::LoginRequired)
 }
 
@@ -1730,7 +1755,7 @@ async fn get_remote_status_for_state(status: &SyncRuntimeStatus) -> SyncResult<S
         required_status_value(status.remote_workspace_id.as_deref(), "remote_workspace_id")?
             .to_string();
     let authorization = authorization_header().await?;
-    let client = ConnectSyncClient::with_authorization_header(authorization);
+    let client = connect_sync_client(authorization);
     let head = client.get_head(&workspace_id).await?;
     let local_vault = match status.vault_id.as_deref() {
         Some(vault_id) => {
