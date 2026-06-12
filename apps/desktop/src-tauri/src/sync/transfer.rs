@@ -10,7 +10,7 @@ use sha2::{Digest, Sha256};
 use tokio::sync::Semaphore;
 
 use super::client::{
-    CompletedObjectUploadDescriptor, ConnectSyncClient, HttpHeader, ObjectDownloadTargetDescriptor,
+    CompletedObjectUploadDescriptor, HttpHeader, ObjectDownloadTargetDescriptor,
     ObjectReservationInput, ObjectUploadCompletion, ObjectUploadDescriptor,
     ObjectUploadTargetDescriptor, SyncTransferApi, UploadedObjectMetadata,
 };
@@ -227,18 +227,6 @@ impl ObjectTransferQueue {
             config,
             progress_sink: None,
         })
-    }
-
-    pub fn connect(authorization_header: Option<String>) -> SyncResult<Self> {
-        let api: Arc<dyn SyncTransferApi> = match authorization_header {
-            Some(header) => Arc::new(ConnectSyncClient::with_authorization_header(header)),
-            None => Arc::new(ConnectSyncClient::new()),
-        };
-        Self::new(
-            api,
-            Arc::new(ReqwestObjectTransferHttp::new()),
-            TransferQueueConfig::default(),
-        )
     }
 
     pub fn with_progress_sink(mut self, progress_sink: Arc<dyn TransferProgressSink>) -> Self {
