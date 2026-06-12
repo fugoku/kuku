@@ -288,6 +288,7 @@ class CodeMirrorCodeBlockView implements NodeView {
       { key: "ArrowRight", run: () => this.maybeEscape("char", 1) },
       { key: "Mod-Enter", run: () => this.exitAfter() },
       { key: "Ctrl-Enter", run: () => this.exitAfter() },
+      { key: "Backspace", run: () => this.maybeConvertEmptyToParagraph() },
       { key: "Ctrl-z", mac: "Cmd-z", run: () => undo(this.view.state, this.view.dispatch) },
       {
         key: "Shift-Ctrl-z",
@@ -383,6 +384,18 @@ class CodeMirrorCodeBlockView implements NodeView {
     return direction < 0
       ? moveSelectionBeforeCodeBlock(this.view, pos, this.node)
       : moveSelectionAfterCodeBlock(this.view, pos, this.node, { createParagraph: true });
+  }
+
+  private maybeConvertEmptyToParagraph(): boolean {
+    const { main } = this.cm.state.selection;
+    if (!main.empty || main.head !== 0 || this.cm.state.doc.length > 0) {
+      return false;
+    }
+
+    const pos = this.getPos();
+    if (typeof pos !== "number") return false;
+
+    return convertEmptyCodeBlockToParagraph(this.view, pos, this.node);
   }
 
   private toCodeMirrorSelectionOffset(offset: number, entrySide: -1 | 1 | null): number {
@@ -799,6 +812,31 @@ function insertDefaultBlockAfter(
   const insertPos = pos + node.nodeSize;
   const tr = view.state.tr.insert(insertPos, block);
   tr.setSelection(TextSelection.near(tr.doc.resolve(insertPos + 1), 1));
+  dispatchTransaction(view, tr);
+  return true;
+}
+
+function convertEmptyCodeBlockToParagraph(
+  view: ProseMirrorView,
+  pos: number,
+  node: ProseMirrorNode,
+): boolean {
+  if (node.content.size > 0) return false;
+
+  const paragraph = view.state.schema.nodes.paragraph;
+  if (!paragraph) return false;
+
+  const parentInfo = resolveNodeParent(view.state.doc, pos, node);
+  if (!parentInfo) return false;
+  if (!parentInfo.parent.canReplaceWith(parentInfo.index, parentInfo.index + 1, paragraph)) {
+    return false;
+  }
+
+  const replacement = paragraph.createAndFill();
+  if (!replacement) return false;
+
+  const tr = view.state.tr.replaceWith(pos, pos + node.nodeSize, replacement);
+  tr.setSelection(TextSelection.near(tr.doc.resolve(pos + 1), 1));
   dispatchTransaction(view, tr);
   return true;
 }
@@ -1590,6 +1628,7 @@ if (import.meta.env.DEV && typeof window !== "undefined") {
 export {
   captureScrollAnchor as captureCodeBlockScrollAnchorForTest,
   CodeMirrorCodeBlockView,
+  convertEmptyCodeBlockToParagraph as convertEmptyCodeBlockToParagraphForTest,
   createInitialCustomPreviewRenderOptions as createInitialCodeBlockPreviewRenderOptionsForTest,
   defineCodeMirrorCodeBlockView,
   moveSelectionAfterCodeBlock as moveSelectionAfterCodeBlockForTest,
