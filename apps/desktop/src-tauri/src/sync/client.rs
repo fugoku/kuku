@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+use std::{fmt, future::Future, pin::Pin, sync::Arc};
+
 use async_trait::async_trait;
 use connectrpc::{ConnectError, ErrorCode, client::CallOptions};
 use kuku_contract::buffa::EnumValue;
@@ -21,6 +23,9 @@ use kuku_contract::proto::kuku::sync::v1::{
 use crate::contract_client;
 
 use super::errors::{SyncError, SyncResult};
+
+pub type RefreshAuthorizationHeader =
+    Arc<dyn Fn() -> Pin<Box<dyn Future<Output = SyncResult<Option<String>>> + Send>> + Send + Sync>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ObjectReservationInput {
@@ -349,9 +354,36 @@ pub trait SyncTransferApi: Send + Sync {
     ) -> SyncResult<Vec<ObjectDownloadTargetDescriptor>>;
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone)]
 pub struct ConnectSyncClient {
-    authorization_header: Option<String>,
+    authorization_header: Arc<parking_lot::Mutex<Option<String>>>,
+    refresh_authorization_header: Option<RefreshAuthorizationHeader>,
+    refresh_lock: Arc<tokio::sync::Mutex<()>>,
+}
+
+impl Default for ConnectSyncClient {
+    fn default() -> Self {
+        Self {
+            authorization_header: Arc::new(parking_lot::Mutex::new(None)),
+            refresh_authorization_header: None,
+            refresh_lock: Arc::new(tokio::sync::Mutex::new(())),
+        }
+    }
+}
+
+impl fmt::Debug for ConnectSyncClient {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ConnectSyncClient")
+            .field(
+                "has_authorization_header",
+                &self.authorization_header.lock().is_some(),
+            )
+            .field(
+                "has_refresh_authorization_header",
+                &self.refresh_authorization_header.is_some(),
+            )
+            .finish()
+    }
 }
 
 impl ConnectSyncClient {
@@ -361,7 +393,9 @@ impl ConnectSyncClient {
 
     pub fn with_authorization_header(header: impl Into<String>) -> Self {
         Self {
-            authorization_header: Some(header.into()),
+            authorization_header: Arc::new(parking_lot::Mutex::new(Some(header.into()))),
+            refresh_authorization_header: None,
+            refresh_lock: Arc::new(tokio::sync::Mutex::new(())),
         }
     }
 
@@ -369,10 +403,63 @@ impl ConnectSyncClient {
         Self::with_authorization_header(format!("Bearer {}", access_token.into()))
     }
 
+    pub fn with_authorization_refresh(
+        mut self,
+        refresh_authorization_header: RefreshAuthorizationHeader,
+    ) -> Self {
+        self.refresh_authorization_header = Some(refresh_authorization_header);
+        self
+    }
+
     fn call_options(&self) -> CallOptions {
-        match &self.authorization_header {
-            Some(header) => CallOptions::default().with_header("authorization", header.clone()),
+        Self::call_options_for(self.authorization_header())
+    }
+
+    fn authorization_header(&self) -> Option<String> {
+        self.authorization_header.lock().clone()
+    }
+
+    fn call_options_for(authorization_header: Option<String>) -> CallOptions {
+        match authorization_header {
+            Some(header) => CallOptions::default().with_header("authorization", header),
             None => CallOptions::default(),
+        }
+    }
+
+    async fn call_with_auth_retry<T, F, Fut>(&self, operation: &str, call: F) -> SyncResult<T>
+    where
+        F: Fn(CallOptions) -> Fut,
+        Fut: Future<Output = Result<T, ConnectError>>,
+    {
+        let attempted_header = self.authorization_header();
+        match call(Self::call_options_for(attempted_header.clone())).await {
+            Ok(response) => Ok(response),
+            Err(error) if error.code == ErrorCode::Unauthenticated => {
+                let Some(refresh_authorization_header) = &self.refresh_authorization_header else {
+                    return Err(sync_rpc_error(operation, error));
+                };
+                let refreshed_header = {
+                    let _guard = self.refresh_lock.lock().await;
+                    let current_header = self.authorization_header();
+                    if current_header != attempted_header {
+                        current_header
+                    } else {
+                        let Some(refreshed_header) = refresh_authorization_header().await? else {
+                            *self.authorization_header.lock() = None;
+                            return Err(SyncError::LoginRequired);
+                        };
+                        *self.authorization_header.lock() = Some(refreshed_header.clone());
+                        Some(refreshed_header)
+                    }
+                };
+                let Some(refreshed_header) = refreshed_header else {
+                    return Err(SyncError::LoginRequired);
+                };
+                call(Self::call_options_for(Some(refreshed_header)))
+                    .await
+                    .map_err(|retry_error| sync_rpc_error(operation, retry_error))
+            }
+            Err(error) => Err(sync_rpc_error(operation, error)),
         }
     }
 }
@@ -398,14 +485,13 @@ fn sync_rpc_error(operation: &str, error: ConnectError) -> SyncError {
 #[async_trait]
 impl SyncSetupApi for ConnectSyncClient {
     async fn get_account_key_state(&self) -> SyncResult<Option<SyncAccountKeyMetadata>> {
-        let response = contract_client::sync_service_client()
-            .map_err(SyncError::Transport)?
-            .get_account_key_state_with_options(
-                GetAccountKeyStateRequest::default(),
-                self.call_options(),
-            )
-            .await
-            .map_err(|error| sync_rpc_error("GetAccountKeyState", error))?
+        let client = contract_client::sync_service_client().map_err(SyncError::Transport)?;
+        let request = GetAccountKeyStateRequest::default();
+        let response = self
+            .call_with_auth_retry("GetAccountKeyState", |options| {
+                client.get_account_key_state_with_options(request.clone(), options)
+            })
+            .await?
             .into_owned();
         response
             .account_key
@@ -428,11 +514,12 @@ impl SyncSetupApi for ConnectSyncClient {
             encrypted_envelope: Some(input.encrypted_envelope),
             ..Default::default()
         };
-        let response = contract_client::sync_service_client()
-            .map_err(SyncError::Transport)?
-            .create_account_key_with_options(request, self.call_options())
-            .await
-            .map_err(|error| sync_rpc_error("CreateAccountKey", error))?
+        let client = contract_client::sync_service_client().map_err(SyncError::Transport)?;
+        let response = self
+            .call_with_auth_retry("CreateAccountKey", |options| {
+                client.create_account_key_with_options(request.clone(), options)
+            })
+            .await?
             .into_owned();
         let account_key =
             account_key_from_proto(response.account_key.as_option().ok_or_else(|| {
@@ -446,14 +533,13 @@ impl SyncSetupApi for ConnectSyncClient {
     }
 
     async fn list_account_key_envelopes(&self) -> SyncResult<Vec<SyncAccountKeyEnvelopeMetadata>> {
-        let response = contract_client::sync_service_client()
-            .map_err(SyncError::Transport)?
-            .list_account_key_envelopes_with_options(
-                ListAccountKeyEnvelopesRequest::default(),
-                self.call_options(),
-            )
-            .await
-            .map_err(|error| sync_rpc_error("ListAccountKeyEnvelopes", error))?
+        let client = contract_client::sync_service_client().map_err(SyncError::Transport)?;
+        let request = ListAccountKeyEnvelopesRequest::default();
+        let response = self
+            .call_with_auth_retry("ListAccountKeyEnvelopes", |options| {
+                client.list_account_key_envelopes_with_options(request.clone(), options)
+            })
+            .await?
             .into_owned();
         response
             .envelopes
@@ -474,11 +560,12 @@ impl SyncSetupApi for ConnectSyncClient {
             encrypted_envelope: Some(input.encrypted_envelope),
             ..Default::default()
         };
-        let response = contract_client::sync_service_client()
-            .map_err(SyncError::Transport)?
-            .put_account_key_envelope_with_options(request, self.call_options())
-            .await
-            .map_err(|error| sync_rpc_error("PutAccountKeyEnvelope", error))?
+        let client = contract_client::sync_service_client().map_err(SyncError::Transport)?;
+        let response = self
+            .call_with_auth_retry("PutAccountKeyEnvelope", |options| {
+                client.put_account_key_envelope_with_options(request.clone(), options)
+            })
+            .await?
             .into_owned();
         account_key_envelope_from_proto(response.envelope.as_option().ok_or_else(|| {
             SyncError::Transport("sync response missing account key envelope".into())
@@ -490,11 +577,12 @@ impl SyncSetupApi for ConnectSyncClient {
             crypto_version: Some(crypto_version.to_string()),
             ..Default::default()
         };
-        let response = contract_client::sync_service_client()
-            .map_err(SyncError::Transport)?
-            .create_workspace_with_options(request, self.call_options())
-            .await
-            .map_err(|error| sync_rpc_error("CreateWorkspace", error))?
+        let client = contract_client::sync_service_client().map_err(SyncError::Transport)?;
+        let response = self
+            .call_with_auth_retry("CreateWorkspace", |options| {
+                client.create_workspace_with_options(request.clone(), options)
+            })
+            .await?
             .into_owned();
         workspace_from_proto(
             response
@@ -505,11 +593,13 @@ impl SyncSetupApi for ConnectSyncClient {
     }
 
     async fn list_workspaces(&self) -> SyncResult<Vec<SyncWorkspaceMetadata>> {
-        let response = contract_client::sync_service_client()
-            .map_err(SyncError::Transport)?
-            .list_workspaces_with_options(ListWorkspacesRequest::default(), self.call_options())
-            .await
-            .map_err(|error| sync_rpc_error("ListWorkspaces", error))?
+        let client = contract_client::sync_service_client().map_err(SyncError::Transport)?;
+        let request = ListWorkspacesRequest::default();
+        let response = self
+            .call_with_auth_retry("ListWorkspaces", |options| {
+                client.list_workspaces_with_options(request.clone(), options)
+            })
+            .await?
             .into_owned();
         response
             .workspaces
@@ -523,11 +613,11 @@ impl SyncSetupApi for ConnectSyncClient {
             workspace_id: Some(workspace_id.to_string()),
             ..Default::default()
         };
-        contract_client::sync_service_client()
-            .map_err(SyncError::Transport)?
-            .delete_workspace_with_options(request, self.call_options())
-            .await
-            .map_err(|error| sync_rpc_error("DeleteWorkspace", error))?;
+        let client = contract_client::sync_service_client().map_err(SyncError::Transport)?;
+        self.call_with_auth_retry("DeleteWorkspace", |options| {
+            client.delete_workspace_with_options(request.clone(), options)
+        })
+        .await?;
         Ok(())
     }
 
@@ -542,11 +632,12 @@ impl SyncSetupApi for ConnectSyncClient {
             expected_metadata_version: Some(input.expected_metadata_version),
             ..Default::default()
         };
-        let response = contract_client::sync_service_client()
-            .map_err(SyncError::Transport)?
-            .update_workspace_metadata_with_options(request, self.call_options())
-            .await
-            .map_err(|error| sync_rpc_error("UpdateWorkspaceMetadata", error))?
+        let client = contract_client::sync_service_client().map_err(SyncError::Transport)?;
+        let response = self
+            .call_with_auth_retry("UpdateWorkspaceMetadata", |options| {
+                client.update_workspace_metadata_with_options(request.clone(), options)
+            })
+            .await?
             .into_owned();
         workspace_from_proto(
             response
@@ -567,11 +658,12 @@ impl SyncSetupApi for ConnectSyncClient {
             expected_workspace_key_version: Some(input.expected_workspace_key_version),
             ..Default::default()
         };
-        let response = contract_client::sync_service_client()
-            .map_err(SyncError::Transport)?
-            .update_workspace_key_with_options(request, self.call_options())
-            .await
-            .map_err(|error| sync_rpc_error("UpdateWorkspaceKey", error))?
+        let client = contract_client::sync_service_client().map_err(SyncError::Transport)?;
+        let response = self
+            .call_with_auth_retry("UpdateWorkspaceKey", |options| {
+                client.update_workspace_key_with_options(request.clone(), options)
+            })
+            .await?
             .into_owned();
         workspace_from_proto(
             response
@@ -595,11 +687,12 @@ impl SyncSetupApi for ConnectSyncClient {
             encrypted_device_name: Some(encrypted_device_name),
             ..Default::default()
         };
-        let response = contract_client::sync_service_client()
-            .map_err(SyncError::Transport)?
-            .register_device_with_options(request, self.call_options())
-            .await
-            .map_err(|error| sync_rpc_error("RegisterDevice", error))?
+        let client = contract_client::sync_service_client().map_err(SyncError::Transport)?;
+        let response = self
+            .call_with_auth_retry("RegisterDevice", |options| {
+                client.register_device_with_options(request.clone(), options)
+            })
+            .await?
             .into_owned();
         device_from_proto(
             response
@@ -624,11 +717,12 @@ impl SyncSetupApi for ConnectSyncClient {
             created_by_device_id: Some(input.created_by_device_id),
             ..Default::default()
         };
-        let response = contract_client::sync_service_client()
-            .map_err(SyncError::Transport)?
-            .put_key_envelope_with_options(request, self.call_options())
-            .await
-            .map_err(|error| sync_rpc_error("PutKeyEnvelope", error))?
+        let client = contract_client::sync_service_client().map_err(SyncError::Transport)?;
+        let response = self
+            .call_with_auth_retry("PutKeyEnvelope", |options| {
+                client.put_key_envelope_with_options(request.clone(), options)
+            })
+            .await?
             .into_owned();
         key_envelope_from_proto(
             response
@@ -646,11 +740,12 @@ impl SyncSetupApi for ConnectSyncClient {
             workspace_id: Some(workspace_id.to_string()),
             ..Default::default()
         };
-        let response = contract_client::sync_service_client()
-            .map_err(SyncError::Transport)?
-            .list_key_envelopes_with_options(request, self.call_options())
-            .await
-            .map_err(|error| sync_rpc_error("ListKeyEnvelopes", error))?
+        let client = contract_client::sync_service_client().map_err(SyncError::Transport)?;
+        let response = self
+            .call_with_auth_retry("ListKeyEnvelopes", |options| {
+                client.list_key_envelopes_with_options(request.clone(), options)
+            })
+            .await?
             .into_owned();
         response
             .envelopes
@@ -671,11 +766,12 @@ impl SyncSetupApi for ConnectSyncClient {
             expected_metadata_version: Some(input.expected_metadata_version),
             ..Default::default()
         };
-        let response = contract_client::sync_service_client()
-            .map_err(SyncError::Transport)?
-            .update_device_metadata_with_options(request, self.call_options())
-            .await
-            .map_err(|error| sync_rpc_error("UpdateDeviceMetadata", error))?
+        let client = contract_client::sync_service_client().map_err(SyncError::Transport)?;
+        let response = self
+            .call_with_auth_retry("UpdateDeviceMetadata", |options| {
+                client.update_device_metadata_with_options(request.clone(), options)
+            })
+            .await?
             .into_owned();
         device_from_proto(
             response
@@ -693,11 +789,12 @@ impl SyncCommitApi for ConnectSyncClient {
             workspace_id: Some(workspace_id.to_string()),
             ..Default::default()
         };
-        let response = contract_client::sync_service_client()
-            .map_err(SyncError::Transport)?
-            .get_head_with_options(request, self.call_options())
-            .await
-            .map_err(|error| sync_rpc_error("GetHead", error))?
+        let client = contract_client::sync_service_client().map_err(SyncError::Transport)?;
+        let response = self
+            .call_with_auth_retry("GetHead", |options| {
+                client.get_head_with_options(request.clone(), options)
+            })
+            .await?
             .into_owned();
         Ok(SyncHead {
             current_head_commit_id: response.current_head_commit_id.unwrap_or_default(),
@@ -718,11 +815,12 @@ impl SyncCommitApi for ConnectSyncClient {
             page_size: Some(page_size),
             ..Default::default()
         };
-        let response = contract_client::sync_service_client()
-            .map_err(SyncError::Transport)?
-            .list_commits_with_options(request, self.call_options())
-            .await
-            .map_err(|error| sync_rpc_error("ListCommits", error))?
+        let client = contract_client::sync_service_client().map_err(SyncError::Transport)?;
+        let response = self
+            .call_with_auth_retry("ListCommits", |options| {
+                client.list_commits_with_options(request.clone(), options)
+            })
+            .await?
             .into_owned();
         Ok(ListCommitsOutput {
             commits: response
@@ -751,11 +849,12 @@ impl SyncCommitApi for ConnectSyncClient {
             signature: Some(input.signature),
             ..Default::default()
         };
-        let response = contract_client::sync_service_client()
-            .map_err(SyncError::Transport)?
-            .publish_commit_with_options(request, self.call_options())
-            .await
-            .map_err(|error| sync_rpc_error("PublishCommit", error))?
+        let client = contract_client::sync_service_client().map_err(SyncError::Transport)?;
+        let response = self
+            .call_with_auth_retry("PublishCommit", |options| {
+                client.publish_commit_with_options(request.clone(), options)
+            })
+            .await?
             .into_owned();
         let commit = response
             .commit
@@ -790,11 +889,12 @@ impl SyncTransferApi for ConnectSyncClient {
                 .collect(),
             ..Default::default()
         };
-        let response = contract_client::sync_service_client()
-            .map_err(SyncError::Transport)?
-            .reserve_object_ids_with_options(request, self.call_options())
-            .await
-            .map_err(|error| sync_rpc_error("ReserveObjectIds", error))?
+        let client = contract_client::sync_service_client().map_err(SyncError::Transport)?;
+        let response = self
+            .call_with_auth_retry("ReserveObjectIds", |options| {
+                client.reserve_object_ids_with_options(request.clone(), options)
+            })
+            .await?
             .into_owned();
 
         response
@@ -827,11 +927,12 @@ impl SyncTransferApi for ConnectSyncClient {
                 .collect(),
             ..Default::default()
         };
-        let response = contract_client::sync_service_client()
-            .map_err(SyncError::Transport)?
-            .create_object_upload_batch_with_options(request, self.call_options())
-            .await
-            .map_err(|error| sync_rpc_error("CreateObjectUploadBatch", error))?
+        let client = contract_client::sync_service_client().map_err(SyncError::Transport)?;
+        let response = self
+            .call_with_auth_retry("CreateObjectUploadBatch", |options| {
+                client.create_object_upload_batch_with_options(request.clone(), options)
+            })
+            .await?
             .into_owned();
 
         response
@@ -864,11 +965,12 @@ impl SyncTransferApi for ConnectSyncClient {
                 .collect(),
             ..Default::default()
         };
-        let response = contract_client::sync_service_client()
-            .map_err(SyncError::Transport)?
-            .complete_object_upload_batch_with_options(request, self.call_options())
-            .await
-            .map_err(|error| sync_rpc_error("CompleteObjectUploadBatch", error))?
+        let client = contract_client::sync_service_client().map_err(SyncError::Transport)?;
+        let response = self
+            .call_with_auth_retry("CompleteObjectUploadBatch", |options| {
+                client.complete_object_upload_batch_with_options(request.clone(), options)
+            })
+            .await?
             .into_owned();
 
         response
@@ -890,11 +992,12 @@ impl SyncTransferApi for ConnectSyncClient {
             object_ids,
             ..Default::default()
         };
-        let response = contract_client::sync_service_client()
-            .map_err(SyncError::Transport)?
-            .create_object_download_batch_with_options(request, self.call_options())
-            .await
-            .map_err(|error| sync_rpc_error("CreateObjectDownloadBatch", error))?
+        let client = contract_client::sync_service_client().map_err(SyncError::Transport)?;
+        let response = self
+            .call_with_auth_retry("CreateObjectDownloadBatch", |options| {
+                client.create_object_download_batch_with_options(request.clone(), options)
+            })
+            .await?
             .into_owned();
 
         response
@@ -1085,7 +1188,229 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
     use super::*;
+    use tokio::runtime::Builder;
+    use tokio::sync::Barrier;
+
+    #[test]
+    fn call_with_auth_retry_refreshes_after_unauthenticated() {
+        block_on(async {
+            let refreshes = Arc::new(AtomicUsize::new(0));
+            let refreshes_for_callback = refreshes.clone();
+            let client = ConnectSyncClient::with_authorization_header("Bearer stale")
+                .with_authorization_refresh(Arc::new(move || {
+                    let refreshes = refreshes_for_callback.clone();
+                    Box::pin(async move {
+                        refreshes.fetch_add(1, Ordering::SeqCst);
+                        Ok(Some("Bearer fresh".to_string()))
+                    })
+                }));
+            let calls = Arc::new(AtomicUsize::new(0));
+            let calls_for_rpc = calls.clone();
+
+            let result = client
+                .call_with_auth_retry("GetHead", move |_options| {
+                    let calls = calls_for_rpc.clone();
+                    async move {
+                        let attempt = calls.fetch_add(1, Ordering::SeqCst);
+                        if attempt == 0 {
+                            Err(ConnectError::new(
+                                ErrorCode::Unauthenticated,
+                                "not authenticated",
+                            ))
+                        } else {
+                            Ok("ok")
+                        }
+                    }
+                })
+                .await;
+
+            assert_eq!(result.expect("retry should succeed"), "ok");
+            assert_eq!(calls.load(Ordering::SeqCst), 2);
+            assert_eq!(refreshes.load(Ordering::SeqCst), 1);
+            assert_eq!(
+                client.authorization_header.lock().as_deref(),
+                Some("Bearer fresh")
+            );
+        });
+    }
+
+    #[test]
+    fn call_with_auth_retry_clears_header_when_refresh_returns_none() {
+        block_on(async {
+            let refreshes = Arc::new(AtomicUsize::new(0));
+            let refreshes_for_callback = refreshes.clone();
+            let client = ConnectSyncClient::with_authorization_header("Bearer stale")
+                .with_authorization_refresh(Arc::new(move || {
+                    let refreshes = refreshes_for_callback.clone();
+                    Box::pin(async move {
+                        refreshes.fetch_add(1, Ordering::SeqCst);
+                        Ok(None)
+                    })
+                }));
+            let calls = Arc::new(AtomicUsize::new(0));
+            let calls_for_rpc = calls.clone();
+
+            let result = client
+                .call_with_auth_retry("GetHead", move |_options| {
+                    let calls = calls_for_rpc.clone();
+                    async move {
+                        calls.fetch_add(1, Ordering::SeqCst);
+                        Err::<(), _>(ConnectError::new(
+                            ErrorCode::Unauthenticated,
+                            "not authenticated",
+                        ))
+                    }
+                })
+                .await;
+
+            assert!(matches!(result, Err(SyncError::LoginRequired)));
+            assert_eq!(calls.load(Ordering::SeqCst), 1);
+            assert_eq!(refreshes.load(Ordering::SeqCst), 1);
+            assert_eq!(client.authorization_header.lock().as_deref(), None);
+        });
+    }
+
+    #[test]
+    fn call_with_auth_retry_returns_refresh_error_without_retry() {
+        block_on(async {
+            let refreshes = Arc::new(AtomicUsize::new(0));
+            let refreshes_for_callback = refreshes.clone();
+            let client = ConnectSyncClient::with_authorization_header("Bearer stale")
+                .with_authorization_refresh(Arc::new(move || {
+                    let refreshes = refreshes_for_callback.clone();
+                    Box::pin(async move {
+                        refreshes.fetch_add(1, Ordering::SeqCst);
+                        Err(SyncError::Transport("refresh failed".into()))
+                    })
+                }));
+            let calls = Arc::new(AtomicUsize::new(0));
+            let calls_for_rpc = calls.clone();
+
+            let result = client
+                .call_with_auth_retry("GetHead", move |_options| {
+                    let calls = calls_for_rpc.clone();
+                    async move {
+                        calls.fetch_add(1, Ordering::SeqCst);
+                        Err::<(), _>(ConnectError::new(
+                            ErrorCode::Unauthenticated,
+                            "not authenticated",
+                        ))
+                    }
+                })
+                .await;
+
+            assert!(
+                matches!(result, Err(SyncError::Transport(message)) if message == "refresh failed")
+            );
+            assert_eq!(calls.load(Ordering::SeqCst), 1);
+            assert_eq!(refreshes.load(Ordering::SeqCst), 1);
+            assert_eq!(
+                client.authorization_header.lock().as_deref(),
+                Some("Bearer stale")
+            );
+        });
+    }
+
+    #[test]
+    fn call_with_auth_retry_maps_unauthenticated_retry_to_login_required() {
+        block_on(async {
+            let refreshes = Arc::new(AtomicUsize::new(0));
+            let refreshes_for_callback = refreshes.clone();
+            let client = ConnectSyncClient::with_authorization_header("Bearer stale")
+                .with_authorization_refresh(Arc::new(move || {
+                    let refreshes = refreshes_for_callback.clone();
+                    Box::pin(async move {
+                        refreshes.fetch_add(1, Ordering::SeqCst);
+                        Ok(Some("Bearer fresh".to_string()))
+                    })
+                }));
+            let calls = Arc::new(AtomicUsize::new(0));
+            let calls_for_rpc = calls.clone();
+
+            let result = client
+                .call_with_auth_retry("GetHead", move |_options| {
+                    let calls = calls_for_rpc.clone();
+                    async move {
+                        calls.fetch_add(1, Ordering::SeqCst);
+                        Err::<(), _>(ConnectError::new(
+                            ErrorCode::Unauthenticated,
+                            "not authenticated",
+                        ))
+                    }
+                })
+                .await;
+
+            assert!(matches!(result, Err(SyncError::LoginRequired)));
+            assert_eq!(calls.load(Ordering::SeqCst), 2);
+            assert_eq!(refreshes.load(Ordering::SeqCst), 1);
+            assert_eq!(
+                client.authorization_header.lock().as_deref(),
+                Some("Bearer fresh")
+            );
+        });
+    }
+
+    #[test]
+    fn call_with_auth_retry_coalesces_concurrent_refreshes() {
+        block_on(async {
+            let refreshes = Arc::new(AtomicUsize::new(0));
+            let refreshes_for_callback = refreshes.clone();
+            let client = ConnectSyncClient::with_authorization_header("Bearer stale")
+                .with_authorization_refresh(Arc::new(move || {
+                    let refreshes = refreshes_for_callback.clone();
+                    Box::pin(async move {
+                        refreshes.fetch_add(1, Ordering::SeqCst);
+                        Ok(Some("Bearer fresh".to_string()))
+                    })
+                }));
+            let first_attempts = Arc::new(AtomicUsize::new(0));
+            let calls = Arc::new(AtomicUsize::new(0));
+            let barrier = Arc::new(Barrier::new(2));
+            let make_rpc = |first_attempts: Arc<AtomicUsize>,
+                            calls: Arc<AtomicUsize>,
+                            barrier: Arc<Barrier>| {
+                move |_options| {
+                    let first_attempts = first_attempts.clone();
+                    let calls = calls.clone();
+                    let barrier = barrier.clone();
+                    async move {
+                        calls.fetch_add(1, Ordering::SeqCst);
+                        if first_attempts.fetch_add(1, Ordering::SeqCst) < 2 {
+                            barrier.wait().await;
+                            Err(ConnectError::new(
+                                ErrorCode::Unauthenticated,
+                                "not authenticated",
+                            ))
+                        } else {
+                            Ok(())
+                        }
+                    }
+                }
+            };
+
+            let first = client.call_with_auth_retry(
+                "GetHead",
+                make_rpc(first_attempts.clone(), calls.clone(), barrier.clone()),
+            );
+            let second = client.call_with_auth_retry(
+                "GetHead",
+                make_rpc(first_attempts.clone(), calls.clone(), barrier.clone()),
+            );
+            let (first, second) = tokio::join!(first, second);
+
+            assert!(first.is_ok());
+            assert!(second.is_ok());
+            assert_eq!(calls.load(Ordering::SeqCst), 4);
+            assert_eq!(refreshes.load(Ordering::SeqCst), 1);
+            assert_eq!(
+                client.authorization_header.lock().as_deref(),
+                Some("Bearer fresh")
+            );
+        });
+    }
 
     #[test]
     fn sync_rpc_error_maps_connect_codes_to_sync_errors() {
@@ -1124,5 +1449,13 @@ mod tests {
             ),
             SyncError::Offline(_)
         ));
+    }
+
+    fn block_on<T>(future: impl std::future::Future<Output = T>) -> T {
+        Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("build tokio runtime")
+            .block_on(future)
     }
 }
