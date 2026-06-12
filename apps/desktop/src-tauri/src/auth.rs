@@ -74,6 +74,7 @@ impl std::error::Error for TokenError {}
 impl From<secure_storage::SecureStorageError> for TokenError {
     fn from(value: secure_storage::SecureStorageError) -> Self {
         match value {
+            #[cfg(debug_assertions)]
             secure_storage::SecureStorageError::State(message) => Self::State(message),
             secure_storage::SecureStorageError::Store(message) => Self::Store(message),
             secure_storage::SecureStorageError::NotFound => Self::NotFound,
