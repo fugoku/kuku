@@ -49,7 +49,8 @@ import {
   SphereGeometry,
 } from "three";
 
-import { t, tf } from "~/i18n";
+import { currentLocale, t, tf } from "~/i18n";
+import { settingsState } from "~/stores/settings";
 import { getEffectiveTheme } from "~/stores/theme";
 
 import { graphAnimationReplayRevision } from "./graph_animation";
@@ -123,6 +124,7 @@ const GALAXY_INITIAL_CAMERA: CameraPoint = { x: 0, y: -300, z: 440 };
 const STAR_SIZE_BASE = 7.5;
 /** Hubs with at least this many links get diffraction spikes. */
 const STAR_SPIKE_MIN_LINKS = 5;
+const LABEL_FONT_FALLBACK = '"Goorm Sans", -apple-system, BlinkMacSystemFont, sans-serif';
 
 /**
  * Invisible raycast proxy shared by every node: hover/click picking needs a
@@ -163,7 +165,7 @@ const STARFIELD_FRAGMENT = /* glsl */ `
 
   void main() {
     float dist = length(gl_PointCoord - 0.5);
-    float alpha = smoothstep(0.5, 0.08, dist);
+    float alpha = 1.0 - smoothstep(0.08, 0.5, dist);
     gl_FragColor = vec4(vColor, alpha * vAlpha * uOpacity);
   }
 `;
@@ -389,10 +391,12 @@ export default function GraphCanvas3D(props: GraphCanvas3DProps) {
   let graphEl: Graph3D | undefined;
   let resizeObs: ResizeObserver | undefined;
   let cameraAnimationFrame: number | undefined;
+  let zoomFrame: number | undefined;
   let isCameraAnimating = false;
   let pendingHoveredNode: FGNode | null | undefined;
   let hoverFrame: number | undefined;
   let lastHugeHoverAt = 0;
+  let removeControlsChangeListener: (() => void) | undefined;
 
   const cssVarCache = new Map<string, string>();
 
@@ -421,6 +425,10 @@ export default function GraphCanvas3D(props: GraphCanvas3DProps) {
     const value = getComputedStyle(hostEl).getPropertyValue(name).trim() || fallback;
     cssVarCache.set(name, value);
     return value;
+  }
+
+  function labelFontFamily(): string {
+    return cssVar("--font-editor", LABEL_FONT_FALLBACK);
   }
 
   const [initError, setInitError] = createSignal<string | null>(null);
@@ -592,7 +600,7 @@ export default function GraphCanvas3D(props: GraphCanvas3DProps) {
     for (const [filePath, sprite] of labelSprites) {
       const node = nodeByPath.get(filePath);
       if (node) {
-        sprite.position.set(node.x ?? 0, (node.y ?? 0) + nodeVisualRadius(node) + 6, node.z ?? 0);
+        sprite.position.set(node.x ?? 0, (node.y ?? 0) + labelYOffset(node), node.z ?? 0);
       }
     }
   }
@@ -655,7 +663,32 @@ export default function GraphCanvas3D(props: GraphCanvas3DProps) {
     labelSprites.clear();
   }
 
-  /** Labels exist only for the hovered/selected/current stars (max three). */
+  function isEmphasizedLabel(node: FGNode): boolean {
+    return node.filePath === selectedNode() || node.filePath === currentFilePath();
+  }
+
+  function labelYOffset(node: FGNode): number {
+    return nodeVisualRadius(node) + (isEmphasizedLabel(node) ? 7 : 4.8);
+  }
+
+  function configureLabel(sprite: SpriteText, node: FGNode, dark: boolean): void {
+    const emphasized = isEmphasizedLabel(node);
+    sprite.text = shortLabel(node.name);
+    sprite.textHeight = emphasized ? 3.4 : 2.7;
+    sprite.color = dark ? "#f7f4ff" : "#1d172b";
+    sprite.fontFace = labelFontFamily();
+    sprite.fontWeight = emphasized ? "700" : "500";
+    sprite.backgroundColor = dark ? "rgba(18,18,20,0.92)" : "rgba(255,255,255,0.96)";
+    sprite.borderColor = labelBorderColor(node);
+    sprite.borderWidth = emphasized ? 0.55 : 0.25;
+    sprite.borderRadius = 2;
+    sprite.padding = emphasized ? [3, 2] : [2, 1.5];
+    sprite.renderOrder = 1000;
+    sprite.material.depthTest = false;
+    sprite.material.depthWrite = false;
+    sprite.position.set(node.x ?? 0, (node.y ?? 0) + labelYOffset(node), node.z ?? 0);
+  }
+
   function updateLabels(): void {
     if (!graphEl) return;
     if (!labelGroup) {
@@ -664,12 +697,18 @@ export default function GraphCanvas3D(props: GraphCanvas3DProps) {
     }
 
     const targets = new Set<string>();
-    const hovered = hoveredNode()?.filePath;
-    if (hovered) targets.add(hovered);
-    const selected = selectedNode();
-    if (selected) targets.add(selected);
-    const current = currentFilePath();
-    if (current) targets.add(current);
+    for (const node of starNodes) {
+      const selected = node.filePath === selectedNode();
+      const current = node.filePath === currentFilePath();
+      const hovered = node.filePath === hoveredNode()?.filePath;
+      const hoverOnly = hovered && !selected && !current;
+      const showLabel =
+        !hoverOnly &&
+        (selected ||
+          current ||
+          (!isDenseGraph() && zoomLevel() >= getGraphSettings("3d").labelVisibilityThreshold));
+      if (showLabel) targets.add(node.filePath);
+    }
 
     for (const [filePath, sprite] of labelSprites) {
       if (!targets.has(filePath) || !nodeByPath.has(filePath)) {
@@ -680,23 +719,15 @@ export default function GraphCanvas3D(props: GraphCanvas3DProps) {
 
     const dark = getEffectiveTheme() === "dark";
     for (const filePath of targets) {
-      if (labelSprites.has(filePath)) continue;
       const node = nodeByPath.get(filePath);
       if (!node) continue;
-      const label = new SpriteText(shortLabel(node.name), 3.2, dark ? "#f7f4ff" : "#1d172b");
-      label.fontFace = "Goorm Sans, -apple-system, BlinkMacSystemFont, sans-serif";
-      label.fontWeight = "600";
-      label.backgroundColor = dark ? "rgba(10,12,22,0.88)" : "rgba(255,255,255,0.94)";
-      label.borderColor = labelBorderColor(node);
-      label.borderWidth = 0.45;
-      label.borderRadius = 2;
-      label.padding = [3, 2];
-      label.renderOrder = 1000;
-      label.material.depthTest = false;
-      label.material.depthWrite = false;
-      label.position.set(node.x ?? 0, (node.y ?? 0) + nodeVisualRadius(node) + 6, node.z ?? 0);
-      labelGroup.add(label);
-      labelSprites.set(filePath, label);
+      let label = labelSprites.get(filePath);
+      if (!label) {
+        label = new SpriteText();
+        labelGroup.add(label);
+        labelSprites.set(filePath, label);
+      }
+      configureLabel(label, node, dark);
     }
   }
 
@@ -1017,7 +1048,16 @@ export default function GraphCanvas3D(props: GraphCanvas3DProps) {
     if (!graphEl) return;
     const { x, y, z } = graphEl.cameraPosition();
     const dist = Math.max(1, Math.sqrt(x * x + y * y + z * z));
-    setZoomLevel(Math.max(0.1, Math.min(8, 480 / dist)));
+    const nextZoom = Math.max(0.1, Math.min(8, 480 / dist));
+    setZoomLevel(Math.round(nextZoom * 100) / 100);
+  }
+
+  function scheduleZoomFromCamera(): void {
+    if (zoomFrame !== undefined) return;
+    zoomFrame = requestAnimationFrame(() => {
+      zoomFrame = undefined;
+      updateZoomFromCamera();
+    });
   }
 
   function cancelCameraAnimation(): void {
@@ -1200,8 +1240,17 @@ export default function GraphCanvas3D(props: GraphCanvas3DProps) {
       instance
         .renderer()
         .setPixelRatio(isDenseGraph() ? 1 : Math.min(window.devicePixelRatio, 1.5));
-      const controls = instance.controls() as { zoomSpeed?: number };
+      const controls = instance.controls() as {
+        zoomSpeed?: number;
+        addEventListener?: (type: "change", listener: () => void) => void;
+        removeEventListener?: (type: "change", listener: () => void) => void;
+      };
       controls.zoomSpeed = GRAPH_3D_SCROLL_ZOOM_SPEED;
+      const handleControlsChange = () => scheduleZoomFromCamera();
+      controls.addEventListener?.("change", handleControlsChange);
+      removeControlsChangeListener = () => {
+        controls.removeEventListener?.("change", handleControlsChange);
+      };
 
       // The ThreeForceGraph group is the scene child exposing graphData();
       // we spin it (plus the dust cloud) for the universe self-rotation.
@@ -1320,6 +1369,7 @@ export default function GraphCanvas3D(props: GraphCanvas3DProps) {
         // Node sizing settings feed the star buffer and proxy scales.
         proxyCache.clear();
         updateStarVisuals();
+        updateLabels();
         graphEl.refresh();
       },
       { defer: true },
@@ -1340,7 +1390,7 @@ export default function GraphCanvas3D(props: GraphCanvas3DProps) {
 
   createEffect(
     on(
-      () => [hoveredNode(), selectedNode(), currentFilePath()] as const,
+      () => [hoveredNode(), selectedNode(), currentFilePath(), zoomLevel()] as const,
       () => {
         if (!graphEl) return;
         // Stars and labels update via buffers/pools; refresh() only needs to
@@ -1373,6 +1423,18 @@ export default function GraphCanvas3D(props: GraphCanvas3DProps) {
 
   createEffect(
     on(
+      () => [settingsState.editor.fontFamily, currentLocale()] as const,
+      () => {
+        cssVarCache.delete("--font-editor");
+        updateLabels();
+        graphEl?.refresh();
+      },
+      { defer: true },
+    ),
+  );
+
+  createEffect(
+    on(
       () => currentFilePath(),
       (fp) => {
         if (fp) setSelectedNode(fp);
@@ -1390,6 +1452,12 @@ export default function GraphCanvas3D(props: GraphCanvas3DProps) {
   onCleanup(() => {
     cancelCameraAnimation();
     stopSceneryLoop();
+    removeControlsChangeListener?.();
+    removeControlsChangeListener = undefined;
+    if (zoomFrame !== undefined) {
+      cancelAnimationFrame(zoomFrame);
+      zoomFrame = undefined;
+    }
     disposeScenery();
     disposeNodeStars();
     clearLabels();
