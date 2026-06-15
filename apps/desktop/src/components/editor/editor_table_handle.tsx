@@ -78,8 +78,8 @@ export default function EditorTableHandle(props: EditorTableHandleProps) {
     <TableHandleRoot editor={props.editor}>
       <TableHandleColumnRoot placement="top" offset={TABLE_HANDLE_CELL_OVERLAP}>
         <TableHandleColumnTrigger
-          title={t("editor.table.select_column")}
-          aria-label={t("editor.table.select_column")}
+          title={t("editor.table.menu")}
+          aria-label={t("editor.table.menu")}
           class={[
             "flex h-4 w-7 cursor-grab items-center justify-center rounded-xs border border-border/50 bg-bg-elevated text-text-muted shadow-[0_1px_2px_rgba(0,0,0,0.08)] outline-none",
             "transition-colors duration-100 hover:border-border hover:bg-bg-secondary hover:text-text-primary active:cursor-grabbing",
@@ -100,11 +100,6 @@ export default function EditorTableHandle(props: EditorTableHandleProps) {
           />
           <TableHandleMenuItem
             editor={props.editor}
-            label={t("editor.table.select_column")}
-            commandName="selectTableColumn"
-          />
-          <TableHandleMenuItem
-            editor={props.editor}
             label={t("editor.table.delete_column")}
             commandName="deleteTableColumn"
             danger
@@ -114,8 +109,8 @@ export default function EditorTableHandle(props: EditorTableHandleProps) {
 
       <TableHandleRowRoot placement="left" offset={TABLE_HANDLE_CELL_OVERLAP}>
         <TableHandleRowTrigger
-          title={t("editor.table.select_row")}
-          aria-label={t("editor.table.select_row")}
+          title={t("editor.table.menu")}
+          aria-label={t("editor.table.menu")}
           class={[
             "flex h-7 w-4 cursor-grab items-center justify-center rounded-xs border border-border/50 bg-bg-elevated text-text-muted shadow-[0_1px_2px_rgba(0,0,0,0.08)] outline-none",
             "transition-colors duration-100 hover:border-border hover:bg-bg-secondary hover:text-text-primary active:cursor-grabbing",
@@ -133,11 +128,6 @@ export default function EditorTableHandle(props: EditorTableHandleProps) {
             editor={props.editor}
             label={t("editor.table.add_row_below")}
             commandName="addTableRowBelow"
-          />
-          <TableHandleMenuItem
-            editor={props.editor}
-            label={t("editor.table.select_row")}
-            commandName="selectTableRow"
           />
           <TableHandleMenuItem
             editor={props.editor}
