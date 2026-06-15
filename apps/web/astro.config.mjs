@@ -4,6 +4,9 @@ import solid from "@astrojs/solid-js";
 import mdx from "@astrojs/mdx";
 
 import { getSiteUrl } from "./src/config/site.ts";
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
 
 export default defineConfig({
   site: getSiteUrl(),
@@ -19,4 +22,4 @@ export default defineConfig({
       },
     },
   },
-});
+}

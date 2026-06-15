@@ -11,7 +11,7 @@
     "check": "moon run :check",
     "lint": "moon run :lint",
     "format": "moon run :format",
-    "build": "moon run :build",
+    "build": "node init && moon run :build",
     "test": "moon run :test",
     "contract:generate": "moon run contract:generate",
     "local-test:up": "docker compose --env-file infra/docker/local-test/env -f infra/docker/local-test/docker-compose.yml up -d --build",
