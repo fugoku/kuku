@@ -1,16 +1,14 @@
 // ── Code Block Node ──
 //
 // Defines the "codeBlock" node for fenced code blocks with language attribute.
-// Provides schema spec, toggle/set/insert commands, input rule, and
-// exit keymap (double-Enter to exit code block).
+// Provides schema spec, toggle/set/insert commands, input rules, and
+// the CodeMirror-backed node view that owns code-block editing keys.
 //
 // Vendored from ProseKit predefined extension with customizations.
 // Shiki syntax highlighting is NOT included — will be added separately.
 
 import {
-  defaultBlockAt,
   defineCommands,
-  defineKeymap,
   defineNodeSpec,
   insertNode,
   setBlockType,
@@ -23,7 +21,6 @@ import {
   defineCodeBlockEnterRule as prosekitDefineCodeBlockEnterRule,
   defineCodeBlockInputRule as prosekitDefineCodeBlockInputRule,
 } from "prosekit/extensions/code-block";
-import { TextSelection } from "prosekit/pm/state";
 
 import { defineCodeMirrorCodeBlockView } from "./code_mirror_node_view";
 
@@ -78,53 +75,12 @@ function defineCodeBlockCommands(): Extension {
   });
 }
 
-/**
- * Keymap: pressing Enter at the end of a code block that ends with two
- * newlines exits the code block and inserts a default block below.
- */
-function defineCodeBlockKeymap(): Extension {
-  return defineKeymap({
-    Enter: (state, dispatch) => {
-      if (!state.selection.empty) return false;
-      const { $head } = state.selection;
-      const parent = $head.parent;
-
-      if (
-        parent.isTextblock &&
-        parent.type.spec.code &&
-        $head.parentOffset === parent.content.size &&
-        parent.textContent.endsWith("\n\n")
-      ) {
-        const grandParent = $head.node(-1);
-        const insertIndex = $head.indexAfter(-1);
-        const type = defaultBlockAt(grandParent.contentMatchAt(insertIndex));
-        if (!type || !grandParent.canReplaceWith(insertIndex, insertIndex, type)) return false;
-
-        if (dispatch) {
-          const { tr } = state;
-          tr.delete($head.pos - 2, $head.pos);
-          const pos = tr.selection.$head.after();
-          const node = type.createAndFill();
-          if (node) {
-            tr.replaceWith(pos, pos, node);
-            tr.setSelection(TextSelection.near(tr.doc.resolve(pos), 1));
-            dispatch(tr.scrollIntoView());
-          }
-        }
-        return true;
-      }
-      return false;
-    },
-  });
-}
-
 function defineCodeBlock(): Extension {
   return union(
     defineCodeBlockSpec(),
     defineCodeBlockCommands(),
     prosekitDefineCodeBlockInputRule(),
     prosekitDefineCodeBlockEnterRule(),
-    defineCodeBlockKeymap(),
     defineCodeMirrorCodeBlockView(),
   );
 }

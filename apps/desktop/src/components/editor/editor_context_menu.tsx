@@ -146,6 +146,18 @@ function isAiChatAvailable(): boolean {
   return getAllCommands().some((reg) => reg.contribution.id === "ai-chat.openPanel");
 }
 
+function isSelectionInsideTable(): boolean {
+  const editor = getActiveEditorInstance();
+  if (!editor?.view) return false;
+
+  const { $from } = editor.view.state.selection;
+  for (let depth = $from.depth; depth > 0; depth -= 1) {
+    if ($from.node(depth).type.name === "table") return true;
+  }
+
+  return false;
+}
+
 // ── Component ──
 
 export default function EditorContextMenu(props: EditorContextMenuProps) {
@@ -154,6 +166,7 @@ export default function EditorContextMenu(props: EditorContextMenuProps) {
   const [hasSelection, setHasSelection] = createSignal(false);
   const [activeMarks, setActiveMarks] = createSignal(new Set());
   const [headingLevel, setHeadingLevel] = createSignal(0);
+  const [insideTable, setInsideTable] = createSignal(false);
   const [editorBlockState, setEditorBlockState] = createSignal<EditorSlashItemState>({
     blockType: "paragraph",
     headingLevel: 0,
@@ -183,6 +196,7 @@ export default function EditorContextMenu(props: EditorContextMenuProps) {
     const blockState = readEditorSlashItemState(editor.view);
     setHeadingLevel(blockState.headingLevel);
     setEditorBlockState(blockState);
+    setInsideTable(isSelectionInsideTable());
   }
 
   function handleOpenChange(open: boolean): void {
@@ -266,6 +280,21 @@ export default function EditorContextMenu(props: EditorContextMenuProps) {
     if (!editor) return true;
     const isEnabled = item.isEnabled?.(editorBlockState(), editor);
     return isEnabled === false;
+  }
+
+  function canRunTableCommand(commandName: string): boolean {
+    const cmds = getEditorCommands();
+    const cmd = cmds?.[commandName];
+    if (!cmd) return false;
+    return cmd.canExec?.() ?? true;
+  }
+
+  function runTableCommand(commandName: string): void {
+    const cmds = getEditorCommands();
+    const cmd = cmds?.[commandName];
+    if (!cmd) return;
+    cmd();
+    queueEditorFocusRestore();
   }
 
   // ── Clipboard Actions (Phase 1) ──
@@ -436,6 +465,61 @@ export default function EditorContextMenu(props: EditorContextMenuProps) {
             </For>
           </ContextMenuSubContent>
         </ContextMenuSub>
+
+        {insideTable() ? (
+          <>
+            <ContextMenuSeparator />
+
+            <ContextMenuSub>
+              <ContextMenuSubTrigger label={t("editor.table.menu")} />
+              <ContextMenuSubContent>
+                <ContextMenuItem
+                  label={t("editor.table.add_row_above")}
+                  onSelect={() => runTableCommand("addTableRowAbove")}
+                  disabled={!canRunTableCommand("addTableRowAbove")}
+                />
+                <ContextMenuItem
+                  label={t("editor.table.add_row_below")}
+                  onSelect={() => runTableCommand("addTableRowBelow")}
+                  disabled={!canRunTableCommand("addTableRowBelow")}
+                />
+                <ContextMenuSeparator />
+                <ContextMenuItem
+                  label={t("editor.table.add_column_before")}
+                  onSelect={() => runTableCommand("addTableColumnBefore")}
+                  disabled={!canRunTableCommand("addTableColumnBefore")}
+                />
+                <ContextMenuItem
+                  label={t("editor.table.add_column_after")}
+                  onSelect={() => runTableCommand("addTableColumnAfter")}
+                  disabled={!canRunTableCommand("addTableColumnAfter")}
+                />
+                <ContextMenuSeparator />
+                <ContextMenuItem
+                  label={t("editor.table.select_table")}
+                  onSelect={() => runTableCommand("selectTable")}
+                  disabled={!canRunTableCommand("selectTable")}
+                />
+                <ContextMenuSeparator />
+                <ContextMenuItem
+                  label={t("editor.table.delete_row")}
+                  onSelect={() => runTableCommand("deleteTableRow")}
+                  disabled={!canRunTableCommand("deleteTableRow")}
+                />
+                <ContextMenuItem
+                  label={t("editor.table.delete_column")}
+                  onSelect={() => runTableCommand("deleteTableColumn")}
+                  disabled={!canRunTableCommand("deleteTableColumn")}
+                />
+                <ContextMenuItem
+                  label={t("editor.table.delete_table")}
+                  onSelect={() => runTableCommand("deleteTable")}
+                  disabled={!canRunTableCommand("deleteTable")}
+                />
+              </ContextMenuSubContent>
+            </ContextMenuSub>
+          </>
+        ) : null}
 
         <ContextMenuSeparator />
 
