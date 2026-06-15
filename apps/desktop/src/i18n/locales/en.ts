@@ -528,8 +528,6 @@ export const EN_MESSAGES = {
   "editor.table.add_row_below": "Add row below",
   "editor.table.add_column_before": "Add column left",
   "editor.table.add_column_after": "Add column right",
-  "editor.table.select_row": "Select row",
-  "editor.table.select_column": "Select column",
   "editor.table.select_table": "Select table",
   "editor.table.delete_row": "Delete row",
   "editor.table.delete_column": "Delete column",

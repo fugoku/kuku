@@ -526,8 +526,6 @@ export const KO_MESSAGES = {
   "editor.table.add_row_below": "아래에 행 추가",
   "editor.table.add_column_before": "왼쪽에 열 추가",
   "editor.table.add_column_after": "오른쪽에 열 추가",
-  "editor.table.select_row": "행 선택",
-  "editor.table.select_column": "열 선택",
   "editor.table.select_table": "표 전체 선택",
   "editor.table.delete_row": "행 삭제",
   "editor.table.delete_column": "열 삭제",

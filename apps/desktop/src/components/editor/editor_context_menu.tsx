@@ -496,16 +496,6 @@ export default function EditorContextMenu(props: EditorContextMenuProps) {
                 />
                 <ContextMenuSeparator />
                 <ContextMenuItem
-                  label={t("editor.table.select_row")}
-                  onSelect={() => runTableCommand("selectTableRow")}
-                  disabled={!canRunTableCommand("selectTableRow")}
-                />
-                <ContextMenuItem
-                  label={t("editor.table.select_column")}
-                  onSelect={() => runTableCommand("selectTableColumn")}
-                  disabled={!canRunTableCommand("selectTableColumn")}
-                />
-                <ContextMenuItem
                   label={t("editor.table.select_table")}
                   onSelect={() => runTableCommand("selectTable")}
                   disabled={!canRunTableCommand("selectTable")}

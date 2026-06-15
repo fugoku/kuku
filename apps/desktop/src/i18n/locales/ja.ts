@@ -533,8 +533,6 @@ export const JA_MESSAGES = {
   "editor.table.add_row_below": "下に行を追加",
   "editor.table.add_column_before": "左に列を追加",
   "editor.table.add_column_after": "右に列を追加",
-  "editor.table.select_row": "行を選択",
-  "editor.table.select_column": "列を選択",
   "editor.table.select_table": "表全体を選択",
   "editor.table.delete_row": "行を削除",
   "editor.table.delete_column": "列を削除",

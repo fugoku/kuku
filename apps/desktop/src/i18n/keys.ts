@@ -457,8 +457,6 @@ export const MESSAGE_KEYS = [
   "editor.table.add_row_below",
   "editor.table.add_column_before",
   "editor.table.add_column_after",
-  "editor.table.select_row",
-  "editor.table.select_column",
   "editor.table.select_table",
   "editor.table.delete_row",
   "editor.table.delete_column",
