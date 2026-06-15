@@ -21,7 +21,6 @@ infra/docker/*/env.*
 
 # Code Editor
 .idea/
-.vscode/
 .zed/
 
 # AI assistants
@@ -194,8 +193,6 @@ web_modules/
 .yarn-integrity
 
 # dotenv environment variable files
-.env
-.env.*
 !.env.example
 
 # parcel-bundler cache (https://parceljs.org/)
@@ -267,3 +264,7 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+branch_structure.json
+temp_auto_push.bat
+temp_interactive_push.bat
+config.bat
